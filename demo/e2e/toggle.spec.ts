@@ -196,6 +196,7 @@ test('checked toggle uses its Ionic palette color', async ({ page }) => {
     el.setAttribute('color', 'danger');
     (el as HTMLIonToggleElement).checked = true;
   });
+  await expect(toggle).toHaveClass(/ion-color-danger/);
   const expected = await toggle.evaluate((el) => {
     const probe = document.createElement('span');
     probe.style.color = getComputedStyle(el).getPropertyValue('--ion-color-base');

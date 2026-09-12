@@ -1,3 +1,5 @@
+@use 'glass';
+
 $button-scaleup-small-icon-only: 1.18;
 $button-scaleup-default-icon-only: 1.38;
 $button-scaleup-large-icon-only: 1.22;
@@ -106,20 +108,33 @@ $_glass-surface: linear-gradient(
   } @else {
     background-color: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), $opacity);
   }
-  backdrop-filter: blur($blur) saturate($saturate);
+  $shadow: null;
   @if $include-box-shadow {
-    box-shadow: inset 0 0 16px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);
+    $shadow: inset 0 0 16px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);
   }
-  border-top: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8);
-  border-right: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.4);
-  border-bottom: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8);
-  border-left: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.6);
-  background-image: none;
-  background-clip: border-box;
-  background-origin: padding-box;
+  $color: var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb));
+  @include glass.pressed-surface(rgba($color, 0.8) rgba($color, 0.4) rgba($color, 0.8) rgba($color, 0.6), $shadow, $blur, $saturate);
+}
 
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
+// Moving lenses stay transparent in dark mode; refraction is concentrated at the rim.
+@mixin glass-lens-dark {
+  $surface: linear-gradient(180deg, rgba(0, 0, 0, 0.2), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.2));
+  --ios26-glass-border-color-rgb: 12, 12, 12;
+  border-color: rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.85);
+  background-color: transparent;
+  background-image: $surface;
+  background-clip: padding-box;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.65),
+    inset 0 1px 1px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.4);
+  @supports (background-clip: border-area) {
+    border-color: transparent;
+    background-image:
+      linear-gradient(180deg, rgba(100, 140, 190, 0.28), rgba(0, 0, 0, 0.85) 12%, rgba(0, 0, 0, 0.85) 88%, rgba(140, 110, 65, 0.28)),
+      $surface;
+    background-clip: border-area, padding-box;
+  }
 }
 
 @mixin glass-background-overlay {
@@ -127,7 +142,7 @@ $_glass-surface: linear-gradient(
 }
 
 @mixin glass-background-overlay-activated {
-  @include glass-background($opacity: 0.6667, $blur: 8px);
+  @include glass-background-overlay;
 }
 
 @mixin glass-background-overlay-button {

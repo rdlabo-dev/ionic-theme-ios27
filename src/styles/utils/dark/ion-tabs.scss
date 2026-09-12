@@ -1,9 +1,6 @@
-@use '../api';
-
 @mixin ion-tabs {
-  ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  }
   ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    --ios27-tab-selected-background: rgba(var(--ios-theme-button-color-selected-rgb, 0, 0, 0), 0.72);
     &.ion-activated {
       ion-label,
       ion-icon {
@@ -13,9 +10,10 @@
     }
     &.ion-cloned-element {
       &::part(native) {
-        --ios26-glass-border-color-rgb: 120, 120, 120;
-        --ios-theme-glass-border-color-rgb: var(--ios26-glass-border-color-rgb);
-        box-shadow: inset 0 0 8px 0 rgba(255, 255, 255, 0.2);
+        background: transparent;
+        background-clip: padding-box;
+        border-color: rgba(var(--ios-theme-glass-border-color-rgb, 0, 0, 0), 0.12);
+        box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.24);
       }
     }
   }

@@ -1,13 +1,13 @@
+@use '../api';
+
 @mixin ion-segment {
   ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  }
-  ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
-    &.ion-cloned-element {
-      &::part(native) {
-        --ios26-glass-border-color-rgb: 120, 120, 120;
-        --ios-theme-glass-border-color-rgb: var(--ios26-glass-border-color-rgb);
-        box-shadow: inset 0 0 8px 0 rgba(255, 255, 255, 0.2);
-      }
+    // Only the navigation glass uses a dark selection; content controls keep Ionic's surface.
+    &.in-toolbar:not(.segment-expand, .ion-color) ion-segment-button:not(.ion-color, .ios-theme-disabled, .ios26-disabled) {
+      --indicator-color: var(--ios27-segment-selected-background, rgba(0, 0, 0, 0.72));
+    }
+    .ios27-segment-edge {
+      @include api.glass-lens-dark;
     }
   }
 }

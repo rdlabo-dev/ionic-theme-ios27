@@ -9,16 +9,10 @@ export * from './transition/ios.transition';
 export { registerSegmentEffect } from './segment';
 
 export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffect | undefined => {
-  return registerEffect(
-    targetElement,
-    'ion-tab-button',
-    'tab-selected',
-    {
-      small: 'scale(1.1, 1)',
-      medium: 'scale(1.2)',
-      large: 'scale(1.15, 1.4)',
-      xlarge: 'scale(1.3)',
-    },
-    1.2,
-  );
+  return registerEffect(targetElement, 'ion-tab-button', 'tab-selected', {
+    small: 'scale(1.1, 1)',
+    medium: 'scale(1.2)',
+    large: 'scale(1.15, 1.4)',
+    xlarge: 'scale(1.3)',
+  });
 };

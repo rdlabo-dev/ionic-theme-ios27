@@ -56,11 +56,25 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease-out;
 
+  &.ios27-enable-gesture {
+    // Reserve horizontal touch movement for the lens; keep vertical scrolling and zoom.
+    touch-action: pan-y pinch-zoom;
+    // The release animation owns the selected background, including its final handoff.
+    ion-tab-button.tab-selected::part(native) {
+      transition: none;
+    }
+    // UIKit's platter return: settle through a small undershoot, about 367ms.
+    transition: transform 367ms linear(0, 0.096 9%, 0.356 18%, 0.64 27%, 0.863 36%, 1 45%, 1.078 54%, 1.092 59%, 1.018 95%, 1);
+    &:has(ion-tab-button.ion-activated) {
+      transition: transform 367ms linear(0, 0.148 9%, 0.46 18%, 0.752 27%, 0.951 36%, 1.052 45%, 1.081 54%, 1.058 72%, 1.019 86%, 1);
+    }
+  }
+
   // will-change is optimized to only apply when needed for performance
   &:has(ion-tab-button.ion-activated) {
     will-change: transform;
-    transform: scale(1.038) translateZ(0);
-    -webkit-transform: scale(1.038) translateZ(0);
+    transform: scale(var(--ios27-tab-bar-scale, 1.038)) translateZ(0);
+    -webkit-transform: scale(var(--ios27-tab-bar-scale, 1.038)) translateZ(0);
   }
 
   &:not(:has(ion-tab-button.ion-activated)) {
@@ -122,15 +136,20 @@ ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   &.tab-selected {
     &::part(native) {
-      background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.095);
+      background: var(
+        --ios27-tab-selected-background,
+        rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.095)
+      );
       transition: background var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
     }
   }
 
   &.ion-cloned-element {
+    transition: none;
     &::part(native) {
       @include api.glass-background($opacity: 0, $blur: 0, $saturate: 104%);
-      transform-origin: center 65%;
+      transform-origin: center;
+      transition: none;
     }
     pointer-events: none;
     position: absolute;
