@@ -10,6 +10,8 @@ These gesture and animation helpers are experimental and optional. The theme wor
 
 Register an `ion-tab-bar` or `ion-segment` element to add a moving selection effect to its buttons.
 
+`registerTabBarEffect` respects `prefers-reduced-motion`, including changes while the page is open. Reduced motion removes the moving lens and tab scaling while preserving standard Ionic selection. Turning it off restores the optional effect until the registration is destroyed.
+
 `registerSegmentEffect` adds only a visual layer; Ionic still owns selection, dragging, keyboard handling, and events. An unselected segment starts its lens movement on release, while a selected segment expands in place, including on short taps. The motion follows iOS 27 presentation-layer measurements. Reduced motion skips this optional effect; native glass refraction is approximated with CSS.
 
 [![Sheet of Glass animation on ion-tab-button and ion-segment-button](https://i.gyazo.com/fafd726b520827f042c76b6c73abd81c.gif)](https://gyazo.com/fafd726b520827f042c76b6c73abd81c)

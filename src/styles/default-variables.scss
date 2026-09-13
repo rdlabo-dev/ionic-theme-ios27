@@ -7,7 +7,8 @@
  * additional information: rgb
  */
 
-// Deprecated --ios26-* defaults back the --ios-theme-* fallbacks.
+// Deprecated --ios26-* defaults back the --ios-theme-* fallbacks, except for
+// selected colors, whose component-specific defaults must not mask overrides.
 :root {
   --ios26-floating-safe-area-top: max(10px, var(--ion-safe-area-top, 0px));
   --ios26-floating-safe-area-bottom: max(10px, calc(var(--ion-safe-area-bottom, 0px) - 12px));
@@ -17,7 +18,8 @@
   --ios26-glass-background-rgb: 255, 255, 255;
   --ios26-glass-box-shadow-color-rgb: 220, 220, 220;
   --ios26-glass-border-color-rgb: 255, 255, 255;
-  --ios26-button-color-selected-rgb: 16, 16, 16;
+  // Keep defaults separate so dark tabs can use black without masking legacy overrides.
+  --ios27-button-color-selected-default-rgb: 16, 16, 16;
 
   --ios26-menu-width: 360px;
 

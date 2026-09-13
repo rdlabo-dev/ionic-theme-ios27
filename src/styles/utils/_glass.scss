@@ -1,0 +1,15 @@
+// Shared pressed-surface declarations used by the button and legacy FAB recipes.
+@mixin pressed-surface($border-colors, $shadow: null, $blur: 7px, $saturate: 180%) {
+  backdrop-filter: blur($blur) saturate($saturate);
+  @if $shadow != null {
+    box-shadow: $shadow;
+  }
+  border-width: 0.8px;
+  border-style: solid;
+  border-color: $border-colors;
+  background-image: none;
+  background-clip: border-box;
+  background-origin: padding-box;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
