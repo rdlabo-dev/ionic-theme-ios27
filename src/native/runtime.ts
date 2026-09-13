@@ -1,9 +1,11 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
-import { createSearchSupport } from './search';
+import { createSearchSupport } from './components/searchable-tabs';
 import type { ShellSnapshot, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus } from './definitions';
-import { createIconRenderer, marker, readCandidate, selector, unprojected } from './dom';
-import type { Candidate } from './dom';
+import { readCandidate, selector, shadowSelector, motionSelector } from './components';
+import { marker, unprojected } from './shared/dom';
+import { createIconRenderer } from './shared/icons';
+import type { Candidate } from './shared/candidate';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
@@ -134,9 +136,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
         }
       };
       inspectShadow(element);
-      element
-        .querySelectorAll('ion-icon, ion-menu-button, ion-tab-button, ion-segment-button, ion-fab-button, ion-fab-list')
-        .forEach(inspectShadow);
+      element.querySelectorAll(shadowSelector).forEach(inspectShadow);
     }
     // Reconnect only when the set changes; no per-frame observer allocation.
     if (wanted.size === observed.size && Array.from(wanted).every((element) => observed.has(element))) return;
@@ -271,7 +271,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
   };
   const motion: EventListener = (event) => {
     const target = event.target as HTMLElement;
-    if (!target.matches?.('.ion-page, ion-header, ion-footer, ion-toolbar, ion-buttons, ion-tab-bar, ion-segment')) return;
+    if (!target.matches?.(motionSelector)) return;
     const key = (event as TransitionEvent).propertyName ?? (event as AnimationEvent).animationName;
     if (event.type === 'transitionrun' || event.type === 'animationstart') {
       const keys = moving.get(target) ?? new Set<string>();

@@ -1,13 +1,7 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 
-export type NativeUIShellComponent =
-  | 'ion-button'
-  | 'ion-buttons'
-  | 'ion-back-button'
-  | 'ion-menu-button'
-  | 'ion-tab-bar'
-  | 'ion-segment'
-  | 'ion-fab';
+import type { NativeUIShellComponent } from './components';
+export type { NativeUIShellComponent } from './components';
 
 export interface NativeUIShellStatus {
   state: 'web' | 'native' | 'stopped';

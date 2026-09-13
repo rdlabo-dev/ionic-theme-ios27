@@ -1,0 +1,22 @@
+import { createCandidate, appendItem } from '../shared/candidate';
+import type { Candidate, Identify } from '../shared/candidate';
+import { inFixedToolbar } from '../shared/dom';
+
+export const tag = 'ion-menu-button';
+// The glass and projection ownership belong to ion-buttons, even for one menu button.
+export const selector = '';
+export const shadowSelector = tag;
+
+export const append = (candidate: Candidate, button: HTMLIonMenuButtonElement, id: Identify): boolean => {
+  if (button.type !== 'button') return false;
+  const content = !button.shadowRoot?.querySelector('slot')?.assignedNodes().length ? button.shadowRoot : button;
+  return !!content && !!appendItem(candidate, button, id, content);
+};
+
+export const read = (group: HTMLElement, id: Identify): Candidate | undefined => {
+  if (!inFixedToolbar(group) || !group.matches('ion-buttons') || group.children.length !== 1) return;
+  const button = group.firstElementChild;
+  if (!button?.matches(`${tag}.ios`)) return;
+  const candidate = createCandidate(group, tag, id);
+  return append(candidate, button as HTMLIonMenuButtonElement, id) ? candidate : undefined;
+};

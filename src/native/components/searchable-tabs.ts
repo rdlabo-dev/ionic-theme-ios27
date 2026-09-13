@@ -1,8 +1,9 @@
-import { getNativeSearchBindings, requestNativeSearch } from '../native-integration';
-import type { NativeSearchBinding } from '../native-integration';
-import { excluded, iconSource, inFixedToolbar, marker, text, visible } from './dom';
-import type { Candidate } from './dom';
-import type { ShellItem, ShellSearch, ShellSearchEvent } from './definitions';
+import { getNativeSearchBindings, requestNativeSearch } from '../../native-integration';
+import type { NativeSearchBinding } from '../../native-integration';
+import { excluded, inFixedToolbar, marker, text, visible } from '../shared/dom';
+import { iconSource } from '../shared/icons';
+import type { Candidate } from '../shared/candidate';
+import type { ShellItem, ShellSearch, ShellSearchEvent } from '../definitions';
 
 interface SearchState {
   binding: NativeSearchBinding;

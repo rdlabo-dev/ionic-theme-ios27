@@ -1,13 +1,17 @@
-import type { Candidate } from './dom';
-import { excluded, iconSource, isDark, text } from './dom';
-import type { ShellItem } from './definitions';
+import type { Candidate } from '../shared/candidate';
+import { excluded, isDark, text } from '../shared/dom';
+import { iconSource } from '../shared/icons';
+import type { ShellItem } from '../definitions';
+
+export const tag = 'ion-fab';
+export const shadowSelector = 'ion-fab-button, ion-fab-list';
 
 const hasHostMotion = (style: CSSStyleDeclaration): boolean =>
   style.animationName !== 'none' || style.transitionDuration.split(',').some((value) => parseFloat(value) > 0);
 
 // FAB owns the batch; only its buttons draw glass. Closed lists keep their IDs
 // and resolved artwork, without inventing layout for display:none descendants.
-export const readFab = (fab: HTMLIonFabElement, id: (element: HTMLElement) => string): Candidate | undefined => {
+export const read = (fab: HTMLElement, id: (element: HTMLElement) => string): Candidate | undefined => {
   if (fab.slot !== 'fixed' || !fab.parentElement?.matches('ion-content') || fab.contains(fab.ownerDocument.activeElement)) return;
   const children = Array.from(fab.children);
   const main = children.filter((child) => child.matches('ion-fab-button'));
@@ -23,7 +27,7 @@ export const readFab = (fab: HTMLIonFabElement, id: (element: HTMLElement) => st
     element: fab,
     control: {
       id: id(fab),
-      kind: 'ion-fab',
+      kind: tag,
       x: 0,
       y: 0,
       width: innerWidth,

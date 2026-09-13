@@ -109,3 +109,9 @@ await shell.destroy(); // restore DOM, remove native controls and release listen
 ```
 
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
+
+## Source layout
+
+Each TypeScript module in [`src/native/components`](../src/native/components) declares its Ionic tag and DOM reader. `components/index.ts` combines those exports into discovery selectors and the component type. Shared DOM measurements, item data and SVG rendering live in `src/native/shared`; `runtime.ts` owns synchronization, visibility handoffs and lifecycle events.
+
+On iOS, [`Components`](../ios/Sources/IonicNativeUIShellPlugin/Components) owns UIKit control creation, updates and component names. `ShellButton` shares the native button implementation used by ordinary, back and menu buttons. `Shared` owns the host view, geometry, colors and image cache. `IonicNativeUIShellPlugin.swift` coordinates Capacitor calls, revisions and native view lifetimes.
