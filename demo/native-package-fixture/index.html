@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <link rel="stylesheet" href="app.css" />
+    <style>
+      #position-tabs {
+        width: 300px;
+        padding: 0;
+        border: 0;
+        --ion-safe-area-left: 0px;
+        --ion-safe-area-right: 0px;
+      }
+      #position-tabs[slot='top'] {
+        top: 160px;
+        bottom: auto;
+      }
+      #position-tabs[slot='bottom'] {
+        top: auto;
+        bottom: 80px;
+      }
+      .position-controls {
+        margin: 240px 20px 0;
+      }
+      .position-controls button {
+        min-height: 44px;
+        margin: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <ion-app
+      ><div class="ion-page">
+        <ion-header
+          ><ion-toolbar
+            ><ion-buttons slot="end"><ion-button fill="default">Native fixture</ion-button></ion-buttons></ion-toolbar
+          ></ion-header
+        ><ion-content
+          ><ion-fab slot="fixed" horizontal="end" vertical="top" activated="true">
+            <ion-fab-button aria-label="Initially expanded FAB"
+              ><svg width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M2 10h20v4H2zM10 2h4v20h-4z" /></svg
+            ></ion-fab-button>
+            <ion-fab-list side="bottom">
+              <ion-fab-button aria-label="Fixture FAB action"
+                ><svg width="20" height="20" viewBox="0 0 24 24"><circle fill="currentColor" cx="12" cy="12" r="9" /></svg
+              ></ion-fab-button>
+              <ion-fab-button aria-label="Fixture disabled action" disabled="true"
+                ><svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M2 2h20v20H2z" /></svg
+              ></ion-fab-button>
+            </ion-fab-list>
+          </ion-fab>
+          <ion-fab slot="fixed" horizontal="end" vertical="bottom">
+            <ion-fab-button aria-label="Standalone FAB">+</ion-fab-button>
+          </ion-fab>
+          <div class="position-controls">
+            <p>Packaged native plugin</p>
+            <p data-fab-count>FAB clicks: 0</p>
+            <p data-fab-source>FAB source: web</p>
+            <p data-single-count>Standalone clicks: 0</p>
+            <button data-remove-fab-list>Remove FAB list</button>
+            <button data-position="start">Position start</button><button data-position="center">Position center</button
+            ><button data-position="end">Position end</button> <button data-direction="ltr">Direction ltr</button
+            ><button data-direction="rtl">Direction rtl</button> <button data-slot="top">Slot top</button
+            ><button data-slot="bottom">Slot bottom</button> <button data-count="3">Three tabs</button>
+          </div></ion-content
+        >
+        <ion-tab-bar id="position-tabs" slot="bottom" class="tab-bar-position-start">
+          <ion-tab-button selected="true"
+            ><svg width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M2 2h20v20H2z" /></svg>One</ion-tab-button
+          >
+          <ion-tab-button
+            ><svg width="24" height="24" viewBox="0 0 24 24"><circle fill="currentColor" cx="12" cy="12" r="10" /></svg>Two</ion-tab-button
+          >
+          <ion-tab-button
+            ><svg width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l10 20H2z" /></svg>Three</ion-tab-button
+          >
+          <ion-tab-button
+            ><svg width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M2 9h20v6H2z" /></svg>Four</ion-tab-button
+          >
+        </ion-tab-bar>
+      </div></ion-app
+    >
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

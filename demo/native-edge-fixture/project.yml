@@ -1,0 +1,23 @@
+name: NativeUIShellEdgeTests
+options:
+  deploymentTarget:
+    iOS: '26.0'
+targets:
+  NativeUIShellEdgeTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - NativeUIShellEdgeTests.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.ionic.theme.nativeuishell.edge.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+schemes:
+  NativeUIShellEdgeTests:
+    build:
+      targets:
+        NativeUIShellEdgeTests: [test]
+    test:
+      targets:
+        - NativeUIShellEdgeTests

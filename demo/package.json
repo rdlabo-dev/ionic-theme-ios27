@@ -39,6 +39,7 @@
     "@capacitor/keyboard": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
     "@ionic/angular": "^9.0.0",
+    "@rdlabo/ionic-theme-ios27": "file:..",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"

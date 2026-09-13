@@ -1,0 +1,23 @@
+name: NativeUIShellTests
+options:
+  deploymentTarget:
+    iOS: '26.0'
+targets:
+  NativeUIShellTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - NativeUIShellTests.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.ionic.theme.nativeuishell.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+schemes:
+  NativeUIShellTests:
+    build:
+      targets:
+        NativeUIShellTests: [test]
+    test:
+      targets:
+        - NativeUIShellTests
