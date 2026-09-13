@@ -104,3 +104,11 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
 }
+
+// A content fixed slot already starts below its page header, including safe area.
+// Keep the floating gap without adding the screen's top inset a second time.
+.ion-page:has(> ion-header:not([hidden], .ion-hide))
+  > ion-content
+  > ion-fab.ios[slot='fixed'].fab-vertical-top:not(.ios-theme-disabled, .ios26-disabled) {
+  top: 10px;
+}

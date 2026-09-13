@@ -2,6 +2,7 @@ import { AnimationPosition, EffectScales, registeredEffect } from './interfaces'
 import { createAnimation, createGesture } from '@ionic/core';
 import type { Animation, Gesture, GestureDetail } from '@ionic/core';
 import { changeSelectedElement, cloneElement, getStep } from '../utils';
+import { isNativeUIShell } from '../native-integration';
 import {
   createMoveAnimation,
   createPreMoveAnimation,
@@ -93,6 +94,7 @@ export const registerEffect = (
    * They terminate the gesture using native events as a fallback.
    */
   const onPointerDown = (event: PointerEvent) => {
+    if (isNativeUIShell(targetElement)) return;
     stopTabPress();
     tabDragging = false;
     releaseAnimation?.destroy();
@@ -155,6 +157,7 @@ export const registerEffect = (
   };
 
   const onStartGesture = (detail: GestureDetail): boolean | undefined => {
+    if (isNativeUIShell(targetElement)) return false;
     currentTouchedElement = ((detail.event.target as HTMLElement).closest(effectTagName) as HTMLElement) || undefined;
     const tabSelectedElement = targetElement.querySelector(`${effectTagName}.${selectedClassName}`);
     if (currentTouchedElement === undefined || tabSelectedElement === null) {
@@ -331,12 +334,20 @@ export const registerEffect = (
     return true;
   };
 
+  const nativeChanged = () => {
+    gesture.enable(!isNativeUIShell(targetElement));
+    cancelActiveGesture();
+  };
+  targetElement.addEventListener('nativeUIShellChange', nativeChanged);
+  if (isNativeUIShell(targetElement)) nativeChanged();
+
   return {
     destroy: () => {
       destroyed = true;
       cancelActiveGesture();
       // Remove event listeners
       targetElement.removeEventListener('pointerdown', onPointerDown);
+      targetElement.removeEventListener('nativeUIShellChange', nativeChanged);
 
       // Destroy gesture
       if (gesture) {
