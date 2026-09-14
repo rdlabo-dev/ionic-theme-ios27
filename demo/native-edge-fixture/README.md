@@ -4,7 +4,7 @@ These XCTest cases compare native projection with the same Ionic demo running in
 
 Prerequisites: Xcode 26 or later with the matching simulator runtime, XcodeGen, root/demo dependencies installed with `npm ci`, and a booted simulator. Enable the simulator's software keyboard and disconnect its hardware keyboard.
 
-Run the five iPhone cases (the iPad-only width case is skipped) on an iPhone simulator from the repository root:
+Run the iPhone cases (the iPad-only width case is skipped) on an iPhone simulator from the repository root:
 
 ```sh
 sh scripts/verify-native-search.sh IPHONE_SIMULATOR_UDID edge
@@ -19,7 +19,7 @@ The cases cover:
 - Icon-only and label-only tabs, numeric badges, hidden empty badges and explicitly visible notification dots, including navigation between ordinary and searchable tabs. The probe bundles the real Ionic badge component, which the production demo otherwise does not use.
 - Header/back behavior while a Web input opens and closes the software keyboard.
 
-For iPad, run the tab, dynamic-width, and keyboard cases. Reuse the artifact directory printed by the iPhone run; the navigation cases assume the iPhone demo layout. Install the same fixture app, then select the three tests:
+For iPad, run the tab placement, dynamic-width, badge/content, and keyboard cases. Reuse the artifact directory printed by the iPhone run; the navigation cases assume the iPhone demo layout. Install the same fixture app, then select the four tests:
 
 ```sh
 artifacts=/tmp/ionic-native-edge-verification.REPLACE_ME
@@ -31,11 +31,12 @@ xcodebuild -project "$artifacts/tests/NativeUIShellEdgeTests.xcodeproj" \
   -derivedDataPath "$artifacts/ipad-test-build" \
   -resultBundlePath "$artifacts/ipad-tests.xcresult" \
   -only-testing:NativeUIShellEdgeTests/NativeUIShellEdgeTests/testTabPositionsWebComparison \
-  -only-testing:NativeUIShellEdgeTests/NativeUIShellEdgeTests/testDynamicTabWidthRetirement \
+  -only-testing:NativeUIShellEdgeTests/NativeUIShellEdgeTests/testDynamicTabWidthAdaptation \
+  -only-testing:NativeUIShellEdgeTests/NativeUIShellEdgeTests/testTabContentVariants \
   -only-testing:NativeUIShellEdgeTests/NativeUIShellEdgeTests/testWebKeyboardKeepsHeaderControls \
   CODE_SIGNING_ALLOWED=NO test
 xcrun xcresulttool export attachments --path "$artifacts/ipad-tests.xcresult" \
   --output-path "$artifacts/ipad-screenshots"
 ```
 
-The iPad tab case expects Web fallback when UIKit cannot match this demo's bar width, and checks that other eligible controls remain native. Use a new result bundle path when repeating a run.
+The iPad tab cases require native projection at both narrow and normal widths. UIKit owns the adaptive platter size; the DOM supplies its start/center/end and bottom anchors. `testTabContentVariants` verifies badges added, updated, and removed after projection. Use a new result bundle path when repeating a run.

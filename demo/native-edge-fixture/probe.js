@@ -12,6 +12,7 @@ status.style.cssText = 'display:block;max-height:30px;overflow:hidden;width:300p
 panel.append(status);
 const tabs = () => document.querySelector('ion-tabs > ion-tab-bar');
 for (const [label, action] of [
+  ['Edge update-badge', () => { tabs().querySelectorAll('ion-badge')[1].textContent = '999'; }],
   ...['icon-only', 'label-only', 'badges', 'clear-badges'].map((variant) => [
     `Edge ${variant}`,
     () => {
