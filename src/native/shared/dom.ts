@@ -4,6 +4,11 @@ export const marker = 'data-native-ui-shell';
 export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
 export const excluded =
   '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-page-hidden, .ion-page-invisible, .ion-cloned-element, [hidden], [inert]';
+const shellDisabledSelector = '.ios-theme-shell-disabled';
+
+// A shared native surface must not cover an opted-out descendant either.
+export const isShellDisabled = (element: Element): boolean =>
+  !!element.closest(shellDisabledSelector) || !!element.querySelector(shellDisabledSelector);
 
 export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): T => {
   const hidden = Array.from(elements).filter((element) => element.hasAttribute(marker));
@@ -16,7 +21,7 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
 };
 
 export const visible = (element: HTMLElement): boolean => {
-  if (!element.isConnected || element.closest(excluded)) return false;
+  if (!element.isConnected || element.closest(excluded) || isShellDisabled(element)) return false;
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
     if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) === 0) return false;

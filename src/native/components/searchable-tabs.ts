@@ -1,6 +1,6 @@
 import { getNativeSearchBindings, requestNativeSearch } from '../../native-integration';
 import type { NativeSearchBinding } from '../../native-integration';
-import { excluded, inFixedToolbar, marker, text, visible } from '../shared/dom';
+import { excluded, inFixedToolbar, isShellDisabled, marker, text, visible } from '../shared/dom';
 import { iconSource } from '../shared/icons';
 import type { Candidate } from '../shared/candidate';
 import type { ShellItem, ShellSearch, ShellSearchEvent } from '../definitions';
@@ -129,6 +129,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           !(fab.parentElement?.matches('ion-content') || (fab.parentElement?.matches('.ion-page') && !fab.closest('ion-content')))
         )
           continue;
+        if (isShellDisabled(fab) || isShellDisabled(binding.footer)) continue;
         if (blocked(binding.footer) || !visible(binding.trigger) || binding.footer.closest(excluded)) {
           const state = states.get(binding);
           if (state?.last) inactive.push([candidate, { ...state.last, active: false, available: false, focused: false }]);

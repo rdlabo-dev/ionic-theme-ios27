@@ -42,6 +42,16 @@ Native appearance follows the applied class, system or always-dark theme CSS. Sy
 
 Only iOS-mode components with the theme variables installed are eligible. `ionic-theme-disabled`, `ios-theme-disabled`, and the legacy `ios26-disabled` on an element or ancestor always exclude it. A disabled theme on one tab/segment item keeps its whole group on the Web.
 
+Use `ios-theme-shell-disabled` to disable only the iOS Native UI Shell while keeping the Web theme. It excludes the element and all its descendants. Adding or removing the class at runtime automatically restores Web rendering or re-evaluates native eligibility.
+
+```html
+<ion-toolbar class="ios-theme-shell-disabled">
+  <ion-button>Web glass button</ion-button>
+</ion-toolbar>
+```
+
+If a child inside a shared native surface opts out, the entire surface stays on the Web: this includes button groups, tab bars, segments and FAB lists. Opting out of the search FAB or any part of the search footer disables native search integration; the tab bar can still render natively if it remains eligible.
+
 Placement is required even when the appearance is glass. Buttons, back buttons, menu-button groups and segments need a toolbar directly inside `ion-header` or `ion-footer`, with no `ion-content` ancestor around the control. Buttons directly inside a header/footer, standalone toolbars, and toolbars or headers nested in scrolling content stay on the Web. FABs without `slot="fixed"` also stay on the Web. Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility.
 
 Native tabs accept equal-width items with Ionic's default `layout="icon-top"`. UIKit adapts the internal icon/label arrangement to the device and size class; on iPad, for example, they can appear side by side. Other explicit Ionic layouts (`icon-start`, `icon-end`, `icon-bottom`, `icon-hide`, `label-hide`) and unequal item widths keep the entire tab bar on the Web. Start, center and end placement follow the original `ion-tab-bar`, including RTL. Directional `ion-icon` artwork preserves its rendered RTL flip.
