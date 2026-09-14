@@ -21,6 +21,10 @@ ion-range.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --bar-height: 6px;
   --bar-border-radius: 3px;
 
+  &.ion-color {
+    --bar-background-active: var(--ion-color-base);
+  }
+
   &.range-label-placement-start::part(label) {
     margin-inline: 0 24px;
   }
@@ -38,11 +42,48 @@ ion-range.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   &::part(knob) {
+    overflow: hidden;
     width: var(--knob-width);
     margin-inline-start: calc((var(--knob-size) - var(--knob-width)) / 2);
     transition:
       transform 200ms ease,
       box-shadow 200ms ease;
+  }
+
+  &::part(knob)::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    width: 4px;
+    height: 10.5px;
+    background: var(--bar-background-active);
+    clip-path: polygon(0 0, 20% 25%, 50% 35%, 100% 40%, 100% 60%, 50% 65%, 20% 75%, 0 100%);
+    transform: translateY(-50%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+
+  &:not(.range-dual-knobs).range-pressed:not(.range-value-min)::part(knob)::before,
+  &.range-dual-knobs.range-pressed-a::part(knob-a)::before,
+  &.range-dual-knobs.range-pressed-b::part(knob-b)::before {
+    opacity: 1;
+  }
+
+  // The lower dual thumb receives the active track from its end side.
+  &.range-dual-knobs::part(knob-lower)::before {
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+    transform: translateY(-50%) scaleX(-1);
+  }
+
+  &:dir(rtl)::part(knob)::before {
+    transform: translateY(-50%) scaleX(-1);
+  }
+
+  &.range-dual-knobs:dir(rtl)::part(knob-lower)::before {
+    transform: translateY(-50%);
   }
 
   &:not(.range-dual-knobs).range-pressed::part(knob),
@@ -75,7 +116,8 @@ ion-range.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    &::part(knob) {
+    &::part(knob),
+    &::part(knob)::before {
       transition: none;
     }
   }
