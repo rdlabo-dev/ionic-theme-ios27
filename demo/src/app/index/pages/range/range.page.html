@@ -27,13 +27,13 @@
     <ion-list-header><ion-label>Default styles</ion-label></ion-list-header>
     <ion-item-group>
       <ion-item>
-        <ion-range aria-label="Range with ticks" [ticks]="true" [snaps]="true" [min]="0" [max]="10"></ion-range>
+        <ion-range aria-label="Range with ticks" [ticks]="true" [snaps]="true" [min]="0" [max]="10" [value]="5"></ion-range>
       </ion-item>
       <ion-item>
-        <ion-range aria-label="Range with pin" [pin]="true"></ion-range>
+        <ion-range aria-label="Range with pin" [pin]="true" [value]="50"></ion-range>
       </ion-item>
       <ion-item>
-        <ion-range aria-label="Dual Knobs Range" dual-knobs="true"></ion-range>
+        <ion-range aria-label="Dual Knobs Range" [dualKnobs]="true" [value]="{ lower: 25, upper: 75 }"></ion-range>
       </ion-item>
       <ion-item>
         <ion-range label-placement="start" label="Label at the Start"></ion-range>
