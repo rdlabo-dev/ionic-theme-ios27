@@ -1748,3 +1748,68 @@ for (const theme of ['light', 'class', 'system', 'always'] as const) {
     }
   });
 }
+
+test('native handoff crossfades visual opacity while transferring ownership once', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).toHaveCSS('visibility', 'hidden');
+  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(segment).toHaveAttribute('data-native-ui-shell-fading', '');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell');
+  const sample = async () =>
+    segment.evaluate((el) => {
+      const animation = el.getAnimations().find((effect) => effect.effect?.getTiming().duration === 180)!;
+      animation.pause();
+      animation.currentTime = 90;
+      const result = {
+        opacity: Number(getComputedStyle(el).opacity),
+        pointerEvents: getComputedStyle(el).pointerEvents,
+        hidden: el.getAttribute('aria-hidden'),
+      };
+      animation.finish();
+      return result;
+    });
+  const web = await sample();
+  expect(web.opacity).toBeCloseTo(0.5, 1);
+  expect(web.pointerEvents).not.toBe('none');
+  expect(web.hidden).not.toBe('true');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  await segment.evaluate((el) => el.classList.remove('ios-theme-shell-disabled'));
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).toHaveAttribute('data-native-ui-shell-fading', '');
+  const native = await sample();
+  expect(native.opacity).toBeCloseTo(0.5, 1);
+  expect(native.pointerEvents).toBe('none');
+  expect(native.hidden).toBe('true');
+  await expect(segment).toHaveCSS('visibility', 'hidden');
+});
+
+test('reduced motion hands off without a crossfade', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  const duration = await page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration);
+  expect(duration).toBe(0);
+  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell');
+  await expect(segment).toHaveCSS('opacity', '1');
+});
+
+test('cancelling a handoff animation releases its temporary visibility override', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).toHaveCSS('visibility', 'hidden');
+  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(segment).toHaveAttribute('data-native-ui-shell-fading', '');
+  await segment.evaluate((el) => el.getAnimations().forEach((animation) => animation.cancel()));
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  await expect(segment).toHaveCSS('opacity', '1');
+  await expect(segment).toHaveCSS('visibility', 'visible');
+});

@@ -95,16 +95,16 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         }
     }
 
-    private func removeControl(_ id: String) {
+    private func removeControl(_ id: String, duration: TimeInterval = 0) {
         if #available(iOS 26.0, *) {
             (searchControllers.removeValue(forKey: id) as? ShellSearchController)?.detach()
         }
-        controls.removeValue(forKey: id)?.removeFromSuperview()
+        if let control = controls.removeValue(forKey: id) { ShellCrossfade.retire(control, duration: duration) }
         fingerprints.removeValue(forKey: id)
     }
 
-    private func removeControls() {
-        Array(controls.keys).forEach(removeControl)
+    private func removeControls(duration: TimeInterval = 0) {
+        Array(controls.keys).forEach { removeControl($0, duration: duration) }
         host?.removeFromSuperview()
         host = nil
         rendering.clear()
@@ -123,11 +123,13 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             guard let snapshot = try? call.decode(ShellSnapshot.self), snapshot.isValid else {
                 call.reject("Invalid control snapshot"); return
             }
+            let duration = ShellCrossfade.duration(snapshot.transitionDuration)
+            let existing = Set(self.controls.keys)
             let snapshots = snapshot.controls
             let width = snapshot.viewportWidth
             self.revision = next
             if snapshots.isEmpty {
-                self.removeControls()
+                self.removeControls(duration: duration)
                 call.resolve(["revision": next]); return
             }
             let host = self.host ?? ShellHost()
@@ -139,7 +141,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             let scale = webView.bounds.width / width
             let retained = Set(snapshots.map(\.id))
             for id in Array(self.controls.keys) where !retained.contains(id) {
-                self.removeControl(id)
+                self.removeControl(id, duration: duration)
             }
             var rejectedControls: [String] = []
             var fabs: [(ShellFab, ShellControl)] = []
@@ -241,6 +243,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 } else {
                     controller.surface.isHidden = self.keyboardVisible && !controller.ownsKeyboard
                 }
+            }
+            for (id, control) in self.controls where !existing.contains(id) && self.searchControllers[id] == nil {
+                ShellCrossfade.enter(control, duration: duration)
             }
             let complete = { call.resolve(["revision": next, "rejectedSearches": rejectedSearches, "rejectedControls": rejectedControls]) }
             if let coordinator = searches.first?.0.transitionCoordinator,

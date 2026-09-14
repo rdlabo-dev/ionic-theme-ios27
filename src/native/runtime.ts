@@ -8,6 +8,7 @@ import { marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
+import { createCrossfade, fadeMarker } from './shared/crossfade';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
@@ -22,6 +23,7 @@ const bounded = <T>(promise: Promise<T>): Promise<T> =>
 export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
+  const crossfade = createCrossfade(win);
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
   const sources = new Map<HTMLElement, string | null>();
@@ -57,12 +59,15 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     return value;
   };
   const style = doc.createElement('style');
-  style.textContent = `[${marker}], [${marker}] *, [${marker}]::before, [${marker}]::after, [${marker}]::part(native) { visibility: hidden !important; }`;
+  const hidden = `[${marker}]:not([${fadeMarker}])`;
+  style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
+    [${marker}], [${marker}] * { pointer-events: none !important; }`;
 
   const restore = (element: HTMLElement) => {
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
+    if (!stopped) crossfade.play(element, false);
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -197,7 +202,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       const data = { viewportWidth: win.innerWidth, controls: candidates.map((candidate) => candidate.control) };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
-      const snapshot: ShellSnapshot = { ...data, revision: ++revision };
+      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration() };
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
       updates++;
@@ -236,11 +241,13 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       for (const element of accepted.flatMap(candidateSources)) {
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
+          crossfade.play(element, true);
           element.setAttribute(marker, '');
           element.setAttribute('aria-hidden', 'true');
           element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
         }
       }
+      await crossfade.settled();
       if (invalidated) {
         dirty = true;
         // Sources that became ineligible must paint before their cover is removed.
@@ -262,6 +269,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       records.some(
         (record) =>
           record.attributeName !== marker &&
+          record.attributeName !== fadeMarker &&
           !(
             record.attributeName === 'aria-hidden' &&
             sources.has(record.target as HTMLElement) &&
@@ -370,6 +378,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       observed.clear();
       actions.clear();
       search.destroy();
+      crossfade.destroy();
       restoreAll();
       if (!doc.hidden) await painted();
       try {
