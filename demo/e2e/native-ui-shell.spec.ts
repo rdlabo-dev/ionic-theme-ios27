@@ -12,6 +12,7 @@ const mockNative = async (page: Page, fail = false) => {
       delay: 0,
       hang: false,
       rejectInactiveSearch: false,
+      rejectAllSearch: false,
       activate: (_event: any) => {},
       search: (_event: any) => {},
     };
@@ -39,9 +40,12 @@ const mockNative = async (page: Page, fail = false) => {
           if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
           return {
             revision: options.revision,
-            rejectedSearches: state.rejectInactiveSearch
-              ? options.controls?.filter((control: any) => control.search?.available === false).map((control: any) => control.id)
-              : [],
+            rejectedSearches:
+              state.rejectInactiveSearch || state.rejectAllSearch
+                ? options.controls
+                    ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
+                    .map((control: any) => control.id)
+                : [],
           };
         },
         nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
@@ -1903,4 +1907,62 @@ test('rejected cached search is replaced by ordinary native tabs after navigatio
   await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
   await activate(page, 'Docs');
   await expect(page).toHaveURL('/main/docs');
+});
+
+for (const invalidated of [false, true]) {
+  test(`input received before acquisition acknowledgement is ${invalidated ? 'rejected after disabling' : 'delivered once'}`, async ({
+    page,
+  }) => {
+    await mockNative(page);
+    await page.goto('/main/index/native-ui-shell');
+    const button = page.locator('app-native-ui-shell ion-button[type="submit"]');
+    await expect(button).toHaveAttribute('data-native-ui-shell', '');
+    await button.evaluate((el) => (el.parentElement!.hidden = true));
+    await expect(button).not.toHaveAttribute('data-native-ui-shell');
+    await page.evaluate(() => ((window as any).__nativeUIShell.delay = 1000));
+    const previous = await page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).revision);
+    await button.evaluate((el) => (el.parentElement!.hidden = false));
+    await expect
+      .poll(() =>
+        page.evaluate((previous) => {
+          const snapshot = (window as any).__nativeUIShell.updates.at(-1);
+          return snapshot.revision > previous && snapshot.controls.some((c: any) => c.kind === 'ion-button');
+        }, previous),
+      )
+      .toBe(true);
+    await expect(button).not.toHaveAttribute('data-native-ui-shell');
+    await activate(page, (await button.locator('[data-label]').textContent()) as string, true);
+    await expect(page.locator('[data-save-count]')).toHaveText('0');
+    if (invalidated) await button.evaluate((el: any) => (el.disabled = true));
+    await page.evaluate(() => ((window as any).__nativeUIShell.delay = 0));
+    if (invalidated) {
+      await page.waitForTimeout(1200);
+      await expect(page.locator('[data-save-count]')).toHaveText('0');
+    } else {
+      await expect(page.locator('[data-save-count]')).toHaveText('1');
+    }
+  });
+}
+
+test('rejected search retries when tab content changes without resizing', async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 1210 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  const footer = page.locator('app-album-page ion-footer');
+  await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => ((window as any).__nativeUIShell.rejectAllSearch = true));
+  await page
+    .locator('ion-tab-button ion-label')
+    .first()
+    .evaluate((el) => (el.textContent = 'Rejected'));
+  await expect(footer).not.toHaveAttribute('data-native-ui-shell');
+  const before = await page.locator('ion-tab-bar').boundingBox();
+  await page.evaluate(() => ((window as any).__nativeUIShell.rejectAllSearch = false));
+  await page
+    .locator('ion-tab-button ion-label')
+    .first()
+    .evaluate((el) => (el.textContent = 'Index'));
+  await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+  expect(await page.locator('ion-tab-bar').boundingBox()).toEqual(before);
 });

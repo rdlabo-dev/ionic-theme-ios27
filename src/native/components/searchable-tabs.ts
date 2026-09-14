@@ -224,6 +224,12 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           trigger.y,
           trigger.width,
           trigger.height,
+          candidate.control.items,
+          candidate.icons.map(({ source }) => source),
+          field,
+          trigger,
+          bar.placeholder,
+          bar.disabled,
         ]);
         if (state.rejectedLayout === state.layout) continue;
         candidate.control.search = {
