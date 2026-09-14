@@ -1813,3 +1813,66 @@ test('cancelling a handoff animation releases its temporary visibility override'
   await expect(segment).toHaveCSS('opacity', '1');
   await expect(segment).toHaveCSS('visibility', 'visible');
 });
+
+for (const direction of ['ltr', 'rtl']) {
+  for (const slot of ['start', 'end']) {
+    test(`projects button icon spacing and asymmetric insets for ${slot} in ${direction}`, async ({ page }) => {
+      await mockNative(page);
+      await page.goto('/main/index/native-ui-shell');
+      const button = page.locator('app-native-ui-shell ion-button[type="submit"]');
+      await expect(button).toHaveAttribute('data-native-ui-shell', '');
+      await button.evaluate(
+        (el, { direction, slot }) => {
+          el.style.direction = direction;
+          el.style.setProperty('--padding-start', '10px');
+          el.style.setProperty('--padding-end', '14px');
+          const surface = el.shadowRoot!.querySelector<HTMLElement>('[part="native"]')!;
+          surface.style.setProperty('border-inline-start-width', '2px', 'important');
+          surface.style.setProperty('border-inline-end-width', '3px', 'important');
+          const icon = el.querySelector('ion-icon')!;
+          icon.slot = slot;
+          icon.style.marginInlineStart = slot === 'start' ? '-3px' : '5px';
+          icon.style.marginInlineEnd = slot === 'start' ? '5px' : '-3px';
+        },
+        { direction, slot },
+      );
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const item = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-button')
+              ?.items[0];
+            return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
+          }),
+        )
+        .toEqual(slot === 'start' ? [5, 9, 17] : [5, 12, 14]);
+    });
+  }
+}
+
+for (const direction of ['ltr', 'rtl']) {
+  test(`projects both icon-only back button margins in ${direction}`, async ({ page }) => {
+    await mockNative(page);
+    await page.goto('/main/index/native-ui-shell');
+    const button = page.locator('app-native-ui-shell ion-back-button');
+    await expect(button).toHaveAttribute('data-native-ui-shell', '');
+    await button.evaluate((el, direction) => {
+      el.style.direction = direction;
+      el.style.setProperty('--padding-start', '10px');
+      el.style.setProperty('--padding-end', '14px');
+      el.style.setProperty('--icon-margin-start', '-6px');
+      el.style.setProperty('--icon-margin-end', '2px');
+      const surface = el.shadowRoot!.querySelector<HTMLElement>('[part="native"]')!;
+      surface.style.setProperty('border-inline-start-width', '2px', 'important');
+      surface.style.setProperty('border-inline-end-width', '3px', 'important');
+    }, direction);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const item = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-back-button')
+            ?.items[0];
+          return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
+        }),
+      )
+      .toEqual([0, 6, 19]);
+  });
+}

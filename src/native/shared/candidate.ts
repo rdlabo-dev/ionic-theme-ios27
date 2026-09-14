@@ -77,6 +77,25 @@ export const appendItem = (
     item.iconPosition = (icons[0] ?? svg).getAttribute('slot') === 'end' ? 'trailing' : 'leading';
     candidate.icons.push({ item, source });
   }
+  if (native && child.matches('ion-button, ion-back-button')) {
+    const style = getComputedStyle(native);
+    const icon = icons[0] ?? svg;
+    const iconStyle = icon && getComputedStyle(icon);
+    const leadingMargin = parseFloat(iconStyle?.marginInlineStart ?? '') || 0;
+    const trailingMargin = parseFloat(iconStyle?.marginInlineEnd ?? '') || 0;
+    const trailing = item.iconPosition === 'trailing';
+    const inner = native.querySelector('.button-inner');
+    const gap = inner ? parseFloat(getComputedStyle(inner).columnGap) || 0 : 0;
+    // UIKit centers the title/image pair using its insets. Include Ionic's
+    // border and negative outer icon margin instead of applying a fixed offset.
+    item.contentInsetLeading =
+      (parseFloat(style.paddingInlineStart) || 0) +
+      (parseFloat(style.borderInlineStartWidth) || 0) +
+      (!trailing || !label ? leadingMargin : 0);
+    item.contentInsetTrailing =
+      (parseFloat(style.paddingInlineEnd) || 0) + (parseFloat(style.borderInlineEndWidth) || 0) + (trailing || !label ? trailingMargin : 0);
+    item.imagePadding = label && icon ? gap + (trailing ? leadingMargin : trailingMargin) : 0;
+  }
   if (!label && !svg) return undefined;
   candidate.control.items.push(item);
   candidate.actions.set(item.id, child);

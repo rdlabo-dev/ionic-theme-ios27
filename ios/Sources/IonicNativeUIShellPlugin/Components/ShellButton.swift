@@ -18,8 +18,9 @@ enum ShellButton {
         var configuration: UIButton.Configuration = glass ? .glass() : .plain()
         configuration.title = item.label
         configuration.image = rendering.image(item)
-        configuration.imagePadding = 4
-        configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4)
+        configuration.imagePadding = item.imagePadding ?? 4
+        configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: item.contentInsetLeading ?? 4,
+                                                            bottom: 0, trailing: item.contentInsetTrailing ?? 4)
         configuration.imagePlacement = item.iconPosition == .trailing ? .trailing : .leading
         configuration.baseForegroundColor = rendering.color(item.color)
         configuration.titleLineBreakMode = .byTruncatingTail

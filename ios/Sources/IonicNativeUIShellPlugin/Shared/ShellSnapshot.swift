@@ -101,6 +101,9 @@ struct ShellItemContent: Decodable, Equatable {
     var iconWidth: Double?
     var iconHeight: Double?
     let iconPosition: IconPosition?
+    let imagePadding: Double?
+    let contentInsetLeading: Double?
+    let contentInsetTrailing: Double?
     let iconTemplate: Bool?
     let closeIcon: String?
     let closeIconWidth: Double?
@@ -110,6 +113,7 @@ struct ShellItemContent: Decodable, Equatable {
     var isValid: Bool {
         !id.isEmpty && fontSize.isFinite && fontSize >= 0 && fontWeight.isFinite &&
         [iconWidth, iconHeight, closeIconWidth, closeIconHeight].compactMap { $0 }.allSatisfy { $0.isFinite && $0 > 0 } &&
+        [imagePadding, contentInsetLeading, contentInsetTrailing].compactMap { $0 }.allSatisfy { $0.isFinite } &&
         (iconTransition.map { $0.isFinite && $0 >= 0 } ?? true)
     }
 }
