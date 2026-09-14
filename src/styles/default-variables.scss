@@ -24,6 +24,8 @@
   --ios27-button-color-selected-default-rgb: 16, 16, 16;
 
   --ios26-menu-width: 360px;
+  // iPadOS 27 sidebar tint, composited at 96% over the page background.
+  --ios-theme-menu-background-rgb: 225, 230, 240;
 
   /**
    * `--ios26-color-background-rgb` is deprecated.

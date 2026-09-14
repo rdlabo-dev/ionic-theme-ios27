@@ -1,5 +1,3 @@
-@use '../utils/api';
-
 ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --side-max-width: var(--ios-theme-menu-width, var(--ios26-menu-width));
 }
@@ -82,7 +80,8 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
 
 ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --border: none;
-  --background: transparent;
+  // Keep the surface nearly opaque while page transitions remain visible behind it.
+  --background: rgba(var(--ios-theme-menu-background-rgb), var(--ios-theme-menu-background-opacity, 0.96));
   --max-width: var(--ios-theme-menu-width, var(--ios26-menu-width));
   position: absolute;
   top: 0;
@@ -99,17 +98,30 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
     display: none;
   }
 
+  &::part(container) {
+    border-radius: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+
+  ion-list:not(.ios-theme-disabled, .ios26-disabled, .ion-color) {
+    background: transparent;
+  }
+
+  ion-item:not(.ios-theme-disabled, .ios26-disabled, .ion-color) {
+    --background: transparent;
+  }
+
   ion-content {
     --background: transparent;
     --ios26-content-box-shadow-rgb: transparent;
     --ios-theme-content-box-shadow-rgb: var(--ios26-content-box-shadow-rgb);
 
     &::part(scroll) {
-      @include api.glass-background;
       margin: calc(var(--ios-theme-floating-safe-area-top, var(--ios26-floating-safe-area-top)) + 6px)
-        calc(16px + var(--ion-safe-area-right)) var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom))
-        calc(12px + var(--ion-safe-area-left));
-      border-radius: 24px;
+        calc(16px + var(--ion-safe-area-right, 0px)) var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom))
+        calc(12px + var(--ion-safe-area-left, 0px));
     }
   }
 }
