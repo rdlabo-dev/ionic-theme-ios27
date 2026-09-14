@@ -39,6 +39,7 @@
     "@capacitor/keyboard": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
     "@ionic/angular": "^9.0.0",
+    "@rdlabo/ionic-theme-ios27": "file:..",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
@@ -55,6 +56,7 @@
     "@playwright/test": "1.58.2",
     "@rdlabo/eslint-plugin-rules": "^21.0.0",
     "angular-eslint": "21.4.0",
+    "esbuild": "0.28.1",
     "eslint": "^9.39.4",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-jsdoc": "^48.2.1",

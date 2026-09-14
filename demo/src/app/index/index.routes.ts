@@ -3,6 +3,10 @@ import { IndexPageComponent } from './index-page.component';
 
 export const routes: Routes = [
   {
+    path: 'native-ui-shell',
+    loadComponent: () => import('../native-ui-shell/native-ui-shell.page').then((m) => m.NativeUIShellPage),
+  },
+  {
     path: '',
     component: IndexPageComponent,
   },

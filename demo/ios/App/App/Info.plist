@@ -64,5 +64,7 @@
         </array>
       </dict>
     </dict>
+    <key>CAPACITOR_DEBUG</key>
+    <string>$(CAPACITOR_DEBUG)</string>
   </dict>
 </plist>
