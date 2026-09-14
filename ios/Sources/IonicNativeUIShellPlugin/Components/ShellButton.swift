@@ -34,6 +34,10 @@ enum ShellButton {
         let button = existing ?? UIButton(configuration: configuration)
         if existing != nil { button.configuration = configuration }
         button.titleLabel?.numberOfLines = 1
+        // Web and UIKit can differ by a fraction of a point in text measurement.
+        // Absorb that rounding without widening the projected button.
+        button.titleLabel?.adjustsFontSizeToFitWidth = true
+        button.titleLabel?.minimumScaleFactor = 0.99
         button.isEnabled = !item.disabled
         button.accessibilityLabel = item.accessibilityLabel
         button.accessibilityIdentifier = item.id
