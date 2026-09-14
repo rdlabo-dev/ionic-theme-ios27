@@ -111,6 +111,10 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
                rendering: ShellRendering) -> Bool {
         loadViewIfNeeded()
         guard let configuration = snapshot.search else { return false }
+        if self.configuration?.id != configuration.id {
+            editingSequence = 0
+            valueVersion = -1
+        }
         self.configuration = configuration
         let available = configuration.available
         let active = available && configuration.active

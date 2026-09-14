@@ -167,6 +167,33 @@ final class ShellSnapshotTests: XCTestCase {
 
 
     @MainActor
+    func testReplacingSearchResetsEditingSequenceWithoutOverwritingCurrentInput() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
+        let controller = ShellSearchController()
+        let rendering = ShellRendering()
+        func apply(_ id: String, value: String) throws {
+            let search: JSObject = ["id": id, "field": item(), "trigger": item(["id": "trigger"]),
+                "closeId": "close", "active": true, "available": true, "focused": false,
+                "value": value, "placeholder": "Search", "disabled": false, "editSequence": 0, "valueVersion": 0]
+            let node = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "search": search,
+                "items": [item(["id": "first", "selected": true]), item(["id": "second"]) ]])]).controls.first)
+            XCTAssertTrue(controller.apply(node, webFrame: CGRect(x: 0, y: 0, width: 390, height: 844),
+                barFrame: CGRect(x: 18, y: 730, width: 280, height: 62),
+                triggerFrame: CGRect(x: 320, y: 730, width: 56, height: 56), rendering: rendering))
+        }
+        try apply("old-search", value: "initial")
+        let navigation = try XCTUnwrap(controller.tabs.last?.viewController as? UINavigationController)
+        let searchBar = try XCTUnwrap(navigation.topViewController?.navigationItem.searchController?.searchBar)
+        searchBar.text = "native edit"
+        controller.changed = { _, _, _, _, _ in 7 }
+        controller.searchBar(searchBar, textDidChange: "native edit")
+        try apply("old-search", value: "stale")
+        XCTAssertEqual(searchBar.text, "native edit")
+        try apply("new-search", value: "replacement initial")
+        XCTAssertEqual(searchBar.text, "replacement initial")
+    }
+
+    @MainActor
     func testSingleButtonsRejectEmptyAndMultipleItems() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native glass buttons") }
         for kind in ["ion-button", "ion-back-button", "ion-menu-button"] {

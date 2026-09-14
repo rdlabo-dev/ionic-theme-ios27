@@ -90,6 +90,8 @@ The first supported search configuration uses iOS-mode glass searchbars with the
 
 Page retirement, overlays, theme exclusion and lost native ownership close the native presentation and preserve the latest synchronized/application value. A later search starts from that closed state. The registration survives cached page transitions; reattaching on every return is not required. Bridge waits are finite. When an opening request loses the bridge, its pending Enter can complete through the existing Web animation. A disconnected bridge cannot recover native characters that were never delivered to JavaScript.
 
+Replacing the registered `ion-searchbar` or its input retires the old editing session. The replacement keeps its own application value and starts a new native session when reopened.
+
 While enabled, Native UI Shell suppresses the WebView’s top scroll-edge effect because Ionic already paints the header edge. This prevents a second dark gradient when the OS and Web themes differ. The original setting is restored on destroy.
 
 The native search controller remains visible over its own keyboard. Other projected controls are hidden while a Web input opens the keyboard. UIKit's own accessibility and Reduce Motion behavior apply to the standard controls; full VoiceOver traversal is not a verified parity guarantee.

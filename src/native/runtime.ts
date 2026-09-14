@@ -37,6 +37,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
   let acceptedRevision = 0;
   let lastSequence = 0;
   let lastSnapshot = '';
+  let viewport = `${win.innerWidth}:${win.innerHeight}`;
   let forceRefresh = false;
   let dirty = false;
   let pending = false;
@@ -110,6 +111,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
   const signature = (candidate: Candidate) =>
     JSON.stringify({ control: candidate.control, icons: candidate.icons.map(({ source }) => source) });
   const read = (): Candidate[] => {
+    search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
     if (doc.hidden || overlayOpen() || (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0)))
@@ -162,6 +164,14 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     dirty = false;
     pending = true;
     try {
+      const size = `${win.innerWidth}:${win.innerHeight}`;
+      // WebKit can resize before Ionic's fixed DOM positions catch up.
+      // Measure on the next frame instead of retiring a valid native search.
+      if (viewport !== size) {
+        viewport = size;
+        dirty = true;
+        return;
+      }
       observe();
       const candidates = read();
       const signatures = new Map(candidates.map((candidate) => [candidate.element, signature(candidate)]));
@@ -194,6 +204,11 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       const result = await bounded(plugin.update(snapshot));
       if (stopped) return;
       if (result.revision !== snapshot.revision) throw new Error('Native UI Shell revision mismatch');
+      if (`${win.innerWidth}:${win.innerHeight}` !== size) {
+        lastSnapshot = '';
+        dirty = true;
+        return;
+      }
       if (result.rejectedSearches?.length) {
         search.reject(result.rejectedSearches);
         dirty = true;
@@ -322,6 +337,8 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     schedule();
   });
   on(win, 'resize');
+  on(win, 'keyboardWillShow', () => search.keyboard(true));
+  on(win, 'keyboardWillHide', () => search.keyboard(false));
   on(win, 'scroll');
   on(win.matchMedia('(prefers-color-scheme: dark)'), 'change');
   on(win, 'nativeUIShellRefresh', (event) => {

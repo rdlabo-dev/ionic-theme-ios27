@@ -15,6 +15,7 @@ interface SearchState {
   minimumRevision: number;
   valueVersion: number;
   applyingInput: boolean;
+  keyboardHidden?: boolean;
   last?: ShellSearch;
   layout?: string;
   rejectedLayout?: string;
@@ -23,7 +24,12 @@ interface SearchState {
 
 export const createSearchSupport = (doc: Document, id: (element: Element) => string, schedule: () => void) => {
   const states = new Map<NativeSearchBinding, SearchState>();
+  let keyboardVisible = false;
   const projected = (binding: NativeSearchBinding) => binding.footer.hasAttribute(marker);
+  const isCurrent = (state: SearchState) =>
+    state.bar.isConnected &&
+    state.binding.footer.querySelector('ion-searchbar') === state.bar &&
+    state.bar.querySelector('input.searchbar-input') === state.input;
   const install = (binding: NativeSearchBinding, bar: HTMLIonSearchbarElement, input: HTMLInputElement): SearchState => {
     const originalFocus = bar.setFocus;
     const ownValue = Object.getOwnPropertyDescriptor(bar, 'value');
@@ -110,10 +116,27 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
     return item;
   };
   return {
+    keyboard(visible: boolean) {
+      keyboardVisible = visible;
+      if (!visible) states.forEach((state) => (state.keyboardHidden = false));
+      schedule();
+    },
+    keepSearchTabsVisible() {
+      if (!keyboardVisible) return;
+      for (const [binding, state] of states) {
+        // Ionic hides bottom tabs for every keyboard, including native search.
+        // Correct only that framework class; application styles still apply.
+        if (binding.active && projected(binding) && binding.tabBar.classList.contains('tab-bar-hidden')) {
+          state.keyboardHidden = true;
+          binding.tabBar.classList.remove('tab-bar-hidden');
+        }
+      }
+    },
     decorate(candidates: Candidate[], blocked: (element: HTMLElement) => boolean): Candidate[] {
       const bindings = getNativeSearchBindings(doc);
       for (const [binding, state] of states) {
-        if (!bindings.includes(binding) || !binding.footer.isConnected) {
+        if (!bindings.includes(binding) || !isCurrent(state)) {
+          this.retire(binding);
           state.restore();
           states.delete(binding);
         }
@@ -204,7 +227,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         ]);
         if (state.rejectedLayout === state.layout) continue;
         candidate.control.search = {
-          id: id(bar),
+          id: id(input),
           field,
           trigger,
           closeId: id(back),
@@ -240,7 +263,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
       });
     },
     event(event: ShellSearchEvent) {
-      const state = Array.from(states.values()).find((s) => id(s.bar) === event.id && projected(s.binding));
+      const state = Array.from(states.values()).find((s) => id(s.input) === event.id && projected(s.binding) && isCurrent(s));
       if (
         !state ||
         !state.binding.active ||
@@ -278,6 +301,8 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
     },
     retire(binding: NativeSearchBinding) {
       const state = states.get(binding);
+      if (state?.keyboardHidden && keyboardVisible) binding.tabBar.classList.add('tab-bar-hidden');
+      if (state) state.keyboardHidden = false;
       if (state?.focused) {
         state.focused = false;
         state.input.dispatchEvent(new FocusEvent('blur'));
