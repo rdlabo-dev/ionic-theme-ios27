@@ -443,3 +443,93 @@ test('native refresh during a pending rejection retries after the stale acknowle
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(back).toHaveAttribute('data-native-ui-shell', '');
 });
+
+for (const path of ['/main/index', '/main/album']) {
+  for (const variant of ['icon-only', 'label-only', 'badges']) {
+    test(`tab content variants: ${path} ${variant}`, async ({ page }) => {
+      await page.setViewportSize({ width: 440, height: 956 });
+      await mockNative(page);
+      await page.goto(path);
+      await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
+      await page.locator('ion-tab-bar').evaluate((bar, variant) => {
+        bar.setAttribute('color', 'light');
+        const buttons = [...bar.querySelectorAll('ion-tab-button:not(.ion-cloned-element)')];
+        buttons.forEach((button) => button.setAttribute('aria-label', button.textContent!.trim()));
+        if (variant === 'icon-only') buttons.forEach((button) => button.querySelector('ion-label')?.remove());
+        if (variant === 'label-only') buttons.forEach((button) => button.querySelector('ion-icon')?.remove());
+        if (variant === 'badges') {
+          ['heart', 'musical-note', 'calendar'].forEach((name, index) =>
+            buttons[index].querySelector('ion-icon')!.setAttribute('name', name),
+          );
+          for (const [index, text] of [
+            [0, ''],
+            [2, '47'],
+          ] as const) {
+            const badge = document.createElement('ion-badge');
+            badge.setAttribute('color', 'danger');
+            badge.textContent = text;
+            buttons[index].append(badge);
+          }
+        }
+      }, variant);
+      const current = () => latestControl(page, 'ion-tab-bar');
+      if (variant === 'icon-only') {
+        await expect.poll(async () => (await current())?.items.every((item: any) => item.label === '' && !!item.icon)).toBe(true);
+        expect((await current()).items.every((item: any) => !!item.accessibilityLabel)).toBe(true);
+      } else if (variant === 'label-only') {
+        await expect.poll(async () => (await current())?.items.every((item: any) => !!item.label && !item.icon)).toBe(true);
+      } else {
+        await expect
+          .poll(async () => (await current())?.items.map((item: any) => item.badge?.value ?? null))
+          .toEqual([null, null, '47', null]);
+        // Ionic iOS hides an empty badge; a visible empty badge maps to a notification dot.
+        await page
+          .locator('ion-badge')
+          .first()
+          .evaluate((badge: HTMLElement) => {
+            badge.style.cssText = 'display:block;min-width:8px;height:8px';
+          });
+        await expect.poll(async () => (await current())?.items[0].badge?.value).toBe('');
+        const colors = await page.locator('ion-badge').evaluateAll((badges) =>
+          badges.map((badge) => {
+            const style = getComputedStyle(badge);
+            return { color: style.backgroundColor, textColor: style.color };
+          }),
+        );
+        const snapshot = await current();
+        expect(snapshot.items[0].badge).toEqual({ value: '', ...colors[0] });
+        expect(snapshot.items[2].badge).toEqual({ value: '47', ...colors[1] });
+        await page
+          .locator('ion-badge')
+          .nth(1)
+          .evaluate((badge) => {
+            badge.textContent = '48';
+            badge.setAttribute('color', 'success');
+          });
+        await expect.poll(async () => (await current())?.items[2].badge?.value).toBe('48');
+        await page
+          .locator('ion-badge')
+          .nth(0)
+          .evaluate((badge: HTMLElement) => {
+            badge.style.display = 'none';
+          });
+        await expect.poll(async () => (await current())?.items[0].badge).toBeUndefined();
+        await page
+          .locator('ion-badge')
+          .nth(1)
+          .evaluate((badge) => badge.remove());
+        await expect.poll(async () => (await current())?.items[2].badge).toBeUndefined();
+      }
+      await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
+      // Selection stays owned by the actual Ionic tab button, including icon-only tabs.
+      await page.evaluate(() => {
+        const state = (window as any).__nativeUIShell;
+        const snapshot = state.updates.at(-1);
+        const item = snapshot.controls.find((control: any) => control.kind === 'ion-tab-bar').items[1];
+        state.activate({ id: item.id, revision: snapshot.revision, sequence: ++state.sequence });
+      });
+      await expect(page).toHaveURL('/main/docs');
+      await expect.poll(async () => (await current())?.items[1].selected).toBe(true);
+    });
+  }
+}

@@ -4,7 +4,7 @@ These XCTest cases compare native projection with the same Ionic demo running in
 
 Prerequisites: Xcode 26 or later with the matching simulator runtime, XcodeGen, root/demo dependencies installed with `npm ci`, and a booted simulator. Enable the simulator's software keyboard and disconnect its hardware keyboard.
 
-Run the four iPhone cases (the iPad-only width case is skipped) on an iPhone simulator from the repository root:
+Run the five iPhone cases (the iPad-only width case is skipped) on an iPhone simulator from the repository root:
 
 ```sh
 sh scripts/verify-native-search.sh IPHONE_SIMULATOR_UDID edge
@@ -16,6 +16,7 @@ The cases cover:
 
 - `button` → upper-right Push → `action-sheet` → Back, repeated three times, including cancelled edge swipes. Both the sample's collapsing headers and a fixed-header variant are compared.
 - Start, center, and end tab bars in LTR and RTL, comparing the DOM frame with UIKit's actual item frames.
+- Icon-only and label-only tabs, numeric badges, hidden empty badges and explicitly visible notification dots, including navigation between ordinary and searchable tabs. The probe bundles the real Ionic badge component, which the production demo otherwise does not use.
 - Header/back behavior while a Web input opens and closes the software keyboard.
 
 For iPad, run the tab, dynamic-width, and keyboard cases. Reuse the artifact directory printed by the iPhone run; the navigation cases assume the iPhone demo layout. Install the same fixture app, then select the three tests:

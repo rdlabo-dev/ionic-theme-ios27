@@ -1,3 +1,9 @@
+import { initialize } from '@ionic/core/components';
+import { defineCustomElement } from '@ionic/core/components/ion-badge.js';
+
+// The production demo does not otherwise use badges, so register the real Ionic component here.
+initialize({ mode: 'ios' });
+defineCustomElement();
 // Injected only into the simulator acceptance build. Product markup is unchanged.
 const panel = document.createElement('div');
 panel.style.cssText = 'position:fixed;top:240px;left:8px;z-index:10000;background:white;color:black;font:10px sans-serif;max-width:95vw';
@@ -6,6 +12,34 @@ status.style.cssText = 'display:block;max-height:30px;overflow:hidden;width:300p
 panel.append(status);
 const tabs = () => document.querySelector('ion-tabs > ion-tab-bar');
 for (const [label, action] of [
+  ...['icon-only', 'label-only', 'badges', 'clear-badges'].map((variant) => [
+    `Edge ${variant}`,
+    () => {
+      const bar = tabs();
+      bar.setAttribute('color', 'light');
+      const buttons = [...bar.querySelectorAll('ion-tab-button:not(.ion-cloned-element)')];
+      buttons.forEach((button) => {
+        button.dataset.originalContent ??= button.innerHTML;
+        button.setAttribute('aria-label', button.getAttribute('aria-label') ?? button.textContent.trim());
+        if (variant !== 'clear-badges') button.innerHTML = button.dataset.originalContent;
+      });
+      if (variant === 'icon-only') buttons.forEach((button) => button.querySelector('ion-label')?.remove());
+      if (variant === 'label-only') buttons.forEach((button) => button.querySelector('ion-icon')?.remove());
+      if (variant === 'clear-badges') buttons.forEach((button) => button.querySelector('ion-badge')?.remove());
+      if (variant === 'badges') {
+        ['heart', 'musical-note', 'calendar'].forEach((name, index) => (buttons[index].querySelector('ion-icon').name = name));
+        for (const [index, text] of [[0, ''], [2, '47']]) {
+          const badge = document.createElement('ion-badge');
+          badge.setAttribute('color', 'danger');
+          badge.textContent = text;
+          buttons[index].append(badge);
+        }
+      }
+    },
+  ]),
+  ['Edge show-dot', () => {
+    tabs().querySelector('ion-badge').style.cssText = 'display:block;min-width:8px;height:8px';
+  }],
   ['Edge Web', () => window.nativeUIShell.destroy()],
   ['Edge narrow', () => (tabs().style.width = '300px')],
   ['Edge auto width', () => tabs().style.removeProperty('width')],
@@ -48,6 +82,11 @@ setInterval(() => {
     tabs: bar ? rect(bar) : null,
     tabsNative: bar?.hasAttribute('data-native-ui-shell') ?? false,
     items: bar ? Array.from(bar.querySelectorAll('ion-tab-button')).map((b) => ({ label: b.textContent.trim(), rect: rect(b) })) : [],
+    badges: bar ? [...bar.querySelectorAll('ion-badge')].map((badge) => ({
+      value: badge.textContent,
+      color: getComputedStyle(badge).backgroundColor,
+      hydrated: !!badge.shadowRoot,
+    })) : [],
     back: back ? rect(back) : null,
     backNative: back?.hasAttribute('data-native-ui-shell') ?? false,
   };

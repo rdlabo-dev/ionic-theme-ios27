@@ -173,4 +173,33 @@ final class NativeUIShellEdgeTests: XCTestCase {
             capture("width-web-\(cycle)")
         }
     }
+    func testTabContentVariants() {
+        let app = start()
+        for variant in ["icon-only", "label-only", "badges"] {
+            app.webViews.buttons["Edge " + variant].tap(); settled()
+            for page in ["Library", "Index"] {
+                let tab = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", page)).firstMatch
+                XCTAssertTrue(tab.waitForExistence(timeout: 10), app.debugDescription)
+                tab.tap(); settled()
+                XCTAssertEqual(state(app)["tabsNative"] as? Bool, true, "\(variant): \(state(app))")
+                XCTAssertTrue(tab.isSelected, app.debugDescription)
+                if variant == "badges" {
+                    let sources = state(app)["badges"] as? [[String: Any]] ?? []
+                    XCTAssertEqual(sources.count, 2)
+                    XCTAssertTrue(sources.allSatisfy { $0["hydrated"] as? Bool == true }, "Badges must be Ionic components: \(sources)")
+                    XCTAssertTrue(sources.allSatisfy { $0["color"] as? String != "rgba(0, 0, 0, 0)" }, "Unstyled badges: \(sources)")
+                    let badge = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Library'")).firstMatch
+                    XCTAssertTrue(badge.label.contains("47") || String(describing: badge.value).contains("47"), app.debugDescription)
+                }
+                capture("tab-\(variant)-\(page)")
+            }
+        }
+        app.webViews.buttons["Edge show-dot"].tap(); settled()
+        capture("tab-visible-empty-dot")
+        app.webViews.buttons["Edge clear-badges"].tap(); settled()
+        let library = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Library'")).firstMatch
+        XCTAssertFalse(library.label.contains("47"))
+        capture("tab-badges-cleared")
+    }
+
 }

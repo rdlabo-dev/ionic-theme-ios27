@@ -21,7 +21,7 @@ npm run build -- --configuration=production
 mkdir -p "$artifacts/consumer/www"
 cp -R www/. "$artifacts/consumer/www/"
 cp native-package-fixture/capacitor.config.json "$artifacts/consumer/"
-cp "$fixture/probe.js" "$artifacts/consumer/www/$scenario-probe.js"
+npx --no-install esbuild "$fixture/probe.js" --bundle --format=iife --outfile="$artifacts/consumer/www/$scenario-probe.js"
 node --input-type=module - "$artifacts/consumer/www/index.html" "$scenario-probe.js" <<'JS'
 import { readFileSync, writeFileSync } from 'node:fs';
 const file = process.argv[2];
