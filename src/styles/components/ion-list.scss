@@ -9,7 +9,7 @@ ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 
 ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include structured-list.layout(20px, 24px);
+  @include structured-list.layout(20px, 28px);
 
   ion-radio-group,
   ion-reorder-group {
@@ -31,6 +31,13 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
       }
 
       --min-height: 52px;
+      font-size: 1rem;
+      line-height: 1.29rem;
+
+      > ion-label:not([slot]) {
+        font-size: inherit;
+        line-height: inherit;
+      }
 
       & > ion-input[labelplacement='floating'] {
         transition: transform 200ms ease;

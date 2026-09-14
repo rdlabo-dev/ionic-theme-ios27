@@ -26,7 +26,7 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
     align-items: center;
 
     ion-label {
-      font-size: 0.9rem;
+      font-size: 1rem;
       margin: 8px 4px 4px;
 
       &:not(.ion-color) {
@@ -45,11 +45,23 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
   }
 
   ion-item-group.item-group-header {
+    border-radius: $group-border-radius;
+
+    > ion-item {
+      --inner-padding-end: 0;
+      --inner-border-width: 0;
+
+      &::part(native) {
+        padding-inline: 0;
+      }
+    }
+
     & > ion-item > ion-label {
       width: 100%;
-      text-align: center;
-      padding: 32px 16px 16px;
-      transform: translateX(5px);
+      margin: 0;
+      text-align: start;
+      white-space: normal;
+      padding: 16px 20px;
 
       /**
        * ion-header.header-collapse-condenseを使って、スクロールによってHeaderを変化させるトリック
@@ -60,9 +72,10 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
       }
 
       ion-icon {
-        font-size: 2.8rem;
+        font-size: 2.82rem;
         border-radius: 20%;
         padding: 6px;
+        vertical-align: top;
 
         &:not(.ion-color) {
           color: #ffffff;
@@ -70,13 +83,20 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
       }
 
       h2 {
-        font-size: 1.2rem;
-        font-weight: bold;
-        margin-top: 8px;
+        font-size: 1.29rem;
+        line-height: 1.53rem;
+        font-weight: 700;
+        margin: 20px 0 8px;
       }
 
       ion-text {
-        font-size: 0.9rem;
+        display: block;
+        font-size: 1rem;
+        line-height: 1.29rem;
+
+        &:not(.ion-color) {
+          color: var(--ion-color-step-500, var(--ion-text-color-step-500, #808080));
+        }
       }
     }
   }
@@ -128,11 +148,12 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
         & > ion-label {
           margin: 0;
           font-weight: 500;
-          font-size: 1.15rem;
-          line-height: 0.9rem;
+          font-size: 1rem;
+          line-height: 1.29rem;
         }
         & > ion-note {
-          font-size: 0.85rem;
+          font-size: 0.88rem;
+          line-height: 1.18rem;
         }
       }
 
