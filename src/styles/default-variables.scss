@@ -12,6 +12,8 @@
 :root {
   // Internal native appearance signal; follows the same cascade as the theme.
   --ios27-color-scheme: light;
+  // Destructive overlay actions, independent of the application danger palette.
+  --ios-theme-destructive-color: #ea292d;
   --ios26-floating-safe-area-top: max(10px, var(--ion-safe-area-top, 0px));
   --ios26-floating-safe-area-bottom: max(10px, calc(var(--ion-safe-area-bottom, 0px) - 12px));
 

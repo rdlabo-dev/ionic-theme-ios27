@@ -156,15 +156,38 @@ $_glass-surface: linear-gradient(
 
 @mixin glass-background-overlay-button {
   transition: background 0.2s ease;
-  background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+  background: var(--ion-background-color-step-200, var(--ion-color-step-200, #cccccc));
   &.ion-activated {
-    background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.022);
+    background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
   }
 }
 
 @mixin glass-background-overlay-button-variable {
-  --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+  --button-background: var(--ion-background-color-step-200, var(--ion-color-step-200, #cccccc));
   &.ion-activated {
-    --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.022);
+    --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
   }
+}
+
+// Shared material for presented surfaces. Keep transforms owned by Ionic animations.
+@mixin glass-overlay-variables($shadow-opacity: 0.15) {
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.67);
+  --border-color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.18);
+  --border-style: solid;
+  --border-width: 0.5px;
+  --box-shadow:
+    inset 0 0.5px 1px rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.6),
+    0 12px 32px color-mix(in srgb, var(--ion-box-shadow-color, #000) #{$shadow-opacity * 100%}, transparent);
+}
+
+@mixin glass-overlay-surface($include-background: true, $include-frame: true) {
+  @if $include-background {
+    background: var(--background);
+  }
+  @if $include-frame {
+    border: var(--border-width) var(--border-style) var(--border-color);
+    box-shadow: var(--box-shadow);
+  }
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
