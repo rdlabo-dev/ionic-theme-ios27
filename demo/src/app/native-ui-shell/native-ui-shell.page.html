@@ -3,9 +3,9 @@
     <ion-buttons slot="start"><ion-back-button defaultHref="/main/index"></ion-back-button></ion-buttons>
     <ion-title>Native UI Shell</ion-title>
     <ion-buttons slot="end" [style.display]="hidden() ? 'none' : null" [class.ionic-theme-disabled]="themeDisabled()">
-      <ion-button [fill]="fill()" type="submit" [form]="formRef" [disabled]="disabled()" aria-label="保存">
+      <ion-button [fill]="fill()" type="submit" [form]="formRef" [disabled]="disabled()" aria-label="Save">
         <ion-icon slot="start" name="heart" aria-hidden="true"></ion-icon>
-        <span data-label>保存</span>
+        <span data-label>Save</span>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
@@ -33,26 +33,26 @@
   <section class="controls">
     <form #formRef (submit)="save($event)">
       <p>
-        保存回数: <strong data-save-count>{{ saves() }}</strong>
+        Save count: <strong data-save-count>{{ saves() }}</strong>
       </p>
     </form>
-    <p>対応するiOSでは固定グラス部品をネイティブで表示します。</p>
+    <p>Experimental: On supported iOS versions, fixed glass controls are rendered natively.</p>
     <p>
-      選択: <strong data-selection>{{ selected() }}</strong> / 変更回数: <strong data-changes>{{ changes() }}</strong>
+      Selection: <strong data-selection>{{ selected() }}</strong> / Change count: <strong data-changes>{{ changes() }}</strong>
     </p>
-    <button type="button" (click)="selected.set('one')">プログラムでOneを選択</button>
-    <button type="button" (click)="modalOpen.set(true)">Modalを開く</button>
-    <p>背景をスクロールして、右上のボタンの透過と屈折を比較してください。</p>
+    <button type="button" (click)="selected.set('one')">Select One programmatically</button>
+    <button type="button" (click)="modalOpen.set(true)">Open modal</button>
+    <p>Scroll the background to compare transparency and refraction in the top-right button.</p>
     <button type="button" (click)="disabled.set(!disabled())">disabled: {{ disabled() }}</button>
-    <button type="button" (click)="hidden.set(!hidden())">親の非表示: {{ hidden() }}</button>
-    <button type="button" (click)="themeDisabled.set(!themeDisabled())">テーマ無効: {{ themeDisabled() }}</button>
+    <button type="button" (click)="hidden.set(!hidden())">Parent hidden: {{ hidden() }}</button>
+    <button type="button" (click)="themeDisabled.set(!themeDisabled())">Theme disabled: {{ themeDisabled() }}</button>
     @for (value of fills; track value) {
       <button type="button" (click)="fill.set(value)">fill: {{ value }}</button>
     }
   </section>
   @for (band of bands; track band) {
     <div class="band" [class.alternate]="band % 2 === 0">
-      <span>{{ band }} — GLASS / ガラス / 123456789</span>
+      <span>{{ band }} — GLASS / Glass / 123456789</span>
     </div>
   }
 </ion-content>
@@ -61,6 +61,6 @@
     <ion-header
       ><ion-toolbar><ion-title>Modal</ion-title></ion-toolbar></ion-header
     >
-    <ion-content><button type="button" (click)="modalOpen.set(false)">Modalを閉じる</button></ion-content>
+    <ion-content><button type="button" (click)="modalOpen.set(false)">Close modal</button></ion-content>
   </ng-template>
 </ion-modal>

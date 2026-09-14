@@ -28,6 +28,11 @@
   <ion-list [inset]="true">
     <ion-list-header><ion-label>Components</ion-label></ion-list-header>
     <ion-item-group>
+      <ion-item [button]="true" (click)="navigateNativeUiShell()">
+        <ion-label>native-ui-shell (Experimental)</ion-label>
+      </ion-item>
+    </ion-item-group>
+    <ion-item-group>
       @for (item of enableComponents(); track item.name) {
         <ion-item [button]="true" (click)="navigateComponent(item)">
           <ion-label>{{ item.name }}</ion-label>
