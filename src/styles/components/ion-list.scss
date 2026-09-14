@@ -1,6 +1,8 @@
 @use '../utils/structured-list';
 
 ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ion-border-color: var(--ion-color-step-100, var(--ion-background-color-step-100, #e8e8e8));
+
   @include structured-list.support-text;
   ion-item {
     --background-hover-opacity: 0;
@@ -48,4 +50,8 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
       }
     }
   }
+}
+
+ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  @include structured-list.colors(0.75, 0.38);
 }

@@ -1,5 +1,24 @@
 $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group;
 
+// Derive neutral list colors from the application's Ionic medium palette.
+@mixin colors($supporting-opacity, $detail-opacity) {
+  ion-item {
+    --detail-icon-color: rgb(var(--ion-color-medium-rgb));
+    --detail-icon-opacity: #{$detail-opacity};
+  }
+
+  &.list-inset {
+    ion-list-header ion-label:not(.ion-color) {
+      color: rgba(var(--ion-color-medium-rgb), $supporting-opacity);
+    }
+
+    ion-list-header ion-note:not(.ion-color),
+    > ion-note:not(.ion-color) {
+      --color: rgba(var(--ion-color-medium-rgb), #{$supporting-opacity});
+    }
+  }
+}
+
 @mixin support-text() {
   ion-item {
     &:has(ion-input.input-fill-outline),
@@ -27,6 +46,8 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
 
     ion-label {
       font-size: 1rem;
+      line-height: 1.29rem;
+      font-weight: 600;
       margin: 8px 4px 4px;
 
       &:not(.ion-color) {
@@ -39,8 +60,14 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
     }
 
     ion-note {
-      font-size: 0.9rem;
+      font-size: 0.76rem;
+      line-height: 1.06rem;
+      font-weight: 400;
       margin: 8px 16px 4px 0;
+
+      &:not(.ion-color) {
+        --color: var(--ion-color-medium-tint);
+      }
     }
   }
 
@@ -183,9 +210,14 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
   }
 
   & > ion-note {
-    --color: var(--ion-color-medium-tint);
-    font-size: 0.9rem;
+    font-size: 0.76rem;
+    line-height: 1.06rem;
+    font-weight: 400;
     display: block;
     margin: 8px calc(var(--ion-safe-area-right, 0) + $outer-note-inset) 8px calc(var(--ion-safe-area-left, 0) + $outer-note-inset);
+
+    &:not(.ion-color) {
+      --color: var(--ion-color-medium-tint);
+    }
   }
 }
