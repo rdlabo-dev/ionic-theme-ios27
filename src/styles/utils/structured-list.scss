@@ -1,3 +1,5 @@
+@use './group-heading';
+
 $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group;
 
 // Derive neutral list colors from the application's Ionic medium palette.
@@ -110,9 +112,7 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
       }
 
       h2 {
-        font-size: 1.29rem;
-        line-height: 1.53rem;
-        font-weight: 700;
+        @include group-heading.typography;
         margin: 20px 0 8px;
       }
 
