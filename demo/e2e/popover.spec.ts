@@ -130,7 +130,20 @@ for (const width of [390, 1210]) {
     ]) {
       const trigger = page.locator(`#${id}`);
       await trigger.scrollIntoViewIfNeeded();
-      const before = await trigger.boundingBox();
+      // The pressed button can grow before presentation; compare the surface with
+      // the visual bounds read by the animation, rather than the resting button.
+      await trigger.evaluate((el: any) => {
+        const measure = el.getBoundingClientRect;
+        el.getBoundingClientRect = () => {
+          const rect = measure.call(el);
+          if (!el.classList.contains('ios27-replace-element')) el.presentationBounds = rect;
+          return rect;
+        };
+        el.restoreMeasurement = () => {
+          el.getBoundingClientRect = measure;
+          delete el.restoreMeasurement;
+        };
+      });
       await trigger.click();
       const popover = page.locator(`ion-popover[trigger="${id}"]`);
       await expect(popover).toBeVisible();
@@ -144,6 +157,12 @@ for (const width of [390, 1210]) {
           ),
         )
         .toBe(true);
+      const before = await trigger.evaluate((el: any) => {
+        const rect = el.presentationBounds;
+        el.restoreMeasurement();
+        delete el.presentationBounds;
+        return { x: rect.x, width: rect.width };
+      });
       const geometry = await popover.evaluate((el: any) => {
         const trigger = document.getElementById(el.trigger)!;
         const pane = trigger.closest('ion-content')!;
