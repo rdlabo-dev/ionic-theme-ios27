@@ -64,7 +64,6 @@ export class IndexPageComponent {
     { name: 'inputs', enable: true },
     { name: 'item-list', enable: true },
     { name: 'modal', enable: true },
-    { name: 'native-ui-shell', enable: true },
     { name: 'popover', enable: true },
     { name: 'progress-indicators', enable: true },
     { name: 'radio', enable: true },
@@ -84,6 +83,10 @@ export class IndexPageComponent {
   readonly #router = inject(Router);
   readonly #route = inject(ActivatedRoute);
   readonly #document = inject(DOCUMENT);
+
+  async navigateNativeUiShell() {
+    await this.#router.navigate(['native-ui-shell'], { relativeTo: this.#route });
+  }
 
   async navigateComponent(item: IComponent) {
     await this.#router.navigate([item.name], { relativeTo: this.#route });

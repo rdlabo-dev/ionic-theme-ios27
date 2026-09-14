@@ -13,13 +13,13 @@ final class NativeUIShellTests: XCTestCase {
         let toggle = app.webViews.switches["Dark Mode"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
         toggle.tap()
-        let entry = app.webViews.buttons["native-ui-shell"]
+        let entry = app.webViews.buttons["native-ui-shell (Experimental)"]
         for _ in 0..<8 {
             if entry.isHittable { break }
             app.swipeUp()
         }
         entry.tap()
-        let button = nativeButton(app, label: "保存")
+        let button = nativeButton(app, label: "Save")
         XCTAssertTrue(button.waitForExistence(timeout: 10), app.debugDescription)
         capture("native-dark")
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -65,14 +65,14 @@ final class NativeUIShellTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
-        let entry = app.webViews.buttons["native-ui-shell"]
+        let entry = app.webViews.buttons["native-ui-shell (Experimental)"]
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
         for _ in 0..<8 {
             if entry.isHittable { break }
             app.swipeUp()
         }
         entry.tap()
-        let save = nativeButton(app, label: "保存")
+        let save = nativeButton(app, label: "Save")
         XCTAssertTrue(save.waitForExistence(timeout: 10))
         let native = app.buttons[save.identifier]
         XCTAssertTrue(native.identifier.hasPrefix("shell-"))
@@ -100,13 +100,13 @@ final class NativeUIShellTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
-        let entry = app.webViews.buttons["native-ui-shell"]
+        let entry = app.webViews.buttons["native-ui-shell (Experimental)"]
         for _ in 0..<8 {
             if entry.isHittable { break }
             app.swipeUp()
         }
         entry.tap()
-        let save = nativeButton(app, label: "保存")
+        let save = nativeButton(app, label: "Save")
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         XCUIDevice.shared.press(.home)
         XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
@@ -174,7 +174,7 @@ final class NativeUIShellTests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
-        let entry = app.webViews.buttons["native-ui-shell"]
+        let entry = app.webViews.buttons["native-ui-shell (Experimental)"]
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
         for _ in 0..<8 {
             if entry.isHittable { break }
@@ -183,11 +183,11 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(entry.isHittable, app.debugDescription)
         entry.tap()
 
-        let save = nativeButton(app, label: "保存")
+        let save = nativeButton(app, label: "Save")
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         let native = app.buttons[save.identifier]
         XCTAssertTrue(native.identifier.hasPrefix("shell-"), app.debugDescription)
-        XCTAssertEqual(native.label, "保存")
+        XCTAssertEqual(native.label, "Save")
         capture("native-initial")
         let github = nativeButton(app, label: "GitHub")
         let refresh = nativeButton(app, label: "Refresh")
@@ -201,14 +201,14 @@ final class NativeUIShellTests: XCTestCase {
         native.tap()
         XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
 
-        app.webViews.buttons["親の非表示: false"].tap()
+        app.webViews.buttons["Parent hidden: false"].tap()
         XCTAssertTrue(native.waitForNonExistence(timeout: 5))
-        app.webViews.buttons["親の非表示: true"].tap()
+        app.webViews.buttons["Parent hidden: true"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
-        app.webViews.buttons["テーマ無効: false"].tap()
+        app.webViews.buttons["Theme disabled: false"].tap()
         XCTAssertTrue(native.waitForNonExistence(timeout: 5))
-        app.webViews.buttons["テーマ無効: true"].tap()
+        app.webViews.buttons["Theme disabled: true"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
         app.webViews.buttons["fill: clear"].tap()
@@ -224,13 +224,13 @@ final class NativeUIShellTests: XCTestCase {
         let segment = app.segmentedControls.firstMatch
         XCTAssertTrue(segment.waitForExistence(timeout: 5), app.debugDescription)
         segment.buttons["Two"].tap()
-        XCTAssertTrue(app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "2", "選択: 2 / 変更回数: 1")).firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "2", "Selection: 2 / Change count: 1")).firstMatch.waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertFalse(segment.buttons["Three"].isEnabled)
-        app.webViews.buttons["プログラムでOneを選択"].tap()
+        app.webViews.buttons["Select One programmatically"].tap()
 
-        app.webViews.buttons["Modalを開く"].tap()
+        app.webViews.buttons["Open modal"].tap()
         XCTAssertTrue(segment.waitForNonExistence(timeout: 5), app.debugDescription)
-        app.webViews.buttons["Modalを閉じる"].tap()
+        app.webViews.buttons["Close modal"].tap()
         XCTAssertTrue(segment.waitForExistence(timeout: 5), app.debugDescription)
 
         app.swipeUp()
@@ -384,7 +384,7 @@ final class NativeUIShellTests: XCTestCase {
 
     private func savedOnce(_ app: XCUIApplication) -> XCUIElement {
         // WebKit may expose adjacent text and <strong> as one accessibility element.
-        app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "1", "保存回数: 1")).firstMatch
+        app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "1", "Save count: 1")).firstMatch
     }
 
     private func nativeButton(_ app: XCUIApplication, label: String) -> XCUIElement {

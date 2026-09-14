@@ -1,8 +1,10 @@
 ---
-title: Native UI Shell
+title: Native UI Shell (Experimental)
 ---
 
-# Native UI Shell
+# Native UI Shell (Experimental)
+
+Native UI Shell is experimental. Its API and supported controls may change.
 
 Native UI Shell gives an Ionic app native navigation and action controls around its Web content. The optional Capacitor iOS plugin renders supported fixed Ionic controls with UIKit and the system's Liquid Glass material. Page content, scrolling, application state and routing remain in Ionic's WebView.
 
