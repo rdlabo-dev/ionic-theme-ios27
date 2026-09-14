@@ -11,6 +11,8 @@ const mockNative = async (page: Page, fail = false) => {
       sequence: 0,
       delay: 0,
       hang: false,
+      rejectInactiveSearch: false,
+      rejectAllSearch: false,
       activate: (_event: any) => {},
       search: (_event: any) => {},
     };
@@ -36,7 +38,15 @@ const mockNative = async (page: Page, fail = false) => {
           if (state.hang && method === 'update') await new Promise(() => {});
           if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
           if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
-          return { revision: options.revision };
+          return {
+            revision: options.revision,
+            rejectedSearches:
+              state.rejectInactiveSearch || state.rejectAllSearch
+                ? options.controls
+                    ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
+                    .map((control: any) => control.id)
+                : [],
+          };
         },
         nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
           if (method === 'addListener') {
@@ -1748,3 +1758,211 @@ for (const theme of ['light', 'class', 'system', 'always'] as const) {
     }
   });
 }
+
+test('native handoff crossfades visual opacity while transferring ownership once', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).toHaveCSS('visibility', 'hidden');
+  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(segment).toHaveAttribute('data-native-ui-shell-fading', '');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell');
+  const sample = async () =>
+    segment.evaluate((el) => {
+      const animation = el.getAnimations().find((effect) => effect.effect?.getTiming().duration === 180)!;
+      animation.pause();
+      animation.currentTime = 90;
+      const result = {
+        opacity: Number(getComputedStyle(el).opacity),
+        pointerEvents: getComputedStyle(el).pointerEvents,
+        hidden: el.getAttribute('aria-hidden'),
+      };
+      animation.finish();
+      return result;
+    });
+  const web = await sample();
+  expect(web.opacity).toBeCloseTo(0.5, 1);
+  expect(web.pointerEvents).not.toBe('none');
+  expect(web.hidden).not.toBe('true');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  await segment.evaluate((el) => el.classList.remove('ios-theme-shell-disabled'));
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).toHaveAttribute('data-native-ui-shell-fading', '');
+  const native = await sample();
+  expect(native.opacity).toBeCloseTo(0.5, 1);
+  expect(native.pointerEvents).toBe('none');
+  expect(native.hidden).toBe('true');
+  await expect(segment).toHaveCSS('visibility', 'hidden');
+});
+
+test('reduced motion hands off without a crossfade', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  const duration = await page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration);
+  expect(duration).toBe(0);
+  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell');
+  await expect(segment).toHaveCSS('opacity', '1');
+});
+
+test('cancelling a handoff animation releases its temporary visibility override', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).toHaveCSS('visibility', 'hidden');
+  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(segment).toHaveAttribute('data-native-ui-shell-fading', '');
+  await segment.evaluate((el) => el.getAnimations().forEach((animation) => animation.cancel()));
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  await expect(segment).toHaveCSS('opacity', '1');
+  await expect(segment).toHaveCSS('visibility', 'visible');
+});
+
+for (const direction of ['ltr', 'rtl']) {
+  for (const slot of ['start', 'end']) {
+    test(`projects button icon spacing and asymmetric insets for ${slot} in ${direction}`, async ({ page }) => {
+      await mockNative(page);
+      await page.goto('/main/index/native-ui-shell');
+      const button = page.locator('app-native-ui-shell ion-button[type="submit"]');
+      await expect(button).toHaveAttribute('data-native-ui-shell', '');
+      await button.evaluate(
+        (el, { direction, slot }) => {
+          el.style.direction = direction;
+          el.style.setProperty('--padding-start', '10px');
+          el.style.setProperty('--padding-end', '14px');
+          const surface = el.shadowRoot!.querySelector<HTMLElement>('[part="native"]')!;
+          surface.style.setProperty('border-inline-start-width', '2px', 'important');
+          surface.style.setProperty('border-inline-end-width', '3px', 'important');
+          const icon = el.querySelector('ion-icon')!;
+          icon.slot = slot;
+          icon.style.marginInlineStart = slot === 'start' ? '-3px' : '5px';
+          icon.style.marginInlineEnd = slot === 'start' ? '5px' : '-3px';
+        },
+        { direction, slot },
+      );
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const item = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-button')
+              ?.items[0];
+            return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
+          }),
+        )
+        .toEqual(slot === 'start' ? [5, 9, 17] : [5, 12, 14]);
+    });
+  }
+}
+
+for (const direction of ['ltr', 'rtl']) {
+  test(`projects both icon-only back button margins in ${direction}`, async ({ page }) => {
+    await mockNative(page);
+    await page.goto('/main/index/native-ui-shell');
+    const button = page.locator('app-native-ui-shell ion-back-button');
+    await expect(button).toHaveAttribute('data-native-ui-shell', '');
+    await button.evaluate((el, direction) => {
+      el.style.direction = direction;
+      el.style.setProperty('--padding-start', '10px');
+      el.style.setProperty('--padding-end', '14px');
+      el.style.setProperty('--icon-margin-start', '-6px');
+      el.style.setProperty('--icon-margin-end', '2px');
+      const surface = el.shadowRoot!.querySelector<HTMLElement>('[part="native"]')!;
+      surface.style.setProperty('border-inline-start-width', '2px', 'important');
+      surface.style.setProperty('border-inline-end-width', '3px', 'important');
+    }, direction);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const item = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-back-button')
+            ?.items[0];
+          return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
+        }),
+      )
+      .toEqual([0, 6, 19]);
+  });
+}
+
+test('rejected cached search is replaced by ordinary native tabs after navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 1210 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  await expect(page.locator('app-album-page ion-footer')).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => ((window as any).__nativeUIShell.rejectInactiveSearch = true));
+  await activate(page, 'Index');
+  await expect(page).toHaveURL('/main/index');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const control = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((c: any) => c.kind === 'ion-tab-bar');
+        return !!control && !control.search;
+      }),
+    )
+    .toBe(true);
+  await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
+  await activate(page, 'Docs');
+  await expect(page).toHaveURL('/main/docs');
+});
+
+for (const invalidated of [false, true]) {
+  test(`input received before acquisition acknowledgement is ${invalidated ? 'rejected after disabling' : 'delivered once'}`, async ({
+    page,
+  }) => {
+    await mockNative(page);
+    await page.goto('/main/index/native-ui-shell');
+    const button = page.locator('app-native-ui-shell ion-button[type="submit"]');
+    await expect(button).toHaveAttribute('data-native-ui-shell', '');
+    await button.evaluate((el) => (el.parentElement!.hidden = true));
+    await expect(button).not.toHaveAttribute('data-native-ui-shell');
+    await page.evaluate(() => ((window as any).__nativeUIShell.delay = 1000));
+    const previous = await page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).revision);
+    await button.evaluate((el) => (el.parentElement!.hidden = false));
+    await expect
+      .poll(() =>
+        page.evaluate((previous) => {
+          const snapshot = (window as any).__nativeUIShell.updates.at(-1);
+          return snapshot.revision > previous && snapshot.controls.some((c: any) => c.kind === 'ion-button');
+        }, previous),
+      )
+      .toBe(true);
+    await expect(button).not.toHaveAttribute('data-native-ui-shell');
+    await activate(page, (await button.locator('[data-label]').textContent()) as string, true);
+    await expect(page.locator('[data-save-count]')).toHaveText('0');
+    if (invalidated) await button.evaluate((el: any) => (el.disabled = true));
+    await page.evaluate(() => ((window as any).__nativeUIShell.delay = 0));
+    if (invalidated) {
+      await page.waitForTimeout(1200);
+      await expect(page.locator('[data-save-count]')).toHaveText('0');
+    } else {
+      await expect(page.locator('[data-save-count]')).toHaveText('1');
+    }
+  });
+}
+
+test('rejected search retries when tab content changes without resizing', async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 1210 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  const footer = page.locator('app-album-page ion-footer');
+  await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => ((window as any).__nativeUIShell.rejectAllSearch = true));
+  await page
+    .locator('ion-tab-button ion-label')
+    .first()
+    .evaluate((el) => (el.textContent = 'Rejected'));
+  await expect(footer).not.toHaveAttribute('data-native-ui-shell');
+  const before = await page.locator('ion-tab-bar').boundingBox();
+  await page.evaluate(() => ((window as any).__nativeUIShell.rejectAllSearch = false));
+  await page
+    .locator('ion-tab-button ion-label')
+    .first()
+    .evaluate((el) => (el.textContent = 'Index'));
+  await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+  expect(await page.locator('ion-tab-bar').boundingBox()).toEqual(before);
+});

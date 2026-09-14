@@ -42,6 +42,9 @@ export interface ShellItem extends Frame {
   iconWidth?: number;
   iconHeight?: number;
   iconPosition?: 'leading' | 'trailing' | 'top';
+  imagePadding?: number;
+  contentInsetLeading?: number;
+  contentInsetTrailing?: number;
   iconTemplate?: boolean;
   visible?: boolean;
   closeIcon?: string;
@@ -84,6 +87,7 @@ export interface ShellSearchEvent extends ShellActivation {
 
 export interface ShellSnapshot {
   revision: number;
+  transitionDuration?: number;
   viewportWidth: number;
   controls: ShellControl[];
 }

@@ -2,12 +2,13 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
 import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
-import type { ShellSnapshot, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus } from './definitions';
+import type { ShellActivation, ShellSnapshot, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector } from './components';
 import { marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
+import { createCrossfade, fadeMarker } from './shared/crossfade';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
@@ -22,6 +23,7 @@ const bounded = <T>(promise: Promise<T>): Promise<T> =>
 export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
+  const crossfade = createCrossfade(win);
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
   const sources = new Map<HTMLElement, string | null>();
@@ -35,6 +37,8 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
   let nextId = 0;
   let revision = 0;
   let acceptedRevision = 0;
+  let updatingRevision: number | undefined;
+  let pendingActivations: ShellActivation[] = [];
   let lastSequence = 0;
   let lastSnapshot = '';
   let viewport = `${win.innerWidth}:${win.innerHeight}`;
@@ -57,12 +61,15 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     return value;
   };
   const style = doc.createElement('style');
-  style.textContent = `[${marker}], [${marker}] *, [${marker}]::before, [${marker}]::after, [${marker}]::part(native) { visibility: hidden !important; }`;
+  const hidden = `[${marker}]:not([${fadeMarker}])`;
+  style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
+    [${marker}], [${marker}] * { pointer-events: none !important; }`;
 
   const restore = (element: HTMLElement) => {
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
+    if (!stopped) crossfade.play(element, false);
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -197,10 +204,11 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       const data = { viewportWidth: win.innerWidth, controls: candidates.map((candidate) => candidate.control) };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
-      const snapshot: ShellSnapshot = { ...data, revision: ++revision };
+      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration() };
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
       updates++;
+      updatingRevision = snapshot.revision;
       const result = await bounded(plugin.update(snapshot));
       if (stopped) return;
       if (result.revision !== snapshot.revision) throw new Error('Native UI Shell revision mismatch');
@@ -236,11 +244,16 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       for (const element of accepted.flatMap(candidateSources)) {
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
+          crossfade.play(element, true);
           element.setAttribute(marker, '');
           element.setAttribute('aria-hidden', 'true');
           element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
         }
       }
+      const received = pendingActivations;
+      pendingActivations = [];
+      received.forEach(activate);
+      await crossfade.settled();
       if (invalidated) {
         dirty = true;
         // Sources that became ineligible must paint before their cover is removed.
@@ -249,6 +262,8 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     } catch (error) {
       await fail(error);
     } finally {
+      updatingRevision = undefined;
+      pendingActivations = [];
       // A refresh received before the ack must also invalidate that ack's rejects.
       if (forceRefresh) rejected = new WeakMap();
       pending = false;
@@ -262,6 +277,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       records.some(
         (record) =>
           record.attributeName !== marker &&
+          record.attributeName !== fadeMarker &&
           !(
             record.attributeName === 'aria-hidden' &&
             sources.has(record.target as HTMLElement) &&
@@ -369,7 +385,9 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       resize.disconnect();
       observed.clear();
       actions.clear();
+      pendingActivations = [];
       search.destroy();
+      crossfade.destroy();
       restoreAll();
       if (!doc.hidden) await painted();
       try {
@@ -388,35 +406,40 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
       finishWaiters();
     },
   };
+  const activate = (event: ShellActivation) => {
+    if (
+      stopped ||
+      doc.hidden ||
+      event.revision < acceptedRevision ||
+      event.revision > revision ||
+      event.sequence <= lastSequence ||
+      overlayOpen()
+    )
+      return;
+    // Native may send input before update() resolves on the JS bridge.
+    // Revalidate it after ownership is accepted, using the same action path.
+    if (event.revision > acceptedRevision && event.revision === updatingRevision) {
+      pendingActivations.push(event);
+      return;
+    }
+    lastSequence = event.sequence;
+    const element = actions.get(event.id);
+    if (!element) return;
+    const owner = Array.from(sources.keys()).find((source) => source === element || source.contains(element));
+    if (!owner) return;
+    const direct = !blocked(owner) && unprojected(sources.keys(), () => readCandidate(owner, id));
+    const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
+    const item = candidate?.control.items.find((item) => item.id === event.id);
+    const searchAction =
+      candidate?.control.search && [candidate.control.search.trigger.id, candidate.control.search.closeId].includes(event.id);
+    if (!searchAction && (!item || item.disabled || item.visible === false)) return;
+    // The original Ionic host owns form submission, routerLink and selection events.
+    element.click();
+    lastSnapshot = ''; // Reconcile even if Ionic rejects the proposed native selection.
+    schedule();
+  };
   try {
-    listener = await bounded(
-      plugin.addListener('activate', (event) => {
-        if (
-          stopped ||
-          doc.hidden ||
-          event.revision < acceptedRevision ||
-          event.revision > revision ||
-          event.sequence <= lastSequence ||
-          overlayOpen()
-        )
-          return;
-        lastSequence = event.sequence;
-        const element = actions.get(event.id);
-        if (!element) return;
-        const owner = Array.from(sources.keys()).find((source) => source === element || source.contains(element));
-        if (!owner) return;
-        const direct = !blocked(owner) && unprojected(sources.keys(), () => readCandidate(owner, id));
-        const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
-        const item = candidate?.control.items.find((item) => item.id === event.id);
-        const searchAction =
-          candidate?.control.search && [candidate.control.search.trigger.id, candidate.control.search.closeId].includes(event.id);
-        if (!searchAction && (!item || item.disabled || item.visible === false)) return;
-        // The original Ionic host owns form submission, routerLink and selection events.
-        element.click();
-        lastSnapshot = ''; // Reconcile even if Ionic rejects the proposed native selection.
-        schedule();
-      }),
-    );
+    listener = await bounded(plugin.addListener('activate', activate));
     searchListener = await bounded(
       plugin.addListener('search', (event) => {
         if (stopped || doc.hidden || event.revision < acceptedRevision || event.revision > revision || overlayOpen()) return;

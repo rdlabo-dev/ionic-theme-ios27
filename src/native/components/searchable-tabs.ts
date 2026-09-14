@@ -224,6 +224,12 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           trigger.y,
           trigger.width,
           trigger.height,
+          candidate.control.items,
+          candidate.icons.map(({ source }) => source),
+          field,
+          trigger,
+          bar.placeholder,
+          bar.disabled,
         ]);
         if (state.rejectedLayout === state.layout) continue;
         candidate.control.search = {
@@ -259,7 +265,12 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
     },
     reject(ids: string[]) {
       states.forEach((state) => {
-        if (ids.includes(id(state.binding.tabBar))) state.rejectedLayout = state.layout;
+        if (ids.includes(id(state.binding.tabBar))) {
+          state.rejectedLayout = state.layout;
+          // A rejected search surface has been removed by UIKit. Do not reuse its
+          // cached configuration on an inactive page; project ordinary tabs instead.
+          state.last = undefined;
+        }
       });
     },
     event(event: ShellSearchEvent) {

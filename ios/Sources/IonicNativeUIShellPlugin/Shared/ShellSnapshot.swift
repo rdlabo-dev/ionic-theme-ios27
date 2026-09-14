@@ -9,11 +9,12 @@ enum ShellComponent: String, Decodable {
 
 struct ShellSnapshot: Decodable {
     let revision: Int
+    let transitionDuration: Double?
     let viewportWidth: Double
     let controls: [ShellControl]
 
     var isValid: Bool {
-        revision >= 0 && viewportWidth.isFinite && viewportWidth > 0 && controls.count <= 100 &&
+        revision >= 0 && (transitionDuration.map { $0.isFinite && $0 >= 0 && $0 <= 500 } ?? true) && viewportWidth.isFinite && viewportWidth > 0 && controls.count <= 100 &&
         Set(controls.map(\.id)).count == controls.count && controls.allSatisfy(\.isValid)
     }
 }
@@ -100,6 +101,9 @@ struct ShellItemContent: Decodable, Equatable {
     var iconWidth: Double?
     var iconHeight: Double?
     let iconPosition: IconPosition?
+    let imagePadding: Double?
+    let contentInsetLeading: Double?
+    let contentInsetTrailing: Double?
     let iconTemplate: Bool?
     let closeIcon: String?
     let closeIconWidth: Double?
@@ -109,6 +113,7 @@ struct ShellItemContent: Decodable, Equatable {
     var isValid: Bool {
         !id.isEmpty && fontSize.isFinite && fontSize >= 0 && fontWeight.isFinite &&
         [iconWidth, iconHeight, closeIconWidth, closeIconHeight].compactMap { $0 }.allSatisfy { $0.isFinite && $0 > 0 } &&
+        [imagePadding, contentInsetLeading, contentInsetTrailing].compactMap { $0 }.allSatisfy { $0.isFinite } &&
         (iconTransition.map { $0.isFinite && $0 >= 0 } ?? true)
     }
 }
