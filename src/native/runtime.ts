@@ -1,4 +1,5 @@
 import type { PluginListenerHandle } from '@capacitor/core';
+import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
 import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
 import type { ShellSnapshot, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus } from './definitions';
@@ -6,6 +7,7 @@ import { readCandidate, selector, shadowSelector, motionSelector } from './compo
 import { marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
+import { CSS_MOTION_EVENTS } from './shared/events';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
@@ -273,7 +275,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     const target = event.target as HTMLElement;
     if (!target.matches?.(motionSelector)) return;
     const key = (event as TransitionEvent).propertyName ?? (event as AnimationEvent).animationName;
-    if (event.type === 'transitionrun' || event.type === 'animationstart') {
+    if (event.type === CSS_MOTION_EVENTS.transitionRun || event.type === CSS_MOTION_EVENTS.animationStart) {
       const keys = moving.get(target) ?? new Set<string>();
       keys.add(key);
       moving.set(target, keys);
@@ -283,10 +285,9 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     }
     schedule();
   };
-  for (const name of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'])
-    on(doc, name, motion);
-  for (const name of ['ionViewWillEnter', 'ionViewWillLeave']) on(doc, name, pageWill);
-  for (const name of ['ionViewDidEnter', 'ionViewDidLeave']) on(doc, name, pageDid);
+  for (const name of Object.values(CSS_MOTION_EVENTS)) on(doc, name, motion);
+  for (const name of [LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE]) on(doc, name, pageWill);
+  for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
   for (const name of overlayNames) {
     on(doc, `ion${name}WillPresent`, (event) => {
       presented.add(event.target as HTMLElement);
@@ -310,8 +311,8 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     'ionSelect',
     'ionTabsDidChange',
     'ionImgDidLoad',
-    'transitionend',
-    'animationend',
+    CSS_MOTION_EVENTS.transitionEnd,
+    CSS_MOTION_EVENTS.animationEnd,
     'focusin',
     'focusout',
   ])
