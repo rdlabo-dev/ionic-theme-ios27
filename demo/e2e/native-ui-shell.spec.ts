@@ -324,11 +324,11 @@ test('native click preserves external form submit, disabled, and duplicate prote
   const button = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   await expect(button.locator('button')).toHaveCSS('visibility', 'hidden');
-  await activate(page, '保存', true);
+  await activate(page, 'Save', true);
   await expect(page.locator('[data-save-count]')).toHaveText('1');
   await page.getByRole('button', { name: 'disabled: false', exact: true }).click();
   await expect(button).toHaveJSProperty('disabled', true);
-  await activate(page, '保存');
+  await activate(page, 'Save');
   await expect(page.locator('[data-save-count]')).toHaveText('1');
   await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBeGreaterThan(0);
   await page.waitForTimeout(200);
@@ -342,7 +342,7 @@ test('ancestor display/theme aliases and non-glass fills restore Web', async ({ 
   await page.goto('/main/index/native-ui-shell');
   const button = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
-  for (const toggle of ['親の非表示', 'テーマ無効']) {
+  for (const toggle of ['Parent hidden', 'Theme disabled']) {
     await page.getByRole('button', { name: `${toggle}: false`, exact: true }).click();
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await page.getByRole('button', { name: `${toggle}: true`, exact: true }).click();
@@ -508,7 +508,7 @@ test('segment preserves numeric values and emits only user changes', async ({ pa
   await expect(page.locator('[data-changes]')).toHaveText('1');
   await activate(page, 'Three');
   await expect(segment).toHaveJSProperty('value', 2);
-  await page.getByRole('button', { name: 'プログラムでOneを選択' }).click();
+  await page.getByRole('button', { name: 'Select One programmatically' }).click();
   await expect(segment).toHaveJSProperty('value', 'one');
   await expect(page.locator('[data-changes]')).toHaveText('1');
 });
@@ -520,9 +520,9 @@ test('modal suspension, tab hiding and destroy restore ownership', async ({ page
   const tabs = page.locator('ion-tab-bar');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
-  await page.getByRole('button', { name: 'Modalを開く', exact: true }).click();
+  await page.getByRole('button', { name: 'Open modal', exact: true }).click();
   await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Modalを閉じる', exact: true }).click();
+  await page.getByRole('button', { name: 'Close modal', exact: true }).click();
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   await tabs.evaluate((element) => (element.style.display = 'none'));
   await expect(tabs).not.toHaveAttribute('data-native-ui-shell');
@@ -530,7 +530,7 @@ test('modal suspension, tab hiding and destroy restore ownership', async ({ page
   await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => (window as any).nativeUIShell.destroy());
   await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
-  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('[data-save-count]')).toHaveText('1');
 });
 
@@ -541,7 +541,7 @@ test('delayed response cannot reclaim a hidden source', async ({ page }) => {
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => ((window as any).__nativeUIShell.delay = 150));
   await button.evaluate((element) => (element.querySelector('[data-label]')!.textContent = '変更'));
-  await page.getByRole('button', { name: '親の非表示: false', exact: true }).click();
+  await page.getByRole('button', { name: 'Parent hidden: false', exact: true }).click();
   await expect(button).not.toHaveAttribute('data-native-ui-shell');
   await page.waitForTimeout(350);
   await expect(button).not.toHaveAttribute('data-native-ui-shell');
@@ -588,7 +588,7 @@ test('native failure leaves Web form usable', async ({ page }) => {
   await mockNative(page, true);
   await page.goto('/main/index/native-ui-shell');
   await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell?.getStatus().state)).toBe('stopped');
-  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('[data-save-count]')).toHaveText('1');
 });
 
@@ -633,7 +633,7 @@ test('ion-icon SVGs project and update when their name changes', async ({ page }
   const nativeIcon = () =>
     button.evaluate(() => {
       const snapshot = (window as any).__nativeUIShell.updates.at(-1);
-      return snapshot.controls.flatMap((control: any) => control.items).find((item: any) => item.accessibilityLabel === '保存')?.icon;
+      return snapshot.controls.flatMap((control: any) => control.items).find((item: any) => item.accessibilityLabel === 'Save')?.icon;
     });
   await expect.poll(nativeIcon).toMatch(/^iVBOR/);
   const original = await nativeIcon();
@@ -780,7 +780,7 @@ test('all demo pages keep projection consistent through consecutive navigation',
   await settled();
   for (const route of routes) {
     await test.step(route, async () => {
-      await page.getByRole('button', { name: route, exact: true }).click();
+      await page.getByRole('button', { name: route === 'native-ui-shell' ? 'native-ui-shell (Experimental)' : route, exact: true }).click();
       await expect(page).toHaveURL(`/main/index/${route}`);
       await settled();
       await back();
@@ -890,7 +890,7 @@ test('shared tabs stay native throughout navigation and delayed page updates', a
     .first()
     .evaluate((label) => (label.textContent = 'Index'));
   for (const route of ['native-ui-shell', 'button', 'segment', 'native-ui-shell']) {
-    await page.getByRole('button', { name: route, exact: true }).click();
+    await page.getByRole('button', { name: route === 'native-ui-shell' ? 'native-ui-shell (Experimental)' : route, exact: true }).click();
     await expect(page).toHaveURL(`/main/index/${route}`);
     if (route === 'native-ui-shell') {
       const save = page.locator('app-native-ui-shell ion-button[type=submit]');

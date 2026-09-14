@@ -1,10 +1,10 @@
 ---
-title: Experimental animation
+title: Animation
 ---
 
-# Experimental animation
+# Animation
 
-These gesture and animation helpers are experimental and optional. The theme works without them.
+These gesture and animation helpers are production-ready and optional. The theme works without them.
 
 ## Sheet of Glass with `ion-tab-button` / `ion-segment-button`
 

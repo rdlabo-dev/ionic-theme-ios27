@@ -26,7 +26,7 @@ final class NativeUIShellEdgeTests: XCTestCase {
         shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
     private func openPage(_ app: XCUIApplication, name: String = "button") {
-        let entry = app.webViews.buttons[name].firstMatch
+        let entry = app.webViews.buttons[name == "native-ui-shell" ? "native-ui-shell (Experimental)" : name].firstMatch
         for _ in 0..<15 {
             if entry.isHittable && entry.frame.midY > 330 && entry.frame.midY < app.frame.height - 120 { break }
             let below = entry.frame.midY >= app.frame.height - 120
