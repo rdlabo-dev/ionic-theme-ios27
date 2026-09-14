@@ -187,3 +187,52 @@ for (const width of [390, 1210]) {
     }
   });
 }
+
+for (const tag of ['button', 'ion-button']) {
+  for (const side of ['top', 'bottom', 'left', 'right']) {
+    test(`event reference points to the click on ${tag} for ${side} placement`, async ({ page }) => {
+      await page.setViewportSize({ width: 1210, height: 834 });
+      await page.goto('/main/index/popover');
+      await page.waitForSelector('ion-popover.hydrated', { state: 'attached' });
+      const result = await page.evaluate(
+        async ({ tag, side }) => {
+          const anchor = document.createElement(tag);
+          anchor.style.cssText = 'position:fixed;left:500px;top:300px;width:200px;height:120px';
+          anchor.textContent = 'Open';
+          document.body.append(anchor);
+          const popover = document.createElement('ion-popover') as any;
+          popover.component = document.createElement('div');
+          popover.component.textContent = 'Content';
+          popover.style.cssText = '--width:240px;--height:180px';
+          popover.reference = 'event';
+          popover.event = { target: anchor, clientX: 520, clientY: 320 };
+          popover.side = side;
+          document.body.append(popover);
+          await popover.present();
+          const root = popover.shadowRoot;
+          const content = root.querySelector('.popover-content');
+          const rect = content.getBoundingClientRect();
+          const arrow = root.querySelector('[part="arrow"]').getBoundingClientRect();
+          const origin = getComputedStyle(content).transformOrigin.split(' ').map(parseFloat);
+          const horizontal = side === 'left' || side === 'right';
+          const result = {
+            arrow: horizontal ? arrow.top + arrow.height / 2 : arrow.left + arrow.width / 2,
+            origin: horizontal ? rect.top + origin[1] : rect.left + origin[0],
+            expected: horizontal ? 320.5 : 520.5,
+            callout: root.querySelectorAll('[part="callout-glass"]').length,
+            replacing: anchor.classList.contains('ios27-replace-element'),
+          };
+          await popover.dismiss();
+          popover.remove();
+          anchor.remove();
+          return result;
+        },
+        { tag, side },
+      );
+      expect(result.callout).toBe(1);
+      expect(result.replacing).toBe(false);
+      expect(Math.abs(result.arrow - result.expected)).toBeLessThan(1);
+      expect(Math.abs(result.origin - result.expected)).toBeLessThan(1);
+    });
+  }
+}
