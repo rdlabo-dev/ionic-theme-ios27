@@ -1,35 +1,43 @@
 @use '../utils/api';
 
 ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  @include api.glass-overlay-variables;
   --min-width: 280px;
+  --max-width: 320px;
   --backdrop-opacity: 0.2;
 
-  // --max-width: clamp(270px, 16.875rem, 324px);
-  --max-width: 322px;
-
-  transition: transform 200ms ease;
-  &:has(.ion-activated) {
-    transform: scale(1.016);
-  }
-
   .alert-wrapper {
-    @include api.glass-background-overlay;
-    &:has(.ion-activated) {
-      @include api.glass-background-overlay-activated;
-    }
-    border-radius: 32px;
+    @include api.glass-overlay-surface;
+    border-radius: 36px;
+    // The dialog receives programmatic focus; focus feedback belongs to its controls.
+    outline: none;
 
-    .alert-head,
-    .alert-message {
-      text-align: left;
-      margin-left: 14px;
-      margin-right: 14px;
+    .alert-head {
+      padding: 22px 30px 7px;
+      text-align: start;
     }
 
+    .alert-title {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.21;
+      font-weight: 600;
+    }
+
+    .alert-sub-title,
     .alert-message {
-      font-size: 0.98rem;
-      line-height: 1.2rem;
-      color: var(--ion-color-step-600, var(--ion-text-color-step-400, #666666));
+      font-size: 0.94rem;
+      line-height: 1.19;
+      color: var(--ion-text-color-step-600, var(--ion-color-step-400, #999999));
+    }
+
+    .alert-message {
+      padding: 0 30px 20px;
+      text-align: start;
+
+      &:empty {
+        padding: 0 0 12px;
+      }
     }
 
     .alert-radio-group {
@@ -41,26 +49,38 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
 
     .alert-button-group {
-      padding: 0 8px 12px;
-      gap: 8px 0;
+      padding: 0 16px 16px;
+      gap: 8px;
       .alert-button {
         @include api.glass-background-overlay-button;
         border: none;
-        border-radius: 32px;
-        margin: 0 6px;
-        min-width: calc(50% - 12px);
-        // height: max(44px, 2.75rem);
-        height: 48px;
+        border-radius: 24px;
+        margin: 0;
+        min-width: calc(50% - 4px);
+        min-height: 48px;
+        height: auto;
+        padding: 12px;
+        font-size: 1rem;
+        line-height: 1.19;
+        font-weight: 600;
 
-        &:not(.alert-button-role-destructive) {
+        .alert-button-inner {
+          min-height: 0;
+          height: auto;
+        }
+
+        &.alert-button-role-destructive {
+          color: var(--ios-theme-destructive-color, var(--ion-color-danger, #ea292d));
+        }
+
+        &.alert-button-role-preferred {
+          @include api.glass-overlay-preferred-button;
+        }
+
+        &:not(.alert-button-role-destructive):not(.alert-button-role-preferred) {
           color: var(--ion-text-color, #000);
         }
-        font-weight: 550;
       }
-    }
-
-    button.action-sheet-cancel {
-      margin-top: 12px;
     }
   }
 }

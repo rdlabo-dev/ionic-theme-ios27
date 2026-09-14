@@ -53,7 +53,7 @@ export class ModalPage implements OnInit {
 
   constructor() {
     effect(async () => {
-      if (this.#params()?.['type']) {
+      if (!this.isModal() && this.#params()?.['type']) {
         await this.present(this.#params()?.['type']);
       }
     });
@@ -79,11 +79,12 @@ export class ModalPage implements OnInit {
           ...modalDefault,
           breakpoints: [0, 0.5, 0.8],
           initialBreakpoint: 0.8,
+          expandToScroll: false,
         };
       }
       return modalDefault;
     })(type);
-    const actionSheet = await this.overlayCtrl.create(applyConfig);
-    await actionSheet.present();
+    const modal = await this.overlayCtrl.create(applyConfig);
+    await modal.present();
   }
 }

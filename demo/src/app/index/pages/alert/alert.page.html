@@ -25,6 +25,7 @@
 
   <ion-list [inset]="true">
     <ion-item-group>
+      <ion-item (click)="present('preferred')" [button]="true">present:preferred</ion-item>
       <ion-item (click)="present('all')" [button]="true">present:all</ion-item>
       <ion-item (click)="present('button-only')" [button]="true">present:button-only</ion-item>
       <ion-item (click)="present('no-cancel')" [button]="true">present:no-cancel</ion-item>
