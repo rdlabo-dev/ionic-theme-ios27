@@ -1,10 +1,21 @@
 @use '../utils/api';
 
+@mixin sheet-glass {
+  &::part(content) {
+    @include api.glass-background($opacity: 1, $include-background: false);
+    box-sizing: border-box;
+  }
+}
+
 ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --backdrop-opacity: 0.2;
 
   &::part(handle) {
-    width: 80px;
+    top: 6px;
+    width: 60px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--ion-background-color-step-250, var(--ion-color-step-250, #c8c7cc));
   }
 
   ion-toolbar {
@@ -12,19 +23,33 @@ ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled) {
     padding-left: var(--ion-safe-area-left);
   }
 
+  &.modal-card,
   &.modal-sheet {
-    ion-toolbar {
-      padding-right: calc(var(--ion-safe-area-right) + 4px);
-      padding-left: calc(var(--ion-safe-area-left) + 4px);
-    }
+    --border-radius: 32px;
   }
 
-  &.modal-card {
-    /**
-     * IonicでCardModalのborder-radiusはハードコーディングされています。
-     * また、iOS27のドキュメントで見つからないため、サポートは行いません。
-     * https://github.com/ionic-team/ionic-framework/blob/3b80473f2fd5ad4da5a9f5d66f783a69909c8965/core/src/components/modal/animations/ios.enter.ts#L82-L83
-     */
+  // Match the iPad form and page presentations without changing phone fullscreen modals.
+  @media (min-width: 768px) and (min-height: 600px) {
+    --border-radius: 32px;
+    --width: 580px;
+    --height: min(660px, calc(100% - 64px));
+    --box-shadow: 0 24px 64px color-mix(in srgb, var(--ion-box-shadow-color, #000) 18%, transparent);
+
+    &:not(.modal-card, .modal-sheet)::part(content) {
+      // Keep translucent headers from sampling the shadow outside the rounded surface.
+      clip-path: inset(0 round var(--border-radius));
+    }
+
+    &.modal-card {
+      --width: min(936px, calc(100% - 40px));
+      --max-width: 936px;
+      --height: calc(100% - max(32px, var(--ion-safe-area-top, 0px)) * 2);
+    }
+
+    &.modal-sheet {
+      --width: min(936px, calc(100vw - 40px));
+      --height: calc(100% - max(32px, var(--ion-modal-offset-top, 0px)));
+    }
   }
 
   &:has(.ion-delegate-host):has(ion-datetime) {
@@ -33,10 +58,34 @@ ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   &.modal-sheet {
-    --border-radius: 30px;
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 1);
-    &::part(content) {
-      @include api.glass-background($opacity: 1, $include-background: false);
+    @media (max-width: 767px), (max-height: 599px) {
+      @include sheet-glass;
+    }
+  }
+
+  @media (min-width: 768px) and (min-height: 600px) {
+    &.modal-sheet:not(.modal-no-expand-scroll) {
+      @include sheet-glass;
+    }
+
+    // Ionic sizes the page at each breakpoint when expandToScroll is false.
+    &.modal-sheet.modal-no-expand-scroll {
+      --background: transparent;
+      --box-shadow: none;
+      --border-width: 0;
+      --overflow: visible;
+
+      &::part(content) {
+        bottom: 20px;
+      }
+
+      > .ion-page {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        background: var(--ion-background-color, #fff);
+        box-shadow: 0 24px 64px color-mix(in srgb, var(--ion-box-shadow-color, #000) 18%, transparent);
+      }
     }
   }
 }

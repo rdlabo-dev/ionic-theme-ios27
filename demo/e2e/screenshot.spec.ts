@@ -69,7 +69,8 @@ test.describe('Screenshot Tests - All Routes', () => {
       await prepareScreenShot(page, route.name);
       await expect(page).toHaveScreenshot(`${route.name}.png`, {
         fullPage: true,
-        animations: 'disabled',
+        // Finishing a paused sheet gesture also collapses its visible content.
+        animations: route.name === 'modal:sheet' ? 'allow' : 'disabled',
         mask: [page.locator('ion-spinner')],
       });
     });
@@ -88,7 +89,7 @@ test.describe('Screenshot Tests - Dark Mode', () => {
       await prepareScreenShot(page, route.name);
       await expect(page).toHaveScreenshot(`${route.name}-dark.png`, {
         fullPage: true,
-        animations: 'disabled',
+        animations: route.name === 'modal:sheet' ? 'allow' : 'disabled',
         mask: [page.locator('ion-spinner')],
       });
     });

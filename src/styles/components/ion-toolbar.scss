@@ -13,7 +13,23 @@ ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar:not(.ios-th
 ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card,
 ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
   ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
-    padding-top: 6px;
+    padding-top: 0;
+    padding-bottom: 0;
+    --min-height: 64px;
+    --padding-start: 3px;
+    --padding-end: 3px;
+  }
+}
+
+@media (min-width: 768px) and (min-height: 600px) {
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
+      padding-top: 0;
+      padding-bottom: 0;
+      --min-height: 64px;
+      --padding-start: 3px;
+      --padding-end: 3px;
+    }
   }
 }
 

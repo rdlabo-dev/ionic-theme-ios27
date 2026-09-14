@@ -2,10 +2,14 @@
   <ion-toolbar>
     @if (this.isModal()) {
       <ion-buttons slot="start">
-        <ion-button (click)="overlayCtrl.dismiss()"><ion-icon name="close-outline" slot="icon-only"></ion-icon></ion-button>
+        <ion-button type="button" aria-label="Close" (click)="overlayCtrl.dismiss()"
+          ><ion-icon name="close-outline" slot="icon-only"></ion-icon
+        ></ion-button>
       </ion-buttons>
       <ion-buttons slot="end">
-        <ion-button fill="solid" type="submit" color="primary"><ion-icon name="checkmark-outline" slot="icon-only"></ion-icon></ion-button>
+        <ion-button fill="solid" type="button" class="button-submit" color="primary" aria-label="Done" (click)="overlayCtrl.dismiss()"
+          ><ion-icon name="checkmark-outline" slot="icon-only"></ion-icon
+        ></ion-button>
       </ion-buttons>
     } @else {
       <ion-buttons slot="start">
@@ -23,9 +27,11 @@
         <ion-label>
           <ion-icon name="logo-ionic" style="background: linear-gradient(#489bfd, #2b77f4)"></ion-icon>
           <h2>modal</h2>
-          <ion-header collapse="condense">
-            <ion-toolbar></ion-toolbar>
-          </ion-header>
+          @if (!isModal()) {
+            <ion-header collapse="condense">
+              <ion-toolbar></ion-toolbar>
+            </ion-header>
+          }
           <ion-text><code>This page is a component demo for &#64;rdlabo/ionic-theme-ios27.</code></ion-text>
         </ion-label>
       </ion-item>

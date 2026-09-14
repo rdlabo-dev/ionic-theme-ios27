@@ -30,6 +30,10 @@ buttons: [
 
 Buttons with no role or `default` keep the normal text color. `cancel` retains Ionic's cancellation behavior, `selected` remains a selection state, and `destructive` uses `--ios-theme-destructive-color`. An existing `confirm` role is not treated as preferred. Use `preferred` for the recommended action, not simply any action that confirms a choice.
 
+## Floating iPad sheets
+
+Set `expandToScroll: false` on a sheet modal to use floating lower corners and a 20px bottom gap on iPad. Ionic then sizes the visible page at each breakpoint, so the theme can style it with CSS alone. Content scrolls within the current breakpoint; dragging the handle still resizes the sheet. With the default `expandToScroll: true`, the sheet keeps Ionic's bottom-attached layout and scroll-to-expand behavior.
+
 ## Tab bar position
 
 Add one of `tab-bar-position-start`, `tab-bar-position-center`, or `tab-bar-position-end` to an iOS `ion-tab-bar` to position the whole bar within its safe area. These classes work with both `slot="top"` and `slot="bottom"` and preserve the bar's width and press animation. Start and end follow the text direction (reversed in RTL). Without a class, the existing placement is unchanged.
