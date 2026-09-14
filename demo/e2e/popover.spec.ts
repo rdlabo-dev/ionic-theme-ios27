@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('ordinary anchors show an arrow and morphing buttons do not', async ({ page }) => {
   await page.goto('/main/index/popover');
+  // Reopen the ordinary trigger to verify callout cleanup after a morphing popover.
   for (const trigger of ['click-trigger-button', 'click-trigger-right', 'click-trigger-button']) {
     await page.locator(`#${trigger}`).click();
     const popover = page.locator(`ion-popover[trigger="${trigger}"]`);
@@ -214,10 +215,16 @@ for (const tag of ['button', 'ion-button']) {
           const rect = content.getBoundingClientRect();
           const arrow = root.querySelector('[part="arrow"]').getBoundingClientRect();
           const origin = getComputedStyle(content).transformOrigin.split(' ').map(parseFloat);
+          const layer = root.querySelector('[part="callout-glass"]');
+          const layerRect = layer.getBoundingClientRect();
+          const layerOrigin = getComputedStyle(layer).transformOrigin.split(' ').map(parseFloat);
           const horizontal = side === 'left' || side === 'right';
           const result = {
             arrow: horizontal ? arrow.top + arrow.height / 2 : arrow.left + arrow.width / 2,
-            origin: horizontal ? rect.top + origin[1] : rect.left + origin[0],
+            layerOriginX: layerRect.left + layerOrigin[0],
+            layerOriginY: layerRect.top + layerOrigin[1],
+            originX: rect.left + origin[0],
+            originY: rect.top + origin[1],
             expected: horizontal ? 320.5 : 520.5,
             callout: root.querySelectorAll('[part="callout-glass"]').length,
             replacing: anchor.classList.contains('ios27-replace-element'),
@@ -232,7 +239,10 @@ for (const tag of ['button', 'ion-button']) {
       expect(result.callout).toBe(1);
       expect(result.replacing).toBe(false);
       expect(Math.abs(result.arrow - result.expected)).toBeLessThan(1);
-      expect(Math.abs(result.origin - result.expected)).toBeLessThan(1);
+      expect(Math.abs(result.originX - 520.5)).toBeLessThan(1);
+      expect(Math.abs(result.originY - 320.5)).toBeLessThan(1);
+      expect(Math.abs(result.layerOriginX - 520.5)).toBeLessThan(1);
+      expect(Math.abs(result.layerOriginY - 320.5)).toBeLessThan(1);
     });
   }
 }
