@@ -2,8 +2,21 @@
 
 @mixin ion-tabs {
   ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-    @include glass.dark-fill;
-    @include glass.dark-rim;
+    --color: rgb(var(--ion-text-color-rgb, 255, 255, 255));
+    --background: color-mix(
+      in srgb,
+      color-mix(
+          in srgb,
+          rgb(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb))) 92%,
+          rgb(var(--ion-text-color-rgb, 255, 255, 255))
+        )
+        40%,
+      transparent
+    );
+    &::before {
+      @include glass.dark-rim;
+      backdrop-filter: blur(6px) saturate(150%) brightness(1.23);
+    }
   }
 
   ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {

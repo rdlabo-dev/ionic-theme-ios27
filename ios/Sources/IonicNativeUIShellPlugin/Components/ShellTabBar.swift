@@ -11,13 +11,23 @@ enum ShellTabBar {
 
     static func make(_ node: ShellControl, rendering: ShellRendering, delegate: UITabBarDelegate) -> UITabBar {
         let control = UITabBar()
-        control.itemPositioning = .fill
+        configureLayout(control)
 #if DEBUG
         NSLog("[Native UI Shell] Created UITabBar %@", node.id)
 #endif
         control.delegate = delegate
         update(control, node: node, rendering: rendering)
         return control
+    }
+
+    static func configureLayout(_ tabBar: UITabBar) {
+        // The reader accepts icon-top tabs. Keep that layout local to the native
+        // bar instead of letting the iPad idiom turn it into inline items.
+        if #available(iOS 17.0, *) {
+            tabBar.traitOverrides.horizontalSizeClass = .compact
+            tabBar.traitOverrides.verticalSizeClass = .regular
+        }
+        tabBar.itemPositioning = .fill
     }
 
     static func update(_ tabBar: UITabBar, node: ShellControl, rendering: ShellRendering) {
@@ -40,12 +50,34 @@ enum ShellTabBar {
             if tab.selectedImage !== icon { tab.selectedImage = icon }
             tab.isEnabled = !item.content.disabled
             tab.accessibilityLabel = item.content.accessibilityLabel
+            applyTypography(item.content, to: tab)
             applyBadge(item.content.badge, to: tab, rendering: rendering)
         }
         let selectedItem = zip(nativeItems, items).first { $0.1.content.selected }?.0
         if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
         tabBar.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         tabBar.accessibilityIdentifier = node.id
+    }
+
+    static func applyTypography(_ content: ShellItemContent, to item: UITabBarItem) {
+        let weight: UIFont.Weight
+        switch content.fontWeight {
+        case ..<150: weight = .ultraLight
+        case ..<250: weight = .thin
+        case ..<350: weight = .light
+        case ..<450: weight = .regular
+        case ..<550: weight = .medium
+        case ..<650: weight = .semibold
+        case ..<750: weight = .bold
+        case ..<850: weight = .heavy
+        default: weight = .black
+        }
+        let font = UIFont.systemFont(ofSize: content.fontSize, weight: weight)
+        for state in [UIControl.State.normal, .selected] {
+            if item.titleTextAttributes(for: state)?[.font] as? UIFont != font {
+                item.setTitleTextAttributes([.font: font], for: state)
+            }
+        }
     }
 
     static func applyBadge(_ badge: ShellBadge?, to item: UITabBarItem, rendering: ShellRendering) {
@@ -59,6 +91,12 @@ enum ShellTabBar {
     }
 
     static func fit(_ tabBar: UITabBar, node: ShellControl, bounds: CGRect) -> Bool {
+        // Place a new bar before asking UIKit for its safe-area-dependent size.
+        // Measuring at the initial zero frame makes a restored iPad bar 5pt shorter.
+        if tabBar.bounds.isEmpty {
+            tabBar.frame = bounds
+            tabBar.layoutIfNeeded()
+        }
         let fitted = tabBar.sizeThatFits(bounds.size)
         var size = CGSize(width: bounds.width,
                           height: max(bounds.height, fitted.height))

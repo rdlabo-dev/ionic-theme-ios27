@@ -1,11 +1,30 @@
 @use '../utils/api';
 
 ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include api.glass-control-background;
+  // Ionic forces content-box on the host. Keep the Glass border in a
+  // separate layer so its physical-pixel rounding cannot resize the bar.
+  border: 0;
+  background: transparent;
+  contain: size layout style;
   z-index: 2;
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.53);
 
-  border-radius: 40px;
-  --color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
+  &::before {
+    @include api.glass-control-background($include-background: false);
+    background-color: var(--background);
+    backdrop-filter: blur(6px) saturate(180%) brightness(1.05);
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  border-radius: 31px;
+  --ios-theme-tab-overlap: 20px;
+  --color: var(--ion-text-color-step-50, #0d0d0d);
 
   &[slot='top'] {
     position: absolute;
@@ -42,17 +61,41 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   /**
    * 100% - margin-left - margin-right - right-fab - margin-left-fab
    */
-  width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - 60px - 12px);
-  max-width: 474px;
-  min-height: 56px;
+  width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - 75px);
+  max-width: 471px;
+  height: 54px;
+  min-height: 54px;
   &:has(> ion-tab-button:nth-child(2):last-child) {
-    width: 184px; // 190px including padding and border
+    width: 180px; // 188px including the 4px inset on each side.
   }
   &:has(:nth-child(5)) {
-    width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)));
-    max-width: 546px;
+    width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - 3px);
+    max-width: 543px;
   }
-  padding: 2px 2px;
+  padding: 4px;
+
+  > ion-tab-button:not(.ion-cloned-element) ~ ion-tab-button:not(.ion-cloned-element) {
+    margin-inline-start: calc(-1 * var(--ios-theme-tab-overlap));
+  }
+
+  &:not(:has(> ion-tab-button:nth-child(4 of ion-tab-button:not(.ion-cloned-element)))) {
+    --ios-theme-tab-overlap: 8px;
+  }
+
+  // iPad's stacked UIKit tabs use a compact platter instead of filling the
+  // available width. Keep the phone sizing and constrain only roomy layouts.
+  @media (min-width: 768px) {
+    --ios-theme-tab-overlap: 16px;
+    @each $count, $width in (2: 188px, 3: 274px, 4: 336px, 5: 414px) {
+      &:has(
+        > ion-tab-button:nth-child(#{$count} of ion-tab-button:not(.ion-cloned-element)):nth-last-child(
+            1 of ion-tab-button:not(.ion-cloned-element)
+          )
+      ) {
+        max-width: $width - 8px;
+      }
+    }
+  }
 
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease-out;
 
@@ -118,9 +161,27 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
 ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   transform-origin: center 65%;
+  font-size: 0.59rem;
+  border-radius: 27px;
 
   ion-icon {
     font-size: 26px;
+  }
+  &.tab-layout-icon-top.tab-has-icon.tab-has-label {
+    --padding-top: 7px;
+    --padding-bottom: 7px;
+    justify-content: flex-start;
+
+    ion-icon {
+      flex-shrink: 0;
+      margin-block: 0 2px;
+    }
+    ion-label {
+      margin: 0;
+      font-size: inherit;
+      line-height: 1.2;
+      min-height: 0;
+    }
   }
   ion-label,
   ion-icon {
@@ -129,12 +190,11 @@ ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
       color var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   }
   background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0);
-  height: auto;
+  height: 54px;
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   &::part(native) {
     overflow: visible;
-    min-height: 56px;
-    border-radius: 32px;
+    min-height: 54px;
   }
 
   &.ion-activated {

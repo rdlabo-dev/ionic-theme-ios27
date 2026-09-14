@@ -89,8 +89,38 @@ final class NativeUIShellEdgeTests: XCTestCase {
             XCTAssertTrue(app.webViews.switches["Dark Mode"].waitForExistence(timeout: 10))
         }
     }
-    func testTabPositionsWebComparison() {
+    func testMenuRestoresTabGeometry() {
+        let app = start()
+        if state(app)["path"] as? String != "/main/index/native-ui-shell" {
+            openPage(app, name: "native-ui-shell")
+        }
+        settled()
+        let bar = app.tabBars.firstMatch
+        let nativeFrame = bar.frame
+        let itemFrames = bar.buttons.allElementsBoundByIndex.map(\.frame)
+        let source = rect(state(app)["tabs"])
+        capture("menu-tabs-before")
+        for cycle in 0..<3 {
+            app.buttons["menu"].firstMatch.tap()
+            XCTAssertTrue(bar.waitForNonExistence(timeout: 10)); settled()
+            XCTAssertEqual(state(app)["tabsNative"] as? Bool, false)
+            XCTAssertEqual(rect(state(app)["tabs"]), source)
+            capture("menu-tabs-web-\(cycle)")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+            XCTAssertTrue(bar.waitForExistence(timeout: 10)); settled()
+            XCTAssertEqual(state(app)["tabsNative"] as? Bool, true)
+            XCTAssertEqual(rect(state(app)["tabs"]), source)
+            XCTAssertEqual(bar.frame, nativeFrame)
+            XCTAssertEqual(bar.buttons.allElementsBoundByIndex.map(\.frame), itemFrames)
+            capture("menu-tabs-restored-\(cycle)")
+        }
+    }
+
+    func testTabPositionsWebComparison() { compareTabPositions(dark: false) }
+    func testDarkTabPositionsWebComparison() { compareTabPositions(dark: true) }
+    private func compareTabPositions(dark: Bool) {
         let app = start(requireTabs: false)
+        app.webViews.buttons[dark ? "Edge dark" : "Edge light"].tap(); settled()
         var sources: [CGRect] = []
         for native in [true, false] {
             if !native {
@@ -111,6 +141,22 @@ final class NativeUIShellEdgeTests: XCTestCase {
                         let buttons = app.tabBars.firstMatch.buttons.allElementsBoundByIndex
                         let content = buttons.map(\.frame).reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -4, dy: -4)
                         XCTAssertEqual(content.maxY, source.maxY, accuracy: 1)
+                        XCTAssertEqual(content.height, source.height, accuracy: 0.5)
+                        XCTAssertEqual(content.width, source.width, accuracy: 0.5)
+                        let items = data["items"] as? [[String: Any]] ?? []
+                        for (button, item) in zip(buttons, items) {
+                            let lens = rect(item["lens"])
+                            XCTAssertEqual(button.frame.minX, lens.minX, accuracy: 0.5)
+                            XCTAssertEqual(button.frame.minY, lens.minY, accuracy: 0.5)
+                            XCTAssertEqual(button.frame.width, lens.width, accuracy: 0.5)
+                            XCTAssertEqual(button.frame.height, lens.height, accuracy: 0.5)
+                            let icon = rect(item["icon"])
+                            let label = rect(item["labelRect"])
+                            XCTAssertEqual(icon.midX, button.frame.midX, accuracy: 0.5)
+                            XCTAssertEqual(icon.minY, button.frame.minY + 7, accuracy: 0.5)
+                            XCTAssertEqual(label.midX, button.frame.midX, accuracy: 0.5)
+                            XCTAssertEqual(label.minY, button.frame.minY + 35, accuracy: 0.5)
+                        }
                         if position == "center" {
                             XCTAssertEqual(content.midX, source.midX, accuracy: 1)
                         } else if (position == "start") == (direction == "ltr") {
@@ -120,7 +166,7 @@ final class NativeUIShellEdgeTests: XCTestCase {
                         }
                         print("TAB COMPARISON \(direction) \(position) DOM=\(source) UIKit=\(content)")
                     } else { XCTAssertEqual(source, sources[index]) }
-                    capture("tabs-\(native)-\(direction)-\(position)")
+                    capture("tabs-\(dark ? "dark" : "light")-\(native)-\(direction)-\(position)")
                     index += 1
                 }
             }
@@ -167,6 +213,38 @@ final class NativeUIShellEdgeTests: XCTestCase {
             capture("width-adaptive-\(cycle)")
         }
     }
+    func testSearchTabContentUpdates() throws {
+        let app = start()
+        app.tabBars.buttons["Library"].tap(); settled()
+        if app.frame.width > 600 {
+            try XCTSkipIf(state(app)["searchNative"] as? Bool != true, "This iPad layout uses Web search; native editing is verified on iPhone")
+        }
+        app.webViews.buttons["Edge badges"].tap(); settled()
+        func checkAnchor() {
+            XCTAssertEqual(state(app)["searchNative"] as? Bool, true)
+            let buttons = app.tabBars.buttons.matching(NSPredicate(format: "label != 'Search' AND label != 'Close'"))
+            let content = buttons.allElementsBoundByIndex.map(\.frame).reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -4, dy: -4)
+            XCTAssertEqual(content.minX, rect(state(app)["tabs"]).minX, accuracy: 1)
+        }
+        app.webViews.buttons["Edge typography"].tap(); settled()
+        checkAnchor()
+        let search = app.tabBars.buttons["Search"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap(); settled()
+        let field = app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'")).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap(); field.typeText("tabs")
+        XCTAssertEqual(field.value as? String, "tabs")
+        app.webViews.buttons["Edge typography"].tap()
+        app.webViews.buttons["Edge update-badge"].tap(); settled()
+        app.buttons["Close"].firstMatch.tap(); settled()
+        app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Library'")).firstMatch.tap(); settled()
+        checkAnchor()
+        let library = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Library'")).firstMatch
+        XCTAssertTrue(library.label.contains("999") || String(describing: library.value).contains("999"))
+        capture("search-tabs-content-updated")
+    }
+
     func testTabContentVariants() {
         let app = start()
         for variant in ["icon-only", "label-only", "badges"] {

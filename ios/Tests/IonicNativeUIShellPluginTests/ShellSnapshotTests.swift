@@ -22,6 +22,21 @@ final class ShellSnapshotTests: XCTestCase {
         try JSValueDecoder().decode(ShellSnapshot.self, from: ["revision": 1, "viewportWidth": width, "controls": controls])
     }
 
+    @MainActor func testTabTypographyPreservesCSSWeightsAndSize() throws {
+        let weights: [UIFont.Weight] = [.ultraLight, .thin, .light, .regular, .medium, .semibold, .bold, .heavy, .black]
+        let tab = UITabBarItem()
+        for (index, weight) in weights.enumerated() {
+            let cssWeight = Double((index + 1) * 100)
+            let content = try decode([control(["items": [item(["fontSize": 19.0, "fontWeight": cssWeight])]])]).controls[0].items[0].content
+            ShellTabBar.applyTypography(content, to: tab)
+            for state in [UIControl.State.normal, .selected] {
+                let font = try XCTUnwrap(tab.titleTextAttributes(for: state)?[.font] as? UIFont)
+                XCTAssertEqual(font.pointSize, 19)
+                XCTAssertEqual(font, UIFont.systemFont(ofSize: 19, weight: weight), "CSS weight \(cssWeight)")
+            }
+        }
+    }
+
     @MainActor func testSegmentSelectionEchoPreservesNativeViewsAndActionsUseUpdatedItems() throws {
         guard #available(iOS 26.0, *) else { return }
         func node(_ items: [JSObject]) throws -> ShellControl {
