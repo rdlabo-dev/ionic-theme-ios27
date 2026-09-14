@@ -84,6 +84,7 @@ export interface ShellSearchEvent extends ShellActivation {
 
 export interface ShellSnapshot {
   revision: number;
+  transitionDuration?: number;
   viewportWidth: number;
   controls: ShellControl[];
 }

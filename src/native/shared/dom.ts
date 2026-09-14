@@ -1,3 +1,5 @@
+import { fadeMarker } from './crossfade';
+
 import type { Frame } from '../definitions';
 
 export const marker = 'data-native-ui-shell';
@@ -24,7 +26,8 @@ export const visible = (element: HTMLElement): boolean => {
   if (!element.isConnected || element.closest(excluded) || isShellDisabled(element)) return false;
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
-    if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) === 0) return false;
+    if (style.display === 'none' || style.visibility !== 'visible' || (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker)))
+      return false;
     // Moving/collapsing/custom transformed surfaces stay in Web coordinates.
     if (
       style.transform !== 'none' &&
