@@ -14,18 +14,8 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   // UIKit uses a larger control in navigation bars, but not in content.
   &.in-toolbar:not(.segment-expand) {
-    @include api.glass-background($include-border: false);
     --border-radius: 24px;
     min-height: 48px;
-    // Draw the shared reflective rim without adding to the control's measured bounds.
-    &::before {
-      @include api.glass-background($include-background: false, $include-box-shadow: false, $blur: 0, $saturate: 100%);
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      pointer-events: none;
-    }
     // UIKit's container spring: grow on press, then briefly shrink below rest on release.
     transition: transform 517ms
       linear(
@@ -67,9 +57,9 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
 
     ion-segment-button {
-      min-height: 40px;
-      margin: 4px 2px;
-      font-size: 15px;
+      min-height: 44px;
+      margin: 2px 0;
+      font-size: 0.94rem;
     }
   }
 
@@ -161,8 +151,13 @@ ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   min-width: 65px;
   min-height: 28px;
   margin: 2px 0;
-  font-size: 13px;
+  font-size: 0.81rem;
+  font-weight: 500;
   line-height: normal;
+
+  &.segment-button-disabled {
+    opacity: 0.2;
+  }
 
   &::part(indicator-background) {
     transition:
@@ -180,8 +175,12 @@ ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 
 // Public customization properties remain overridable by ordinary app selectors.
-:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled).in-toolbar:not(.segment-expand) ion-segment-button) {
-  --indicator-color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
+// The resting track is a flat system fill; only the moving lens has a glass rim.
+:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled)) {
+  --background: rgba(var(--ion-color-medium-rgb, 99, 100, 105), 0.11);
+}
+:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
+  --indicator-color: var(--ion-background-color, #fff);
 }
 :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled).ion-color ion-segment-button.in-segment-color) {
   --indicator-color: var(--ion-color-base);

@@ -22,6 +22,50 @@ final class ShellSnapshotTests: XCTestCase {
         try JSValueDecoder().decode(ShellSnapshot.self, from: ["revision": 1, "viewportWidth": width, "controls": controls])
     }
 
+    @MainActor func testSegmentSelectionEchoPreservesNativeViewsAndActionsUseUpdatedItems() throws {
+        guard #available(iOS 26.0, *) else { return }
+        func node(_ items: [JSObject]) throws -> ShellControl {
+            try XCTUnwrap(decode([control(["kind": "ion-segment", "width": 160.0, "items": items])]).controls.first)
+        }
+        let first = try node([item(["id": "left", "selected": true]), item(["id": "right"])])
+        var activated: [String] = []
+        let segment = try XCTUnwrap(ShellSegment.make(first, scale: 1, rendering: ShellRendering(),
+            activate: { activated.append($0) }) as? ShellSegment)
+        segment.frame = CGRect(x: 0, y: 0, width: 160, height: 48)
+        segment.layoutIfNeeded()
+        XCTAssertEqual(segment.widthForSegment(at: 0) + segment.widthForSegment(at: 1), 160)
+        segment.selectedSegmentIndex = 1
+        segment.layoutIfNeeded()
+        let children = segment.subviews
+        let animation = CABasicAnimation(keyPath: "opacity")
+        animation.fromValue = 0.5
+        animation.toValue = 1
+        animation.duration = 1
+        segment.layer.add(animation, forKey: "selection-in-flight")
+        let echo = try node([item(["id": "left"]), item(["id": "right", "selected": true])])
+        segment.update(echo, scale: 1, rendering: ShellRendering())
+        segment.layoutIfNeeded()
+        XCTAssertEqual(segment.selectedSegmentIndex, 1)
+        XCTAssertEqual(segment.subviews, children)
+        XCTAssertNotNil(segment.layer.animation(forKey: "selection-in-flight"))
+        segment.sendActions(for: .valueChanged)
+        XCTAssertEqual(activated, ["right"])
+
+        // Web can reject a selection, clear it, or replace the available actions.
+        segment.update(first, scale: 1, rendering: ShellRendering())
+        XCTAssertEqual(segment.selectedSegmentIndex, 0)
+        let replaced = try node([item(["id": "replacement", "label": "Updated", "disabled": true])])
+        segment.update(replaced, scale: 2, rendering: ShellRendering())
+        XCTAssertEqual(segment.numberOfSegments, 1)
+        XCTAssertEqual(segment.selectedSegmentIndex, UISegmentedControl.noSegment)
+        XCTAssertEqual(segment.titleForSegment(at: 0), "Updated")
+        XCTAssertFalse(segment.isEnabledForSegment(at: 0))
+        XCTAssertEqual(segment.widthForSegment(at: 0), 320)
+        segment.selectedSegmentIndex = 0
+        segment.sendActions(for: .valueChanged)
+        XCTAssertEqual(activated, ["right", "replacement"])
+    }
+
     func testFlatWireFormatAndOptionalFields() throws {
         let snapshot = try decode([control()])
         XCTAssertTrue(snapshot.isValid)

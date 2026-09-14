@@ -2,12 +2,17 @@
 
 @mixin ion-segment {
   ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
-    // Only the navigation glass uses a dark selection; content controls keep Ionic's surface.
-    &.in-toolbar:not(.segment-expand, .ion-color) ion-segment-button:not(.ion-color, .ios-theme-disabled, .ios26-disabled) {
-      --indicator-color: var(--ios27-segment-selected-background, rgba(0, 0, 0, 0.72));
+    ion-segment-button.segment-button-disabled {
+      opacity: 0.15;
     }
     .ios27-segment-edge {
       @include api.glass-lens-dark;
     }
+  }
+  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled)) {
+    --background: rgba(var(--ion-color-medium-rgb, 152, 154, 162), 0.19);
+  }
+  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled, .ion-color) ion-segment-button:not(.ion-color, .in-segment-color)) {
+    --indicator-color: color-mix(in srgb, rgb(var(--ion-color-medium-rgb, 152, 154, 162)) 59%, var(--ion-background-color, #000));
   }
 }
