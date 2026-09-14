@@ -107,28 +107,22 @@ final class NativeUIShellEdgeTests: XCTestCase {
                     XCTAssertFalse(source.isNull, "Missing tabs: \(data)")
                     if native {
                         sources.append(source)
-                        if app.frame.width > 600 {
-                            XCTAssertEqual(data["tabsNative"] as? Bool, false, "UIKit caps this iPad platter below its DOM width")
-                            XCTAssertFalse(app.tabBars.firstMatch.exists)
-                        } else {
-                            XCTAssertEqual(data["tabsNative"] as? Bool, true)
-                            let buttons = app.tabBars.firstMatch.buttons.allElementsBoundByIndex
-                            let content = buttons.map(\.frame).reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -4, dy: -4)
-                            XCTAssertEqual(content.width, source.width, accuracy: 1)
-                            XCTAssertEqual(content.maxY, source.maxY, accuracy: 1)
+                        XCTAssertEqual(data["tabsNative"] as? Bool, true)
+                        let buttons = app.tabBars.firstMatch.buttons.allElementsBoundByIndex
+                        let content = buttons.map(\.frame).reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -4, dy: -4)
+                        XCTAssertEqual(content.maxY, source.maxY, accuracy: 1)
+                        if position == "center" {
                             XCTAssertEqual(content.midX, source.midX, accuracy: 1)
-                            print("TAB COMPARISON \(direction) \(position) DOM=\(source) UIKit=\(content)")
+                        } else if (position == "start") == (direction == "ltr") {
+                            XCTAssertEqual(content.minX, source.minX, accuracy: 1)
+                        } else {
+                            XCTAssertEqual(content.maxX, source.maxX, accuracy: 1)
                         }
+                        print("TAB COMPARISON \(direction) \(position) DOM=\(source) UIKit=\(content)")
                     } else { XCTAssertEqual(source, sources[index]) }
                     capture("tabs-\(native)-\(direction)-\(position)")
                     index += 1
                 }
-            }
-            if native && app.frame.width > 600 {
-                app.webViews.buttons["Edge ltr"].tap()
-                openPage(app, name: "native-ui-shell")
-                XCTAssertEqual(state(app)["backNative"] as? Bool, true, "Unsupported tabs must not disable the other native controls")
-                app.buttons["back"].firstMatch.tap(); settled()
             }
         }
     }
@@ -159,7 +153,7 @@ final class NativeUIShellEdgeTests: XCTestCase {
             XCTAssertTrue(app.webViews.switches["Dark Mode"].waitForExistence(timeout: 10), "After back: \(state(app))")
         }
     }
-    func testDynamicTabWidthRetirement() throws {
+    func testDynamicTabWidthAdaptation() throws {
         let app = start(requireTabs: false)
         try XCTSkipUnless(app.frame.width > 600, "Requires the iPad UIKit width cap")
         for cycle in 0..<3 {
@@ -168,9 +162,9 @@ final class NativeUIShellEdgeTests: XCTestCase {
             XCTAssertEqual(state(app)["tabsNative"] as? Bool, true)
             capture("width-native-\(cycle)")
             app.webViews.buttons["Edge auto width"].tap()
-            XCTAssertTrue(app.tabBars.firstMatch.waitForNonExistence(timeout: 10)); settled()
-            XCTAssertEqual(state(app)["tabsNative"] as? Bool, false)
-            capture("width-web-\(cycle)")
+            XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10)); settled()
+            XCTAssertEqual(state(app)["tabsNative"] as? Bool, true)
+            capture("width-adaptive-\(cycle)")
         }
     }
     func testTabContentVariants() {
@@ -182,7 +176,8 @@ final class NativeUIShellEdgeTests: XCTestCase {
                 XCTAssertTrue(tab.waitForExistence(timeout: 10), app.debugDescription)
                 tab.tap(); settled()
                 XCTAssertEqual(state(app)["tabsNative"] as? Bool, true, "\(variant): \(state(app))")
-                XCTAssertTrue(tab.isSelected, app.debugDescription)
+                let selected = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ AND selected == true", page)).firstMatch
+                XCTAssertTrue(selected.waitForExistence(timeout: 10), "Selected tab missing: \(state(app))")
                 if variant == "badges" {
                     let sources = state(app)["badges"] as? [[String: Any]] ?? []
                     XCTAssertEqual(sources.count, 2)
@@ -194,11 +189,17 @@ final class NativeUIShellEdgeTests: XCTestCase {
                 capture("tab-\(variant)-\(page)")
             }
         }
+        app.webViews.buttons["Edge update-badge"].tap(); settled()
+        let updated = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Library'")).firstMatch
+        XCTAssertEqual(state(app)["tabsNative"] as? Bool, true)
+        XCTAssertFalse(updated.isSelected, app.debugDescription)
+        XCTAssertTrue(updated.label.contains("999") || String(describing: updated.value).contains("999"), app.debugDescription)
+        capture("tab-badge-updated")
         app.webViews.buttons["Edge show-dot"].tap(); settled()
         capture("tab-visible-empty-dot")
         app.webViews.buttons["Edge clear-badges"].tap(); settled()
         let library = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Library'")).firstMatch
-        XCTAssertFalse(library.label.contains("47") || String(describing: library.value).contains("47"), app.debugDescription)
+        XCTAssertFalse(library.label.contains("999") || String(describing: library.value).contains("999"), app.debugDescription)
         capture("tab-badges-cleared")
     }
 

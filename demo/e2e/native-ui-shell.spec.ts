@@ -11,6 +11,7 @@ const mockNative = async (page: Page, fail = false) => {
       sequence: 0,
       delay: 0,
       hang: false,
+      rejectInactiveSearch: false,
       activate: (_event: any) => {},
       search: (_event: any) => {},
     };
@@ -36,7 +37,12 @@ const mockNative = async (page: Page, fail = false) => {
           if (state.hang && method === 'update') await new Promise(() => {});
           if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
           if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
-          return { revision: options.revision };
+          return {
+            revision: options.revision,
+            rejectedSearches: state.rejectInactiveSearch
+              ? options.controls?.filter((control: any) => control.search?.available === false).map((control: any) => control.id)
+              : [],
+          };
         },
         nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
           if (method === 'addListener') {
@@ -1876,3 +1882,25 @@ for (const direction of ['ltr', 'rtl']) {
       .toEqual([0, 6, 19]);
   });
 }
+
+test('rejected cached search is replaced by ordinary native tabs after navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 1210 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  await expect(page.locator('app-album-page ion-footer')).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => ((window as any).__nativeUIShell.rejectInactiveSearch = true));
+  await activate(page, 'Index');
+  await expect(page).toHaveURL('/main/index');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const control = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((c: any) => c.kind === 'ion-tab-bar');
+        return !!control && !control.search;
+      }),
+    )
+    .toBe(true);
+  await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
+  await activate(page, 'Docs');
+  await expect(page).toHaveURL('/main/docs');
+});

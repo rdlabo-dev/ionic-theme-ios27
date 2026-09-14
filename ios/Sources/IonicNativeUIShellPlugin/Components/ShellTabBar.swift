@@ -60,7 +60,7 @@ enum ShellTabBar {
 
     static func fit(_ tabBar: UITabBar, node: ShellControl, bounds: CGRect) -> Bool {
         let fitted = tabBar.sizeThatFits(bounds.size)
-        var size = CGSize(width: tabBar.bounds.width > 0 ? tabBar.bounds.width : bounds.width,
+        var size = CGSize(width: bounds.width,
                           height: max(bounds.height, fitted.height))
         if tabBar.bounds.size != size { tabBar.bounds.size = size }
         tabBar.layoutIfNeeded()
@@ -82,11 +82,8 @@ enum ShellTabBar {
             }
             content = measured
         }
-        // Some UIKit layouts cap the platter width (notably on iPad).
-        // Keep the original Web bar instead of changing its item widths.
-        guard abs(content.width - bounds.width) <= 1 else {
-            return false
-        }
+        // UIKit owns the adaptive platter size, including changes after badge/title updates.
+        // Preserve the DOM placement anchor instead of requiring identical item widths.
         let anchor = node.tabBarAnchor
         let x = anchor?.x ?? 0
         let y = anchor?.y ?? 0
