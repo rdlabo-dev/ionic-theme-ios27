@@ -58,6 +58,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     private var editingSequence = 0
     private var valueVersion = -1
     private var lastLayout = ""
+    private var layoutItems: [ShellItemContent] = []
     var ownsKeyboard: Bool { search.searchBar.searchTextField.isFirstResponder }
     var activate: ((String) -> Void)?
     var changed: ((String, ShellSearchPhase, String, Bool, Int) -> Int)?
@@ -70,6 +71,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         delegate = self
         mode = .tabBar
+        ShellTabBar.configureLayout(tabBar)
         search.obscuresBackgroundDuringPresentation = false
         search.hidesNavigationBarDuringPresentation = false
         search.searchBar.delegate = self
@@ -122,6 +124,13 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         // advance native editing beyond the last input accepted by Ionic.
         if !active { closing = true }
         let items = snapshot.items
+        let content = items.map(\.content)
+        if layoutItems != content {
+            layoutItems = content
+            // Defer fitting while search is active, but keep the resting layout
+            // invalid until new labels, typography, icons and badges are measured.
+            lastLayout = ""
+        }
         let ids = items.map(\.id)
         for id in Array(ordinary.keys) where !ids.contains(id) { ordinary.removeValue(forKey: id) }
         for item in items {
@@ -148,6 +157,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         for item in items {
             if let nativeItem = ordinary[item.id]?.viewController?.tabBarItem {
                 nativeItem.accessibilityLabel = item.content.accessibilityLabel
+                ShellTabBar.applyTypography(item.content, to: nativeItem)
                 ShellTabBar.applyBadge(item.content.badge, to: nativeItem, rendering: rendering)
             }
         }

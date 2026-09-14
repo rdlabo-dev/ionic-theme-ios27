@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 for (const direction of ['ltr', 'rtl']) {
   for (const slot of ['top', 'bottom']) {
-    for (const count of [2, 4, 5]) {
+    for (const count of [2, 3, 4, 5] as const) {
       test(`${direction} ${slot} ${count} tabs support all positions without shifting the press origin`, async ({ page }) => {
         await page.setViewportSize({ width: 800, height: 900 });
         await page.goto('/main/index');
@@ -34,6 +34,9 @@ for (const direction of ['ltr', 'rtl']) {
             element.classList.add(`tab-bar-position-${position}`);
           }, position);
           const normal = (await bar.boundingBox())!;
+          const nativeWidth = { 2: 188, 3: 274, 4: 336, 5: 414 }[count]!;
+          // A half-pixel border rounds differently at desktop and device DPR.
+          expect(Math.abs(normal.width - nativeWidth)).toBeLessThanOrEqual(1);
           if (position === 'center') {
             expect(normal.x + normal.width / 2).toBeCloseTo(406, 1);
           } else if ((position === 'start') === (direction === 'ltr')) {

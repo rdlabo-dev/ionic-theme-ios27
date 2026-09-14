@@ -37,6 +37,12 @@ for (const dark of [false, true]) {
   test(`Glass preserves Ionic background and shadow overrides in ${dark ? 'dark' : 'light'} mode`, async ({ page }) => {
     await page.goto('/main/index/native-ui-shell');
     await page.evaluate((enabled) => document.documentElement.classList.toggle('ion-palette-dark', enabled), dark);
+    const tabs = page.locator('ion-tab-bar');
+    await expect(tabs).toHaveClass(/hydrated/);
+    const tabFrame = await tabs.boundingBox();
+    await tabs.evaluate((el) => el.style.setProperty('--background', 'rgb(12, 34, 56)'));
+    expect(await tabs.evaluate((el) => getComputedStyle(el, '::before').backgroundColor)).toBe('rgb(12, 34, 56)');
+    expect(await tabs.boundingBox()).toEqual(tabFrame);
     for (const selector of ['app-native-ui-shell ion-button[type="submit"]', 'app-native-ui-shell ion-back-button']) {
       const control = page.locator(selector);
       await control.evaluate((el) => {

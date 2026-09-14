@@ -12,6 +12,7 @@ status.style.cssText = 'display:block;max-height:30px;overflow:hidden;width:300p
 panel.append(status);
 const tabs = () => document.querySelector('ion-tabs > ion-tab-bar');
 for (const [label, action] of [
+  ['Edge typography', () => { tabs().querySelectorAll('ion-label').forEach((label) => { label.style.fontSize = '14px'; label.style.fontWeight = label.style.fontWeight === '700' ? '300' : '700'; }); }],
   ['Edge update-badge', () => { tabs().querySelectorAll('ion-badge')[1].textContent = '999'; }],
   ...['icon-only', 'label-only', 'badges', 'clear-badges'].map((variant) => [
     `Edge ${variant}`,
@@ -41,6 +42,8 @@ for (const [label, action] of [
   ['Edge show-dot', () => {
     tabs().querySelector('ion-badge').style.cssText = 'display:block;min-width:8px;height:8px';
   }],
+  ['Edge dark', () => document.documentElement.classList.add('ion-palette-dark')],
+  ['Edge light', () => document.documentElement.classList.remove('ion-palette-dark')],
   ['Edge Web', () => window.nativeUIShell.destroy()],
   ['Edge narrow', () => (tabs().style.width = '300px')],
   ['Edge auto width', () => tabs().style.removeProperty('width')],
@@ -69,6 +72,7 @@ input.onkeydown = (event) => {
 panel.append(input);
 document.body.append(panel);
 const rect = (element) => {
+  if (!element) return null;
   const r = element.getBoundingClientRect();
   return [r.x, r.y, r.width, r.height];
 };
@@ -81,8 +85,9 @@ setInterval(() => {
     path: location.pathname,
     native: window.nativeUIShell?.getStatus().state,
     tabs: bar ? rect(bar) : null,
+    searchNative: !!document.querySelector('app-album-page:not(.ion-page-hidden) ion-footer[data-native-ui-shell]'),
     tabsNative: bar?.hasAttribute('data-native-ui-shell') ?? false,
-    items: bar ? Array.from(bar.querySelectorAll('ion-tab-button')).map((b) => ({ label: b.textContent.trim(), rect: rect(b) })) : [],
+    items: bar ? Array.from(bar.querySelectorAll('ion-tab-button')).map((b) => ({ label: b.textContent.trim(), rect: rect(b), lens: rect(b.shadowRoot?.querySelector('[part="native"]')), icon: b.querySelector('ion-icon') ? rect(b.querySelector('ion-icon')) : null, labelRect: b.querySelector('ion-label') ? rect(b.querySelector('ion-label')) : null })) : [],
     badges: bar ? [...bar.querySelectorAll('ion-badge')].map((badge) => ({
       value: badge.textContent,
       color: getComputedStyle(badge).backgroundColor,

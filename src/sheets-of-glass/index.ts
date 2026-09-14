@@ -307,14 +307,14 @@ export const registerEffect = (
       stopTabPress();
       moveAnimation.destroy();
       moveAnimation = undefined;
+      const tabs = Array.from(targetElement.querySelectorAll<HTMLElement>(effectTagName)).filter((tab) => tab.offsetWidth > 0);
       const releasing = createTabBarReleaseAnimation(
         effectElement,
         currentTouchedElement,
         tapElapsed !== undefined && tapElapsed < 200
           ? {
               elapsed: tapElapsed,
-              distance:
-                Math.abs(currentTouchedElement.offsetLeft - selectedElementBeforeGesture!.offsetLeft) / currentTouchedElement.offsetWidth,
+              distance: Math.abs(tabs.indexOf(currentTouchedElement) - tabs.indexOf(selectedElementBeforeGesture!)),
             }
           : undefined,
       );
