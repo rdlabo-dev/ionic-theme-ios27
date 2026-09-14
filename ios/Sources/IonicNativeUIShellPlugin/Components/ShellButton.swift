@@ -6,8 +6,9 @@ enum ShellButton {
     static let kinds: [ShellComponent] = [.button, .backButton, .menuButton]
 
     @available(iOS 26.0, *)
-    static func make(_ node: ShellControl, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UIButton {
-        let control = render(node.items[0].content, glass: true, rendering: rendering, activate: activate)
+    static func make(_ node: ShellControl, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UIButton? {
+        guard node.items.count == 1, let item = node.items.first else { return nil }
+        let control = render(item.content, glass: true, rendering: rendering, activate: activate)
         control.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         return control
     }

@@ -206,15 +206,15 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         } else if let tabBar = self.controls[id] as? UITabBar, node.kind == ShellTabBar.kind {
                             ShellTabBar.update(tabBar, node: node, rendering: self.rendering)
                         } else {
+                            guard let control = ShellComponents.make(node, scale: scale, rendering: self.rendering, tabDelegate: self,
+                                activate: { [weak self] id in self?.activate(id) }) else { reject(); continue }
                             self.controls.removeValue(forKey: id)?.removeFromSuperview()
-                            let control = ShellComponents.make(node, scale: scale, rendering: self.rendering, tabDelegate: self,
-                                activate: { [weak self] id in self?.activate(id) })
                             self.controls[id] = control
                             host.addSubview(control)
                         }
                         self.fingerprints[id] = node
                     }
-                    let control = self.controls[id]!
+                    guard let control = self.controls[id] else { reject(); continue }
                     if let tabBar = control as? UITabBar {
                         guard ShellTabBar.fit(tabBar, node: node, bounds: bounds) else { reject(); continue }
                     } else if control.frame != bounds {

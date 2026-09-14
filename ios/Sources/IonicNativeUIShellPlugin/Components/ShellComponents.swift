@@ -6,7 +6,7 @@ enum ShellComponents {
 
     @available(iOS 26.0, *)
     static func make(_ node: ShellControl, scale: CGFloat, rendering: ShellRendering,
-                     tabDelegate: UITabBarDelegate, activate: @escaping (String) -> Void) -> UIView {
+                     tabDelegate: UITabBarDelegate, activate: @escaping (String) -> Void) -> UIView? {
         switch node.kind {
         case .button, .backButton, .menuButton: return ShellButton.make(node, rendering: rendering, activate: activate)
         case .buttons: return ShellButtons.make(node, scale: scale, rendering: rendering, activate: activate)

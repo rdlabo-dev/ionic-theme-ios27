@@ -55,6 +55,7 @@ struct ShellControl: Decodable, Equatable {
 
     var isValid: Bool {
         ShellComponents.supported.contains(kind) && !id.isEmpty && frame.isValid && !items.isEmpty && items.count <= 30 &&
+        (!ShellButton.kinds.contains(kind) || items.count == 1) &&
         Set(items.map(\.id)).count == items.count && items.allSatisfy(\.isValid) &&
         (tabBarAnchor.map { kind == .tabBar && $0.isValid } ?? true) &&
         (search.map { kind == .tabBar && $0.isValid } ?? true)

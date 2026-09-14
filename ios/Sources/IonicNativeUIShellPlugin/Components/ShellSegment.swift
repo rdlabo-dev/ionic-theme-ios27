@@ -12,10 +12,10 @@ final class ShellSegment: UISegmentedControl {
         super.layoutSubviews()
         let total = (0..<numberOfSegments).reduce(CGFloat.zero) { $0 + widthForSegment(at: $1) }
         var x: CGFloat = 0
-        accessibilityElements = (0..<numberOfSegments).map { index in
+        accessibilityElements = labels.prefix(numberOfSegments).enumerated().map { index, label in
             let width = total > 0 ? bounds.width * widthForSegment(at: index) / total : bounds.width / CGFloat(numberOfSegments)
             let element = ShellSegmentElement(accessibilityContainer: self)
-            element.accessibilityLabel = labels[index]
+            element.accessibilityLabel = label
             element.accessibilityTraits = [.button]
             if index == selectedSegmentIndex { element.accessibilityTraits.insert(.selected) }
             if !isEnabledForSegment(at: index) { element.accessibilityTraits.insert(.notEnabled) }
@@ -34,13 +34,14 @@ final class ShellSegment: UISegmentedControl {
     }
 
     @available(iOS 26.0, *)
-    static func make(_ node: ShellControl, scale: CGFloat, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UISegmentedControl {
+    static func make(_ node: ShellControl, scale: CGFloat, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UISegmentedControl? {
         let items = node.items
+        guard let firstItem = items.first else { return nil }
         let rtl = node.rtl
         let control = ShellSegment(items: items.map { rendering.image($0.content) as Any? ?? $0.content.label })
         control.labels = items.map { $0.content.accessibilityLabel }
         control.isAccessibilityElement = false
-        control.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: items[0].content.fontSize, weight: .medium)], for: .normal)
+        control.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: firstItem.content.fontSize, weight: .medium)], for: .normal)
         control.semanticContentAttribute = rtl ? .forceRightToLeft : .forceLeftToRight
         control.apportionsSegmentWidthsByContent = false
         for (index, item) in items.enumerated() {

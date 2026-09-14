@@ -63,8 +63,8 @@ final class ShellSnapshotTests: XCTestCase {
         XCTAssertFalse(try decode(controls + [control()]).isValid)
         XCTAssertFalse(try decode([control(), control()]).isValid)
         let items = (0..<30).map { item(["id": "item-\($0)"]) }
-        XCTAssertTrue(try decode([control(["items": items])]).isValid)
-        XCTAssertFalse(try decode([control(["items": items + [item()]])]).isValid)
+        XCTAssertTrue(try decode([control(["kind": "ion-segment", "items": items])]).isValid)
+        XCTAssertFalse(try decode([control(["kind": "ion-segment", "items": items + [item()]])]).isValid)
         XCTAssertFalse(try decode([control(["items": [item(), item()]])]).isValid)
         XCTAssertFalse(try decode([control(["items": [JSObject]()])]).isValid)
         XCTAssertFalse(try decode([control(), control(["id": "invalid", "height": 0.0])]).isValid)
@@ -165,6 +165,47 @@ final class ShellSnapshotTests: XCTestCase {
         XCTAssertEqual(tab.accessibilityValue, "47")
         XCTAssertEqual(tab.badgeColor, rendering.color("rgb(235, 68, 90)"))
         XCTAssertEqual(tab.badgeTextAttributes(for: .normal)?[.foregroundColor] as? UIColor, rendering.color("rgb(255, 255, 255)"))
+    }
+
+
+    @MainActor
+    func testSingleButtonsRejectEmptyAndMultipleItems() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native glass buttons") }
+        for kind in ["ion-button", "ion-back-button", "ion-menu-button"] {
+            for items in [[JSObject](), [item(), item(["id": "second"])]] {
+                let snapshot = try decode([control(["kind": kind, "items": items])])
+                XCTAssertFalse(snapshot.isValid)
+                let node = try XCTUnwrap(snapshot.controls.first)
+                XCTAssertNil(ShellButton.make(node, rendering: ShellRendering(), activate: { _ in
+                    XCTFail("Invalid input must not create an action")
+                }))
+            }
+            let snapshot = try decode([control(["kind": kind])])
+            XCTAssertTrue(snapshot.isValid)
+            let node = try XCTUnwrap(snapshot.controls.first)
+            var activated: String?
+            let button = try XCTUnwrap(ShellButton.make(node, rendering: ShellRendering(), activate: { activated = $0 }))
+            button.sendActions(for: .touchUpInside)
+            XCTAssertEqual(activated, "action")
+        }
+        let emptySegment = try decode([control(["kind": "ion-segment", "items": [JSObject]()])])
+        XCTAssertFalse(emptySegment.isValid)
+        XCTAssertNil(ShellSegment.make(try XCTUnwrap(emptySegment.controls.first), scale: 1,
+            rendering: ShellRendering(), activate: { _ in XCTFail("Empty segment") }))
+    }
+
+
+    @MainActor
+    func testTabSelectionWithEmptySingleAndReorderedItems() throws {
+        let first = item(["id": "first"])
+        let selected = item(["id": "selected", "selected": true])
+        let bar = UITabBar()
+        for items in [[first, selected], [selected, first], [first], []] {
+            let node = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "items": items])]).controls.first)
+            ShellTabBar.update(bar, node: node, rendering: ShellRendering())
+            XCTAssertEqual(bar.items?.count ?? 0, items.count)
+            XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, items.count == 2 ? "selected" : nil)
+        }
     }
 
 }

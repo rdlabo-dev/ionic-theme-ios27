@@ -31,7 +31,8 @@ enum ShellTabBar {
                 return tab
             }
         }
-        for (tab, item) in zip(tabBar.items!, items) {
+        let nativeItems = tabBar.items ?? []
+        for (tab, item) in zip(nativeItems, items) {
             let title = item.content.label
             if tab.title != title { tab.title = title }
             let icon = rendering.image(item.content)
@@ -41,8 +42,7 @@ enum ShellTabBar {
             tab.accessibilityLabel = item.content.accessibilityLabel
             applyBadge(item.content.badge, to: tab, rendering: rendering)
         }
-        let selected = items.firstIndex { $0.content.selected }
-        let selectedItem = selected.map { tabBar.items![$0] }
+        let selectedItem = zip(nativeItems, items).first { $0.1.content.selected }?.0
         if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
         tabBar.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         tabBar.accessibilityIdentifier = node.id
