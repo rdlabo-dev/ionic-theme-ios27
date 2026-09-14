@@ -21,7 +21,7 @@ A CSS/JS theme library that brings the iOS 27 Liquid Glass appearance and naviga
 
 ## Installation
 
-Capacitor apps can optionally use an experimental [Native UI Shell](docs/native-ui-shell.md): fixed Ionic navigation and action controls rendered by UIKit with system Liquid Glass, while page content, application logic and routing remain in the WebView. The guide covers the idea's origins, the one-time startup call, supported components and fallback behavior.
+Capacitor apps can optionally use an experimental [Native UI Shell](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell): fixed Ionic navigation and action controls rendered by UIKit with system Liquid Glass, while page content, application logic and routing remain in the WebView. The guide covers the idea's origins, the one-time startup call, supported components and fallback behavior.
 
 Requires `@ionic/core` 8.8.1 or later (Ionic 8 and 9). Install it in an existing Ionic project:
 
@@ -172,7 +172,7 @@ createApp(App)
 - [Special markup and classes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/special-markup) — opt-in markup and utility classes used by the theme.
 - [ESLint](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/eslint) — check list structure with ESLint rules.
 - [Features](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/features) — CSS variables, Liquid Glass, selective imports, and dark mode.
-- [Native UI Shell (Experimental)](docs/native-ui-shell.md) — native controls around Web content, using the included Capacitor plugin.
+- [Native UI Shell (Experimental)](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) — native controls around Web content, using the included Capacitor plugin.
 - [Animation](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/experimental-animation) — tab bar and searchable effects.
 - [Migration](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) — stylesheet, class, and CSS variable naming changes.
 - [iOS 26 migration history](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration) — earlier major-version changes for the previous package.
