@@ -1,4 +1,5 @@
 @use '../utils/api';
+@use '../utils/glass';
 
 $scaleup-small-icon-only: api.$button-scaleup-small-icon-only;
 $scaleup-default-icon-only: api.$button-scaleup-default-icon-only;
@@ -12,9 +13,7 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   ion-fab-button {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
-    --box-shadow:
-      inset 0 0 8px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.2),
-      0 0.5px 1px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.08);
+    @include glass.light-shadow('--box-shadow');
     --transition:
       var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) transform
         cubic-bezier(0.25, 1.11, 0.78, 1.59),
@@ -62,8 +61,7 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
 
     &::part(native) {
-      background-clip: border-box;
-      @include api.glass-background($include-background: false, $include-box-shadow: false);
+      @include api.glass-control-background($include-background: false, $shadow: var(--box-shadow));
     }
   }
 
