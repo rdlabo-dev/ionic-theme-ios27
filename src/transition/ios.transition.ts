@@ -2,6 +2,7 @@ import type { Animation } from '@ionic/core';
 import { createAnimation } from '@ionic/core';
 import type { TransitionOptions } from './index';
 import { getIonPageElement } from './index';
+import { connectNativeUIShellTransition } from '../native-integration';
 
 const DURATION = 540;
 
@@ -951,6 +952,7 @@ export const iosTransitionAnimation = (navEl: HTMLElement, opts: TransitionOptio
       });
     }
 
+    connectNativeUIShellTransition(rootAnimation, enteringEl, leavingEl);
     return rootAnimation;
   } catch (err) {
     throw err;

@@ -12,13 +12,19 @@
       "import": "./dist/index.js"
     },
     "./dist/css/*": "./dist/css/*",
-    "./src/styles/*": "./src/styles/*"
+    "./src/styles/*": "./src/styles/*",
+    "./native": {
+      "types": "./dist/native/index.d.ts",
+      "import": "./dist/native/index.js"
+    }
   },
   "files": [
     "dist",
     "src",
     "package.json",
-    "docs"
+    "docs",
+    "ios",
+    "Package.swift"
   ],
   "scripts": {
     "build": "npm run build:css && npm run build:ts",
@@ -48,6 +54,7 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "devDependencies": {
+    "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.1",
@@ -58,6 +65,17 @@
     "wrangler": "^4.125.0"
   },
   "peerDependencies": {
-    "@ionic/core": ">=8.8.1 <10"
+    "@ionic/core": ">=8.8.1 <10",
+    "@capacitor/core": ">=8.0.0 <9"
+  },
+  "peerDependenciesMeta": {
+    "@capacitor/core": {
+      "optional": true
+    }
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
   }
 }

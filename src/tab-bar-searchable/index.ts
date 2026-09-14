@@ -1,4 +1,5 @@
 import { createAnimation } from '@ionic/core';
+import { isNativeUIShell, registerNativeSearch, requestNativeSearch, suspendNativeUIShell } from '../native-integration';
 import {
   ANIMATION_DELAY_BASE,
   ANIMATION_DURATION,
@@ -55,16 +56,51 @@ export const attachTabBarSearchable = (
   // Initialize
   ionFooter.style.pointerEvents = 'none';
   ionFooter.style.opacity = '0';
+  const nativeSearch = registerNativeSearch(ionTabBar, ionFabButton, ionFooter);
 
   // Saved Params
   let searchableEventCache: SearchableEventCache | undefined;
+  let resumeNative: (() => void) | undefined;
+  // Leave is valid both while native Enter awaits its ack and after it completes.
+  let nativeEntry = false;
+  let nativeRequest = 0;
 
   return async (event: Event, type: TabBarSearchableType) => {
+    const selector = type === TabBarSearchableType.Enter ? 'ion-fab-button' : 'ion-buttons[slot=start] ion-button';
+    if (!(event.target as HTMLElement)?.closest(selector)) throw throwErrorByFailedClickElement(selector);
+    if (type === TabBarSearchableType.Leave && !nativeEntry && !searchableEventCache)
+      throw new Error('TabBarSearchableType.Leave should be run after TabBarSearchableType.Enter');
+    const hadNativeEntry = nativeEntry;
+    const request = ++nativeRequest;
+    if (type === TabBarSearchableType.Enter) nativeEntry ||= isNativeUIShell(ionFooter);
+    const accepted = await requestNativeSearch(nativeSearch, type === TabBarSearchableType.Enter);
+    if (request !== nativeRequest) return;
+    if (accepted) {
+      nativeEntry = type === TabBarSearchableType.Enter;
+      return;
+    }
+    nativeEntry = false;
+    if (type === TabBarSearchableType.Leave && hadNativeEntry) {
+      // Forced native retirement already restored the closed Web presentation.
+      return;
+    }
     if (type === TabBarSearchableType.Enter) {
-      searchableEventCache = await enterEvent(event, ionTabBar, ionFabButton, ionFooter);
+      resumeNative ??= await suspendNativeUIShell([ionTabBar, ionFooter, ionFabButton.closest('ion-fab') ?? ionFabButton]);
+      try {
+        searchableEventCache = await enterEvent(event, ionTabBar, ionFabButton, ionFooter);
+      } catch (error) {
+        resumeNative();
+        resumeNative = undefined;
+        throw error;
+      }
     } else if (searchableEventCache !== undefined) {
-      await leaveEvent(event, searchableEventCache, ionTabBar, ionFabButton, ionFooter);
-      searchableEventCache = undefined;
+      try {
+        await leaveEvent(event, searchableEventCache, ionTabBar, ionFabButton, ionFooter);
+        searchableEventCache = undefined;
+      } finally {
+        resumeNative?.();
+        resumeNative = undefined;
+      }
     } else {
       throw new Error('TabBarSearchableType.Leave should be run after TabBarSearchableType.Enter');
     }
