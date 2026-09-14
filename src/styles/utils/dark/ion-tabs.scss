@@ -1,4 +1,11 @@
+@use '../glass';
+
 @mixin ion-tabs {
+  ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    @include glass.dark-fill;
+    @include glass.dark-rim;
+  }
+
   ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
     --ios27-tab-selected-background: rgba(
       var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb, 0, 0, 0)),

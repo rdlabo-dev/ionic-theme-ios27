@@ -14,6 +14,11 @@
 }
 
 @mixin theme-dark-buttons {
+  &:not(:has(.ion-activated)) {
+    @include glass.dark-fill;
+    @include glass.dark-rim;
+  }
+
   &:has(.ion-activated) {
     @include pressed-glass;
   }
@@ -40,6 +45,14 @@
 }
 
 @mixin theme-dark-button {
+  &:not(.ion-activated):not(.button-solid):not(.button-outline):not(.button-clear) {
+    @include glass.dark-fill('--background');
+    @include glass.dark-shadow('--box-shadow');
+    &::part(native) {
+      @include glass.dark-rim(var(--box-shadow));
+    }
+  }
+
   &.ion-activated:not(.button-solid):not(.button-outline):not(.button-clear) {
     --background: rgba(
       var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb, var(--ios27-button-color-selected-default-rgb))),

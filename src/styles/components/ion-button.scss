@@ -1,4 +1,5 @@
 @use '../utils/api';
+@use '../utils/glass';
 
 /**
  * Note: ion-back-button should not put inner ion-button.
@@ -13,7 +14,7 @@ $scaleup-large: 1.12;
 $scaleup-large-icon-only: api.$button-scaleup-large-icon-only;
 
 @mixin theme-buttons {
-  @include api.glass-background($shadow-opacity: 0.08);
+  @include api.glass-control-background;
   border-radius: 25px;
   overflow: hidden;
   &:not(:has(.ion-activated)):hover {
@@ -299,11 +300,7 @@ $scaleup-large-icon-only: api.$button-scaleup-large-icon-only;
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
     --background-hover: transparent;
     --background-activated: transparent;
-    @if not $is-back-button {
-      --box-shadow:
-        inset 0 0 8px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.2),
-        0 0.5px 1px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.08);
-    }
+    @include glass.light-shadow('--box-shadow');
 
     &:not(.button-has-icon-only):not(.back-button-has-icon-only) {
       &:not(.button-small):not(.button-large) {
@@ -312,7 +309,7 @@ $scaleup-large-icon-only: api.$button-scaleup-large-icon-only;
     }
 
     &::part(native) {
-      @include api.glass-background($include-background: false, $include-box-shadow: $is-back-button, $shadow-opacity: 0.08);
+      @include api.glass-control-background($include-background: false, $shadow: var(--box-shadow));
     }
 
     &:not(.button-disabled) {

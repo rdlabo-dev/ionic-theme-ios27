@@ -85,6 +85,16 @@ $_glass-surface: linear-gradient(
   backface-visibility: hidden;
 }
 
+// Resting Glass controls use one material; lenses and existing Sass callers
+// retain glass-background's original options and rendering.
+@mixin glass-control-background($include-background: true, $shadow: null) {
+  @include glass-background($include-background: false, $include-border: false, $include-box-shadow: false);
+  @if $include-background {
+    background-color: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+  }
+  @include glass.light-rim($shadow);
+}
+
 @mixin glass-background-button-activated {
   background-color: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.96);
   border-color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.12) rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.32)

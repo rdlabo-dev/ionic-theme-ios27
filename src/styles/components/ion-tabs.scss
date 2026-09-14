@@ -1,7 +1,7 @@
 @use '../utils/api';
 
 ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include api.glass-background;
+  @include api.glass-control-background;
   z-index: 2;
 
   border-radius: 40px;

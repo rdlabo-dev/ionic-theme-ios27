@@ -1,3 +1,63 @@
+$_control-surface: linear-gradient(
+  180deg,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0) 4%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.01) 8%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.024) 16%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.027) 22%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.026) 28%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.018) 36%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.024) 44%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.024) 50%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.024) 58%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.008) 80%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.006) 88%,
+  rgba(var(--ion-text-color-rgb, 0, 0, 0), 0) 94%
+);
+
+// Shared defaults can be assigned to Ionic's public --box-shadow property.
+@mixin light-shadow($property: box-shadow) {
+  $light: var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb));
+  $shade: var(--ion-text-color-rgb, 0, 0, 0);
+  #{$property}:
+    inset 0 1px 2px rgba($light, 0.25),
+    inset 0 -1px 2px rgba($light, 0.3),
+    0 -0.5px 0 rgba($light, 0.65),
+    0 0.5px 0 rgba($light, 0.65),
+    0 0 0 0.5px rgba($shade, 0.22),
+    0 0.5px 1px rgba($shade, 0.08);
+}
+
+@mixin dark-shadow($property: box-shadow) {
+  $light: var(--ion-text-color-rgb, 255, 255, 255);
+  #{$property}:
+    inset 0 0.5px 1px rgba($light, 0.2),
+    inset 0 -0.5px 1px rgba($light, 0.2);
+  @supports (background-clip: border-area) {
+    #{$property}: none;
+  }
+}
+
+@mixin light-rim($shadow: null) {
+  $light: var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb));
+  @if $shadow == null {
+    @include light-shadow;
+  } @else {
+    box-shadow: $shadow;
+  }
+  border: 0.5px solid rgb($light);
+  background-image: $_control-surface;
+  background-origin: padding-box;
+  background-clip: border-box;
+  border-inline-color: transparent;
+  @supports (background-clip: border-area) {
+    border-color: transparent;
+    background-image:
+      linear-gradient(180deg, rgb($light), transparent 50%, rgb($light)), $_control-surface, linear-gradient(transparent, transparent);
+    background-origin: border-box, padding-box, border-box;
+    background-clip: border-area, padding-box, border-box;
+  }
+}
+
 // Shared pressed-surface declarations used by the button and legacy FAB recipes.
 @mixin pressed-surface($border-colors, $shadow: null, $blur: 7px, $saturate: 180%) {
   backdrop-filter: blur($blur) saturate($saturate);
@@ -12,4 +72,40 @@
   background-origin: padding-box;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+}
+
+// iPadOS dark Glass: a vertical light source, with no illuminated side rim.
+// Keep the material under the border so transparent side edges do not cut it out.
+@mixin dark-rim($shadow: null) {
+  $light: var(--ion-text-color-rgb, 255, 255, 255);
+  $inner: linear-gradient(
+    180deg,
+    rgba($light, 0.14),
+    rgba($light, 0.04) 1px,
+    transparent 6px,
+    transparent calc(100% - 6px),
+    rgba($light, 0.04) calc(100% - 1px),
+    rgba($light, 0.14)
+  );
+  border-color: transparent;
+  background-image: $inner;
+  background-origin: padding-box;
+  background-clip: border-box;
+  @if $shadow == null {
+    @include dark-shadow;
+  } @else {
+    box-shadow: $shadow;
+  }
+  @supports (background-clip: border-area) {
+    background-image:
+      linear-gradient(180deg, rgba($light, 0.24), transparent 35%, transparent 65%, rgba($light, 0.24)), $inner,
+      linear-gradient(transparent, transparent);
+    background-origin: border-box, padding-box, border-box;
+    background-clip: border-area, padding-box, border-box;
+  }
+}
+
+// One resting dark material for hosts and Shadow DOM background properties.
+@mixin dark-fill($property: background-color) {
+  #{$property}: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.5);
 }
