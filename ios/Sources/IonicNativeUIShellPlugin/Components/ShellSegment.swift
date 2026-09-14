@@ -1,4 +1,3 @@
-import Capacitor
 import UIKit
 
 private final class ShellSegmentElement: UIAccessibilityElement {
@@ -7,7 +6,7 @@ private final class ShellSegmentElement: UIAccessibilityElement {
 }
 
 final class ShellSegment: UISegmentedControl {
-    static let kind = "ion-segment"
+    static let kind = ShellComponent.segment
     var labels: [String] = []
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -35,24 +34,24 @@ final class ShellSegment: UISegmentedControl {
     }
 
     @available(iOS 26.0, *)
-    static func make(_ node: JSObject, scale: CGFloat, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UISegmentedControl {
-        let items = node["items"] as! [JSObject]
-        let rtl = node["rtl"] as? Bool == true
-        let control = ShellSegment(items: items.map { rendering.image($0) as Any? ?? ($0["label"] as? String ?? "") })
-        control.labels = items.map { $0["accessibilityLabel"] as? String ?? "" }
+    static func make(_ node: ShellControl, scale: CGFloat, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UISegmentedControl {
+        let items = node.items
+        let rtl = node.rtl
+        let control = ShellSegment(items: items.map { rendering.image($0.content) as Any? ?? $0.content.label })
+        control.labels = items.map { $0.content.accessibilityLabel }
         control.isAccessibilityElement = false
-        control.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: items[0]["fontSize"] as? Double ?? 15, weight: .medium)], for: .normal)
+        control.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: items[0].content.fontSize, weight: .medium)], for: .normal)
         control.semanticContentAttribute = rtl ? .forceRightToLeft : .forceLeftToRight
         control.apportionsSegmentWidthsByContent = false
         for (index, item) in items.enumerated() {
-            control.setEnabled(item["disabled"] as? Bool != true, forSegmentAt: index)
-            control.setWidth((item["width"] as? Double ?? 0) * scale, forSegmentAt: index)
-            if item["selected"] as? Bool == true { control.selectedSegmentIndex = index }
+            control.setEnabled(!item.content.disabled, forSegmentAt: index)
+            control.setWidth(item.frame.width * scale, forSegmentAt: index)
+            if item.content.selected { control.selectedSegmentIndex = index }
         }
-        control.accessibilityIdentifier = node["id"] as? String
+        control.accessibilityIdentifier = node.id
         control.addAction(UIAction { [weak control] _ in
             guard let control, items.indices.contains(control.selectedSegmentIndex) else { return }
-            activate(items[control.selectedSegmentIndex]["id"] as! String)
+            activate(items[control.selectedSegmentIndex].id)
         }, for: .valueChanged)
         return control
     }

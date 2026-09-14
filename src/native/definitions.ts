@@ -22,6 +22,12 @@ export interface Frame {
   height: number;
 }
 
+export interface ShellBadge {
+  value: string;
+  color: string;
+  textColor: string;
+}
+
 export interface ShellItem extends Frame {
   id: string;
   label: string;
@@ -31,7 +37,7 @@ export interface ShellItem extends Frame {
   fontSize: number;
   fontWeight: number;
   color: string;
-  badge?: string;
+  badge?: ShellBadge;
   icon?: string;
   iconWidth?: number;
   iconHeight?: number;

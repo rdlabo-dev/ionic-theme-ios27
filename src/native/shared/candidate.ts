@@ -48,6 +48,8 @@ export const appendItem = (
   const labelElement = content.querySelector('[part="text"], ion-label') ?? child;
   const native = child.shadowRoot?.querySelector('[part="native"]');
   const labelStyle = getComputedStyle(labelElement);
+  const badge = child.querySelector<HTMLElement>('ion-badge');
+  const badgeStyle = badge && visible(badge) ? getComputedStyle(badge) : undefined;
   const item: ShellItem = {
     id: id(child),
     ...frame(child.getBoundingClientRect(), candidate.element.getBoundingClientRect()),
@@ -61,7 +63,9 @@ export const appendItem = (
     fontSize: parseFloat(labelStyle.fontSize),
     fontWeight: parseInt(labelStyle.fontWeight, 10) || 400,
     color: getComputedStyle(native ?? child).color,
-    badge: child.querySelector('ion-badge')?.textContent?.trim(),
+    badge: badgeStyle
+      ? { value: badge!.textContent?.trim() ?? '', color: badgeStyle.backgroundColor, textColor: badgeStyle.color }
+      : undefined,
   };
   if (svg) {
     const source = iconSource(svg);

@@ -13,5 +13,9 @@ let package = Package(
             .product(name: "Cordova", package: "capacitor-swift-pm")
         ],
         path: "ios/Sources/IonicNativeUIShellPlugin"
+    ), .testTarget(
+        name: "IonicNativeUIShellPluginTests",
+        dependencies: ["IonicNativeUIShellPlugin"],
+        path: "ios/Tests/IonicNativeUIShellPluginTests"
     )]
 )

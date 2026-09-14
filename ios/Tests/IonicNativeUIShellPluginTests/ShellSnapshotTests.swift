@@ -1,0 +1,146 @@
+import XCTest
+import Capacitor
+@testable import IonicNativeUIShellPlugin
+
+final class ShellSnapshotTests: XCTestCase {
+    private func item(_ changes: JSObject = [:]) -> JSObject {
+        var value: JSObject = ["id": "action", "x": 4.0, "y": 8.0, "width": 44.0, "height": 44.0,
+            "label": "Send", "accessibilityLabel": "Send message", "disabled": false, "selected": false,
+            "fontSize": 17.0, "fontWeight": 400.0, "color": "rgb(0, 0, 0)"]
+        value.merge(changes) { _, new in new }
+        return value
+    }
+
+    private func control(_ changes: JSObject = [:]) -> JSObject {
+        var value: JSObject = ["id": "control", "kind": "ion-button", "x": 16.0, "y": 60.0,
+            "width": 44.0, "height": 44.0, "items": [item()], "dark": false, "rtl": false]
+        value.merge(changes) { _, new in new }
+        return value
+    }
+
+    private func decode(_ controls: [JSObject], width: Double = 390) throws -> ShellSnapshot {
+        try JSValueDecoder().decode(ShellSnapshot.self, from: ["revision": 1, "viewportWidth": width, "controls": controls])
+    }
+
+    func testFlatWireFormatAndOptionalFields() throws {
+        let snapshot = try decode([control()])
+        XCTAssertTrue(snapshot.isValid)
+        let node = try XCTUnwrap(snapshot.controls.first)
+        XCTAssertEqual(node.kind, .button)
+        XCTAssertEqual(node.frame.rect, CGRect(x: 16, y: 60, width: 44, height: 44))
+        let action = try XCTUnwrap(node.items.first)
+        XCTAssertEqual(action.content.accessibilityLabel, "Send message")
+        XCTAssertNil(action.content.icon)
+        XCTAssertNil(action.visible)
+        XCTAssertNil(node.search)
+        XCTAssertTrue(try decode([]).isValid)
+    }
+
+    func testRequiredFieldsAndEnumsRejectMalformedInput() throws {
+        var missing = item()
+        missing.removeValue(forKey: "label")
+        for malformed in [missing, item(["disabled": "false"]), item(["iconPosition": "bottom"])] {
+            XCTAssertThrowsError(try decode([control(["items": [malformed]])]))
+        }
+        XCTAssertThrowsError(try decode([control(["kind": "ion-input"])]))
+        XCTAssertThrowsError(try decode([control(["rtl": "false"])]))
+    }
+
+    func testGeometryRejectsNonFiniteAndNonPositiveSizes() throws {
+        for width in [0, -1, Double.infinity, Double.nan] {
+            XCTAssertFalse(try decode([control(["width": width])]).isValid)
+            XCTAssertFalse(try decode([control(["items": [item(["width": width])]])]).isValid)
+            XCTAssertFalse(try decode([], width: width).isValid)
+        }
+        XCTAssertFalse(try decode([control(["x": Double.infinity])]).isValid)
+        XCTAssertTrue(try decode([control(["x": -20.0, "y": -10.0])]).isValid)
+        XCTAssertFalse(try decode([control(["items": [item(["iconWidth": Double.nan])]])]).isValid)
+    }
+
+    func testBatchLimitsAndDuplicateIdentifiers() throws {
+        let controls = (0..<100).map { control(["id": "control-\($0)"]) }
+        XCTAssertTrue(try decode(controls).isValid)
+        XCTAssertFalse(try decode(controls + [control()]).isValid)
+        XCTAssertFalse(try decode([control(), control()]).isValid)
+        let items = (0..<30).map { item(["id": "item-\($0)"]) }
+        XCTAssertTrue(try decode([control(["items": items])]).isValid)
+        XCTAssertFalse(try decode([control(["items": items + [item()]])]).isValid)
+        XCTAssertFalse(try decode([control(["items": [item(), item()]])]).isValid)
+        XCTAssertFalse(try decode([control(["items": [JSObject]()])]).isValid)
+        XCTAssertFalse(try decode([control(), control(["id": "invalid", "height": 0.0])]).isValid)
+    }
+
+    func testSearchUsesContentForFieldAndGeometryForTrigger() throws {
+        // The hidden Web search field may have no layout. Its content is still projected.
+        var search: JSObject = ["id": "search", "field": item(["width": 0.0, "height": 0.0]),
+            "trigger": item(), "closeId": "close", "active": false, "available": true,
+            "focused": false, "value": "あ", "placeholder": "Search", "disabled": false,
+            "editSequence": 2, "valueVersion": 1]
+        let snapshot = try decode([control(["kind": "ion-tab-bar", "search": search])])
+        XCTAssertTrue(snapshot.isValid)
+        XCTAssertEqual(snapshot.controls.first?.search?.value, "あ")
+        XCTAssertFalse(try decode([control(["search": search])]).isValid)
+        search["trigger"] = item(["width": 0.0])
+        XCTAssertFalse(try decode([control(["kind": "ion-tab-bar", "search": search])]).isValid)
+    }
+
+    func testTabAnchorsKeepOnlySupportedPlacements() throws {
+        for x in [0.0, 0.5, 1.0] {
+            for y in [0.0, 1.0] {
+                XCTAssertTrue(try decode([control(["kind": "ion-tab-bar", "tabBarAnchor": ["x": x, "y": y]])]).isValid)
+            }
+        }
+        XCTAssertFalse(try decode([control(["kind": "ion-tab-bar", "tabBarAnchor": ["x": 0.2, "y": 0.0]])]).isValid)
+    }
+
+    func testFabMovementAndVisibilityDoNotInvalidateArtwork() throws {
+        let original = try JSValueDecoder().decode(ShellItem.self, from: item(["visible": true]))
+        let moved = try JSValueDecoder().decode(ShellItem.self, from: item(["x": 20.0, "visible": false]))
+        XCTAssertNotEqual(original, moved)
+        XCTAssertEqual(original.content.fabArtwork, moved.content.fabArtwork)
+        let opened = try JSValueDecoder().decode(ShellItem.self, from: item([
+            "selected": true, "icon": "normal", "closeIcon": "close", "closeIconWidth": 20.0, "closeIconHeight": 20.0]))
+        XCTAssertEqual(opened.content.fabArtwork.icon, "close")
+        XCTAssertEqual(opened.content.fabArtwork.iconWidth, 20)
+        XCTAssertEqual(opened.content.fabArtwork.label, "")
+        XCTAssertNotEqual(original.content.fabArtwork, opened.content.fabArtwork)
+    }
+
+    @MainActor
+    func testTabVariantsAndBadgeUpdatesKeepItemIdentity() throws {
+        let rendering = ShellRendering()
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 24, height: 24)).image { context in
+            UIColor.black.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 24, height: 24))
+        }.pngData()!.base64EncodedString()
+        let dot: JSObject = ["value": "", "color": "rgb(235, 68, 90)", "textColor": "rgb(255, 255, 255)"]
+        let number: JSObject = ["value": "47", "color": "rgb(0, 102, 255)", "textColor": "rgb(255, 255, 255)"]
+        func node(_ badges: Bool) throws -> ShellControl {
+            let items = [
+                item(["id": "icon", "label": "", "icon": image, "iconWidth": 24.0, "iconHeight": 24.0]),
+                item(["id": "label", "label": "Music"]),
+                item(["id": "dot", "badge": badges ? dot : NSNull()]),
+                item(["id": "number", "badge": badges ? number : NSNull()])
+            ]
+            return try decode([control(["kind": "ion-tab-bar", "items": items])]).controls[0]
+        }
+        let bar = UITabBar()
+        ShellTabBar.update(bar, node: try node(true), rendering: rendering)
+        let items = try XCTUnwrap(bar.items)
+        XCTAssertEqual(items[0].title, "")
+        XCTAssertNotNil(items[0].image)
+        XCTAssertEqual(items[1].title, "Music")
+        XCTAssertNil(items[1].image)
+        XCTAssertEqual(items[2].badgeValue, "")
+        XCTAssertEqual(items[3].badgeValue, "47")
+        XCTAssertEqual(items[2].badgeColor, rendering.color("rgb(235, 68, 90)"))
+        XCTAssertEqual(items[3].badgeColor, rendering.color("rgb(0, 102, 255)"))
+        ShellTabBar.update(bar, node: try node(false), rendering: rendering)
+        for (before, after) in zip(items, bar.items!) {
+            XCTAssertTrue(before === after)
+            XCTAssertNil(after.badgeValue)
+            XCTAssertNil(after.badgeColor)
+        }
+    }
+
+}

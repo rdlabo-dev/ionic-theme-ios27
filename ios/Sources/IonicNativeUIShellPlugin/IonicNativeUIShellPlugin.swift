@@ -14,7 +14,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var host: ShellHost?
     private var controls: [String: UIView] = [:]
     private var searchControllers: [String: UIViewController] = [:]
-    private var fingerprints: [String: NSDictionary] = [:]
+    private var fingerprints: [String: ShellControl] = [:]
     private let rendering = ShellRendering()
     private var revision = 0
     private var sequence = 0
@@ -116,25 +116,15 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             guard #available(iOS 26.0, *) else { call.reject("Requires iOS 26"); return }
             let next = call.getInt("revision") ?? 0
             guard next > self.revision else { call.resolve(["revision": self.revision]); return }
-            guard let webView = self.bridge?.webView, let parent = webView.superview,
-                  let width = call.getDouble("viewportWidth"), width.isFinite, width > 0,
-                  let snapshots = call.getArray("controls", JSObject.self), snapshots.count <= 100 else {
-                call.reject("Invalid snapshot"); return
+            guard let webView = self.bridge?.webView, let parent = webView.superview else {
+                call.reject("WebView unavailable"); return
             }
-            // Validate the entire batch before changing visible controls.
-            guard snapshots.allSatisfy({ node in
-                guard let id = node["id"] as? String, !id.isEmpty,
-                      let kind = node["kind"] as? String,
-                      ShellComponents.supported.contains(kind),
-                      shellRect(node) != nil, let items = node["items"] as? [JSObject], !items.isEmpty else { return false }
-                if node["search"] != nil {
-                    guard kind == ShellTabBar.kind, let search = node["search"] as? JSObject,
-                          search["id"] is String, search["closeId"] is String,
-                          let trigger = search["trigger"] as? JSObject, shellRect(trigger) != nil, trigger["id"] is String,
-                          let field = search["field"] as? JSObject, field["id"] is String else { return false }
-                }
-                return items.count <= 30 && items.allSatisfy { shellRect($0) != nil && $0["id"] is String }
-            }) else { call.reject("Unsupported control snapshot"); return }
+            // Decode and validate the entire batch before changing visible controls.
+            guard let snapshot = try? call.decode(ShellSnapshot.self), snapshot.isValid else {
+                call.reject("Invalid control snapshot"); return
+            }
+            let snapshots = snapshot.controls
+            let width = snapshot.viewportWidth
             self.revision = next
             if snapshots.isEmpty {
                 self.removeControls()
@@ -147,18 +137,18 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             host.backgroundColor = .clear
             host.isAccessibilityElement = false
             let scale = webView.bounds.width / width
-            let retained = Set(snapshots.compactMap { $0["id"] as? String })
+            let retained = Set(snapshots.map(\.id))
             for id in Array(self.controls.keys) where !retained.contains(id) {
                 self.removeControl(id)
             }
             var rejectedControls: [String] = []
-            var fabs: [(ShellFab, JSObject)] = []
-            var searches: [(ShellSearchController, JSObject, CGRect, CGRect)] = []
+            var fabs: [(ShellFab, ShellControl)] = []
+            var searches: [(ShellSearchController, ShellControl, CGRect, CGRect)] = []
             var rejectedSearches: [String] = []
             UIView.performWithoutAnimation {
                 if host.superview !== parent { parent.addSubview(host) }
                 for node in snapshots {
-                    let id = node["id"] as! String
+                    let id = node.id
                     let previous = self.controls[id]
                     let previousBounds = previous?.bounds
                     let previousCenter = previous?.center
@@ -175,11 +165,10 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     if self.keyboardVisible && (self.searchControllers[id] as? ShellSearchController)?.ownsKeyboard != true {
                         reject(); continue
                     }
-                    let local = shellRect(node)!
+                    let local = node.frame.rect
                     let bounds = webView.convert(CGRect(x: local.minX * scale, y: local.minY * scale,
                                                        width: local.width * scale, height: local.height * scale), to: parent)
-                    let fingerprint = node as NSDictionary
-                    if node["search"] != nil {
+                    if let search = node.search {
                         guard let owner = self.bridge?.viewController else { rejectedSearches.append(id); continue }
                         let controller: ShellSearchController
                         if let existing = self.searchControllers[id] as? ShellSearchController { controller = existing }
@@ -190,7 +179,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             controller.changed = { [weak self] id, phase, value, composing, valueVersion in
                                 guard let self else { return 0 }
                                 self.sequence += 1
-                                self.notifyListeners("search", data: ["id": id, "phase": phase, "value": value,
+                                self.notifyListeners("search", data: ["id": id, "phase": phase.rawValue, "value": value,
                                     "composing": composing, "valueVersion": valueVersion, "sequence": self.sequence, "revision": self.revision])
                                 return self.sequence
                             }
@@ -198,7 +187,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             self.searchControllers[id] = controller
                             self.controls[id] = controller.surface
                         }
-                        let trigger = shellRect((node["search"] as! JSObject)["trigger"] as! JSObject)!
+                        let trigger = search.trigger.frame.rect
                         let searchBarFrame = webView.convert(CGRect(x: webView.bounds.minX + local.minX * scale,
                             y: webView.bounds.minY + local.minY * scale, width: local.width * scale, height: local.height * scale), to: owner.view)
                         let triggerFrame = webView.convert(CGRect(x: webView.bounds.minX + trigger.minX * scale,
@@ -208,22 +197,22 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     } else if self.searchControllers[id] != nil {
                         self.removeControl(id)
                     }
-                    if self.fingerprints[id] != fingerprint {
-                        if node["kind"] as? String == ShellFab.kind {
+                    if self.fingerprints[id] != node {
+                        if node.kind == ShellFab.kind {
                             let fab = (self.controls[id] as? ShellFab) ?? ShellFab()
                             if fab.superview == nil { host.addSubview(fab) }
                             self.controls[id] = fab
                             fabs.append((fab, node))
-                        } else if let tabBar = self.controls[id] as? UITabBar, node["kind"] as? String == ShellTabBar.kind {
+                        } else if let tabBar = self.controls[id] as? UITabBar, node.kind == ShellTabBar.kind {
                             ShellTabBar.update(tabBar, node: node, rendering: self.rendering)
                         } else {
                             self.controls.removeValue(forKey: id)?.removeFromSuperview()
-                            guard let control = ShellComponents.make(node, scale: scale, rendering: self.rendering, tabDelegate: self,
-                                activate: { [weak self] id in self?.activate(id) }) else { reject(); continue }
+                            let control = ShellComponents.make(node, scale: scale, rendering: self.rendering, tabDelegate: self,
+                                activate: { [weak self] id in self?.activate(id) })
                             self.controls[id] = control
                             host.addSubview(control)
                         }
-                        self.fingerprints[id] = fingerprint
+                        self.fingerprints[id] = node
                     }
                     let control = self.controls[id]!
                     if let tabBar = control as? UITabBar {
@@ -231,7 +220,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     } else if control.frame != bounds {
                         control.frame = bounds
                     }
-                    control.overrideUserInterfaceStyle = node["dark"] as? Bool == true ? .dark : .light
+                    control.overrideUserInterfaceStyle = node.dark ? .dark : .light
                 }
                 host.isHidden = false
                 host.layoutIfNeeded()
@@ -243,8 +232,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             for (controller, node, frame, triggerFrame) in searches {
                 let webFrame = webView.convert(webView.bounds, to: controller.surface.superview)
-                if !controller.apply(node, webFrame: webFrame, barFrame: frame, triggerFrame: triggerFrame, image: self.rendering.image) {
-                    let id = node["id"] as! String
+                if !controller.apply(node, webFrame: webFrame, barFrame: frame, triggerFrame: triggerFrame, rendering: self.rendering) {
+                    let id = node.id
                     self.removeControl(id)
                     rejectedSearches.append(id)
                 } else {

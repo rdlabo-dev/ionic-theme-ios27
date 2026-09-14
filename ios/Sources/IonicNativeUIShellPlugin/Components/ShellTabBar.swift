@@ -1,50 +1,63 @@
-import Capacitor
 import UIKit
 
 enum ShellTabBar {
-    static let kind = "ion-tab-bar"
+    struct Anchor: Decodable, Equatable {
+        let x: Double
+        let y: Double
+        var isValid: Bool { [0, 0.5, 1].contains(x) && [0, 1].contains(y) }
+    }
 
-    static func make(_ node: JSObject, rendering: ShellRendering, delegate: UITabBarDelegate) -> UITabBar {
+    static let kind = ShellComponent.tabBar
+
+    static func make(_ node: ShellControl, rendering: ShellRendering, delegate: UITabBarDelegate) -> UITabBar {
         let control = UITabBar()
         control.itemPositioning = .fill
 #if DEBUG
-        NSLog("[Native UI Shell] Created UITabBar %@", node["id"] as? String ?? "")
+        NSLog("[Native UI Shell] Created UITabBar %@", node.id)
 #endif
         control.delegate = delegate
         update(control, node: node, rendering: rendering)
         return control
     }
 
-    static func update(_ tabBar: UITabBar, node: JSObject, rendering: ShellRendering) {
-        let items = node["items"] as! [JSObject]
-        let ids = items.map { $0["id"] as! String }
+    static func update(_ tabBar: UITabBar, node: ShellControl, rendering: ShellRendering) {
+        let items = node.items
+        let ids = items.map(\.id)
         // Keep UIKit's item identities and interaction state across DOM selection updates.
         if tabBar.items?.map({ $0.accessibilityIdentifier ?? "" }) != ids {
             tabBar.items = items.map { item in
-                let tab = UITabBarItem(title: item["label"] as? String, image: rendering.image(item), tag: 0)
-                tab.accessibilityIdentifier = item["id"] as? String
+                let tab = UITabBarItem(title: item.content.label, image: rendering.image(item.content), tag: 0)
+                tab.accessibilityIdentifier = item.id
                 return tab
             }
         }
         for (tab, item) in zip(tabBar.items!, items) {
-            let title = item["label"] as? String
+            let title = item.content.label
             if tab.title != title { tab.title = title }
-            let icon = rendering.image(item)
+            let icon = rendering.image(item.content)
             if tab.image !== icon { tab.image = icon }
             if tab.selectedImage !== icon { tab.selectedImage = icon }
-            tab.isEnabled = item["disabled"] as? Bool != true
-            tab.accessibilityLabel = item["accessibilityLabel"] as? String
-            let badge = item["badge"] as? String
-            tab.badgeValue = badge?.isEmpty == false ? badge : nil
+            tab.isEnabled = !item.content.disabled
+            tab.accessibilityLabel = item.content.accessibilityLabel
+            applyBadge(item.content.badge, to: tab, rendering: rendering)
         }
-        let selected = items.firstIndex { $0["selected"] as? Bool == true }
+        let selected = items.firstIndex { $0.content.selected }
         let selectedItem = selected.map { tabBar.items![$0] }
         if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
-        tabBar.semanticContentAttribute = node["rtl"] as? Bool == true ? .forceRightToLeft : .forceLeftToRight
-        tabBar.accessibilityIdentifier = node["id"] as? String
+        tabBar.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
+        tabBar.accessibilityIdentifier = node.id
     }
 
-    static func fit(_ tabBar: UITabBar, node: JSObject, bounds: CGRect) -> Bool {
+    static func applyBadge(_ badge: ShellBadge?, to item: UITabBarItem, rendering: ShellRendering) {
+        // nil removes a badge; an empty string keeps the native notification dot.
+        item.badgeValue = badge?.value
+        item.badgeColor = badge.map { rendering.color($0.color) }
+        let attributes = badge.map { [NSAttributedString.Key.foregroundColor: rendering.color($0.textColor)] }
+        item.setBadgeTextAttributes(attributes, for: .normal)
+        item.setBadgeTextAttributes(attributes, for: .selected)
+    }
+
+    static func fit(_ tabBar: UITabBar, node: ShellControl, bounds: CGRect) -> Bool {
         let fitted = tabBar.sizeThatFits(bounds.size)
         var size = CGSize(width: tabBar.bounds.width > 0 ? tabBar.bounds.width : bounds.width,
                           height: max(bounds.height, fitted.height))
@@ -73,9 +86,9 @@ enum ShellTabBar {
         guard abs(content.width - bounds.width) <= 1 else {
             return false
         }
-        let anchor = node["tabBarAnchor"] as? JSObject
-        let x = anchor?["x"] as? Double ?? 0
-        let y = anchor?["y"] as? Double ?? 0
+        let anchor = node.tabBarAnchor
+        let x = anchor?.x ?? 0
+        let y = anchor?.y ?? 0
         let center = CGPoint(x: bounds.minX + (bounds.width - content.width) * x - content.minX + size.width / 2,
                              y: bounds.minY + (bounds.height - content.height) * y - content.minY + size.height / 2)
         if tabBar.center != center { tabBar.center = center }

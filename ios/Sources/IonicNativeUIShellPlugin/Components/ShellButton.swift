@@ -1,29 +1,29 @@
-import Capacitor
 import UIKit
 
 enum ShellButton {
+    private final class BadgeLabel: UILabel {}
     // These Ionic components share the same native UIButton presentation.
-    static let kinds = ["ion-button", "ion-back-button", "ion-menu-button"]
+    static let kinds: [ShellComponent] = [.button, .backButton, .menuButton]
 
     @available(iOS 26.0, *)
-    static func make(_ node: JSObject, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UIButton {
-        let control = render((node["items"] as! [JSObject])[0], glass: true, rendering: rendering, activate: activate)
-        control.semanticContentAttribute = node["rtl"] as? Bool == true ? .forceRightToLeft : .forceLeftToRight
+    static func make(_ node: ShellControl, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UIButton {
+        let control = render(node.items[0].content, glass: true, rendering: rendering, activate: activate)
+        control.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         return control
     }
 
     @available(iOS 26.0, *)
-    static func render(_ item: JSObject, glass: Bool, existing: UIButton? = nil, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UIButton {
+    static func render(_ item: ShellItemContent, glass: Bool, existing: UIButton? = nil, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UIButton {
         var configuration: UIButton.Configuration = glass ? .glass() : .plain()
-        configuration.title = item["label"] as? String
+        configuration.title = item.label
         configuration.image = rendering.image(item)
         configuration.imagePadding = 4
         configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4)
-        configuration.imagePlacement = item["iconPosition"] as? String == "trailing" ? .trailing : .leading
-        configuration.baseForegroundColor = rendering.color(item["color"] as? String)
+        configuration.imagePlacement = item.iconPosition == .trailing ? .trailing : .leading
+        configuration.baseForegroundColor = rendering.color(item.color)
         configuration.titleLineBreakMode = .byTruncatingTail
-        let size = item["fontSize"] as? Double ?? 17
-        let weight = item["fontWeight"] as? Double ?? 400
+        let size = item.fontSize
+        let weight = item.fontWeight
         configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
             outgoing.font = UIFont.systemFont(ofSize: size, weight: weight >= 600 ? .semibold : weight >= 500 ? .medium : .regular)
@@ -32,17 +32,18 @@ enum ShellButton {
         let button = existing ?? UIButton(configuration: configuration)
         if existing != nil { button.configuration = configuration }
         button.titleLabel?.numberOfLines = 1
-        button.isEnabled = item["disabled"] as? Bool != true
-        button.accessibilityLabel = item["accessibilityLabel"] as? String
-        button.accessibilityIdentifier = item["id"] as? String
-        if item["selected"] as? Bool == true { button.accessibilityTraits.insert(.selected) }
-        if let badge = item["badge"] as? String, !badge.isEmpty {
-            button.accessibilityValue = badge
-            let label = UILabel()
-            label.text = badge
+        button.isEnabled = !item.disabled
+        button.accessibilityLabel = item.accessibilityLabel
+        button.accessibilityIdentifier = item.id
+        if item.selected { button.accessibilityTraits.insert(.selected) }
+        button.subviews.filter { $0 is BadgeLabel }.forEach { $0.removeFromSuperview() }
+        button.accessibilityValue = item.badge?.value
+        if let badge = item.badge {
+            let label = BadgeLabel()
+            label.text = badge.value
             label.font = .systemFont(ofSize: 11, weight: .semibold)
-            label.textColor = .white
-            label.backgroundColor = .systemRed
+            label.textColor = rendering.color(badge.textColor)
+            label.backgroundColor = rendering.color(badge.color)
             label.textAlignment = .center
             label.layer.cornerRadius = 8
             label.clipsToBounds = true
@@ -57,7 +58,7 @@ enum ShellButton {
             ])
         }
         if existing == nil {
-            button.addAction(UIAction { _ in activate(item["id"] as! String) }, for: .touchUpInside)
+            button.addAction(UIAction { _ in activate(item.id) }, for: .touchUpInside)
         }
         return button
     }
