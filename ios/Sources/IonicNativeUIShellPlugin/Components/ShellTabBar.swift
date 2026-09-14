@@ -51,6 +51,7 @@ enum ShellTabBar {
     static func applyBadge(_ badge: ShellBadge?, to item: UITabBarItem, rendering: ShellRendering) {
         // nil removes a badge; an empty string keeps the native notification dot.
         item.badgeValue = badge?.value
+        item.accessibilityValue = badge?.value
         item.badgeColor = badge.map { rendering.color($0.color) }
         let attributes = badge.map { [NSAttributedString.Key.foregroundColor: rendering.color($0.textColor)] }
         item.setBadgeTextAttributes(attributes, for: .normal)

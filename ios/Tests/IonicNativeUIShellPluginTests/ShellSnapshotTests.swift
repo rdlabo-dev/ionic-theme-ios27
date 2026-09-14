@@ -143,4 +143,28 @@ final class ShellSnapshotTests: XCTestCase {
         }
     }
 
+
+    @MainActor
+    func testSearchTabsPreserveAccessibilityAndBadgeAppearance() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
+        let badge: JSObject = ["value": "47", "color": "rgb(235, 68, 90)", "textColor": "rgb(255, 255, 255)"]
+        let search: JSObject = ["id": "search", "field": item(), "trigger": item(["id": "trigger"]),
+            "closeId": "close", "active": false, "available": true, "focused": false,
+            "value": "", "placeholder": "Search", "disabled": false, "editSequence": 0, "valueVersion": 0]
+        let node = try decode([control(["kind": "ion-tab-bar", "width": 300.0, "search": search,
+            "items": [item(["id": "first", "label": "", "accessibilityLabel": "Favorites", "badge": badge]),
+                      item(["id": "second", "label": "Music"]) ]])]).controls[0]
+        let controller = ShellSearchController()
+        let rendering = ShellRendering()
+        _ = controller.apply(node, webFrame: CGRect(x: 0, y: 0, width: 390, height: 844),
+            barFrame: CGRect(x: 18, y: 730, width: 280, height: 62),
+            triggerFrame: CGRect(x: 320, y: 730, width: 56, height: 56), rendering: rendering)
+        let tab = try XCTUnwrap(controller.tabBar.items?.first)
+        XCTAssertEqual(tab.accessibilityLabel, "Favorites")
+        XCTAssertEqual(tab.badgeValue, "47")
+        XCTAssertEqual(tab.accessibilityValue, "47")
+        XCTAssertEqual(tab.badgeColor, rendering.color("rgb(235, 68, 90)"))
+        XCTAssertEqual(tab.badgeTextAttributes(for: .normal)?[.foregroundColor] as? UIColor, rendering.color("rgb(255, 255, 255)"))
+    }
+
 }

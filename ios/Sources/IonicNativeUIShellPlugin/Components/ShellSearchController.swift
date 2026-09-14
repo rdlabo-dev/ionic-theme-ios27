@@ -143,6 +143,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         if tabs.map(\.identifier) != requested.map(\.identifier) { tabs = requested; lastLayout = "" }
         for item in items {
             if let nativeItem = ordinary[item.id]?.viewController?.tabBarItem {
+                nativeItem.accessibilityLabel = item.content.accessibilityLabel
                 ShellTabBar.applyBadge(item.content.badge, to: nativeItem, rendering: rendering)
             }
         }
