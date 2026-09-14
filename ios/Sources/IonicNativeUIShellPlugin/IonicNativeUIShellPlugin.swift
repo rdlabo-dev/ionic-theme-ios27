@@ -203,6 +203,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             if fab.superview == nil { host.addSubview(fab) }
                             self.controls[id] = fab
                             fabs.append((fab, node))
+                        } else if let segment = self.controls[id] as? ShellSegment, node.kind == ShellSegment.kind {
+                            segment.update(node, scale: scale, rendering: self.rendering)
                         } else if let tabBar = self.controls[id] as? UITabBar, node.kind == ShellTabBar.kind {
                             ShellTabBar.update(tabBar, node: node, rendering: self.rendering)
                         } else {

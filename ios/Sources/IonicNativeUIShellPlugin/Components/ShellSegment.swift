@@ -8,6 +8,7 @@ private final class ShellSegmentElement: UIAccessibilityElement {
 final class ShellSegment: UISegmentedControl {
     static let kind = ShellComponent.segment
     var labels: [String] = []
+    private var items: [ShellItem] = []
     override func layoutSubviews() {
         super.layoutSubviews()
         let total = (0..<numberOfSegments).reduce(CGFloat.zero) { $0 + widthForSegment(at: $1) }
@@ -35,25 +36,56 @@ final class ShellSegment: UISegmentedControl {
 
     @available(iOS 26.0, *)
     static func make(_ node: ShellControl, scale: CGFloat, rendering: ShellRendering, activate: @escaping (String) -> Void) -> UISegmentedControl? {
-        let items = node.items
-        guard let firstItem = items.first else { return nil }
-        let rtl = node.rtl
-        let control = ShellSegment(items: items.map { rendering.image($0.content) as Any? ?? $0.content.label })
-        control.labels = items.map { $0.content.accessibilityLabel }
+        guard !node.items.isEmpty else { return nil }
+        let control = ShellSegment(items: [])
         control.isAccessibilityElement = false
-        control.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: firstItem.content.fontSize, weight: .medium)], for: .normal)
-        control.semanticContentAttribute = rtl ? .forceRightToLeft : .forceLeftToRight
         control.apportionsSegmentWidthsByContent = false
-        for (index, item) in items.enumerated() {
-            control.setEnabled(!item.content.disabled, forSegmentAt: index)
-            control.setWidth(item.frame.width * scale, forSegmentAt: index)
-            if item.content.selected { control.selectedSegmentIndex = index }
-        }
-        control.accessibilityIdentifier = node.id
+        control.update(node, scale: scale, rendering: rendering)
         control.addAction(UIAction { [weak control] _ in
-            guard let control, items.indices.contains(control.selectedSegmentIndex) else { return }
-            activate(items[control.selectedSegmentIndex].id)
+            guard let control, control.items.indices.contains(control.selectedSegmentIndex) else { return }
+            activate(control.items[control.selectedSegmentIndex].id)
         }, for: .valueChanged)
         return control
+    }
+
+    @available(iOS 26.0, *)
+    func update(_ node: ShellControl, scale: CGFloat, rendering: ShellRendering) {
+        let previous = items
+        let rebuilt = previous.map(\.id) != node.items.map(\.id)
+        if rebuilt {
+            removeAllSegments()
+            for index in node.items.indices { insertSegment(withTitle: "", at: index, animated: false) }
+        }
+        if let first = node.items.first, previous.first?.content.fontSize != first.content.fontSize {
+            setTitleTextAttributes([.font: UIFont.systemFont(ofSize: first.content.fontSize, weight: .medium)], for: .normal)
+        }
+        let direction: UISemanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
+        if semanticContentAttribute != direction { semanticContentAttribute = direction }
+        // Ionic button frames exclude their margins. Distribute the full track
+        // width so UIKit's fixed segment widths do not shrink the projected track.
+        let totalItemWidth = node.items.reduce(0.0) { $0 + $1.frame.width }
+        let widthScale = totalItemWidth > 0 ? node.frame.width / totalItemWidth * scale : scale
+        for (index, item) in node.items.enumerated() {
+            let old = rebuilt ? nil : previous[index].content
+            let content = item.content
+            if old?.label != content.label || old?.icon != content.icon ||
+                old?.iconWidth != content.iconWidth || old?.iconHeight != content.iconHeight ||
+                old?.iconTemplate != content.iconTemplate || old?.color != content.color {
+                let image = rendering.image(content)
+                setImage(image, forSegmentAt: index)
+                setTitle(image == nil ? content.label : nil, forSegmentAt: index)
+            }
+            if isEnabledForSegment(at: index) == content.disabled { setEnabled(!content.disabled, forSegmentAt: index) }
+            let width = item.frame.width * widthScale
+            if widthForSegment(at: index) != width { setWidth(width, forSegmentAt: index) }
+        }
+        items = node.items
+        labels = items.map { $0.content.accessibilityLabel }
+        accessibilityIdentifier = node.id
+        let selected = items.firstIndex { $0.content.selected } ?? UISegmentedControl.noSegment
+        // A native tap has already selected this index. Reassigning it can interrupt
+        // UIKit's in-flight lens animation when the Web selection echoes back.
+        if selectedSegmentIndex != selected { selectedSegmentIndex = selected }
+        setNeedsLayout()
     }
 }

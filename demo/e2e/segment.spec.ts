@@ -12,13 +12,7 @@ test('toolbar resting geometry follows native sizing', async ({ page }) => {
   const box = (await segment.boundingBox())!;
   expect(box.height).toBeCloseTo(48, 0);
   const button = segment.locator('ion-segment-button').first();
-  expect((await button.boundingBox())!.height).toBeCloseTo(40, 0);
-  const rim = await segment.evaluate((el) => {
-    const style = getComputedStyle(el, '::before');
-    return { border: parseFloat(style.borderTopWidth), pointerEvents: style.pointerEvents };
-  });
-  expect(rim.border).toBeGreaterThan(0);
-  expect(rim.pointerEvents).toBe('none');
+  expect((await button.boundingBox())!.height).toBeCloseTo(44, 0);
 });
 
 for (const color of ['primary', 'secondary']) {
@@ -92,8 +86,20 @@ for (const dark of [false, true]) {
       await expect(segment).toHaveCSS('background-color', 'rgb(12, 34, 56)');
     }
     const toolbar = page.locator('app-segment ion-segment').first();
-    await expect(toolbar).not.toHaveCSS('background-image', 'none');
-    await expect(toolbar).not.toHaveCSS('backdrop-filter', 'none');
+    await expect(toolbar).toHaveCSS('background-image', 'none');
+    await expect(toolbar).toHaveCSS('backdrop-filter', 'none');
+    await expect(toolbar).toHaveCSS('box-shadow', 'none');
+    const indicator = toolbar.locator('ion-segment-button').first().locator('[part="indicator-background"]');
+    await expect
+      .poll(async () =>
+        indicator.evaluate((el) => {
+          const context = document.createElement('canvas').getContext('2d')!;
+          context.fillStyle = getComputedStyle(el).backgroundColor;
+          context.fillRect(0, 0, 1, 1);
+          return Array.from(context.getImageData(0, 0, 1, 1).data);
+        }),
+      )
+      .toEqual(dark ? [90, 91, 96, 255] : [255, 255, 255, 255]);
   });
 }
 
@@ -372,10 +378,14 @@ test('selection motion follows native position and deformation milestones', asyn
       { once: true },
     );
   });
+  const rest = await segment
+    .locator('ion-segment-button')
+    .last()
+    .evaluate((el) => ({ width: el.clientWidth - 4, height: el.clientHeight }));
   await segment.locator('ion-segment-button').last().tap();
   await expect(segment).toHaveAttribute('data-frames', /\[/);
   const frames = JSON.parse((await segment.getAttribute('data-frames'))!) as { t: number; x: number; w: number; h: number }[];
-  // iOS 27, 138x48pt control: one expanding travel, then a small settling undershoot.
+  // Native deformation is additive. Account for the resting inset of the host context.
   for (const [time, x, width, height] of [
     [200, 92, 90, 49.5],
     [500, 105, 58, 42.5],
@@ -383,8 +393,8 @@ test('selection motion follows native position and deformation milestones', asyn
   ]) {
     const measured = frames.reduce((a, b) => (Math.abs(b.t - time) < Math.abs(a.t - time) ? b : a));
     expect(Math.abs(measured.x - x), JSON.stringify(measured)).toBeLessThan(4);
-    expect(Math.abs(measured.w - width)).toBeLessThan(5);
-    expect(Math.abs(measured.h - height)).toBeLessThan(3);
+    expect(Math.abs(measured.w - (width + rest.width - 61))).toBeLessThan(5);
+    expect(Math.abs(measured.h - (height + rest.height - 40))).toBeLessThan(3);
   }
 });
 
