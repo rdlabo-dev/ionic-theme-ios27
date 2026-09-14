@@ -34,6 +34,10 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
     .alert-message {
       padding: 0 30px 20px;
       text-align: start;
+
+      &:empty {
+        padding: 0 0 12px;
+      }
     }
 
     .alert-radio-group {
