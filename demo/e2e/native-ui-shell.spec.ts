@@ -168,7 +168,7 @@ test('FAB restores excluded groups and follows icon, list and theme changes', as
   const fab = page.locator('ion-fab[horizontal=center]');
   const child = fab.locator('ion-fab-list ion-fab-button').first();
   await expect(fab).toHaveAttribute('data-native-ui-shell', '');
-  for (const name of ['ionic-theme-disabled', 'ios-theme-disabled', 'ios26-disabled']) {
+  for (const name of ['ionic-theme-disabled', 'ios-theme-disabled', 'ios26-disabled', 'ios-theme-shell-disabled']) {
     await child.evaluate((b, name) => b.classList.add(name), name);
     await expect(fab).not.toHaveAttribute('data-native-ui-shell');
     await child.evaluate((b, name) => b.classList.remove(name), name);
@@ -351,6 +351,141 @@ test('ancestor display/theme aliases and non-glass fills restore Web', async ({ 
     await page.getByRole('button', { name: 'fill: default', exact: true }).click();
     await expect(button).toHaveAttribute('data-native-ui-shell', '');
   }
+});
+
+test('shell opt-out restores the element and descendants while preserving Web glass', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const button = page.locator('app-native-ui-shell ion-button[type=submit]');
+  const tabs = page.locator('ion-tab-bar');
+  const glass = () =>
+    button.locator('button').evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, filter: style.backdropFilter, radius: style.borderRadius };
+    });
+  await expect(button).toHaveAttribute('data-native-ui-shell', '');
+  const original = await glass();
+  expect(original.filter).toContain('blur');
+  for (const target of [
+    button,
+    button.locator('..'),
+    page.locator('app-native-ui-shell > ion-header'),
+    page.locator('app-native-ui-shell'),
+  ]) {
+    await target.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
+    await expect(button).not.toHaveAttribute('data-native-ui-shell');
+    await expect(target.locator('[data-native-ui-shell]')).toHaveCount(0);
+    await expect(button.locator('button')).toHaveCSS('visibility', 'visible');
+    expect(await glass()).toEqual(original);
+    await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
+    await target.evaluate((element) => element.classList.remove('ios-theme-shell-disabled'));
+    await expect(button).toHaveAttribute('data-native-ui-shell', '');
+  }
+  await page.locator('html').evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
+  await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
+  await button.click();
+  await expect(page.locator('[data-save-count]')).toHaveText('1');
+  await page.locator('html').evaluate((element) => element.classList.remove('ios-theme-shell-disabled'));
+  await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
+});
+
+test('shell opt-out in shared surface children keeps the whole surface on Web', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const button = page.locator('app-native-ui-shell ion-button[type=submit]');
+  for (const [surfaceSelector, childSelector] of [
+    ['[data-glass-group]', 'ion-button'],
+    ['[data-glass-group]', 'ion-icon'],
+    ['app-native-ui-shell ion-segment', 'ion-segment-button'],
+    ['app-native-ui-shell ion-segment', 'ion-label'],
+    ['ion-tab-bar', 'ion-tab-button'],
+    ['ion-tab-bar', 'ion-icon'],
+  ]) {
+    const surface = page.locator(surfaceSelector);
+    const child = surface.locator(childSelector).first();
+    await expect(surface).toHaveAttribute('data-native-ui-shell', '');
+    await child.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
+    await expect(surface).not.toHaveAttribute('data-native-ui-shell');
+    await expect(surface.locator('[data-native-ui-shell]')).toHaveCount(0);
+    await expect(child).toHaveCSS('visibility', 'visible');
+    await expect(button).toHaveAttribute('data-native-ui-shell', '');
+    await child.evaluate((element) => element.classList.remove('ios-theme-shell-disabled'));
+    await expect(surface).toHaveAttribute('data-native-ui-shell', '');
+  }
+});
+
+test('shell opt-out cannot be bypassed by searchable tab integration', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  const footer = page.locator('app-album-page ion-footer');
+  const tabs = page.locator('ion-tab-bar');
+  const search = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  for (const target of [
+    footer,
+    footer.locator('ion-toolbar'),
+    footer.locator('ion-searchbar'),
+    footer.locator('input.searchbar-input'),
+    footer.locator('ion-buttons[slot=start] ion-button'),
+    page.locator('app-album-page ion-fab'),
+    page.locator('app-album-page ion-fab-button'),
+  ]) {
+    await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+    await expect.poll(search).toBeTruthy();
+    await target.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
+    await expect(footer).not.toHaveAttribute('data-native-ui-shell');
+    await expect.poll(search).toBeUndefined();
+    await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
+    await target.evaluate((element) => element.classList.remove('ios-theme-shell-disabled'));
+    await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+    await expect.poll(search).toBeTruthy();
+  }
+});
+
+test('shell opt-out retires active search without losing input or accepting late native events', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  const footer = page.locator('app-album-page ion-footer');
+  const bar = footer.locator('ion-searchbar');
+  const search = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => {
+    const state = (window as any).__nativeUIShell;
+    const snapshot = state.updates.at(-1);
+    state.activate({
+      id: snapshot.controls.find((c: any) => c.search).search.trigger.id,
+      revision: snapshot.revision,
+      sequence: ++state.sequence,
+    });
+  });
+  await expect.poll(async () => (await search())?.active).toBe(true);
+  await page.evaluate(() => {
+    const state = (window as any).__nativeUIShell;
+    const snapshot = state.updates.at(-1);
+    const search = snapshot.controls.find((c: any) => c.search).search;
+    const event = {
+      id: search.id,
+      valueVersion: search.valueVersion,
+      revision: snapshot.revision,
+      phase: 'input',
+      value: '日本',
+      composing: false,
+    };
+    state.search({ ...event, sequence: ++state.sequence });
+    state.lateSearch = () => state.search({ ...event, value: 'stale', sequence: ++state.sequence });
+  });
+  await expect(bar).toHaveJSProperty('value', '日本');
+  await bar.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
+  await expect(footer).not.toHaveAttribute('data-native-ui-shell');
+  await expect.poll(search).toBeUndefined();
+  await page.evaluate(() => (window as any).__nativeUIShell.lateSearch());
+  await expect(bar).toHaveJSProperty('value', '日本');
+  await bar.evaluate((element) => element.classList.remove('ios-theme-shell-disabled'));
+  await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+  await expect.poll(async () => (await search())?.value).toBe('日本');
 });
 
 test('segment preserves numeric values and emits only user changes', async ({ page }) => {
