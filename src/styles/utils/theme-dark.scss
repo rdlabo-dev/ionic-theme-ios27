@@ -27,9 +27,19 @@
 
   ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled),
   ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled),
-  ion-popover.ios:not(.ios-theme-disabled, .ios26-disabled),
   ion-toast.ios:not(.ios-theme-disabled, .ios26-disabled) {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.52);
+  }
+
+  ion-popover.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.08);
+
+    &:not(.ios-theme-callout)::part(content),
+    &::part(callout-glass),
+    &::part(arrow)::after {
+      backdrop-filter: blur(12px) saturate(115%) brightness(0.9);
+      -webkit-backdrop-filter: blur(12px) saturate(115%) brightness(0.9);
+    }
   }
 
   @include ion-button;
