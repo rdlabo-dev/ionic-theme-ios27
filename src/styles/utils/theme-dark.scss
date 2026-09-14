@@ -6,7 +6,8 @@
 @use 'dark/ion-tabs' as *;
 @forward 'dark/ion-segment';
 @use 'dark/ion-segment' as *;
-@use 'structured-list';
+@forward 'dark/ion-list';
+@use 'dark/ion-list' as *;
 
 @mixin default-variables {
   --ios27-color-scheme: dark;
@@ -21,9 +22,7 @@
 }
 
 @mixin theme-dark {
-  ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
-    @include structured-list.colors(0.93, 0.5);
-  }
+  @include ion-list;
 
   @include ion-button;
   @include ion-fab;
