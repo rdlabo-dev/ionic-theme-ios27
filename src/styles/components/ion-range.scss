@@ -50,74 +50,39 @@ ion-range.ios:not(.ios-theme-disabled, .ios26-disabled) {
       box-shadow 200ms ease;
   }
 
-  &::part(knob)::before {
-    content: '';
-    position: absolute;
-    inset-inline-start: 0;
-    top: 50%;
-    width: 4px;
-    height: 10.5px;
-    background: var(--bar-background-active);
-    clip-path: polygon(0 0, 20% 25%, 50% 35%, 100% 40%, 100% 60%, 50% 65%, 20% 75%, 0 100%);
-    transform: translateY(-50%);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 200ms ease;
-  }
-
-  &:not(.range-dual-knobs).range-pressed:not(.range-value-min)::part(knob)::before,
-  &.range-dual-knobs.range-pressed-a::part(knob-a)::before,
-  &.range-dual-knobs.range-pressed-b::part(knob-b)::before {
-    opacity: 1;
-  }
-
-  // The lower dual thumb receives the active track from its end side.
-  &.range-dual-knobs::part(knob-lower)::before {
-    inset-inline-start: auto;
-    inset-inline-end: 0;
-    transform: translateY(-50%) scaleX(-1);
-  }
-
-  &:dir(rtl)::part(knob)::before {
-    transform: translateY(-50%) scaleX(-1);
-  }
-
-  &.range-dual-knobs:dir(rtl)::part(knob-lower)::before {
-    transform: translateY(-50%);
-  }
-
-  &:not(.range-dual-knobs).range-pressed::part(knob),
-  &.range-dual-knobs.range-pressed-a::part(knob-a),
-  &.range-dual-knobs.range-pressed-b::part(knob-b) {
+  &:not(.range-dual-knobs).range-pressed::part(knob) {
     @include pressed-knob;
   }
 
+  // Ionic does not expose each dual thumb's endpoint state through parts.
+  // Keep its width fixed so either thumb can be pressed at coincident endpoints.
+  &.range-dual-knobs.range-pressed-a::part(knob-a),
+  &.range-dual-knobs.range-pressed-b::part(knob-b) {
+    @include pressed-knob;
+    transform: scaleY(1.58);
+  }
+
   // Keep the enlarged thumb inside the same outer edge at either endpoint.
-  &:not(.range-dual-knobs).range-pressed.range-value-min::part(knob),
-  &.range-dual-knobs.range-pressed-lower.range-value-min::part(knob-lower) {
+  &:not(.range-dual-knobs).range-pressed.range-value-min::part(knob) {
     @include pressed-knob(calc(var(--knob-width) * 0.53 / 2));
   }
 
-  &:not(.range-dual-knobs).range-pressed.range-value-max::part(knob),
-  &.range-dual-knobs.range-pressed-upper.range-value-max::part(knob-upper) {
+  &:not(.range-dual-knobs).range-pressed.range-value-max::part(knob) {
     @include pressed-knob(calc(var(--knob-width) * -0.53 / 2));
   }
 
   &:dir(rtl) {
-    &:not(.range-dual-knobs).range-pressed.range-value-min::part(knob),
-    &.range-dual-knobs.range-pressed-lower.range-value-min::part(knob-lower) {
+    &:not(.range-dual-knobs).range-pressed.range-value-min::part(knob) {
       @include pressed-knob(calc(var(--knob-width) * -0.53 / 2));
     }
 
-    &:not(.range-dual-knobs).range-pressed.range-value-max::part(knob),
-    &.range-dual-knobs.range-pressed-upper.range-value-max::part(knob-upper) {
+    &:not(.range-dual-knobs).range-pressed.range-value-max::part(knob) {
       @include pressed-knob(calc(var(--knob-width) * 0.53 / 2));
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    &::part(knob),
-    &::part(knob)::before {
+    &::part(knob) {
       transition: none;
     }
   }

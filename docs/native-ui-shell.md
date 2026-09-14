@@ -134,3 +134,5 @@ On iOS, [`Components`](../ios/Sources/IonicNativeUIShellPlugin/Components) owns 
 
 See the [demo and verification guide](../demo/native-ui-shell.md) for browser tests, Simulator tests and an independent SPM consumer built from the npm package.
 
+
+Search controllers retain their UIKit-managed transition and are excluded from the ordinary control acquisition crossfade.

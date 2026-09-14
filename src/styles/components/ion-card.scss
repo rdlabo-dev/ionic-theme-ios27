@@ -1,7 +1,7 @@
 @use '../utils/group-heading';
 
 ion-card.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  ion-list ion-item {
+  ion-list:not(.ios-theme-disabled, .ios26-disabled) ion-item:not(.ios-theme-disabled, .ios26-disabled) {
     --padding-start: 0;
   }
 
@@ -16,20 +16,20 @@ ion-card.ios:not(.ios-theme-disabled, .ios26-disabled) {
   font-size: 1rem;
   line-height: 1.29;
 
-  > ion-card-header {
+  > ion-card-header:not(.ios-theme-disabled, .ios26-disabled) {
     flex-direction: column;
     gap: 4px;
     padding: 16px 20px;
 
-    &:has(+ ion-card-content) {
+    &:has(+ ion-card-content:not(.ios-theme-disabled, .ios26-disabled)) {
       padding-bottom: 4px;
     }
 
-    > ion-card-title {
+    > ion-card-title:not(.ios-theme-disabled, .ios26-disabled) {
       @include group-heading.typography;
     }
 
-    > ion-card-subtitle {
+    > ion-card-subtitle:not(.ios-theme-disabled, .ios26-disabled) {
       margin: 0;
       font-size: 1rem;
       font-weight: 400;
@@ -39,7 +39,7 @@ ion-card.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
 
-  > ion-card-content {
+  > ion-card-content:not(.ios-theme-disabled, .ios26-disabled) {
     padding: 16px 20px;
     font-size: 1rem;
     line-height: 1.29;
@@ -48,19 +48,21 @@ ion-card.ios:not(.ios-theme-disabled, .ios26-disabled) {
       font-size: inherit;
     }
 
-    > ion-list {
+    > ion-list:not(.ios-theme-disabled, .ios26-disabled) {
       background: transparent;
 
-      ion-item:not(.ion-color) {
+      ion-item:not(.ios-theme-disabled, .ios26-disabled):not(.ion-color) {
         --background: transparent;
       }
     }
   }
 
-  > ion-card-header + ion-card-content {
+  > ion-card-header:not(.ios-theme-disabled, .ios26-disabled) + ion-card-content:not(.ios-theme-disabled, .ios26-disabled) {
     padding-top: 0;
   }
-  &:not(.ion-color) > ion-card-header > ion-card-subtitle:not(.ion-color) {
+  &:not(.ion-color)
+    > ion-card-header:not(.ios-theme-disabled, .ios26-disabled)
+    > ion-card-subtitle:not(.ios-theme-disabled, .ios26-disabled):not(.ion-color) {
     --color: rgba(var(--ion-color-medium-rgb, 146, 148, 156), 0.9);
   }
 }
