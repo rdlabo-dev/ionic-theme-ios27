@@ -54,7 +54,7 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
   const { contentWidth, contentHeight } = getPopoverDimensions(size, contentEl, referenceSizeEl);
 
   const isReplace = ((): boolean => {
-    if (!referenceSizeEl || !['ion-button', 'ion-buttons'].includes(referenceSizeEl.localName)) {
+    if (reference === 'event' || !referenceSizeEl || !['ion-button', 'ion-buttons'].includes(referenceSizeEl.localName)) {
       return false;
     }
     if (referenceSizeEl.matches('.ios-theme-disabled, .ios26-disabled')) {
@@ -71,6 +71,9 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
   };
 
   const results = getPopoverPosition(isRTL, contentWidth, contentHeight, reference, side, align, defaultPosition, trigger, ev);
+
+  // Use the same reference for placement, the callout and the animation origin.
+  const anchor = reference === 'event' ? results.referenceCoordinates : anchorBounds;
 
   const padding = size === 'cover' ? 0 : POPOVER_IOS_BODY_PADDING;
   const margin = size === 'cover' ? 0 : POPOVER_IOS_BODY_MARGIN;
@@ -108,8 +111,8 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
         : anchorBounds.right - contentWidth
       : windowLeft;
   const left = pane ? Math.max(paneLeft + paneMargin, Math.min(paneRight - paneMargin - contentWidth, preferredLeft)) : preferredLeft;
-  const contentOrigin = anchorBounds
-    ? `${Math.max(0, Math.min(contentWidth, anchorBounds.left + anchorBounds.width / 2 - left))}px ${Math.max(0, Math.min(contentHeight, anchorBounds.top + anchorBounds.height / 2 - top))}px`
+  const contentOrigin = anchor
+    ? `${Math.max(0, Math.min(contentWidth, anchor.left + anchor.width / 2 - left))}px ${Math.max(0, Math.min(contentHeight, anchor.top + anchor.height / 2 - top))}px`
     : `${originX} ${originY}`;
 
   const baseAnimation = createAnimation();
@@ -121,7 +124,7 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
   if (arrowEl) {
     arrowAnimation.addElement(arrowEl).delay(300).duration(200).fromTo('opacity', 0, 1);
   }
-  if (arrowEl && !isReplace && anchorBounds && size !== 'cover' && bottom === undefined) {
+  if (arrowEl && !isReplace && anchor && size !== 'cover' && bottom === undefined) {
     const physicalSide = side === 'start' ? (isRTL ? 'right' : 'left') : side === 'end' ? (isRTL ? 'left' : 'right') : side;
     const horizontal = physicalSide === 'left' || physicalSide === 'right';
     const above = addPopoverBottomClass || physicalSide === 'top';
@@ -130,10 +133,7 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
     const inset = Math.min(48, length / 2);
     const center = Math.max(
       inset,
-      Math.min(
-        length - inset,
-        horizontal ? anchorBounds.top + anchorBounds.height / 2 - top : anchorBounds.left + anchorBounds.width / 2 - left,
-      ),
+      Math.min(length - inset, horizontal ? anchor.top + anchor.height / 2 - top : anchor.left + anchor.width / 2 - left),
     );
     const arrowSide = horizontal ? (physicalSide === 'left' ? 'right' : 'left') : above ? 'bottom' : 'top';
     const layers = createCalloutSurface(root, contentWidth, contentHeight, arrowSide, center);
@@ -229,7 +229,6 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
       // Morphing buttons replace their anchor; ordinary anchored popovers point to it.
       if (arrowEl) {
         arrowEl.style.display = 'none';
-        const anchor = referenceSizeEl?.getBoundingClientRect();
         if (!isReplace && anchor && size !== 'cover' && bottom === undefined) {
           const physicalSide = side === 'start' ? (isRTL ? 'right' : 'left') : side === 'end' ? (isRTL ? 'left' : 'right') : side;
           const above = addPopoverBottomClass || physicalSide === 'top';
