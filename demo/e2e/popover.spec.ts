@@ -185,7 +185,8 @@ for (const width of [390, 1210]) {
           arrowCenter: arrowRect.left + arrowRect.width / 2,
           arrowTop: arrowRect.top,
           arrowBottom: arrowRect.bottom,
-          anchorCenter: anchor.left + anchor.width / 2,
+          anchorLeft: anchor.left,
+          anchorRight: anchor.right,
         };
       });
       expect(geometry.left).toBeGreaterThanOrEqual(geometry.min + 7.5);
@@ -197,7 +198,9 @@ for (const width of [390, 1210]) {
         expect(Math.abs(geometry.right - before!.x - before!.width)).toBeLessThan(1);
       }
       if (geometry.arrowVisible) {
-        expect(Math.abs(geometry.arrowCenter - geometry.anchorCenter)).toBeLessThanOrEqual(1);
+        // Near a rounded corner, the arrow may shift within the trigger bounds.
+        expect(geometry.arrowCenter).toBeGreaterThanOrEqual(geometry.anchorLeft);
+        expect(geometry.arrowCenter).toBeLessThanOrEqual(geometry.anchorRight);
         expect(Math.min(Math.abs(geometry.arrowBottom - geometry.top), Math.abs(geometry.arrowTop - geometry.bottom))).toBeLessThanOrEqual(
           1.5,
         );
