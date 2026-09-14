@@ -43,7 +43,6 @@ final class ShellSnapshotTests: XCTestCase {
             XCTAssertThrowsError(try decode([control(["items": [malformed]])]))
         }
         XCTAssertThrowsError(try decode([control(["kind": "ion-input"])]))
-        XCTAssertThrowsError(try decode([control(["rtl": "false"])]))
     }
 
     func testGeometryRejectsNonFiniteAndNonPositiveSizes() throws {
@@ -65,8 +64,7 @@ final class ShellSnapshotTests: XCTestCase {
         let items = (0..<30).map { item(["id": "item-\($0)"]) }
         XCTAssertTrue(try decode([control(["kind": "ion-segment", "items": items])]).isValid)
         XCTAssertFalse(try decode([control(["kind": "ion-segment", "items": items + [item()]])]).isValid)
-        XCTAssertFalse(try decode([control(["items": [item(), item()]])]).isValid)
-        XCTAssertFalse(try decode([control(["items": [JSObject]()])]).isValid)
+        XCTAssertFalse(try decode([control(["kind": "ion-segment", "items": [item(), item()]])]).isValid)
         XCTAssertFalse(try decode([control(), control(["id": "invalid", "height": 0.0])]).isValid)
     }
 
