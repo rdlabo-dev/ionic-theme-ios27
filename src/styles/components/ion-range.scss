@@ -1,14 +1,29 @@
-@use '../utils/api';
-
-@mixin scaled-transform($translate-x) {
-  transform: scale(1.56, 1.47) translateX(calc(#{$translate-x} * -0.1)) translateZ(0);
-  -webkit-transform: scale(1.56, 1.47) translateX(calc(#{$translate-x} * -0.1)) translateZ(0);
+@mixin pressed-knob($offset: 0px) {
+  // iPadOS 27: 38 × 24 at rest, approximately 58 × 38 while tracking.
+  transform: translateX($offset) scale(1.53, 1.58);
+  background: linear-gradient(
+    180deg,
+    rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.04),
+    rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.08) 35%,
+    rgba(255, 255, 255, 0.12) 65%,
+    rgba(255, 255, 255, 0.24)
+  );
+  box-shadow:
+    inset 0 0 0 0.65px rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.28),
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    0 4px 6px rgba(0, 0, 0, 0.14);
 }
 
 ion-range.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --knob-size: 20px;
+  --knob-size: 24px;
   --knob-width: 38px;
   --knob-border-radius: 24px;
+  --bar-height: 6px;
+  --bar-border-radius: 3px;
+
+  &.ion-color {
+    --bar-background-active: var(--ion-color-base);
+  }
 
   &.range-label-placement-start::part(label) {
     margin-inline: 0 24px;
@@ -27,64 +42,48 @@ ion-range.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   &::part(knob) {
+    overflow: hidden;
     width: var(--knob-width);
-    margin-inline-start: -8px;
+    margin-inline-start: calc((var(--knob-size) - var(--knob-width)) / 2);
     transition:
-      transform 300ms ease,
-      margin 300ms ease,
+      transform 200ms ease,
       box-shadow 200ms ease;
   }
 
-  &:not(.range-dual-knobs).range-pressed {
-    --knob-background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.1);
-    --knob-box-shadow: 0 0.5px 4px rgba(0, 0, 0, 0.12), 0 6px 4px rgba(0, 0, 0, 0.05), inset 0.4px 0.4px 1px 0 var(--bar-background-active);
+  &:not(.range-dual-knobs).range-pressed::part(knob) {
+    @include pressed-knob;
+  }
 
-    &::part(knob) {
-      @include api.glass-background(0.1, 0, 120%, $include-background: false, $include-box-shadow: false, $include-border: false);
-      @include scaled-transform(0px);
+  // Ionic does not expose each dual thumb's endpoint state through parts.
+  // Keep its width fixed so either thumb can be pressed at coincident endpoints.
+  &.range-dual-knobs.range-pressed-a::part(knob-a),
+  &.range-dual-knobs.range-pressed-b::part(knob-b) {
+    @include pressed-knob;
+    transform: scaleY(1.58);
+  }
+
+  // Keep the enlarged thumb inside the same outer edge at either endpoint.
+  &:not(.range-dual-knobs).range-pressed.range-value-min::part(knob) {
+    @include pressed-knob(calc(var(--knob-width) * 0.53 / 2));
+  }
+
+  &:not(.range-dual-knobs).range-pressed.range-value-max::part(knob) {
+    @include pressed-knob(calc(var(--knob-width) * -0.53 / 2));
+  }
+
+  &:dir(rtl) {
+    &:not(.range-dual-knobs).range-pressed.range-value-min::part(knob) {
+      @include pressed-knob(calc(var(--knob-width) * -0.53 / 2));
     }
 
-    &.range-value-min {
-      --knob-box-shadow: 0 0.5px 4px rgba(0, 0, 0, 0.12), 0 6px 4px rgba(0, 0, 0, 0.05);
-
-      &::part(knob) {
-        @include scaled-transform(calc(var(--knob-width) * -2));
-      }
-    }
-    &.range-value-max {
-      --knob-box-shadow:
-        0 0.5px 4px rgba(0, 0, 0, 0.12), 0 6px 4px rgba(0, 0, 0, 0.05), inset 0.4px 0.4px 1px 0.2px var(--bar-background-active);
-
-      &::part(knob) {
-        @include scaled-transform(calc(var(--knob-width) * 2));
-      }
+    &:not(.range-dual-knobs).range-pressed.range-value-max::part(knob) {
+      @include pressed-knob(calc(var(--knob-width) * 0.53 / 2));
     }
   }
 
-  &.range-dual-knobs.range-pressed {
-    &.range-pressed-a::part(knob-a),
-    &.range-pressed-b::part(knob-b) {
-      @include api.glass-background(0.1, 0, 120%, $include-border: false);
-      @include scaled-transform(0px);
-      box-shadow:
-        0 0.5px 4px rgba(0, 0, 0, 0.12),
-        0 6px 4px rgba(0, 0, 0, 0.05),
-        inset 0.4px 0.4px 1px 0 var(--bar-background-active);
-    }
-
-    &.range-value-min.range-pressed-lower::part(knob-lower) {
-      @include scaled-transform(calc(var(--knob-width) * -2));
-      box-shadow:
-        0 0.5px 4px rgba(0, 0, 0, 0.12),
-        0 6px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    &.range-value-max.range-pressed-upper::part(knob-upper) {
-      @include scaled-transform(calc(var(--knob-width) * 2));
-      box-shadow:
-        0 0.5px 4px rgba(0, 0, 0, 0.12),
-        0 6px 4px rgba(0, 0, 0, 0.05),
-        inset 0.4px 0.4px 1px 0.2px var(--bar-background-active);
+  @media (prefers-reduced-motion: reduce) {
+    &::part(knob) {
+      transition: none;
     }
   }
 }
