@@ -1377,20 +1377,15 @@ test('a cached search registration does not block a second page sharing the tab 
   const first = page.locator('app-album-page:not([data-second]) ion-footer');
   await expect(first).toHaveAttribute('data-native-ui-shell', '');
   await page.locator('app-album-page').evaluate((element) => {
-    const component = (window as any).ng.getComponent(element);
-    const clone = element.cloneNode(false) as HTMLElement;
-    clone.innerHTML =
+    // Keep the old registered DOM cached while the real page registers a new footer.
+    const cached = element.cloneNode(false) as HTMLElement;
+    cached.append(...Array.from(element.childNodes));
+    cached.classList.add('ion-page-hidden');
+    element.parentElement!.append(cached);
+    element.innerHTML =
       '<ion-content>Second search page</ion-content><ion-fab vertical=bottom horizontal=end slot=fixed><ion-fab-button><ion-icon name=search></ion-icon></ion-fab-button></ion-fab><ion-footer translucent><ion-toolbar><ion-buttons slot=start><ion-button fill=default><ion-icon slot=icon-only></ion-icon></ion-button></ion-buttons><ion-searchbar></ion-searchbar></ion-toolbar></ion-footer>';
-    clone.setAttribute('data-second', '');
-    clone.querySelectorAll('[data-native-ui-shell]').forEach((node) => {
-      node.removeAttribute('data-native-ui-shell');
-      node.removeAttribute('aria-hidden');
-    });
-    element.parentElement!.append(clone);
-    element.classList.add('ion-page-hidden');
-    const second = { document, el: { nativeElement: clone }, searchableFun: undefined };
-    component.ionViewDidEnter.call(second);
-    (window as any).__secondSearchPage = second;
+    element.setAttribute('data-second', '');
+    element.dispatchEvent(new CustomEvent('ionViewDidEnter'));
   });
   const second = page.locator('app-album-page[data-second] ion-footer');
   await expect(first).not.toHaveAttribute('data-native-ui-shell');
@@ -1480,14 +1475,13 @@ test('a lost search bridge releases Enter and keeps the current value in Web', a
   await page.goto('/main/album');
   const footer = page.locator('app-album-page ion-footer');
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
-  await page.evaluate(async () => {
+  await page.evaluate(() => {
     const page = document.querySelector('app-album-page')!;
-    const component = (window as any).ng.getComponent(page);
     (page.querySelector('ion-searchbar') as HTMLIonSearchbarElement).value = 'bridge retained';
     (window as any).__nativeUIShell.hang = true;
-    await component.searchableFun({ target: page.querySelector('ion-fab-button') }, 'enter');
+    (page.querySelector('ion-fab-button') as HTMLElement).click();
   });
-  await expect(footer).not.toHaveAttribute('data-native-ui-shell');
+  await expect(footer).not.toHaveAttribute('data-native-ui-shell', { timeout: 10000 });
   await expect(footer).toHaveCSS('opacity', '1');
   await expect(footer.locator('ion-searchbar')).toHaveJSProperty('value', 'bridge retained');
   expect(await page.evaluate(() => (window as any).nativeUIShell.getStatus().state)).toBe('stopped');

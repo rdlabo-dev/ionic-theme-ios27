@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { buildSync } from 'esbuild';
 
 const mockNative = async (page: Page) => {
   await page.addInitScript(() => {
@@ -451,6 +452,21 @@ for (const path of ['/main/index', '/main/album']) {
       await mockNative(page);
       await page.goto(path);
       await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
+      if (variant === 'badges') {
+        // These pages do not import IonBadge; register the real component for this fixture.
+        await page.addScriptTag({
+          content: buildSync({
+            stdin: {
+              contents:
+                "import { initialize } from '@ionic/core/components'; import { defineCustomElement } from '@ionic/core/components/ion-badge.js'; initialize({ mode: 'ios' }); defineCustomElement();",
+              resolveDir: __dirname,
+            },
+            bundle: true,
+            format: 'iife',
+            write: false,
+          }).outputFiles[0].text,
+        });
+      }
       await page.locator('ion-tab-bar').evaluate((bar, variant) => {
         bar.setAttribute('color', 'light');
         const buttons = [...bar.querySelectorAll('ion-tab-button:not(.ion-cloned-element)')];
@@ -479,6 +495,7 @@ for (const path of ['/main/index', '/main/album']) {
       } else if (variant === 'label-only') {
         await expect.poll(async () => (await current())?.items.every((item: any) => !!item.label && !item.icon)).toBe(true);
       } else {
+        await expect(page.locator('ion-badge').first()).toHaveClass(/hydrated/);
         await expect
           .poll(async () => (await current())?.items.map((item: any) => item.badge?.value ?? null))
           .toEqual([null, null, '47', null]);
@@ -497,6 +514,7 @@ for (const path of ['/main/index', '/main/album']) {
           }),
         );
         const snapshot = await current();
+        expect(colors.every(({ color }) => color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)')).toBe(true);
         expect(snapshot.items[0].badge).toEqual({ value: '', ...colors[0] });
         expect(snapshot.items[2].badge).toEqual({ value: '47', ...colors[1] });
         await page
