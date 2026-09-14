@@ -69,7 +69,11 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
           color: var(--ios-theme-destructive-color, var(--ion-color-danger, #ea292d));
         }
 
-        &:not(.alert-button-role-destructive) {
+        &.alert-button-role-preferred {
+          @include api.glass-overlay-preferred-button;
+        }
+
+        &:not(.alert-button-role-destructive):not(.alert-button-role-preferred) {
           color: var(--ion-text-color, #000);
         }
       }

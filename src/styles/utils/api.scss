@@ -169,6 +169,15 @@ $_glass-surface: linear-gradient(
   }
 }
 
+// Filled emphasis for the recommended action in presented overlays.
+@mixin glass-overlay-preferred-button($background-property: background, $color-property: color) {
+  #{$background-property}: var(--ion-color-primary, #0054e9);
+  #{$color-property}: var(--ion-color-primary-contrast, #fff);
+  &.ion-activated {
+    #{$background-property}: var(--ion-color-primary-shade, #004acd);
+  }
+}
+
 // Shared material for presented surfaces. Keep transforms owned by Ionic animations.
 @mixin glass-overlay-variables($shadow-opacity: 0.15) {
   --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.67);

@@ -45,14 +45,20 @@ ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
         &::after {
           content: none;
         }
-        &:not(.action-sheet-destructive):not(.action-sheet-selected) {
+        &:not(.action-sheet-destructive):not(.action-sheet-selected):not(.action-sheet-preferred) {
           --button-color: var(--ion-text-color, #000);
           --button-color-hover: var(--ion-text-color, #000);
           --button-color-activated: var(--ion-text-color, #000);
         }
+        &.action-sheet-preferred {
+          @include api.glass-overlay-preferred-button(--button-background, --button-color);
+        }
         &.action-sheet-destructive {
-          color: var(--button-color);
           --button-color: var(--ios-theme-destructive-color, var(--ion-color-danger, #ea292d));
+        }
+        &.action-sheet-destructive,
+        &.action-sheet-preferred {
+          color: var(--button-color);
           --button-color-hover: var(--button-color);
           --button-color-activated: var(--button-color);
           --button-color-focused: var(--button-color);
