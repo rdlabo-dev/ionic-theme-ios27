@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.use({ viewport: { width: 402, height: 874 }, hasTouch: true });
 
-test('dark selection preserves custom colors and only darkens navigation segments', async ({ page }) => {
+test('dark selection preserves custom tab and segment colors', async ({ page }) => {
   await page.goto('/main/index/segment');
   await expect(page.locator('ion-tab-bar')).toHaveClass(/ios27-enable-gesture/);
   await expect(page.locator('ion-tab-bar ion-tab-button').first()).toHaveClass(/tab-selected/);
@@ -30,8 +30,7 @@ test('dark selection preserves custom colors and only darkens navigation segment
     };
   });
   expect(colors.tab).toBe('rgba(12, 34, 56, 0.72)');
-  expect(colors.segments[0]).toBe('rgba(0, 0, 0, 0.72)');
-  expect(colors.segments[1]).not.toBe(colors.segments[0]);
+  expect(colors.segments[0]).toBe(colors.segments[1]);
   expect(colors.segments[2]).toBe('rgb(12, 34, 56)');
   expect(colors.segments[3]).not.toBe(colors.segments[0]);
   await expect(page.locator('body > ion-tab-button.ion-cloned-element [part="native"]')).toHaveCSS('background-image', 'none');
