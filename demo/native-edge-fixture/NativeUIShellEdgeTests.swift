@@ -198,7 +198,7 @@ final class NativeUIShellEdgeTests: XCTestCase {
         capture("tab-visible-empty-dot")
         app.webViews.buttons["Edge clear-badges"].tap(); settled()
         let library = app.tabBars.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Library'")).firstMatch
-        XCTAssertFalse(library.label.contains("47"))
+        XCTAssertFalse(library.label.contains("47") || String(describing: library.value).contains("47"), app.debugDescription)
         capture("tab-badges-cleared")
     }
 

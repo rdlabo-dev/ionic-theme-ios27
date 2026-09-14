@@ -1131,6 +1131,127 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
   await expect(button.locator('button')).toHaveCSS('visibility', 'visible');
 });
 
+test('replacing a projected searchbar retires old input and binds the new field', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  const footer = page.locator('app-album-page ion-footer');
+  const bar = footer.locator('ion-searchbar');
+  const config = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+  await bar.evaluate((element: HTMLIonSearchbarElement) => element.setFocus());
+  await expect.poll(async () => (await config())?.active).toBe(true);
+  const previous = await config();
+  await bar.evaluate((old: HTMLIonSearchbarElement) => {
+    const state = (window as any).__nativeUIShell;
+    const snapshot = state.updates.at(-1);
+    const search = snapshot.controls.find((c: any) => c.search).search;
+    const event = { id: search.id, revision: snapshot.revision, valueVersion: search.valueVersion, phase: 'input', composing: false };
+    state.search({ ...event, value: 'old field', sequence: ++state.sequence });
+    const replacement = document.createElement('ion-searchbar');
+    for (const attribute of old.attributes) replacement.setAttribute(attribute.name, attribute.value);
+    replacement.value = 'application initial value';
+    (window as any).__retiredSearchbar = old;
+    old.replaceWith(replacement);
+    // Arrive before the observer can retire the old state: DOM identity must reject it.
+    state.search({ ...event, value: 'stale input', sequence: ++state.sequence });
+  });
+  expect(await page.evaluate(() => (window as any).__retiredSearchbar.value)).toBe('old field');
+  await expect
+    .poll(async () => {
+      const current = await config();
+      return !!current && current.id !== previous.id && !current.active && current.value === 'application initial value';
+    })
+    .toBe(true);
+  await bar.evaluate((element: HTMLIonSearchbarElement) => element.setFocus());
+  await expect.poll(async () => (await config())?.focused).toBe(true);
+  await page.evaluate(() => {
+    const state = (window as any).__nativeUIShell;
+    const snapshot = state.updates.at(-1);
+    const search = snapshot.controls.find((c: any) => c.search).search;
+    state.search({
+      id: search.id,
+      revision: snapshot.revision,
+      valueVersion: search.valueVersion,
+      phase: 'input',
+      value: 'replacement input',
+      composing: false,
+      sequence: ++state.sequence,
+    });
+  });
+  await expect(bar).toHaveJSProperty('value', 'replacement input');
+  const session = await config();
+  await bar.locator('input.searchbar-input').evaluate((input) => input.replaceWith(input.cloneNode(true)));
+  await expect
+    .poll(async () => {
+      const current = await config();
+      return !!current && current.id !== session.id && !current.active && current.value === 'replacement input';
+    })
+    .toBe(true);
+});
+
+test('native search compensates keyboard tab hiding while respecting application visibility', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album');
+  const footer = page.locator('app-album-page ion-footer');
+  const tabBar = page.locator('ion-tab-bar');
+  const config = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  await page.addStyleTag({ content: 'ion-tab-bar.application-hidden { display: none !important; }' });
+  for (const mode of ['inline', 'class']) {
+    await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+    await page.evaluate(() => {
+      const state = (window as any).__nativeUIShell;
+      const snapshot = state.updates.at(-1);
+      state.activate({
+        id: snapshot.controls.find((c: any) => c.search).search.trigger.id,
+        revision: snapshot.revision,
+        sequence: ++state.sequence,
+      });
+    });
+    await expect.poll(async () => (await config())?.active).toBe(true);
+    expect((await config())?.focused).toBe(false);
+    await tabBar.evaluate((element) => {
+      window.dispatchEvent(new Event('keyboardWillShow'));
+      element.classList.add('tab-bar-hidden');
+    });
+    await expect(tabBar).not.toHaveClass(/tab-bar-hidden/);
+    await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+    await page.evaluate(() => {
+      const state = (window as any).__nativeUIShell;
+      const snapshot = state.updates.at(-1);
+      const search = snapshot.controls.find((c: any) => c.search).search;
+      state.search({
+        id: search.id,
+        revision: snapshot.revision,
+        valueVersion: search.valueVersion,
+        phase: 'focus',
+        value: search.value,
+        composing: false,
+        sequence: ++state.sequence,
+      });
+    });
+    await expect.poll(async () => (await config())?.focused).toBe(true);
+    expect((await config())?.active).toBe(true);
+    await tabBar.evaluate((element: HTMLElement, mode) => {
+      if (mode === 'inline') element.style.display = 'none';
+      else element.classList.add('application-hidden');
+    }, mode);
+    await expect(footer).not.toHaveAttribute('data-native-ui-shell');
+    await expect.poll(config).toBeUndefined();
+    await expect(tabBar).toHaveCSS('display', 'none');
+    await tabBar.evaluate((element: HTMLElement) => {
+      window.dispatchEvent(new Event('keyboardWillHide'));
+      element.style.removeProperty('display');
+      element.classList.remove('application-hidden', 'tab-bar-hidden');
+    });
+    await expect(footer).toHaveAttribute('data-native-ui-shell', '');
+    await expect.poll(async () => (await config())?.active).toBe(false);
+  }
+});
+
 test('search group keeps its covers, forwards Ionic events and preserves text on close', async ({ page }) => {
   await page.setViewportSize({ width: 402, height: 874 });
   await mockNative(page);

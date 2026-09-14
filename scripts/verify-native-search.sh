@@ -28,7 +28,7 @@ const file = process.argv[2];
 writeFileSync(file, readFileSync(file, 'utf8').replace('</body>', `<script src="${process.argv[3]}"></script></body>`));
 JS
 cd "$artifacts/consumer"
-npm install --ignore-scripts "$artifacts/$archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @ionic/core@8.8.19
+npm install --ignore-scripts "$artifacts/$archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @capacitor/keyboard@8.0.5 @ionic/core@8.8.19
 npx cap add ios --packagemanager SPM
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -sdk iphonesimulator -destination "platform=iOS Simulator,id=$simulator" \
