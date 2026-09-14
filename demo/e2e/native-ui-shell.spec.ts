@@ -780,7 +780,7 @@ test('all demo pages keep projection consistent through consecutive navigation',
   await settled();
   for (const route of routes) {
     await test.step(route, async () => {
-      await page.getByRole('button', { name: route, exact: true }).click();
+      await page.getByRole('button', { name: route === 'native-ui-shell' ? 'native-ui-shell (Experimental)' : route, exact: true }).click();
       await expect(page).toHaveURL(`/main/index/${route}`);
       await settled();
       await back();
@@ -890,7 +890,7 @@ test('shared tabs stay native throughout navigation and delayed page updates', a
     .first()
     .evaluate((label) => (label.textContent = 'Index'));
   for (const route of ['native-ui-shell', 'button', 'segment', 'native-ui-shell']) {
-    await page.getByRole('button', { name: route, exact: true }).click();
+    await page.getByRole('button', { name: route === 'native-ui-shell' ? 'native-ui-shell (Experimental)' : route, exact: true }).click();
     await expect(page).toHaveURL(`/main/index/${route}`);
     if (route === 'native-ui-shell') {
       const save = page.locator('app-native-ui-shell ion-button[type=submit]');

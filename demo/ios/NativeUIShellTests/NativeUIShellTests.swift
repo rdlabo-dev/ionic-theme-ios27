@@ -360,7 +360,7 @@ final class NativeUIShellTests: XCTestCase {
     }
 
     private func openPage(_ app: XCUIApplication, name: String) {
-        let entry = app.webViews.buttons[name]
+        let entry = app.webViews.buttons[name == "native-ui-shell" ? "native-ui-shell (Experimental)" : name]
         // WebKit's isHittable does not account for a sibling native tab bar.
         func unobscured() -> Bool {
             entry.isHittable && entry.frame.midY > app.frame.minY + 130 && entry.frame.midY < app.frame.maxY - 120
