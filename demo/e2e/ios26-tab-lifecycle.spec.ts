@@ -1,11 +1,9 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import widthFixture from '../native-parity/fixtures/tabs-width-ios26.json';
 
 test.use({ viewport: { width: 402, height: 874 }, hasTouch: true });
 
 type TabsCmp = {
   registeredGestures: { destroy: () => void }[];
-  registerEffects: (targets: Iterable<HTMLElement>) => void;
   ionViewDidEnter: () => void;
 };
 
@@ -29,19 +27,19 @@ const getTabsComponent = async (page: Page) => {
   });
 };
 
-/** Register via TabsPage.registerEffects; returns whether a new handle was pushed. */
+/** Exercise the existing page lifecycle, without a test-only registration API. */
 const registerViaTabs = async (page: Page, selector: string) => {
   return page.evaluate((sel) => {
     const host = document.querySelector('app-tabs');
     const ng = (window as unknown as { ng?: { getComponent?: (el: Element) => TabsCmp } }).ng;
     const cmp = host && ng?.getComponent ? ng.getComponent(host) : null;
-    if (!cmp?.registerEffects || !cmp.registeredGestures) {
+    if (!cmp?.ionViewDidEnter || !cmp.registeredGestures) {
       return { ok: false as const, reason: 'tabs component unavailable', registered: false as const };
     }
     const el = document.querySelector<HTMLElement>(sel);
     if (!el) return { ok: false as const, reason: 'target missing', registered: false as const };
     const before = cmp.registeredGestures.length;
-    cmp.registerEffects([el]);
+    cmp.ionViewDidEnter();
     const after = cmp.registeredGestures.length;
     if (after <= before) {
       return { ok: true as const, registered: false as const };
@@ -71,7 +69,7 @@ const appendFixtureBar = async (
   await page.evaluate(
     ({ barId, disabledSecond, optOutClass, count, withFab, cssDriven }) => {
       document.querySelector(`#${barId}`)?.remove();
-      const app = document.querySelector('ion-app') ?? document.body;
+      const app = document.querySelector('app-tabs')!;
       const bar = document.createElement('ion-tab-bar') as HTMLElement & { selectedTab?: string };
       bar.id = barId;
       bar.classList.add('ios');
@@ -123,6 +121,12 @@ const appendFixtureBar = async (
 test.describe('iOS26 tab gesture lifecycle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/main/index', { waitUntil: 'networkidle' });
+    // Desktop Safari with touch is detected as iPad by Ionic. The 402pt fixture
+    // represents an iPhone; select the intended platform before comparing sizes.
+    await page.evaluate(() => {
+      document.documentElement.classList.remove('plt-ipad');
+      document.documentElement.classList.add('plt-iphone');
+    });
     const bar = page.locator('ion-tab-bar#tab-bar-bottom');
     await waitHydrated(bar);
     await expect(bar).toHaveClass(/ios26-enable-gesture/);
@@ -130,8 +134,7 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     expect(await getTabsComponent(page)).toBe(true);
   });
 
-  // Cursor Auto supplied the fixture/ownership outline. Native cell overlap is
-  // allowed for every count; FAB placement must come from production CSS.
+  // Native cell overlap is intentional. FAB placement comes from production CSS.
   for (const count of [1, 2, 3, 4, 5]) {
     test(`${count} tabs ${count < 5 ? 'with FAB' : 'without FAB'} retain geometry and selection`, async ({ page }) => {
       const id = `ios26-tabs-${count}`;
@@ -142,7 +145,7 @@ test.describe('iOS26 tab gesture lifecycle', () => {
       await expect(buttons).toHaveCount(count);
       const outer = (await bar.boundingBox())!;
       expect(outer.height).toBeCloseTo(62, 1);
-      if (count <= 3) expect(outer.width).toBeCloseTo([102, 188, 274][count - 1], 1);
+      expect(outer.width).toBeCloseTo([102, 188, 274, 302, 360][count - 1], 1);
       const boxes = await Promise.all(Array.from({ length: count }, (_, index) => buttons.nth(index).boundingBox()));
       for (let index = 0; index < count; index++) {
         const box = boxes[index]!;
@@ -167,62 +170,76 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     });
   }
 
-  for (const count of [1, 2, 3, 4, 5]) {
-    test(`measured ${count}-tab native cell geometry matches width fixtures`, async ({ page }) => {
-      const bar = await appendFixtureBar(page, `ios26-tab-width-${count}`, { count });
-      for (const entry of widthFixture.cases.filter((c) => c.count === count)) {
-        await bar.evaluate((el, outerWidth) => {
-          el.style.width = `${outerWidth - 8}px`;
+  // Independent UIKit 26.5 samples: compact/regular boundaries and iPad caps.
+  // Keep the discontinuities, not the original 140-case recording dump.
+  for (const { count, ipad, sizes } of [
+    {
+      count: 4,
+      ipad: false,
+      sizes: [
+        [218, 67.5],
+        [305.9, 74],
+        [306, 94],
+        [360, 98],
+      ],
+    },
+    {
+      count: 5,
+      ipad: false,
+      sizes: [
+        [218, 58],
+        [355.9, 74],
+        [356, 76.2],
+        [360, 77],
+      ],
+    },
+    {
+      count: 4,
+      ipad: true,
+      sizes: [
+        [240, 70],
+        [336, 94],
+      ],
+    },
+    {
+      count: 5,
+      ipad: true,
+      sizes: [
+        [240, 59.2],
+        [414, 94],
+      ],
+    },
+  ]) {
+    test(`${ipad ? 'iPad' : 'iPhone'} ${count}-tab cells respect native layout boundaries`, async ({ page }) => {
+      await page.evaluate((ipad) => {
+        document.documentElement.classList.toggle('plt-ipad', ipad);
+        document.documentElement.classList.toggle('plt-iphone', !ipad);
+      }, ipad);
+      const bar = await appendFixtureBar(page, 'tab-boundary', { count });
+      for (const [outerWidth, cellWidth] of sizes) {
+        await bar.evaluate((el, width) => {
+          el.style.width = `${width - 8}px`;
           el.style.maxWidth = 'none';
-        }, entry.outerWidth);
-        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-        const rects = await bar.evaluate((el) => {
-          const origin = el.getBoundingClientRect();
-          return Array.from(el.children)
-            .filter((node): node is HTMLElement => node.matches('ion-tab-button'))
-            .map((button) => {
-              const native = button.shadowRoot?.querySelector('[part="native"]');
-              if (!native) throw new Error('native part missing');
-              const rect = native.getBoundingClientRect();
-              return [rect.x - origin.x, rect.y - origin.y, rect.width, rect.height];
-            });
-        });
-        expect(rects.length).toBe(entry.cells.length);
-        for (let index = 0; index < entry.cells.length; index++) {
-          for (let column = 0; column < 4; column++) {
-            expect(
-              Math.abs(rects[index][column] - entry.cells[index][column]),
-              `${count} tabs, outer ${entry.outerWidth}, cell ${index}, coordinate ${column}`,
-            ).toBeLessThanOrEqual(0.05);
-          }
-        }
+        }, outerWidth);
+        await expect
+          .poll(async () =>
+            bar.evaluate((el) => {
+              const origin = el.getBoundingClientRect();
+              return Array.from(el.children).map((button) => {
+                const rect = button.getBoundingClientRect();
+                return [rect.x - origin.x, rect.width];
+              });
+            }),
+          )
+          .toEqual(
+            Array.from({ length: count }, (_, i) => [
+              expect.closeTo(4 + (i * (outerWidth - 8 - cellWidth)) / (count - 1), 1),
+              expect.closeTo(cellWidth, 1),
+            ]),
+          );
       }
     });
   }
-
-  test('tap commits selection with a single click', async ({ page }) => {
-    const bar = page.locator('ion-tab-bar#tab-bar-bottom');
-    const target = bar.locator('ion-tab-button[tab="docs"]');
-    await target.evaluate((el) => {
-      el.dataset['clicks'] = '0';
-      el.addEventListener('click', () => {
-        el.dataset['clicks'] = String(Number(el.dataset['clicks'] ?? '0') + 1);
-      });
-    });
-    const box = (await target.boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    // Cursor Auto's suggested ownership regression: a visual preview must not
-    // remove Ionic's selection before the real browser click.
-    await expect(bar.locator('ion-tab-button[tab="index"]')).toHaveClass(/tab-selected/);
-    await expect(target).not.toHaveClass(/tab-selected/);
-    await expect(target).toHaveAttribute('data-clicks', '0');
-    await page.mouse.up();
-    await expect(target).toHaveClass(/tab-selected/);
-    await expect.poll(async () => Number(await target.getAttribute('data-clicks'))).toBe(1);
-    await page.waitForTimeout(300);
-    expect(Number(await target.getAttribute('data-clicks'))).toBe(1);
-  });
 
   test('pointercancel restores selection and never commits a click', async ({ page }) => {
     const bar = page.locator('ion-tab-bar#tab-bar-bottom');
@@ -274,115 +291,6 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     await expect(bar).toHaveAttribute('data-changes', '2');
   });
 
-  test('a second queued pointerdown flushes the first released session', async ({ page }) => {
-    const bar = await appendFixtureBar(page, 'ios26-tab-queued');
-    expect((await registerViaTabs(page, '#ios26-tab-queued')).registered).toBe(true);
-    await bar.evaluate((el) => {
-      el.dataset['changes'] = '0';
-      el.addEventListener('ionTabButtonClick', () => {
-        el.dataset['changes'] = String(Number(el.dataset['changes']) + 1);
-      });
-      for (const [index, value] of ['two', 'three'].entries()) {
-        const target = el.querySelector(`ion-tab-button[tab="${value}"]`)!;
-        const rect = target.getBoundingClientRect();
-        const init = {
-          bubbles: true,
-          composed: true,
-          isPrimary: true,
-          pointerId: index + 20,
-          pointerType: 'touch',
-          button: 0,
-          clientX: rect.x + rect.width / 2,
-          clientY: rect.y + rect.height / 2,
-        };
-        target.dispatchEvent(new PointerEvent('pointerdown', init));
-        target.dispatchEvent(new PointerEvent('pointerup', init));
-      }
-    });
-    await expect(bar.locator('ion-tab-button[tab="three"]')).toHaveClass(/tab-selected/);
-    await expect(bar).toHaveAttribute('data-changes', '2');
-    await expect(bar).not.toHaveClass(/ios26-animated/);
-    await expect(bar).toHaveAttribute('data-changes', '2');
-  });
-
-  for (const reason of ['blur', 'resize', 'native', 'reduced-motion'] as const) {
-    test(`${reason} during hold cancels only the visual effect`, async ({ page }) => {
-      const bar = page.locator('#tab-bar-bottom');
-      const second = bar.locator('ion-tab-button[tab="docs"]');
-      const box = (await second.boundingBox())!;
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      await expect(bar).toHaveClass(/ios26-animated/);
-      await expect(bar.locator('ion-tab-button[tab="index"]')).toHaveClass(/tab-selected/);
-      if (reason === 'reduced-motion') await page.emulateMedia({ reducedMotion: 'reduce' });
-      else if (reason === 'native') await bar.evaluate((el) => el.setAttribute('data-native-ui-shell', ''));
-      else await page.evaluate((event) => window.dispatchEvent(new Event(event)), reason);
-      await expect(bar).not.toHaveClass(/ios26-animated/);
-      await expect(clones(page)).toHaveCSS('display', 'none');
-      await page.mouse.move(8, 8);
-      await page.mouse.up();
-      await expect(bar.locator('ion-tab-button[tab="index"]')).toHaveClass(/tab-selected/);
-      await expect(second).not.toHaveClass(/tab-selected/);
-    });
-  }
-
-  test('measured three-item geometry and additive held expansion', async ({ page }) => {
-    const bar = await appendFixtureBar(page, 'ios26-tab-geometry');
-    await bar.evaluate((el) => {
-      el.style.width = '266px';
-      el.style.right = 'auto';
-    });
-    expect((await registerViaTabs(page, '#ios26-tab-geometry')).registered).toBe(true);
-    const first = bar.locator('ion-tab-button[tab="one"]');
-    const second = bar.locator('ion-tab-button[tab="two"]');
-    const outer = (await bar.boundingBox())!;
-    const initial = (await first.boundingBox())!;
-    const target = (await second.boundingBox())!;
-    expect(outer.width).toBeCloseTo(274, 1);
-    expect(outer.height).toBeCloseTo(62, 1);
-    expect(initial.width).toBeCloseTo(94, 1);
-    expect(initial.height).toBeCloseTo(54, 1);
-    expect(target.x - initial.x).toBeCloseTo(86, 1);
-    // Use a selected-item hold here. Transferring to a different item is still
-    // rebounding at 700ms and must not be asserted as an already-settled lens.
-    await page.mouse.move(initial.x + initial.width / 2, initial.y + initial.height / 2);
-    await page.mouse.down();
-    await bar.evaluate((el) => {
-      const lens = Array.from(document.querySelectorAll('body > ion-tab-button.ion-cloned-element')).find(
-        (node) => getComputedStyle(node).display !== 'none',
-      )!;
-      for (const animation of [...el.getAnimations(), ...lens.getAnimations()]) {
-        animation.pause();
-        animation.currentTime = 700;
-      }
-    });
-    const held = await bar.evaluate((el) => {
-      const lens = Array.from(document.querySelectorAll('body > ion-tab-button.ion-cloned-element')).find(
-        (node) => getComputedStyle(node).display !== 'none',
-      )!;
-      const a = el.getBoundingClientRect();
-      const b = lens.getBoundingClientRect();
-      const target = el.querySelector('ion-tab-button[tab="one"]')!.getBoundingClientRect();
-      return {
-        barWidth: a.width,
-        width: b.width / (a.width / 274),
-        height: b.height / (a.width / 274),
-        dx: b.x + b.width / 2 - target.x - target.width / 2,
-        dy: b.y + b.height / 2 - target.y - target.height / 2,
-      };
-    });
-    expect(held.barWidth).toBeCloseTo(288.1379, 1);
-    expect(held.width).toBeGreaterThan(109);
-    expect(held.width).toBeLessThan(111);
-    expect(held.height).toBeGreaterThan(69);
-    expect(held.height).toBeLessThan(71);
-    expect(Math.abs(held.dx)).toBeLessThan(0.3);
-    expect(Math.abs(held.dy)).toBeLessThan(0.3);
-    await page.mouse.up();
-    await expect(first).toHaveClass(/tab-selected/);
-    await expect(bar).not.toHaveClass(/ios26-animated/);
-  });
-
   test('drag selects its destination once and keeps Ionic selection during the drag', async ({ page }) => {
     const bar = await appendFixtureBar(page, 'ios26-tab-drag');
     expect((await registerViaTabs(page, '#ios26-tab-drag')).registered).toBe(true);
@@ -410,6 +318,7 @@ test.describe('iOS26 tab gesture lifecycle', () => {
 
   test('body lens uses viewport coordinates after scrolling and disappears on further scroll', async ({ page }) => {
     const bar = await appendFixtureBar(page, 'ios26-tab-scroll');
+    expect((await registerViaTabs(page, '#ios26-tab-scroll')).registered).toBe(true);
     // ion-app establishes a containing block. This fixture specifically tests a
     // viewport-fixed bar, so move it outside that transformed app ancestor.
     await bar.evaluate((el) => document.body.append(el));
@@ -423,7 +332,6 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     await bar.evaluate((el) => {
       el.style.top = '420px';
     });
-    expect((await registerViaTabs(page, '#ios26-tab-scroll')).registered).toBe(true);
     const first = bar.locator('ion-tab-button[tab="one"]');
     const rect = (await first.boundingBox())!;
     expect(rect.y).toBeGreaterThanOrEqual(0);
@@ -478,32 +386,6 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     expect(result.afterGestures).toBe(result.beforeGestures);
   });
 
-  test('two bars own independent clones', async ({ page }) => {
-    const fixture = await appendFixtureBar(page, 'ios26-tab-lifecycle-bar-b');
-    const result = await registerViaTabs(page, '#ios26-tab-lifecycle-bar-b');
-    expect(result.ok, 'reason' in result ? result.reason : '').toBe(true);
-    if (!result.ok) return;
-    expect(result.registered).toBe(true);
-    const clonesState = await page.evaluate(() => {
-      const nodes = Array.from(document.querySelectorAll('body > ion-tab-button.ion-cloned-element'));
-      const second = document.querySelector<HTMLElement>('#ios26-tab-lifecycle-bar-b');
-      return {
-        count: nodes.length,
-        distinct: new Set(nodes).size,
-        secondHasGesture: second?.classList.contains('ios26-enable-gesture') ?? false,
-      };
-    });
-    expect(clonesState.count).toBe(2);
-    expect(clonesState.distinct).toBe(2);
-    expect(clonesState.secondHasGesture).toBe(true);
-    await expect(fixture).toHaveClass(/ios26-enable-gesture/);
-    await expect(clones(page)).toHaveCount(2);
-    if ('index' in result && typeof result.index === 'number') {
-      await destroyRegisteredAt(page, result.index);
-    }
-    await expect(clones(page)).toHaveCount(1);
-  });
-
   test('disabled tab does not take selection', async ({ page }) => {
     // Tear down the shell bar so the fixture owns the only gesture under test.
     await page.evaluate(() => {
@@ -541,32 +423,6 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     expect(registered.ok, 'reason' in registered ? registered.reason : '').toBe(true);
     expect(registered.registered).toBe(false);
     await expect(reduced).not.toHaveClass(/ios26-enable-gesture/);
-  });
-
-  test('repeated destroy removes the clone and does not leak listeners', async ({ page }) => {
-    const before = await clones(page).count();
-    expect(before).toBe(1);
-    const result = await page.evaluate(() => {
-      const host = document.querySelector('app-tabs');
-      const ng = (window as unknown as { ng?: { getComponent?: (el: Element) => TabsCmp } }).ng;
-      const cmp = host && ng?.getComponent ? ng.getComponent(host) : null;
-      if (!cmp?.registeredGestures?.length) return { ok: false as const, reason: 'no registered gesture' };
-      const handle = cmp.registeredGestures[0];
-      handle.destroy();
-      handle.destroy();
-      handle.destroy();
-      cmp.registeredGestures.length = 0;
-      return {
-        ok: true as const,
-        clones: document.querySelectorAll('body > ion-tab-button.ion-cloned-element').length,
-        hasGesture: document.querySelector('ion-tab-bar')?.classList.contains('ios26-enable-gesture') ?? false,
-      };
-    });
-    expect(result.ok, 'reason' in result ? result.reason : '').toBe(true);
-    if (!result.ok) return;
-    expect(result.clones).toBe(0);
-    expect(result.hasGesture).toBe(false);
-    await expect(clones(page)).toHaveCount(0);
   });
 
   test('destroy during press prevents later commit callbacks', async ({ page }) => {

@@ -44,17 +44,13 @@ export class TabsPage implements OnInit, ViewDidEnter, ViewDidLeave {
     });
   }
 
-  registerEffects(targets: Iterable<HTMLElement>) {
-    for (const target of targets) {
+  ionViewDidEnter() {
+    for (const target of this.#el.nativeElement.querySelectorAll('ion-tab-bar')) {
       const registerGesture = registerTabBarEffect(target);
       if (registerGesture) {
         this.registeredGestures.push(registerGesture);
       }
     }
-  }
-
-  ionViewDidEnter() {
-    this.registerEffects(this.#el.nativeElement.querySelectorAll('ion-tab-bar'));
   }
 
   ionViewDidLeave() {

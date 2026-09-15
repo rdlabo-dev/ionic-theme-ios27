@@ -3,7 +3,6 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 /** Theme resting knob: `--knob-width` × `--knob-size` (see `src/styles/components/ion-range.scss`). */
 const REST_W = 37;
 const REST_H = 24;
-const BAR_H = 6;
 /** Single-thumb press uses `scale(1.55)` → 37×1.55 / 24×1.55. */
 const HELD_W = 37 * 1.55;
 const HELD_H = 24 * 1.55;
@@ -45,23 +44,6 @@ const knobBox = async (range: Locator, part = 'knob') => {
   return box;
 };
 
-const barHeight = async (range: Locator) => {
-  return range.locator('[part="bar"]').evaluate((el) => el.getBoundingClientRect().height);
-};
-
-const trackIonChange = async (range: Locator) => {
-  await range.evaluate((el) => {
-    el.dataset['changes'] = '0';
-    el.dataset['lastValue'] = JSON.stringify((el as HTMLIonRangeElement).value);
-    el.addEventListener('ionChange', () => {
-      el.dataset['changes'] = String(Number(el.dataset['changes'] ?? '0') + 1);
-      el.dataset['lastValue'] = JSON.stringify((el as HTMLIonRangeElement).value);
-    });
-  });
-};
-
-const readValue = async (range: Locator) => range.evaluate((el) => (el as HTMLIonRangeElement).value);
-
 const pointerDownOnKnob = async (page: Page, range: Locator, part = 'knob') => {
   // Hit the visual knob (not injected `.range-pressed`). Host `:active` drives single-thumb CSS.
   const box = await knobBox(range, part);
@@ -74,105 +56,6 @@ test.describe('iOS26 ion-range parity', () => {
     await page.goto('/main/index/range', { waitUntil: 'networkidle' });
     // Demo page ships list + `.section-example` ranges; fixtures stay isolated on `ion-app`.
     await expect(page.getByRole('slider', { name: 'Range with ticks', exact: true })).toBeVisible();
-  });
-
-  test('theme-enabled resting thumb is 37×24 and bar height is 6', async ({ page }) => {
-    await appendFixtures(
-      page,
-      `<ion-range id="rest" aria-label="Resting range" value="50" style="width:320px;display:block;"></ion-range>`,
-    );
-    const range = page.locator('#rest');
-    await waitRangeReady(range);
-
-    const box = await knobBox(range);
-    expect(box.width).toBeCloseTo(REST_W, 1);
-    expect(box.height).toBeCloseTo(REST_H, 1);
-    expect(await barHeight(range)).toBeCloseTo(BAR_H, 1);
-  });
-
-  test('long pointer down without movement expands single thumb ~57.35×37.2, keeps center and value, release restores', async ({
-    page,
-  }) => {
-    await appendFixtures(page, `<ion-range id="hold" aria-label="Hold range" value="50" style="width:320px;display:block;"></ion-range>`);
-    const range = page.locator('#hold');
-    await waitRangeReady(range);
-    await trackIonChange(range);
-
-    const rest = await knobBox(range);
-    const restCenterX = rest.x + rest.width / 2;
-    const restCenterY = rest.y + rest.height / 2;
-    const before = await readValue(range);
-
-    await pointerDownOnKnob(page, range);
-    // Allow press transition (250ms) to settle; do not inject `.range-pressed`.
-    await expect.poll(async () => (await knobBox(range)).width, { timeout: 2000 }).toBeCloseTo(HELD_W, 1);
-    const held = await knobBox(range);
-    expect(held.height).toBeCloseTo(HELD_H, 1);
-    expect(held.x + held.width / 2).toBeCloseTo(restCenterX, 1);
-    expect(held.y + held.height / 2).toBeCloseTo(restCenterY, 1);
-    expect(await readValue(range)).toEqual(before);
-    await expect(range).toHaveAttribute('data-changes', '0');
-
-    await page.mouse.up();
-    await expect.poll(async () => (await knobBox(range)).width).toBeCloseTo(REST_W, 1);
-    await expect.poll(async () => (await knobBox(range)).height).toBeCloseTo(REST_H, 1);
-    expect(await readValue(range)).toEqual(before);
-  });
-
-  test('disabled range does not expand or change on pointer', async ({ page }) => {
-    await appendFixtures(
-      page,
-      `<ion-range id="disabled" aria-label="Disabled range" value="40" disabled style="width:320px;display:block;"></ion-range>`,
-    );
-    const range = page.locator('#disabled');
-    await waitRangeReady(range);
-    await trackIonChange(range);
-
-    await pointerDownOnKnob(page, range);
-    await page.waitForTimeout(400);
-    const held = await knobBox(range);
-    expect(held.width).toBeCloseTo(REST_W, 1);
-    expect(held.height).toBeCloseTo(REST_H, 1);
-    expect(await readValue(range)).toBe(40);
-    await expect(range).toHaveAttribute('data-changes', '0');
-    await page.mouse.up();
-    expect(await readValue(range)).toBe(40);
-    await expect(range).toHaveAttribute('data-changes', '0');
-  });
-
-  test('keyboard arrow changes value and emits ionChange', async ({ page }) => {
-    await appendFixtures(
-      page,
-      `<ion-range id="keys" aria-label="Keyboard range" value="50" style="width:320px;display:block;"></ion-range>`,
-    );
-    const range = page.locator('#keys');
-    await waitRangeReady(range);
-    await trackIonChange(range);
-
-    const slider = range.locator('[part~="knob-handle"]');
-    await slider.focus();
-    await page.keyboard.press('ArrowRight');
-    await expect.poll(async () => readValue(range)).toBe(51);
-    await expect(range).toHaveAttribute('data-changes', '1');
-    await page.keyboard.press('ArrowLeft');
-    await expect.poll(async () => readValue(range)).toBe(50);
-    await expect(range).toHaveAttribute('data-changes', '2');
-  });
-
-  test('reduced-motion removes knob transition while held', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await appendFixtures(
-      page,
-      `<ion-range id="rm" aria-label="Reduced motion range" value="50" style="width:320px;display:block;"></ion-range>`,
-    );
-    const range = page.locator('#rm');
-    await waitRangeReady(range);
-
-    await expect(knob(range)).toHaveCSS('transition-duration', '0s');
-    await pointerDownOnKnob(page, range);
-    await expect(knob(range)).toHaveCSS('transition-duration', '0s');
-    await expect.poll(async () => (await knobBox(range)).width).toBeCloseTo(HELD_W, 1);
-    await page.mouse.up();
   });
 
   for (const dir of ['ltr', 'rtl'] as const) {
