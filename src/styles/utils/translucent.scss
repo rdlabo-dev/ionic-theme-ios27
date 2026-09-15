@@ -35,8 +35,8 @@ ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-collapse-condens
   transform: translateY(8px);
 }
 
-ion-header.ios:not(.ios-theme-disabled, .ios26-disabled):not(.header-transitioning).header-translucent::before,
-ion-header.ios:not(.ios-theme-disabled, .ios26-disabled):not(.header-transitioning).header-translucent::after,
+ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-translucent::before,
+ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-translucent::after,
 ion-content.ios:not(.ios-theme-disabled, .ios26-disabled).content-fullscreen::part(background)::before,
 ion-content.ios:not(.ios-theme-disabled, .ios26-disabled).content-fullscreen::part(background)::after {
   content: '';

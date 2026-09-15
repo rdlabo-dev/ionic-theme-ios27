@@ -14,7 +14,7 @@ protect behavior introduced or overridden by this theme, not Ionic itself:
 | `ios26-segment-parity` | Selection effects duplicating events/lenses or ignoring reduced motion/custom styles |
 | `ios26-tab-lifecycle` | 1–5 tab layout (five without FAB), narrow-width containment/tablet caps, background overrides, click ownership and cleanup |
 | `ios26-range-parity` | Enlarged thumbs moving past LTR/RTL endpoints or deforming the inactive dual thumb |
-| `ios26-navigation` | Push moving/scaling large titles independently of content; pop losing the original scroll position |
+| `ios26-navigation` | Push moving/scaling large titles independently of content or cutting the transition cover at the header; pop losing the original scroll position |
 | `toggle` | Short-tap effects not settling, or CSS overriding reduced motion/public styling |
 
 Do not duplicate screenshot coverage with lists of CSS constants or re-test
