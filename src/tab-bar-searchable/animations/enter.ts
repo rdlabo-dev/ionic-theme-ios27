@@ -55,6 +55,7 @@ export const createTabBarAnimation = (ionTabBar: HTMLElement, references: Elemen
   return createAnimation()
     .addElement(ionTabBar)
     .beforeAddWrite(() => {
+      ionTabBar.style.transformOrigin = 'left center';
       ionTabBar.querySelectorAll<HTMLElement>('ion-tab-button').forEach((element: HTMLElement) => {
         element.style.transition = OPACITY_TRANSITION;
         element.style.opacity = '0';

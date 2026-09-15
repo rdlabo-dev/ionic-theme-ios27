@@ -23,7 +23,7 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
     .fromTo('transform', 'scale(1)', 'scale(0)');
 
   const doc = baseEl.ownerDocument as any;
-  const replaceElement = doc.querySelector('.ios26-replace-element') as HTMLElement | null;
+  const replaceElement = doc.querySelector('.ios-theme-replace-element') as HTMLElement | null;
 
   if (replaceElement) {
     const ratio = contentEl.getBoundingClientRect().width / contentEl.getBoundingClientRect().height;
@@ -33,7 +33,7 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
       .addElement(replaceElement)
       .delay(100)
       .duration(300)
-      .afterRemoveClass('ios26-replace-element')
+      .afterRemoveClass('ios-theme-replace-element')
       .fromTo('transform', `scale(${scale})`, 'scale(1)')
       .fromTo('opacity', 0, 0.9);
   }
@@ -63,10 +63,10 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
   return baseAnimation
     .easing('ease')
     .afterAddWrite(() => {
-      if (baseEl.dataset['ios26PreviousWidth'] !== undefined) {
-        baseEl.style.setProperty('--width', baseEl.dataset['ios26PreviousWidth'], baseEl.dataset['ios26PreviousWidthPriority'] ?? '');
-        delete baseEl.dataset['ios26PreviousWidth'];
-        delete baseEl.dataset['ios26PreviousWidthPriority'];
+      if (baseEl.dataset['iosThemePreviousWidth'] !== undefined) {
+        baseEl.style.setProperty('--width', baseEl.dataset['iosThemePreviousWidth'], baseEl.dataset['iosThemePreviousWidthPriority'] ?? '');
+        delete baseEl.dataset['iosThemePreviousWidth'];
+        delete baseEl.dataset['iosThemePreviousWidthPriority'];
       }
       baseEl.classList.remove('popover-bottom');
       baseEl.classList.remove('ios-theme-callout');

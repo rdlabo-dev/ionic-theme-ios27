@@ -63,7 +63,6 @@ export const attachTabBarSearchable = (
   // Initialize
   ionFooter.style.pointerEvents = 'none';
   ionFooter.style.opacity = '0';
-  ionTabBar.style.transformOrigin = 'left center';
 
   // Saved Params
   let searchableEventCache: SearchableEventCache | undefined;

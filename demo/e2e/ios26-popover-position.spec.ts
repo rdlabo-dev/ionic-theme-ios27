@@ -46,7 +46,7 @@ for (const side of ['top', 'bottom', 'left', 'right'] as const) {
       const result = {
         originX: rect.left + origin[0],
         originY: rect.top + origin[1],
-        replacing: anchor.classList.contains('ios26-replace-element'),
+        replacing: anchor.classList.contains('ios-theme-replace-element'),
       };
       await popover.dismiss();
       popover.remove();

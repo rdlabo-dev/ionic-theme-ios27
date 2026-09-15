@@ -18,10 +18,12 @@ export const raf = (h: FrameRequestCallback) => {
   return setTimeout(h);
 };
 
-export const cloneElement = (tagName: string): HTMLElement => {
-  const getCachedEl = document.querySelector(`${tagName}.ion-cloned-element`);
-  if (getCachedEl !== null) {
-    return getCachedEl as HTMLElement;
+export const cloneElement = (tagName: string, useCache: boolean = true): HTMLElement => {
+  if (useCache) {
+    const cachedElement = document.querySelector(`${tagName}.ion-cloned-element`);
+    if (cachedElement !== null) {
+      return cachedElement as HTMLElement;
+    }
   }
 
   const clonedEl = document.createElement(tagName) as HTMLElement;

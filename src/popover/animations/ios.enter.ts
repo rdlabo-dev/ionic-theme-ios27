@@ -108,8 +108,14 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts: any = {}): Animatio
     referenceSizeEl?.getBoundingClientRect(),
     isReplace,
   );
-  // Preserve iOS 26's replacement placement; constrain only overflowing panes.
-  const left = pane ? Math.max(paneLeft + paneMargin, Math.min(paneRight - paneMargin - contentWidth, windowLeft)) : windowLeft;
+  // A replacing surface grows inward from the button's edge, not its center.
+  const preferredLeft =
+    isReplace && anchorBounds
+      ? anchorBounds.left + anchorBounds.width / 2 <= (paneLeft + paneRight) / 2
+        ? anchorBounds.left
+        : anchorBounds.right - contentWidth
+      : windowLeft;
+  const left = pane ? Math.max(paneLeft + paneMargin, Math.min(paneRight - paneMargin - contentWidth, preferredLeft)) : preferredLeft;
   const physicalSide = side === 'start' ? (isRTL ? 'right' : 'left') : side === 'end' ? (isRTL ? 'left' : 'right') : side;
   const horizontal = physicalSide === 'left' || physicalSide === 'right';
   const above = addPopoverBottomClass || physicalSide === 'top';
@@ -188,7 +194,7 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts: any = {}): Animatio
       .duration(200)
       .addElement(referenceSizeEl)
       .beforeStyles({ 'transform-origin': `${originY} ${originX}` })
-      .beforeAddClass('ios26-replace-element')
+      .beforeAddClass('ios-theme-replace-element')
       .fromTo('transform', 'scale(1)', 'scale(1.05)')
       .fromTo('opacity', 1, 0);
   }
@@ -199,8 +205,8 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts: any = {}): Animatio
     .duration(100)
     .beforeAddWrite(() => {
       if (size === 'cover') {
-        baseEl.dataset['ios26PreviousWidth'] = baseEl.style.getPropertyValue('--width');
-        baseEl.dataset['ios26PreviousWidthPriority'] = baseEl.style.getPropertyPriority('--width');
+        baseEl.dataset['iosThemePreviousWidth'] = baseEl.style.getPropertyValue('--width');
+        baseEl.dataset['iosThemePreviousWidthPriority'] = baseEl.style.getPropertyPriority('--width');
         baseEl.style.setProperty('--width', `${contentWidth}px`);
       }
 
