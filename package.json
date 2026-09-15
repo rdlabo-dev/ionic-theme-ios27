@@ -54,7 +54,7 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-utils.git#main"
+    "@rdlabo/ionic-theme-utils": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-utils.git#d27e4d9bc1bc53f932bcc653d420936553847f4c"
   },
   "devDependencies": {
     "@capacitor/core": "^8.5.2",
