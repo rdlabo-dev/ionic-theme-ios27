@@ -137,7 +137,8 @@ $scaleup-large-icon-only: 1.22;
     border: none;
     border-radius: 22px;
     backdrop-filter: blur(8px) saturate(250%);
-    @include glass.light-shadow;
+    // Keep the soft shadow within the toolbar's vertical clearance.
+    @include glass.light-shadow($geometry: 0 2px 8px -2px);
     &::before {
       content: '';
       position: absolute;
@@ -344,7 +345,7 @@ $scaleup-large-icon-only: 1.22;
     --background-hover: transparent;
     --background-activated: transparent;
     @if not $is-back-button {
-      @include glass.light-shadow(--box-shadow);
+      @include glass.light-shadow(--box-shadow, 0 2px 8px -2px);
       --border-width: 0.5px;
       --border-style: solid;
       --border-color: rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 1) transparent;
@@ -364,7 +365,7 @@ $scaleup-large-icon-only: 1.22;
       // Back buttons expose no border/box-shadow properties; regular buttons do.
       @include glass.light-rim($include-border: $is-back-button);
       @if $is-back-button {
-        @include glass.light-shadow;
+        @include glass.light-shadow($geometry: 0 2px 8px -2px);
       }
     }
 

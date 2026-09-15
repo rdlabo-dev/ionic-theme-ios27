@@ -1,7 +1,7 @@
 // Calibrated against iOS 26.5 UIKit Glass on systemGroupedBackground.
 // Keep the legacy color hooks; these are material recipes, not new public APIs.
-@mixin light-shadow($property: box-shadow) {
-  #{$property}: 0 8px 28px rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.68);
+@mixin light-shadow($property: box-shadow, $geometry: 0 8px 28px) {
+  #{$property}: $geometry rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.68);
 }
 
 @mixin light-rim($include-border: true) {
