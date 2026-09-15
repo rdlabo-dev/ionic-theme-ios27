@@ -7,6 +7,10 @@ import { defineCustomElement as segmentButton } from '@ionic/core/components/ion
 import { defineCustomElement as range } from '@ionic/core/components/ion-range.js';
 import { defineCustomElement as tabBar } from '@ionic/core/components/ion-tab-bar.js';
 import { defineCustomElement as tabButton } from '@ionic/core/components/ion-tab-button.js';
+import { defineCustomElement as fab } from '@ionic/core/components/ion-fab.js';
+import { defineCustomElement as fabButton } from '@ionic/core/components/ion-fab-button.js';
+import { defineCustomElement as label } from '@ionic/core/components/ion-label.js';
+import { defineCustomElement as icon } from 'ionicons/components/ion-icon.js';
 import { defineCustomElement as searchbar } from '@ionic/core/components/ion-searchbar.js';
 import { defineCustomElement as alert } from '@ionic/core/components/ion-alert.js';
 import { defineCustomElement as actionSheet } from '@ionic/core/components/ion-action-sheet.js';
@@ -33,13 +37,18 @@ initialize({
   actionSheetEnter: actionSheetEnterAnimation,
   actionSheetLeave: actionSheetLeaveAnimation,
 });
-[app, button, toggle, segment, segmentButton, range, tabBar, tabButton, searchbar, alert, actionSheet].forEach((define) => define());
+[app, button, toggle, segment, segmentButton, range, tabBar, tabButton, fab, fabButton, label, icon, searchbar, alert, actionSheet].forEach(
+  (define) => define(),
+);
 
 const params = new URLSearchParams(location.search);
+document.documentElement.classList.add(params.get('idiom') === 'pad' ? 'plt-ipad' : 'plt-iphone');
 document.documentElement.classList.toggle('ion-palette-dark', params.get('appearance') === 'dark');
 const kind = params.get('control') ?? 'button';
 const shell = params.get('shell') === '1';
+const tabCount = /^tabs-(count|icons)-/.test(kind) ? Number(kind.split('-').at(-1)) : 0;
 const fixtures: Record<string, string> = {
+  fab: '<ion-fab id="Fab"><ion-fab-button id="FabButton" aria-label="Search"><ion-icon aria-hidden="true"></ion-icon></ion-fab-button></ion-fab>',
   navigation: '<ion-nav id="Navigation"></ion-nav>',
   button: shell
     ? '<ion-button id="Glass" fill="default">Glass</ion-button>'
@@ -58,6 +67,29 @@ const fixtures: Record<string, string> = {
 };
 const root = document.querySelector<HTMLElement>('#controls')!;
 root.innerHTML = fixtures[kind === 'tabs-motion' ? 'tabs' : kind];
+if (tabCount) {
+  root.classList.add('tab-count-fixture');
+  root.innerHTML = `<ion-tab-bar id="Tabs" slot="bottom" selected-tab="One">${['One', 'Two', 'Three', 'Four', 'Five']
+    .slice(0, tabCount)
+    .map((title) => `<ion-tab-button tab="${title}">${title}</ion-tab-button>`)
+    .join('')}</ion-tab-bar>${
+    tabCount < 5
+      ? '<ion-fab id="Fab" vertical="bottom" horizontal="end"><ion-fab-button id="SearchTab" aria-label="Search"><ion-icon aria-hidden="true"></ion-icon></ion-fab-button></ion-fab>'
+      : ''
+  }`;
+}
+
+if (kind.startsWith('tabs-icons-')) {
+  root.querySelectorAll('ion-tab-button').forEach((button) => {
+    button.innerHTML = `<ion-icon aria-hidden="true"></ion-icon><ion-label>${button.textContent}</ion-label>`;
+    button.querySelector('ion-icon')!.icon =
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 26"><circle cx="13" cy="13" r="10" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+  });
+}
+root.querySelectorAll('ion-fab ion-icon').forEach((icon) => {
+  icon.icon =
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15 15 6 6" stroke="currentColor" stroke-width="2"/></svg>';
+});
 
 const frameOf = (rect: DOMRect, origin?: DOMRect) => ({
   x: rect.x - (origin?.x ?? 0),
@@ -91,6 +123,13 @@ const readItem = (child: HTMLElement, origin: DOMRect) => {
     fontWeight: parseInt(labelStyle.fontWeight, 10) || 400,
     color: getComputedStyle(native ?? child).color,
   };
+  const image = child.querySelector<HTMLElement>('ion-icon');
+  if (image?.dataset.parityImage) {
+    item.icon = image.dataset.parityImage;
+    item.iconWidth = image.getBoundingClientRect().width;
+    item.iconHeight = image.getBoundingClientRect().height;
+    item.iconTemplate = true;
+  }
   if (child.matches('ion-button') && native) {
     const style = getComputedStyle(native);
     item.contentInsetLeading = (parseFloat(style.paddingInlineStart) || 0) + (parseFloat(style.borderInlineStartWidth) || 0);
@@ -103,6 +142,20 @@ const readItem = (child: HTMLElement, origin: DOMRect) => {
 // Shell DTO from live DOM geometry/styles — not Capacitor bridge/handoff verification.
 const buildShellControls = (): Record<string, unknown>[] => {
   const dark = document.documentElement.classList.contains('ion-palette-dark');
+  if (kind === 'fab') {
+    const fab = root.querySelector<HTMLElement>('ion-fab')!;
+    const rect = fab.getBoundingClientRect();
+    return [
+      {
+        id: fab.id,
+        kind: 'ion-fab',
+        ...frameOf(rect),
+        items: Array.from(fab.querySelectorAll<HTMLElement>('ion-fab-button')).map((button) => readItem(button, rect)),
+        dark,
+        rtl: false,
+      },
+    ];
+  }
   if (kind === 'button' || kind === 'button-short') {
     const element = root.querySelector<HTMLElement>('#Glass');
     if (!element) return [];
@@ -141,14 +194,14 @@ const buildShellControls = (): Record<string, unknown>[] => {
       },
     ];
   }
-  if (kind === 'tabs') {
+  if (kind.startsWith('tabs')) {
     const element = root.querySelector<HTMLElement>('ion-tab-bar');
     if (!element) return [];
     const rect = element.getBoundingClientRect();
     const style = getComputedStyle(element);
     const selected = (element as HTMLElement & { selectedTab?: string }).selectedTab;
     const children = Array.from(element.querySelectorAll<HTMLElement>(':scope > ion-tab-button:not(.ion-cloned-element)'));
-    return [
+    const controls: Record<string, unknown>[] = [
       {
         id: element.id || 'Tabs',
         kind: 'ion-tab-bar',
@@ -163,14 +216,60 @@ const buildShellControls = (): Record<string, unknown>[] => {
         tabBarAnchor: { x: style.left !== 'auto' ? 0 : 1, y: element.slot === 'bottom' ? 1 : 0 },
       },
     ];
+    const fab = root.querySelector<HTMLElement>('ion-fab');
+    if (fab) {
+      const rect = fab.getBoundingClientRect();
+      controls.push({
+        id: fab.id,
+        kind: 'ion-fab',
+        ...frameOf(rect),
+        items: Array.from(fab.querySelectorAll<HTMLElement>('ion-fab-button')).map((button) => readItem(button, rect)),
+        dark,
+        rtl: style.direction === 'rtl',
+      });
+    }
+    return controls;
   }
   return [];
 };
 
 void Promise.all(Array.from(root.querySelectorAll('*')).map(async (element: any) => element.componentOnReady?.())).then(async () => {
+  if (tabCount) {
+    await new Promise<void>((resolve) => {
+      (window as any).applyParityInsets = (insets: Record<string, number>) => {
+        for (const [side, value] of Object.entries(insets))
+          document.documentElement.style.setProperty(`--ion-safe-area-${side}`, `${value}px`);
+        resolve();
+      };
+      (window as any).webkit.messageHandlers.layout.postMessage({});
+    });
+  }
+  if (tabCount || kind === 'fab') {
+    // Rasterize the DOM artwork for the reference shell; the independent
+    // controller's system artwork remains a distinct comparison.
+    for (const icon of root.querySelectorAll('ion-icon')) {
+      const svg = await new Promise<SVGElement>((resolve, reject) => {
+        const deadline = performance.now() + 10000;
+        const check = () => {
+          const svg = icon.shadowRoot?.querySelector('svg');
+          if (svg) resolve(svg);
+          else if (performance.now() > deadline) reject(new Error('Parity icon failed to render'));
+          else requestAnimationFrame(check);
+        };
+        check();
+      });
+      const bitmap = new Image();
+      bitmap.src = `data:image/svg+xml,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+      await bitmap.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 78;
+      canvas.getContext('2d')!.drawImage(bitmap, 0, 0, 78, 78);
+      icon.dataset.parityImage = canvas.toDataURL('image/png').split(',')[1];
+    }
+  }
   if (kind === 'navigation') await setupNavigation(root);
   const segmentEl = root.querySelector('ion-segment');
-  root.querySelectorAll<HTMLElement>('ion-button, ion-back-button').forEach(registerButtonEffect);
+  root.querySelectorAll<HTMLElement>('ion-button, ion-back-button, ion-fab-button').forEach(registerButtonEffect);
   if (segmentEl) registerSegmentEffect(segmentEl);
   const tabs = root.querySelector('ion-tab-bar');
   if (tabs) {
@@ -267,7 +366,7 @@ void Promise.all(Array.from(root.querySelectorAll('*')).map(async (element: any)
   };
   requestAnimationFrame(tick);
   const flushMetrics = () => (window as any).webkit?.messageHandlers.metrics.postMessage(rows);
-  if (kind.startsWith('tabs')) (window as any).flushParityMetrics = flushMetrics;
+  if (kind.startsWith('tabs') || kind === 'fab') (window as any).flushParityMetrics = flushMetrics;
   else setInterval(flushMetrics, 1000);
   document.querySelector('#ready')!.textContent = 'Ready';
 });

@@ -1,8 +1,14 @@
 @use '../api';
+@use '../glass';
 
 @mixin ion-fab {
   ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
-    ion-fab-button {
+    ion-fab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      @include glass.dark-fill(--background);
+      --box-shadow: none;
+      &::part(native) {
+        @include glass.dark-rim;
+      }
       &.ion-activated {
         --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 1);
 

@@ -1,11 +1,28 @@
 @use '../utils/api';
 
+@mixin tablet-tabs {
+  &:has(> ion-tab-button:nth-child(4):last-child) {
+    max-width: 328px;
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      --_ios26-tab-cell-width: calc((100cqw + 48px) / 4);
+    }
+  }
+  &:has(> ion-tab-button:nth-child(5):last-child) {
+    max-width: 406px;
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      --_ios26-tab-cell-width: calc((100cqw + 64px) / 5);
+    }
+  }
+}
+
 ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   // UIKit's platter is 62pt, including its 4pt selection inset. Put the
   // physical-pixel rim on a separate surface so it cannot alter layout.
   border: 0;
   background: transparent;
   contain: size layout style;
+  container-type: inline-size;
+  container-name: ios26-tab-platter;
   &::before {
     content: '';
     position: absolute;
@@ -40,18 +57,65 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   &:not(:has(ion-tab-button:nth-child(4))) {
     max-width: 266px;
   }
+  &:has(> ion-tab-button:only-child) {
+    max-width: 94px;
+  }
+  &:has(> ion-tab-button:nth-child(2):last-child) {
+    max-width: 180px;
+  }
   min-height: 54px;
   height: 54px;
   &:has(:nth-child(5)) {
-    width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)));
+    width: calc(100% - calc(25px + var(--ion-safe-area-left, 0px)) - calc(25px + var(--ion-safe-area-right, 0px)));
     max-width: 546px;
   }
   padding: 4px;
+  &:has(> ion-tab-button:nth-child(4):last-child) {
+    justify-content: space-between;
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      --_ios26-tab-cell-width: min(74px, calc((100cqw + 60px) / 4));
+      flex: 0 0 var(--_ios26-tab-cell-width);
+      & + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+        margin-inline-start: calc((100cqw - 4 * var(--_ios26-tab-cell-width)) / 3);
+      }
+      // Fractional samples through305.9pt still use the compact74pt cell;
+      //306pt starts the regular94pt cell (content width excludes8pt padding).
+      @container ios26-tab-platter (width >= 298px) {
+        --_ios26-tab-cell-width: max(94px, calc((100cqw + 40px) / 4));
+      }
+    }
+  }
+  // UIKit's five-item selection cells are wider than the equal-width hit
+  // regions. 26.5 standalone UITabBar samples cover 218–558pt platters.
+  &:has(> ion-tab-button:nth-child(5):last-child) {
+    justify-content: space-between;
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      --_ios26-tab-cell-width: min(74px, calc((100cqw + 80px) / 5));
+      @container ios26-tab-platter (width >= 348px) {
+        --_ios26-tab-cell-width: calc((100cqw + 33px) / 5);
+      }
+      flex: 0 0 var(--_ios26-tab-cell-width);
+      & + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+        margin-inline-start: calc((100cqw - 5 * var(--_ios26-tab-cell-width)) / 4);
+      }
+    }
+  }
   // Native three-item cells overlap by 8pt (94pt cell, 86pt center spacing).
   &:not(:has(ion-tab-button:nth-child(4)))
     > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled)
     + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline-start: -8px;
+  }
+  // iPad compact-height/icon-top UITabBar uses16pt overlap and natural caps,
+  // including narrow multitasking windows. Desktop previews use the roomy
+  // fallback; a real iPhone in landscape must not be mistaken for an iPad.
+  :where(.plt-ipad) & {
+    @include tablet-tabs;
+  }
+  @media (min-width: 768px) {
+    :where(html:not(.plt-iphone)) & {
+      @include tablet-tabs;
+    }
   }
 
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease-out;

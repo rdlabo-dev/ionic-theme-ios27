@@ -12,7 +12,7 @@ final class NativeParityTests: XCTestCase {
         add(attachment)
     }
     private func flushTabs(_ app: XCUIApplication, kind: String) {
-        guard kind.hasPrefix("tabs") else { return }
+        guard kind.hasPrefix("tabs") || kind.hasPrefix("fab") else { return }
         CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
             CFNotificationName("dev.rdlabo.ios26.parity.flush" as CFString), nil, nil, true)
         XCTAssertTrue(app.staticTexts["Metrics saved"].waitForExistence(timeout: 15))
@@ -60,6 +60,40 @@ final class NativeParityTests: XCTestCase {
                 button.press(forDuration: 0.7)
                 Thread.sleep(forTimeInterval: 1)
             }
+        }
+    }
+    func testFab() {
+        compare("fab") { app, web, _ in
+            let button = web ? app.webViews.buttons["Search"] : app.buttons["Search"]
+            XCTAssertTrue(button.waitForExistence(timeout: 10))
+            for duration in [0.05, 0.15, 0.7] {
+                button.press(forDuration: duration)
+                Thread.sleep(forTimeInterval: 1.2)
+            }
+        }
+    }
+    func testFabMatrix() {
+        let app = XCUIApplication()
+        app.launchArguments = ["control=fab-matrix", "light"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Fab-48"].waitForExistence(timeout: 10))
+        Thread.sleep(forTimeInterval: 1)
+        capture("fab-matrix-native-light-rest")
+        for size in [48, 62] {
+            for duration in [0.05, 0.15, 0.7] {
+                app.buttons["Fab-\(size)"].press(forDuration: duration)
+                Thread.sleep(forTimeInterval: 1.2)
+            }
+        }
+        flushTabs(app, kind: "fab-matrix")
+        app.terminate()
+    }
+    func testShellFab() {
+        compareShell("fab") { app in
+            let button = app.buttons["Search"]
+            XCTAssertTrue(button.waitForExistence(timeout: 10))
+            button.press(forDuration: 0.7)
+            Thread.sleep(forTimeInterval: 1.2)
         }
     }
     func testNavigation() {
@@ -190,6 +224,100 @@ final class NativeParityTests: XCTestCase {
             capture("tabs-controller-native-\(appearance)-end")
             flushTabs(app, kind: "tabs-controller")
             app.terminate()
+        }
+    }
+    func testTabsCountsNative() {
+        tabsCountsNative(prefix: "tabs-count")
+    }
+    func testTabsWidthsNative() {
+        tabsWidthsNative([260, 320, 344, 360, 402, 600])
+    }
+    func testTabsWidthBreakpointsNative() {
+        tabsWidthsNative([340, 346, 348, 350, 352, 356, 376, 392, 416, 440])
+    }
+    func testTabsWidthFiveBoundaryNative() {
+        tabsWidthsNative([347, 394, 396, 398, 400])
+    }
+    func testTabsWidthFractionalNative() {
+        tabsWidthsNative([3471, 3475, 3479, 397, 3971, 3975, 3979])
+    }
+    private func tabsWidthsNative(_ widths: [Int]) {
+        for width in widths {
+            let kind = "tabs-width-\(width)"
+            let app = XCUIApplication()
+            app.launchArguments = ["control=\(kind)", "light"]
+            app.launch()
+            XCTAssertTrue(app.tabBars["Tabs1"].waitForExistence(timeout: 10))
+            Thread.sleep(forTimeInterval: 1)
+            capture("\(kind)-native-light-rest")
+            app.tabBars["Tabs1"].buttons["One"].press(forDuration: 0.7)
+            Thread.sleep(forTimeInterval: 1.2)
+            flushTabs(app, kind: kind)
+            app.terminate()
+        }
+    }
+    func testTabsIconsNative() {
+        tabsCountsNative(prefix: "tabs-icons")
+    }
+    private func tabsCountsNative(prefix: String) {
+        for count in 1...5 {
+            for appearance in ["light", "dark"] {
+                let kind = "\(prefix)-\(count)"
+                let app = XCUIApplication()
+                app.launchArguments = ["control=\(kind)", appearance]
+                app.launch()
+                let one = app.tabBars.buttons["One"]
+                XCTAssertTrue(one.waitForExistence(timeout: 10))
+                Thread.sleep(forTimeInterval: 1)
+                capture("\(kind)-native-\(appearance)-rest")
+                one.press(forDuration: 0.7)
+                Thread.sleep(forTimeInterval: 1.2)
+                if count > 1 {
+                    let last = app.tabBars.buttons[["One", "Two", "Three", "Four", "Five"][count - 1]]
+                    last.tap()
+                    Thread.sleep(forTimeInterval: 1.2)
+                    XCTAssertTrue(last.isSelected)
+                }
+                capture("\(kind)-native-\(appearance)-end")
+                flushTabs(app, kind: kind)
+                app.terminate()
+            }
+        }
+    }
+    func testTabsCountsWebShell() {
+        tabsCountsWebShell(prefix: "tabs-count")
+    }
+    func testTabsIconsWebShell() {
+        tabsCountsWebShell(prefix: "tabs-icons")
+    }
+    private func tabsCountsWebShell(prefix: String) {
+        for count in 1...5 {
+            let kind = "\(prefix)-\(count)"
+            for appearance in ["light", "dark"] {
+                for shell in [false, true] {
+                    let app = XCUIApplication()
+                    app.launchArguments = ["control=\(kind)", appearance, shell ? "shell" : "web"]
+                    app.launch()
+                    let ready = shell ? app.staticTexts["Shell Ready"] : app.webViews.staticTexts["Ready"]
+                    XCTAssertTrue(ready.waitForExistence(timeout: 15))
+                    Thread.sleep(forTimeInterval: 1)
+                    let renderer = shell ? "shell" : "web"
+                    capture("\(kind)-\(renderer)-\(appearance)-rest")
+                    let one = shell ? app.tabBars.buttons["One"] : app.webViews.buttons["One"]
+                    one.press(forDuration: 0.7)
+                    Thread.sleep(forTimeInterval: 1.2)
+                    if count > 1 {
+                        let title = ["One", "Two", "Three", "Four", "Five"][count - 1]
+                        let last = shell ? app.tabBars.buttons[title] : app.webViews.buttons[title]
+                        last.tap()
+                        Thread.sleep(forTimeInterval: 1.2)
+                        XCTAssertTrue(last.isSelected)
+                    }
+                    capture("\(kind)-\(renderer)-\(appearance)-end")
+                    flushTabs(app, kind: kind)
+                    app.terminate()
+                }
+            }
         }
     }
     func testSearch() {

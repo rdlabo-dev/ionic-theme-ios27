@@ -1,4 +1,5 @@
 import type { registeredEffect } from '../sheets-of-glass/interfaces';
+import { appendDragStep, dragDeformation, dragPosition, dragReleaseDelay, dragReleaseExpansion, type DragStep } from './drag';
 import { platterRelease, release, sample, selectedPress, shortTransfer, shortTransferLeft, transfer } from './motion';
 
 interface Box {
@@ -51,6 +52,10 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
         target: HTMLIonTabButtonElement;
         dragged: boolean;
         clicked: boolean;
+        steps: DragStep[];
+        delta: number;
+        spacing: number;
+        origin: Box;
       }
     | undefined;
   const buttons = () => Array.from(bar.querySelectorAll<HTMLIonTabButtonElement>('ion-tab-button'));
@@ -219,6 +224,10 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
       target,
       dragged: false,
       clicked: false,
+      steps: [],
+      delta: 0,
+      spacing: Math.abs(box(buttons()[1] ?? target).x - box(buttons()[0] ?? target).x) || to.width,
+      origin: to,
     };
     preview(target);
     const table = selected() === target ? selectedPress : transfer;
@@ -239,39 +248,43 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
   const move = (event: PointerEvent) => {
     if (!pointer || pointer.id !== event.pointerId) return;
     if (!enabled()) return abort();
-    if (!pointer.dragged && Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) < 6) return;
-    // Vertical scrolling is not a tab selection gesture.
-    if (!pointer.dragged && Math.abs(event.clientY - pointer.y) > Math.abs(event.clientX - pointer.x)) return abort();
     const target = doc.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLIonTabButtonElement>('ion-tab-button') ?? null;
     if (!allowed(target)) return;
+    const time = win.performance.now();
+    const delta = event.clientX - pointer.x;
+    if (delta !== pointer.delta) {
+      appendDragStep(pointer.steps, (time - pointer.time) / 1000, delta - pointer.delta);
+      pointer.delta = delta;
+    }
+    if (!pointer.dragged && Math.hypot(delta, event.clientY - pointer.y) < 3) return;
+    // Vertical scrolling is not a tab selection gesture.
+    if (!pointer.dragged && Math.abs(event.clientY - pointer.y) > Math.abs(event.clientX - pointer.x)) return abort();
     pointer.dragged = true;
     pointer.target = target;
     pointer.to = box(target);
     preview(target);
-    const from = current();
-    const outer = bar.getBoundingClientRect();
-    const scale = outer.width / base.width;
     const available = buttons()
       .filter(allowed)
       .map(box)
       .map((item) => item.x);
-    const x = Math.max(Math.min(...available), Math.min(Math.max(...available), (event.clientX - outer.x) / scale));
-    // Position follows the pointer; drag deformation is a conservative held
-    // candidate until velocity-dependent iOS26 recordings are qualified.
-    const to = { ...pointer.to, x, width: pointer.to.width + 16, height: pointer.to.height + 16, platter: 14.1379 };
-    play(
-      states(100, (t) => {
-        const progress = 1 - (1 - t / 0.1) ** 3;
-        return Object.fromEntries(
-          Object.keys(to).map((key) => [
-            key,
-            from[key as keyof Surface] + (to[key as keyof Surface] - from[key as keyof Surface]) * progress,
-          ]),
-        ) as unknown as Surface;
-      }),
-      100,
-      win.performance.now(),
-    );
+    const session = pointer;
+    const elapsed = (time - session.time) / 1000;
+    const at = (t: number): Surface => {
+      const seconds = elapsed + t;
+      const [, width, height, platter] = sample(selectedPress, seconds);
+      const deformation = dragDeformation(session.steps, seconds, session.spacing);
+      return {
+        ...session.to,
+        x: Math.max(Math.min(...available), Math.min(Math.max(...available), session.origin.x + dragPosition(session.steps, seconds))),
+        width: session.to.width + (width + height) / 2 + deformation,
+        height: session.to.height + (width + height) / 2 - deformation,
+        platter,
+      };
+    };
+    // Evaluate the same input-clock trajectory on replacement. Correcting to
+    // the last painted frame on every move would add a second, frame-rate-
+    // dependent lag to the measured spring.
+    play(states(1100, at), 1100, time);
   };
   const up = (event: PointerEvent) => {
     const ended = pointer;
@@ -317,6 +330,30 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
             return state;
           }),
           duration,
+          endTime,
+          true,
+        );
+      } else if (ended.dragged) {
+        const delay = dragReleaseDelay(ended.steps, elapsed);
+        const restExpansion = (from.width - to.width + from.height - to.height) / 2;
+        const position0 = ended.origin.x + dragPosition(ended.steps, elapsed);
+        const deformation0 = dragDeformation(ended.steps, elapsed, ended.spacing);
+        const actualDeformation = (from.width - to.width - (from.height - to.height)) / 2;
+        ended.steps.push({ time: elapsed, delta: to.x - ended.origin.x - ended.delta });
+        play(
+          states(1100, (t) => {
+            const common = dragReleaseExpansion(restExpansion, delay, t);
+            const correction = Math.exp(-30 * t);
+            const deformation = dragDeformation(ended.steps, elapsed + t, ended.spacing) + (actualDeformation - deformation0) * correction;
+            return {
+              x: ended.origin.x + dragPosition(ended.steps, elapsed + t) + (from.x - position0) * correction,
+              y: to.y + (from.y - to.y) * correction,
+              width: to.width + common + deformation,
+              height: to.height + common - deformation,
+              platter: (from.platter * platterRelease(elapsed, t)) / (sample(transfer, elapsed)[3] || 1),
+            };
+          }),
+          1100,
           endTime,
           true,
         );

@@ -20,6 +20,10 @@ enum ShellReference {
                         rendering: ShellRendering, tabDelegate: UITabBarDelegate,
                         activate: @escaping (String) -> Void) -> [UIView] {
         var installed: [UIView] = []
+        var fabs: [(ShellFab, ShellControl)] = []
+        // Match the production host's transaction: geometry/traits are applied
+        // without implicit UIKit animations; FAB content is applied afterward.
+        UIView.performWithoutAnimation {
         for node in nodes {
             guard let control = ShellComponents.make(node, scale: 1, rendering: rendering,
                                                     tabDelegate: tabDelegate, activate: activate)
@@ -34,6 +38,11 @@ enum ShellReference {
             } else {
                 control.frame = bounds
             }
+            // ShellComponents.make creates an empty FAB host; the production
+            // host subsequently applies its items. Exercise that same step.
+            if let fab = control as? ShellFab {
+                fabs.append((fab, node))
+            }
             control.overrideUserInterfaceStyle = node.dark ? .dark : .light
             installed.append(control)
             let escaped = node.id.replacingOccurrences(of: "\\", with: "\\\\")
@@ -41,6 +50,11 @@ enum ShellReference {
             web.evaluateJavaScript(
                 "(() => { const el = document.getElementById('\(escaped)'); if (!el) return;" +
                 " el.style.visibility = 'hidden'; el.style.pointerEvents = 'none'; })()")
+        }
+        host.layoutIfNeeded()
+        }
+        for (fab, node) in fabs {
+            fab.apply(node, scale: 1, rendering: rendering, activate: activate)
         }
         return installed
     }

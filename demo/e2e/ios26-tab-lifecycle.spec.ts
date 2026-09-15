@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import widthFixture from '../native-parity/fixtures/tabs-width-ios26.json';
 
 test.use({ viewport: { width: 402, height: 874 }, hasTouch: true });
 
@@ -62,9 +63,13 @@ const destroyRegisteredAt = async (page: Page, index: number) => {
   }, index);
 };
 
-const appendFixtureBar = async (page: Page, id: string, opts?: { disabledSecond?: boolean; optOutClass?: string }) => {
+const appendFixtureBar = async (
+  page: Page,
+  id: string,
+  opts?: { disabledSecond?: boolean; optOutClass?: string; count?: number; withFab?: boolean },
+) => {
   await page.evaluate(
-    ({ barId, disabledSecond, optOutClass }) => {
+    ({ barId, disabledSecond, optOutClass, count, withFab, cssDriven }) => {
       document.querySelector(`#${barId}`)?.remove();
       const app = document.querySelector('ion-app') ?? document.body;
       const bar = document.createElement('ion-tab-bar') as HTMLElement & { selectedTab?: string };
@@ -72,22 +77,46 @@ const appendFixtureBar = async (page: Page, id: string, opts?: { disabledSecond?
       bar.classList.add('ios');
       bar.setAttribute('mode', 'ios');
       bar.style.cssText = 'position:fixed;left:12px;right:12px;top:120px;z-index:10000;';
+      if (cssDriven) {
+        bar.slot = 'bottom';
+        bar.style.cssText = 'position:fixed;top:120px;bottom:auto;z-index:10000;';
+      }
       if (optOutClass) bar.classList.add(optOutClass);
-      bar.innerHTML = `
-        <ion-tab-button class="ios" tab="one" mode="ios">One</ion-tab-button>
-        <ion-tab-button class="ios${disabledSecond ? ' tab-disabled' : ''}" tab="two" mode="ios"${disabledSecond ? ' disabled' : ''}>Two</ion-tab-button>
-        <ion-tab-button class="ios" tab="three" mode="ios">Three</ion-tab-button>
-      `;
+      bar.innerHTML = ['one', 'two', 'three', 'four', 'five']
+        .slice(0, count)
+        .map((tab, index) => {
+          const disabled = disabledSecond && index === 1;
+          return `<ion-tab-button class="ios${disabled ? ' tab-disabled' : ''}" tab="${tab}" mode="ios"${disabled ? ' disabled' : ''}>${tab[0].toUpperCase() + tab.slice(1)}</ion-tab-button>`;
+        })
+        .join('');
       bar.selectedTab = 'one';
       bar.addEventListener('ionTabButtonClick', ((event: CustomEvent<{ tab: string }>) => {
         bar.selectedTab = event.detail.tab;
       }) as EventListener);
       app.appendChild(bar);
+      if (withFab) {
+        const fab = document.createElement('ion-fab');
+        fab.id = `${barId}-fab`;
+        fab.setAttribute('mode', 'ios');
+        fab.setAttribute('vertical', 'bottom');
+        fab.setAttribute('horizontal', 'end');
+        fab.style.cssText = 'position:fixed;top:120px;bottom:auto;z-index:10001;';
+        fab.innerHTML = '<ion-fab-button mode="ios" aria-label="Search"></ion-fab-button>';
+        app.append(fab);
+      }
     },
-    { barId: id, disabledSecond: !!opts?.disabledSecond, optOutClass: opts?.optOutClass ?? '' },
+    {
+      barId: id,
+      disabledSecond: !!opts?.disabledSecond,
+      optOutClass: opts?.optOutClass ?? '',
+      count: opts?.count ?? 3,
+      withFab: !!opts?.withFab,
+      cssDriven: opts?.count !== undefined,
+    },
   );
   const bar = page.locator(`#${id}`);
   await waitHydrated(bar);
+  if (opts?.withFab) await waitHydrated(page.locator(`#${id}-fab`));
   return bar;
 };
 
@@ -100,6 +129,76 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     await expect(clones(page)).toHaveCount(1);
     expect(await getTabsComponent(page)).toBe(true);
   });
+
+  // Cursor Auto supplied the fixture/ownership outline. Native cell overlap is
+  // allowed for every count; FAB placement must come from production CSS.
+  for (const count of [1, 2, 3, 4, 5]) {
+    test(`${count} tabs ${count < 5 ? 'with FAB' : 'without FAB'} retain geometry and selection`, async ({ page }) => {
+      const id = `ios26-tabs-${count}`;
+      const bar = await appendFixtureBar(page, id, { count, withFab: count < 5 });
+      const registration = await registerViaTabs(page, `#${id}`);
+      expect(registration.registered).toBe(true);
+      const buttons = bar.locator('ion-tab-button');
+      await expect(buttons).toHaveCount(count);
+      const outer = (await bar.boundingBox())!;
+      expect(outer.height).toBeCloseTo(62, 1);
+      if (count <= 3) expect(outer.width).toBeCloseTo([102, 188, 274][count - 1], 1);
+      const boxes = await Promise.all(Array.from({ length: count }, (_, index) => buttons.nth(index).boundingBox()));
+      for (let index = 0; index < count; index++) {
+        const box = boxes[index]!;
+        expect(box.x).toBeGreaterThanOrEqual(outer.x + 3.9);
+        expect(box.x + box.width).toBeLessThanOrEqual(outer.x + outer.width - 3.9);
+        expect(box.height).toBeCloseTo(54, 1);
+        if (index) expect(box.x).toBeGreaterThan(boxes[index - 1]!.x);
+      }
+      if (count < 5) {
+        const fab = (await page.locator(`#${id}-fab`).boundingBox())!;
+        expect(outer.x + outer.width).toBeLessThanOrEqual(fab.x);
+      } else {
+        await expect(page.locator(`#${id}-fab`)).toHaveCount(0);
+      }
+      await buttons.last().tap();
+      await expect(buttons.last()).toHaveClass(/tab-selected/);
+      await expect(bar.locator('.tab-selected')).toHaveCount(1);
+      await expect(bar).not.toHaveClass(/ios26-animated/);
+      await expect(bar.locator('.ion-activated, .ios26-tab-preview')).toHaveCount(0);
+      if (registration.registered && 'index' in registration) await destroyRegisteredAt(page, registration.index);
+      await expect(clones(page)).toHaveCount(1);
+    });
+  }
+
+  for (const count of [1, 2, 3, 4, 5]) {
+    test(`measured ${count}-tab native cell geometry matches width fixtures`, async ({ page }) => {
+      const bar = await appendFixtureBar(page, `ios26-tab-width-${count}`, { count });
+      for (const entry of widthFixture.cases.filter((c) => c.count === count)) {
+        await bar.evaluate((el, outerWidth) => {
+          el.style.width = `${outerWidth - 8}px`;
+          el.style.maxWidth = 'none';
+        }, entry.outerWidth);
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        const rects = await bar.evaluate((el) => {
+          const origin = el.getBoundingClientRect();
+          return Array.from(el.children)
+            .filter((node): node is HTMLElement => node.matches('ion-tab-button'))
+            .map((button) => {
+              const native = button.shadowRoot?.querySelector('[part="native"]');
+              if (!native) throw new Error('native part missing');
+              const rect = native.getBoundingClientRect();
+              return [rect.x - origin.x, rect.y - origin.y, rect.width, rect.height];
+            });
+        });
+        expect(rects.length).toBe(entry.cells.length);
+        for (let index = 0; index < entry.cells.length; index++) {
+          for (let column = 0; column < 4; column++) {
+            expect(
+              Math.abs(rects[index][column] - entry.cells[index][column]),
+              `${count} tabs, outer ${entry.outerWidth}, cell ${index}, coordinate ${column}`,
+            ).toBeLessThanOrEqual(0.05);
+          }
+        }
+      }
+    });
+  }
 
   test('tap commits selection with a single click', async ({ page }) => {
     const bar = page.locator('ion-tab-bar#tab-bar-bottom');

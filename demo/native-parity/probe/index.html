@@ -51,10 +51,19 @@
         height: 44px;
         padding: 0;
       }
-      ion-tab-bar {
+      #controls:not(.tab-count-fixture) ion-tab-bar {
         left: 63px;
         top: 220px;
         width: 266px;
+      }
+      .tab-count-fixture {
+        position: absolute;
+        inset: 0;
+        --ion-safe-area-bottom: env(safe-area-inset-bottom);
+      }
+      #controls:not(.tab-count-fixture) > ion-fab {
+        left: 150px;
+        top: 220px;
       }
       #controls ion-searchbar {
         left: 24px;

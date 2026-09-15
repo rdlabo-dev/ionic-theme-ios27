@@ -42,6 +42,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
     private var isShell: Bool { args.contains("shell") }
     private var appearance: String { args.contains("dark") ? "dark" : "light" }
     private var renderer: String { isShell ? "shell" : isWeb ? "web" : "native" }
+    private var deferredMetrics: Bool { kind.hasPrefix("tabs") || kind.hasPrefix("fab") }
     private var controls: [(String, UIView)] = []
     private var rows: [[String: Any]] = []
     private var display: CADisplayLink?
@@ -52,6 +53,22 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
     private var shellInstalled = false
     private let shellRendering = ShellRendering()
     private var flushObserverInstalled = false
+    private var appeared = false
+    private var layoutRequested = false
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        appeared = true
+        sendLayout()
+    }
+
+    private func sendLayout() {
+        guard appeared && layoutRequested else { return }
+        layoutRequested = false
+        view.layoutIfNeeded()
+        let safe = view.safeAreaInsets
+        web?.evaluateJavaScript("window.applyParityInsets({top:\(safe.top),bottom:\(safe.bottom),left:\(safe.left),right:\(safe.right)})")
+    }
 
     deinit {
         if flushObserverInstalled {
@@ -61,7 +78,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        if kind.hasPrefix("tabs") {
+        if deferredMetrics {
             // XCTest requests one final snapshot after interaction. Repeatedly
             // serializing the growing recording caused 100–300ms main-thread
             // stalls, invalidating the motion the probe was supposed to measure.
@@ -78,6 +95,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
         if isWeb || isShell {
             let config = WKWebViewConfiguration()
             config.userContentController.add(self, name: "metrics")
+            config.userContentController.add(self, name: "layout")
             if isShell { config.userContentController.add(self, name: "shell") }
             let web = WKWebView(frame: view.bounds, configuration: config)
             web.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -89,6 +107,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
             let root = Bundle.main.url(forResource: "www", withExtension: nil)!
             var parts = URLComponents(url: root.appendingPathComponent("index.html"), resolvingAgainstBaseURL: false)!
             var items = [URLQueryItem(name: "control", value: kind), URLQueryItem(name: "appearance", value: appearance)]
+            items.append(URLQueryItem(name: "idiom", value: UIDevice.current.userInterfaceIdiom == .pad ? "pad" : "phone"))
             if isShell { items.append(URLQueryItem(name: "shell", value: "1")) }
             parts.queryItems = items
             web.loadFileURL(parts.url!, allowingReadAccessTo: root)
@@ -103,7 +122,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
         NotificationCenter.default.addObserver(self, selector: #selector(input(_:)), name: Notification.Name("ParityInput"), object: nil)
         display = CADisplayLink(target: self, selector: #selector(sample))
         display?.add(to: .main, forMode: .common)
-        if !kind.hasPrefix("tabs") {
+        if !deferredMetrics {
             saveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.save() }
         }
     }
@@ -137,7 +156,64 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
     }
 
     private func installNative() {
+        if kind.hasPrefix("tabs-width-") {
+            let encodedWidth = Int(kind.split(separator: "-").last!)!
+            // Decimal boundary fixtures keep artifact identifiers alphanumeric.
+            let width = CGFloat(encodedWidth) / (encodedWidth >= 3000 ? 10 : 1)
+            for count in 1...5 {
+                let bar = UITabBar()
+                ShellTabBar.configureLayout(bar)
+                bar.items = ["One", "Two", "Three", "Four", "Five"].prefix(count).enumerated().map { index, title in
+                    UITabBarItem(title: title, image: UIImage(systemName: "circle"), tag: index)
+                }
+                bar.selectedItem = bar.items?.first
+                bar.delegate = self
+                bar.frame = CGRect(x: 0, y: CGFloat(130 + count * 100), width: width, height: 90)
+                add("Tabs\(count)", bar)
+            }
+            return
+        }
+        if kind.hasPrefix("tabs-count-") || kind.hasPrefix("tabs-icons-") {
+            let count = Int(kind.split(separator: "-").last!)!
+            let controller = UITabBarController()
+            controller.tabs = ["One", "Two", "Three", "Four", "Five"].prefix(count).map { title in
+                UITab(title: title, image: kind.hasPrefix("tabs-icons") ? UIImage(systemName: "circle") : nil, identifier: title) { _ in
+                    let child = UIViewController()
+                    child.view.backgroundColor = .systemGroupedBackground
+                    return child
+                }
+            }
+            if count < 5 {
+                controller.tabs.append(UISearchTab { _ in UIViewController() })
+            }
+            addChild(controller)
+            controller.view.frame = view.bounds
+            controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            view.addSubview(controller.view)
+            controller.didMove(toParent: self)
+            controls.append(("Tabs", controller.tabBar))
+            return
+        }
         switch kind {
+        case "fab-matrix":
+            for (index, size) in [48, 62].enumerated() {
+                var configuration = UIButton.Configuration.glass()
+                configuration.image = UIImage(systemName: "magnifyingglass")
+                configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 26)
+                configuration.cornerStyle = .capsule
+                let button = UIButton(configuration: configuration)
+                button.frame = CGRect(x: 150, y: 220 + index * 150, width: size, height: size)
+                add("Fab-\(size)", button)
+            }
+        case "fab":
+            var configuration = UIButton.Configuration.glass()
+            configuration.image = UIImage(systemName: "magnifyingglass")
+            configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 26)
+            configuration.cornerStyle = .capsule
+            let button = UIButton(configuration: configuration)
+            button.accessibilityLabel = "Search"
+            button.frame = CGRect(x: 150, y: 220, width: 62, height: 62)
+            add("FabButton", button)
         case "navigation":
             let navigation = NavigationProbe()
             addChild(navigation)
@@ -341,8 +417,9 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
             // the main thread must not dominate the motion being measured.
             layers = layers.filter { value in
                 let path = value["path"] as? String ?? ""
-                return path.split(separator: "/").count <= 4
-                    || ["Tabs/0/0/0/0", "Tabs/0/0/0/1", "Tabs/0/0/0/2"].contains(path)
+                let depth = kind.hasPrefix("tabs-icons-") || kind.hasPrefix("tabs-count-") ? 6 : 4
+                return path.split(separator: "/").count <= depth
+                    || path.range(of: "^Tabs[0-9]*/0/0/0/[0-4]$", options: .regularExpression) != nil
             }
         }
         rows.append(["t": CACurrentMediaTime() - start, "layers": layers])
@@ -361,6 +438,11 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
     }
     private func save() { write(rows) }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "layout" {
+            layoutRequested = true
+            sendLayout()
+            return
+        }
         if message.name == "shell" {
             if #available(iOS 26.0, *) { installShellControls(message.body) }
             return
@@ -368,7 +450,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
         if isShell { return }
         if let values = message.body as? [[String: Any]] {
             write(values)
-            if kind.hasPrefix("tabs") { showMetricsSaved() }
+            if deferredMetrics { showMetricsSaved() }
         }
     }
 }

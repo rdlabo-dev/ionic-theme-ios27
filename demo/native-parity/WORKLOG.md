@@ -360,3 +360,61 @@ the broader outstanding list from the previous checkpoint also remain open.
   warnings remain. Generated docs introduced no extra diff.
 - Final changes are local to `feat/ios26-native-parity`, not pushed. Both package
   manifests/lockfiles and the original `fix/footer-design` checkout are unchanged.
+
+## In progress: all tab counts and drag (2026-09-15)
+
+User explicitly requested finishing the remaining work, including counts1–5,
+with **no FAB for count5**. The following is an evidence log, not a declaration
+that the broader outstanding acceptance list is complete.
+
+- `VavVsg` records independent UIKit controller counts1–5, light/dark. Counts1–4
+  use `UISearchTab` as a separated native search button; count5 has none.
+  On the402pt phone, platter widths are102/188/290/290/360pt, height62pt,
+  x21pt, y791pt; search button62pt atx319. These are controller-managed sizes.
+- `ei1vLa` records matching text-only Web/pinned-Shell count drivers. `VvUIBH`
+  additionally records icons/labels and independent native controls. The pinned
+  Shell is an independent UITabBar plus a separate FAB, **not UISearchTab**:
+  its natural three-item platter remains274pt, unlike the controller's290pt.
+  This distinction must not be hidden by moving either oracle's coordinates.
+  The user's original Shell-comparison objective is retained; an optional
+  clarification about the two layout policies was sent.
+- Counts1/2 now cap content at94/180pt (outer102/188), instead of sharing the
+  three-item266pt content cap. Five-item width reserves UIKit's42pt outer
+  gutters plus8pt content-box padding. The five-item fixture creates no FAB.
+- `UG1A2G` and `73EJA1` measure standalone UIKit widths260–600pt, including
+  transition boundaries. Four-item cells change from74pt to94pt between
+ 304/306pt platters, so an equal flex division or a constant overlap is wrong.
+  Native width samples are checked in as `fixtures/tabs-width-ios26.json`.
+  CSS uses a named inline-size container; child widths and negative inter-item
+  spacing are derived from the measurements. Five-item boundary validation is
+  still running as this entry is written.
+- A fixture bug was found: WKWebView may request its safe area before the root
+  view appears, and inherited custom properties resolve where declared.
+  The probe now waits for `viewDidAppear` and assigns native safe-area values
+  on the document root, not a descendant. Earlier count artifacts with y802
+  rather than790 are **not qualified viewport-position evidence**.
+- Drag now sums measured delayed near-critical pointer responses (30rad/s,
+  damping0.95, one display-frame onset). Repeated animation replacement uses
+  the input-clock path, not the previous painted frame, to avoid adding lag.
+  Directional deformation superposes small transfers, preserving the rebound
+  after lift-off. Release delay depends on remaining motion. This was fitted
+  with26.1 `qDD5O2`, checked against26.5 `PqS7IS`, then run in WKWebView.
+- `UG1A2G` native/Web drag drivers pass with7 selection events per appearance.
+  Through the complete recorded gesture plus1.1s release, slow-drag mean
+  center error is0.11–0.12pt, fast0.43–0.46pt. Fast maximum center error is
+  1.92–2.09pt; width/height maxima are<=1.96pt. Previously these maxima were
+  ~25pt center/~17pt height. Slow width/height maxima remain~2.8/~2.6pt.
+  Actual native/Web hold durations agree within5ms for these four cases.
+  `report.py` now reports both650ms and complete-window errors, preserving
+  sampling gaps and delivered-input differences.
+- Cursor Auto supplied bounded count/width test patches and reviewed lifecycle
+  changes. Native overlap was retained rather than its initial non-overlap
+  suggestion; real production FAB positioning is used in tests. Its valid
+  unbounded-history finding was fixed (settled input compaction and a320-step
+  bound). Suggestions about ordinary second taps were checked against existing
+  pointerdown reset logic/tests, not applied indiscriminately.
+- New native-trajectory regression fixtures preserve source IDs, actual times,
+  and26.1/26.5 separation. No native curves are replaced by CSS-generated data.
+  The62-case browser tab/motion run passed; the subsequent44-case lifecycle
+  run passes with negative cell overlap. Width-table regressions and final
+  dependency/device matrices are still being completed.

@@ -1,20 +1,19 @@
 @use '../utils/api';
+@use '../utils/glass';
 
 $scaleup-small-icon-only: 1.18;
 $scaleup-default-icon-only: 1.2;
 $scaleup-large-icon-only: 1.12;
 
 ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --transform-value: 2.5px;
+  --transform-value: 3px;
   &:has(> ion-fab-button.fab-button-small) {
     --transform-value: 4px;
   }
 
-  ion-fab-button {
+  ion-fab-button:not(.ios-theme-disabled, .ios26-disabled) {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
-    --box-shadow:
-      inset 0 0 8px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.2),
-      0 0 10px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.82);
+    @include glass.light-shadow(--box-shadow);
     --transition:
       var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) transform
         cubic-bezier(0.25, 1.11, 0.78, 1.59),
@@ -25,11 +24,11 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
     --color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
 
-    /**
-     * 60px + border0.5px + 0.5px
-     */
-    width: 61px;
-    height: 61px;
+    width: 62px;
+    height: 62px;
+    &.ios26-enable-gesture {
+      --_ios26-fab-active-opacity: 1;
+    }
 
     &.fab-button-in-list,
     &.fab-button-small {
@@ -38,30 +37,32 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
 
     &.ion-activated {
-      --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+      --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), var(--_ios26-fab-active-opacity, 0.1));
       &::part(native) {
-        transform: scale($scaleup-default-icon-only) translateZ(0);
-        -webkit-transform: scale($scaleup-default-icon-only) translateZ(0);
+        transform: scale(var(--ios26-button-css-scale, $scaleup-default-icon-only)) translateZ(0);
+        -webkit-transform: scale(var(--ios26-button-css-scale, $scaleup-default-icon-only)) translateZ(0);
       }
       &.fab-button-large {
         &::part(native) {
-          transform: scale($scaleup-large-icon-only) translateZ(0);
-          -webkit-transform: scale($scaleup-large-icon-only) translateZ(0);
+          transform: scale(var(--ios26-button-css-scale, $scaleup-large-icon-only)) translateZ(0);
+          -webkit-transform: scale(var(--ios26-button-css-scale, $scaleup-large-icon-only)) translateZ(0);
         }
       }
       &.fab-button-small {
         &::part(native) {
-          transform: scale($scaleup-small-icon-only) translateZ(0);
-          -webkit-transform: scale($scaleup-small-icon-only) translateZ(0);
+          transform: scale(var(--ios26-button-css-scale, $scaleup-small-icon-only)) translateZ(0);
+          -webkit-transform: scale(var(--ios26-button-css-scale, $scaleup-small-icon-only)) translateZ(0);
         }
       }
       &.ion-color {
-        --color: rgba(var(--ion-color-base-rgb, var(--ion-text-color-rgb, 0, 0, 0)), 0.1);
+        --color: rgba(var(--ion-color-base-rgb, var(--ion-text-color-rgb, 0, 0, 0)), var(--_ios26-fab-active-opacity, 0.1));
       }
     }
 
     &::part(native) {
       @include api.glass-background($include-background: false, $include-box-shadow: false);
+      backdrop-filter: blur(8px) saturate(250%);
+      @include glass.light-rim;
       // The previous background shorthand reset Ionic's padding-box default.
       // There is no CSS custom property for background-clip, so preserve it via the Part.
       background-clip: border-box;

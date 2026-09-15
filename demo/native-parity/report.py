@@ -20,7 +20,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-CONTROLS = ("button", "button-short", "toggle", "segment", "range", "tabs", "tabs-motion", "search", "alert", "action-sheet", "navigation")
+CONTROLS = ("button", "button-short", "fab", "toggle", "segment", "range", "tabs", "tabs-motion", "search", "alert", "action-sheet", "navigation") + tuple(
+    f"tabs-{content}-{count}" for content in ("count", "icons") for count in range(1, 6)
+)
 APPEARANCES = ("light", "dark")
 AMP = 4
 ROI = (0, 400, 200, 430)  # x0,x1,y0,y1 pt
@@ -80,8 +82,10 @@ def load_metrics(root: Path) -> dict[tuple[str, str, str], dict]:
     return out
 
 
-def crop_roi(img: Image.Image, scale: float, overlay: bool = False) -> np.ndarray:
+def crop_roi(img: Image.Image, scale: float, overlay: bool = False, bottom: bool = False) -> np.ndarray:
     x0, x1, y0, y1 = (0, img.width / scale, 0, img.height / scale) if overlay else ROI
+    if bottom:
+        x0, x1, y0, y1 = 0, img.width / scale, max(0, img.height / scale - 150), img.height / scale
     arr = np.asarray(img.convert("RGB"))
     return arr[int(round(y0 * scale)) : int(round(y1 * scale)), int(round(x0 * scale)) : int(round(x1 * scale))]
 
@@ -108,7 +112,7 @@ def comparison(root: Path, index: dict[str, Path], metrics: dict, appearance: st
             expected = (round(env["width"] * scale), round(env["height"] * scale))
             if img.size != expected:
                 raise SystemExit(f"screenshot/viewport mismatch {path.name}: {img.size} vs {expected}")
-            crop = crop_roi(img, scale, control in ("alert", "action-sheet", "navigation"))
+            crop = crop_roi(img, scale, control in ("alert", "action-sheet", "navigation"), control.startswith(("tabs-count-", "tabs-icons-")))
             sources[renderer], scales[renderer], crops[renderer] = name, scale, crop
             cells.append(crop)
         if reference in crops and "web" in crops:
@@ -130,7 +134,7 @@ def comparison(root: Path, index: dict[str, Path], metrics: dict, appearance: st
                     "rgb_mae": float(np.mean(np.abs(a.astype(np.float64) - b.astype(np.float64)))),
                     "label": NOTE,
                     "kind": "whole-ROI diagnostic",
-                    "roi": "full viewport" if control in ("alert", "action-sheet", "navigation") else "control strip",
+                    "roi": "bottom 150pt" if control.startswith(("tabs-count-", "tabs-icons-")) else "full viewport" if control in ("alert", "action-sheet", "navigation") else "control strip",
                 }
             )
         else:
@@ -410,6 +414,7 @@ def tabs_plot(root: Path, metrics: dict) -> None:
         plt.close(fig)
     if summaries:
         errors = []
+        full_errors = []
         for native in (entry for entry in summaries if entry["renderer"] == "native"):
             web = next((entry for entry in summaries if entry["renderer"] == "web"
                         and entry["appearance"] == native["appearance"] and entry["press"] == native["press"]), None)
@@ -417,9 +422,8 @@ def tabs_plot(root: Path, metrics: dict) -> None:
                 continue
             ns = np.asarray(native["samples"])
             differences = []
+            full_differences = []
             for point in web["samples"]:
-                if point[0] > 0.65:
-                    break
                 index = int(np.searchsorted(ns[:, 0], point[0]))
                 if index == 0 or index == len(ns):
                     continue
@@ -427,7 +431,10 @@ def tabs_plot(root: Path, metrics: dict) -> None:
                 if b[0] - a[0] > 0.04:
                     continue
                 ratio = (point[0] - a[0]) / (b[0] - a[0])
-                differences.append(np.abs(np.asarray(point[1:]) - (a[1:] + (b[1:] - a[1:]) * ratio)))
+                difference = np.abs(np.asarray(point[1:]) - (a[1:] + (b[1:] - a[1:]) * ratio))
+                full_differences.append(difference)
+                if point[0] <= 0.65:
+                    differences.append(difference)
             if differences:
                 errors.append({"appearance": native["appearance"], "press": native["press"],
                                "native_hold_ms": native["hold_ms"], "web_hold_ms": web["hold_ms"],
@@ -435,11 +442,20 @@ def tabs_plot(root: Path, metrics: dict) -> None:
                                "compared_frames": len(differences),
                                "mean_absolute_error_pt": np.mean(differences, axis=0).tolist(),
                                "max_absolute_error_pt": np.max(differences, axis=0).tolist()})
+            if full_differences:
+                full_errors.append({"appearance": native["appearance"], "press": native["press"],
+                                    "native_hold_ms": native["hold_ms"], "web_hold_ms": web["hold_ms"],
+                                    "hold_difference_within_5ms": abs(native["hold_ms"] - web["hold_ms"]) <= 5,
+                                    "compared_frames": len(full_differences),
+                                    "mean_absolute_error_pt": np.mean(full_differences, axis=0).tolist(),
+                                    "max_absolute_error_pt": np.max(full_differences, axis=0).tolist()})
         (root / "tabs-motion.json").write_text(json.dumps({
             "disclaimer": "Diagnostic recordings, not a parity verdict. Raw samples retained; no fitted time shift. See error_method for limited interpolation.",
             "columns": ["seconds_from_down", "center_travel_pt", "extra_lens_width_pt", "extra_lens_height_pt", "extra_platter_width_pt"],
             "error_method": "First 650ms from actual pointerdown. Native linear interpolation only across gaps <=40ms. Different holds remain flagged, not equivalent stimuli. Error columns follow geometry columns above.",
             "early_window_errors": errors,
+            "full_window_method": "From actual down through up+1.1s or the next down, whichever occurs first; interpolate native only across gaps <=40ms. Different delivered holds remain flagged.",
+            "full_window_errors": full_errors,
             "entries": summaries,
         }, indent=2) + "\n")
 

@@ -1,7 +1,8 @@
 import type { registeredEffect } from '../sheets-of-glass/interfaces';
 
 /** Local shell gate — no native-integration module on this branch. */
-const isNativeUIShell = (element: HTMLElement) => element.hasAttribute('data-native-ui-shell');
+const isNativeUIShell = (element: HTMLElement) =>
+  element.hasAttribute('data-native-ui-shell') || !!element.closest('ion-fab[data-native-ui-shell]');
 
 const CSS_SCALE = '--ios26-button-css-scale';
 const GESTURE = 'ios26-enable-gesture';
@@ -13,6 +14,10 @@ const MAX_HEIGHT = 44;
 // incorrectly made a 50ms tap expand as far as a long press.
 const PRESS = { frequency: 20.43633, damping: 0.611883, delay: 13.659 };
 const RELEASE = { frequency: 16.99576, damping: 0.563006, delay: 14.996 };
+// Independent UIKit icon-only glass buttons,48/62pt: +16pt held expansion.
+// FAB release has appreciably more rebound than the ordinary text button.
+const FAB_PRESS = { frequency: 23.90625, damping: 0.62265625, delay: 12.797 };
+const FAB_RELEASE = { frequency: 15.7109375, damping: 0.375, delay: 16.859 };
 const DURATION = 1000;
 type Spring = { from: number; velocity: number; to: number; frequency: number; damping: number; delay: number };
 const springState = (spring: Spring, elapsed: number) => {
@@ -38,7 +43,7 @@ export const registerButtonEffect = (targetElement: HTMLElement): registeredEffe
   const win = doc.defaultView;
   if (
     !win ||
-    !button.matches('ion-button, ion-back-button') ||
+    !button.matches('ion-button, ion-back-button, ion-fab-button') ||
     !button.classList.contains('ios') ||
     !button.classList.contains('hydrated') ||
     button.matches(`.${GESTURE}, .ios-theme-disabled, .ios26-disabled, .button-clear, .button-outline`)
@@ -47,7 +52,17 @@ export const registerButtonEffect = (targetElement: HTMLElement): registeredEffe
   const group = button.closest('ion-buttons');
   if (group?.classList.contains('ios') && !group.matches('.ios-theme-disabled, .ios26-disabled')) return undefined;
   const surface = button.shadowRoot?.querySelector<HTMLElement>('[part="native"]');
-  if (!surface || surface.offsetHeight > MAX_HEIGHT || !surface.offsetWidth || !surface.offsetHeight) return undefined;
+  if (!surface) return undefined;
+  const fab = button.closest('ion-fab');
+  const isFab = button.matches('ion-fab-button');
+  const optedOut = () => button.matches('.ios-theme-disabled, .ios26-disabled') || !!fab?.matches('.ios-theme-disabled, .ios26-disabled');
+  const qualifiedSize = () =>
+    isFab
+      ? [48, 62].includes(surface.offsetHeight) && surface.offsetWidth === surface.offsetHeight
+      : surface.offsetHeight <= MAX_HEIGHT && surface.offsetWidth > 0 && surface.offsetHeight > 0;
+  if (!qualifiedSize() || optedOut()) return undefined;
+  const pressCurve = isFab ? FAB_PRESS : PRESS;
+  const releaseCurve = isFab ? FAB_RELEASE : RELEASE;
 
   const reducedMotion = win.matchMedia('(prefers-reduced-motion: reduce)');
   const prevScale = button.style.getPropertyValue(CSS_SCALE);
@@ -105,15 +120,14 @@ export const registerButtonEffect = (targetElement: HTMLElement): registeredEffe
     return running;
   };
   const startPress = () => {
-    if (reducedMotion.matches || isNativeUIShell(button) || disabled() || button.matches('.ios-theme-disabled, .ios26-disabled'))
-      return false;
+    if (reducedMotion.matches || isNativeUIShell(button) || disabled() || optedOut()) return false;
     // Height >44pt (e.g. large 62pt) differs from the uniform +16pt width model — skip for now.
-    if (surface.offsetHeight > MAX_HEIGHT) return false;
+    if (!qualifiedSize()) return false;
     clearTimer();
     const width = Math.max(1, surface.offsetWidth);
     heldScale = (restingScale * (width + 16)) / width;
     const current = readState();
-    play({ ...PRESS, from: current.scale, velocity: current.velocity, to: heldScale });
+    play({ ...pressCurve, from: current.scale, velocity: current.velocity, to: heldScale });
     return true;
   };
   const startRelease = () => {
@@ -122,7 +136,7 @@ export const registerButtonEffect = (targetElement: HTMLElement): registeredEffe
       return;
     }
     const current = readState();
-    const releasing = play({ ...RELEASE, delay: 0, from: current.scale, velocity: current.velocity, to: restingScale });
+    const releasing = play({ ...releaseCurve, delay: 0, from: current.scale, velocity: current.velocity, to: restingScale });
     void releasing.finished.then(
       () => {
         if (!destroyed && animation === releasing) {
@@ -136,7 +150,7 @@ export const registerButtonEffect = (targetElement: HTMLElement): registeredEffe
     clearTimer();
     // Continue the press during UIKit's measured release latency; do not
     // freeze at pointerup or discard the expansion's current velocity.
-    releaseTimer = win.setTimeout(startRelease, RELEASE.delay);
+    releaseTimer = win.setTimeout(startRelease, releaseCurve.delay);
   };
 
   const onPointerDown = (event: PointerEvent) => {
@@ -176,9 +190,10 @@ export const registerButtonEffect = (targetElement: HTMLElement): registeredEffe
   reducedMotion.addEventListener('change', abortVisual, { signal: listeners.signal });
   button.addEventListener('nativeUIShellChange', abortVisual, { signal: listeners.signal });
   const observer = new MutationObserver(() => {
-    if (disabled() || isNativeUIShell(button) || button.matches('.ios-theme-disabled, .ios26-disabled')) abortVisual();
+    if (disabled() || isNativeUIShell(button) || optedOut()) abortVisual();
   });
   observer.observe(button, { attributes: true, attributeFilter: ['class', 'disabled', 'data-native-ui-shell'] });
+  if (fab) observer.observe(fab, { attributes: true, attributeFilter: ['class', 'data-native-ui-shell'] });
   const restoreCSSScale = () => {
     if (prevScale) button.style.setProperty(CSS_SCALE, prevScale, prevPriority);
     else button.style.removeProperty(CSS_SCALE);
@@ -197,7 +212,7 @@ export const registerButtonEffect = (targetElement: HTMLElement): registeredEffe
     // A registered small button can become large through responsive styles.
     // Return the unqualified size to its existing CSS effect, then reacquire
     // the measured effect if it becomes small again.
-    if (surface.offsetHeight > MAX_HEIGHT || !surface.offsetHeight || !surface.offsetWidth) restoreCSSScale();
+    if (!qualifiedSize()) restoreCSSScale();
     else button.style.setProperty(CSS_SCALE, '1');
   });
   resizeObserver.observe(surface, { box: 'border-box' });
