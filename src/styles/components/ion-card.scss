@@ -1,7 +1,7 @@
 ion-card.ios:not(.ios-theme-disabled, .ios26-disabled) {
   border-radius: 24px;
 
-  ion-list ion-item {
+  ion-list:not(.ios-theme-disabled, .ios26-disabled) ion-item:not(.ios-theme-disabled, .ios26-disabled) {
     --padding-start: 0;
   }
 }

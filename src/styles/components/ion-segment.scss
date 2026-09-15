@@ -1,25 +1,38 @@
 @use '../utils/api';
 
 ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include api.glass-background;
-  min-height: 48px;
-  border-radius: 25px;
-
-  transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease-out;
-
-  // will-change is optimized to only apply when needed for performance
-  &.segment-activated,
-  &:has(ion-segment-button.ion-activated) {
-    will-change: transform;
+  --border-radius: 15.5px;
+  min-height: 31px;
+  &:not(.segment-scrollable) {
+    overflow: visible;
+    &.ios26-enable-gesture {
+      contain: layout style;
+    }
   }
+  border-radius: var(--border-radius);
 
-  &:not(.segment-activated):not(:has(ion-segment-button.ion-activated)) {
-    will-change: auto;
+  // UIKit uses a larger control in navigation bars, but not in content.
+  // iOS 26.5 ShellSegment host 320×48 is stable — no forced root scale; lens alone deforms.
+  &.in-toolbar:not(.segment-expand) {
+    --border-radius: 24px;
+    min-height: 48px;
+
+    ion-segment-button {
+      min-height: 44px;
+      margin: 2px 0;
+      font-size: 14.5px;
+    }
   }
 
   ion-segment-button:is(.in-toolbar-color, .in-segment-color)::part(indicator-background) {
     // Ionic sets a direct background for color contexts, bypassing --indicator-color.
     background: var(--indicator-color);
+  }
+
+  &.ion-color ion-segment-button.in-segment-color {
+    &.segment-button-checked::part(native) {
+      color: var(--color-checked);
+    }
   }
 
   &.in-toolbar-color:not(.in-segment-color) {
@@ -28,123 +41,110 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
 
-  &:not(.ios26-enable-gesture).segment-activated {
-    transform: scale(1.1) translateZ(0);
-    -webkit-transform: scale(1.1) translateZ(0);
-    ion-segment-button {
-      --indicator-color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0);
-      --indicator-transform: scale(1.1) translateZ(0);
-      transition: transform 100ms ease-out;
-      &.segment-button-checked::part(native) {
-        transform: scale(1.08) translateZ(0);
-        -webkit-transform: scale(1.08) translateZ(0);
-      }
-      &::part(indicator-background) {
-        position: relative;
-        z-index: 1;
-        transform-origin: center center;
-      }
+  // The indicator grows independently; the label has no additional scale.
+  &:not(.ios26-enable-gesture, .segment-disabled):is(.segment-activated, :has(ion-segment-button:is(:active, .ion-activated))) {
+    ion-segment-button.segment-button-checked:not(.segment-button-disabled)::part(indicator-background) {
+      scale: 1.35 1.4;
+      background: transparent;
+      @include api.glass-background($opacity: 1, $blur: 0, $saturate: 104%, $include-border: false);
     }
   }
 
-  &.ios26-enable-gesture {
-    &:has(ion-segment-button.ion-activated) {
-      transform: scale(1.1) translateZ(0);
-      -webkit-transform: scale(1.1) translateZ(0);
-      ion-segment-button {
-        --indicator-transform: scale(1.1) translateZ(0);
-        transition: transform 100ms ease-out;
-        &.segment-button-checked::part(native) {
-          transform: scale(1.08) translateZ(0);
-          -webkit-transform: scale(1.08) translateZ(0);
-        }
-        &::part(indicator-background) {
-          position: relative;
-          z-index: 1;
-          transform-origin: center center;
-        }
-      }
+  &.ios26-enable-gesture.ios26-animated ion-segment-button {
+    z-index: 2;
+    &::part(indicator) {
+      opacity: 0;
     }
-    &.ios26-animated {
-      ion-segment-button {
-        --indicator-color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0);
-      }
-    }
+  }
+
+  .ios26-segment-lens {
+    box-sizing: border-box;
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .ios26-segment-edge {
+    @include api.glass-background($include-background: false, $include-box-shadow: false, $blur: 0, $saturate: 104%);
+    box-shadow:
+      inset 0 2px 3px rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06),
+      inset 0 -1px 2px rgba(255, 255, 255, 0.8),
+      0 0 0 0.5px rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06),
+      0 2px 5px rgba(0, 0, 0, 0.06);
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
   }
 
   &.segment-expand {
-    min-height: 24px;
-    width: calc(100% - var(--ion-safe-area-left, 0) - var(--ion-safe-area-left, 0) - 24px);
+    width: calc(100% - var(--ion-safe-area-left, 0px) - var(--ion-safe-area-right, 0px) - 24px);
+  }
 
-    &.segment-activated {
-      transform: scale(1);
-      ion-segment-button.segment-button-checked::part(native) {
-        transform: scale(1);
-      }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    &.in-toolbar:not(.segment-expand) {
+      transform: none;
+      transition: none;
     }
+  }
+}
 
-    ion-segment-button {
-      min-height: 24px;
-    }
-
-    &.ios26-enable-gesture {
-      &:has(ion-segment-button.ion-activated) {
-        transform: scale(1) translateZ(0);
-        -webkit-transform: scale(1) translateZ(0);
-        ion-segment-button {
-          --indicator-transform: scale(1) translateZ(0);
-          transition: none;
-          &.segment-button-checked::part(native) {
-            transform: scale(1) translateZ(0);
-            -webkit-transform: scale(1) translateZ(0);
-          }
-          &::part(indicator-background) {
-            position: relative;
-            z-index: 1;
-            transform-origin: center center;
-          }
-        }
-      }
-      &.ios26-animated {
-        ion-segment-button {
-          --indicator-color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0);
-        }
-      }
-    }
+// Let the optional lens extend past the toolbar without changing its layout or hit area.
+ion-toolbar.ios:has(> ion-segment.ios26-enable-gesture:not(.segment-scrollable, .ios-theme-disabled, .ios26-disabled)) {
+  contain: layout style;
+  &::part(container) {
+    contain: layout style;
+    overflow: visible;
   }
 }
 
 ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --border-width: 0;
   --indicator-box-shadow: none;
-  --indicator-color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
-  --ion-color-base: var(--ion-text-color, #000);
   --padding-start: 8px;
   --padding-end: 8px;
-  min-width: 60px;
-  margin: 3px 2px;
-  font-size: 14.5px;
+  min-width: 65px;
+  min-height: 27px;
+  margin: 2px 0;
+  font-size: calc(13rem / 16);
+  font-weight: 500;
+  line-height: normal;
+
+  &.segment-button-disabled {
+    opacity: 0.2;
+  }
 
   &::part(indicator-background) {
-    border-radius: 25px;
-    transition: background 0.2s ease;
+    transition:
+      var(--indicator-transition),
+      scale 250ms ease-out,
+      background 200ms ease;
   }
 
-  &.ion-cloned-element {
-    &::part(native) {
-      border-radius: 25px;
-      @include api.glass-background($opacity: 1, $blur: 0, $saturate: 104%);
-      background: transparent;
-      height: 100%;
-    }
-    color: var(--color-selected, var(--ion-color-primary, #0054e9));
-    pointer-events: none;
-    position: absolute;
-    left: 0;
-    top: -3.25px;
-    transform-origin: center center;
-    & > * {
-      visibility: hidden;
+  @media (prefers-reduced-motion: reduce) {
+    &::part(indicator-background) {
+      scale: 1 !important;
+      transition: none;
     }
   }
+}
+
+// Public customization properties remain overridable by ordinary app selectors.
+// The resting track is a flat system fill; only the moving lens has a glass rim.
+:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled)) {
+  --background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
+}
+:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
+  --indicator-color: var(--ion-background-color, #fff);
+}
+:where(ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled)) {
+  --border-radius: 999px;
+}
+:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled).ion-color ion-segment-button.in-segment-color) {
+  --indicator-color: var(--ion-color-base);
+  --color-checked: var(--ion-color-contrast);
 }

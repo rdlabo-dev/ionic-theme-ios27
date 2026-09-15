@@ -1,0 +1,44 @@
+name: NativeParityProbe
+options:
+  deploymentTarget:
+    iOS: '26.0'
+targets:
+  NativeParityProbe:
+    type: application
+    platform: iOS
+    sources:
+      - App.swift
+      - ShellReference.swift
+      - NavigationProbe.swift
+      - path: ../reference-shell/Components
+      - path: ../reference-shell/Shared
+      - path: www
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rdlabo.ios26.parity
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        SWIFT_VERSION: '5.0'
+        TARGETED_DEVICE_FAMILY: '1,2'
+  NativeParityTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [Tests.swift]
+    dependencies:
+      - target: NativeParityProbe
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rdlabo.ios26.parity.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+schemes:
+  NativeParityProbe:
+    build:
+      targets:
+        NativeParityProbe: all
+        NativeParityTests: [test]
+    test:
+      targets: [NativeParityTests]

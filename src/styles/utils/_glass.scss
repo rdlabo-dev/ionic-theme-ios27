@@ -1,0 +1,37 @@
+// Calibrated against iOS 26.5 UIKit Glass on systemGroupedBackground.
+// Keep the legacy color hooks; these are material recipes, not new public APIs.
+@mixin light-shadow($property: box-shadow) {
+  #{$property}: 0 8px 28px rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.68);
+}
+
+@mixin light-rim {
+  $light: var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb));
+  border: 0.5px solid rgba($light, 1);
+  border-inline-color: transparent;
+  @supports (background-clip: border-area) {
+    border-color: transparent;
+    background-image:
+      linear-gradient(180deg, rgb($light), transparent 45%, transparent 55%, rgb($light)),
+      linear-gradient(0deg, rgba($light, 0.5), transparent 0.5px), linear-gradient(transparent, transparent);
+    background-origin: border-box, padding-box, border-box;
+    background-clip: border-area, padding-box, border-box;
+  }
+}
+
+@mixin dark-rim {
+  $light: var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb));
+  border: 0.5px solid rgba($light, 0.58);
+  border-inline-color: transparent;
+  @supports (background-clip: border-area) {
+    border-color: transparent;
+    background-image:
+      linear-gradient(180deg, rgba($light, 0.58), transparent 35%, transparent 65%, rgba($light, 0.58)),
+      linear-gradient(0deg, rgba($light, 0.8), transparent 0.5px), linear-gradient(transparent, transparent);
+    background-origin: border-box, padding-box, border-box;
+    background-clip: border-area, padding-box, border-box;
+  }
+}
+
+@mixin dark-fill($property: background-color) {
+  #{$property}: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.3);
+}

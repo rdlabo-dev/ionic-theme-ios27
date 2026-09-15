@@ -1,0 +1,8 @@
+@mixin ion-overlay {
+  ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled),
+  ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    --ios26-overlay-opacity: 0.24;
+    --ios26-overlay-button-opacity: 0.11;
+    --ios26-overlay-secondary-opacity: 0.6;
+  }
+}

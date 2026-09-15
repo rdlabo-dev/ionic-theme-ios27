@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, inject, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import {
@@ -17,7 +17,10 @@ import {
   IonText,
   IonTitle,
   IonToolbar,
+  ViewDidEnter,
+  ViewDidLeave,
 } from '@demo/ionic';
+import { registeredEffect, registerButtonEffect } from '../../../../../../src';
 
 @Component({
   selector: 'app-button',
@@ -43,8 +46,23 @@ import {
     IonListHeader,
   ],
 })
-export class ButtonPage implements OnInit {
+export class ButtonPage implements OnInit, ViewDidEnter, ViewDidLeave {
+  readonly #el = inject(ElementRef);
+  readonly registeredGestures: registeredEffect[] = [];
   constructor() {}
 
   ngOnInit() {}
+
+  ionViewDidEnter() {
+    this.#el.nativeElement.querySelectorAll('ion-button, ion-back-button').forEach((item: HTMLElement) => {
+      const registerGesture = registerButtonEffect(item);
+      if (registerGesture) {
+        this.registeredGestures.push(registerGesture);
+      }
+    });
+  }
+
+  ionViewDidLeave() {
+    this.registeredGestures.splice(0).forEach((gesture) => gesture.destroy());
+  }
 }

@@ -1,7 +1,7 @@
 $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group;
 
 @mixin support-text() {
-  ion-item {
+  ion-item:not(.ios-theme-disabled, .ios26-disabled) {
     &:has(ion-input.input-fill-outline),
     &:has(ion-textarea.textarea-fill-outline),
     &:has(ion-select:is([helpertext]:not([helpertext='']), [errortext]:not([errortext='']))),
@@ -11,8 +11,10 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
       --inner-padding-bottom: 4px;
     }
 
-    ion-input .input-bottom:not(:has(> :is(.helper-text:not(:empty), .error-text:not(:empty), .counter:not(:empty)))),
-    ion-textarea .textarea-bottom:not(:has(> :is(.helper-text:not(:empty), .error-text:not(:empty), .counter:not(:empty)))) {
+    ion-input:not(.ios-theme-disabled, .ios26-disabled)
+      .input-bottom:not(:has(> :is(.helper-text:not(:empty), .error-text:not(:empty), .counter:not(:empty)))),
+    ion-textarea:not(.ios-theme-disabled, .ios26-disabled)
+      .textarea-bottom:not(:has(> :is(.helper-text:not(:empty), .error-text:not(:empty), .counter:not(:empty)))) {
       display: none;
     }
   }
@@ -21,11 +23,11 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
 @mixin layout($outer-note-inset, $group-border-radius) {
   background: transparent;
 
-  ion-list-header {
+  ion-list-header:not(.ios-theme-disabled, .ios26-disabled) {
     display: flex;
     align-items: center;
 
-    ion-label {
+    ion-label:not(.ios-theme-disabled, .ios26-disabled) {
       font-size: 0.9rem;
       margin: 8px 4px 4px;
 
@@ -34,18 +36,18 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
       }
     }
 
-    ion-button {
+    ion-button:not(.ios-theme-disabled, .ios26-disabled) {
       margin-top: 8px;
     }
 
-    ion-note {
+    ion-note:not(.ios-theme-disabled, .ios26-disabled) {
       font-size: 0.9rem;
       margin: 8px 16px 4px 0;
     }
   }
 
-  ion-item-group.item-group-header {
-    & > ion-item > ion-label {
+  ion-item-group.item-group-header:not(.ios-theme-disabled, .ios26-disabled) {
+    & > ion-item:not(.ios-theme-disabled, .ios26-disabled) > ion-label:not(.ios-theme-disabled, .ios26-disabled) {
       width: 100%;
       text-align: center;
       padding: 32px 16px 16px;
@@ -59,7 +61,7 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
         visibility: hidden;
       }
 
-      ion-icon {
+      ion-icon:not(.ios-theme-disabled, .ios26-disabled) {
         font-size: 2.8rem;
         border-radius: 20%;
         padding: 6px;
@@ -75,13 +77,13 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
         margin-top: 8px;
       }
 
-      ion-text {
+      ion-text:not(.ios-theme-disabled, .ios26-disabled) {
         font-size: 0.9rem;
       }
     }
   }
 
-  > :is(#{$groups}) {
+  > :is(#{$groups}):not(.ios-theme-disabled, .ios26-disabled) {
     display: block;
     border-radius: $group-border-radius;
     overflow: hidden;
@@ -98,11 +100,11 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
         padding-block-start: 8px;
       }
 
-      > ion-item:first-of-type {
+      > ion-item:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
         --border-radius: #{$group-border-radius} #{$group-border-radius} 0 0;
       }
 
-      > ion-item:last-of-type {
+      > ion-item:not(.ios-theme-disabled, .ios26-disabled):last-of-type {
         --border-radius: 0 0 #{$group-border-radius} #{$group-border-radius};
       }
     }
@@ -111,7 +113,7 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
       margin-top: 16px;
     }
 
-    ion-item {
+    ion-item:not(.ios-theme-disabled, .ios26-disabled) {
       &:has(> ion-label:not([slot])):has(> ion-note:not([slot])) {
         &::part(container) {
           flex-direction: column;
@@ -120,23 +122,23 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
           padding-bottom: 14px;
           min-height: 64px;
         }
-        & > ion-label,
-        & > ion-note {
+        & > ion-label:not(.ios-theme-disabled, .ios26-disabled),
+        & > ion-note:not(.ios-theme-disabled, .ios26-disabled) {
           width: auto;
           align-self: flex-start;
         }
-        & > ion-label {
+        & > ion-label:not(.ios-theme-disabled, .ios26-disabled) {
           margin: 0;
           font-weight: 500;
           font-size: 1.15rem;
           line-height: 0.9rem;
         }
-        & > ion-note {
+        & > ion-note:not(.ios-theme-disabled, .ios26-disabled) {
           font-size: 0.85rem;
         }
       }
 
-      ion-text[slot='end'] {
+      ion-text[slot='end']:not(.ios-theme-disabled, .ios26-disabled) {
         padding-left: 8px;
       }
 
@@ -149,11 +151,11 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
         }
       }
 
-      ion-button[slot='end'] {
+      ion-button[slot='end']:not(.ios-theme-disabled, .ios26-disabled) {
         &.ion-align-self-end {
           transform: translateY(-7px);
         }
-        ion-icon[slot='icon-only'] {
+        ion-icon[slot='icon-only']:not(.ios-theme-disabled, .ios26-disabled) {
           font-size: 1.2rem;
           transform: translateY(4px);
         }
@@ -161,7 +163,7 @@ $groups: ion-item-group, ion-reorder-group, ion-accordion-group, ion-radio-group
     }
   }
 
-  & > ion-note {
+  & > ion-note:not(.ios-theme-disabled, .ios26-disabled) {
     --color: var(--ion-color-medium-tint);
     font-size: 0.9rem;
     display: block;

@@ -26,6 +26,31 @@ ion-toolbar.ios:not(.toolbar-title-large):not(.ios-theme-disabled, .ios26-disabl
   --min-height: 68px;
 }
 
+// iOS 26.5 UINavigationBar: content begins 54pt below the top safe area;
+// a 44pt glass button sits at the safe-area edge. Search/segment/modal toolbars
+// have distinct layouts and are deliberately excluded from this measurement.
+ion-header.ios:not(.ios-theme-disabled, .ios26-disabled):not(.header-collapse-condense):not(:where(ion-modal *))
+  > ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(.toolbar-title-large):not(.toolbar-searchbar):not(
+    :has(ion-segment)
+  ):first-of-type {
+  padding-top: max(calc(var(--ion-safe-area-top, 0px) - 10px), 6px);
+  --min-height: 64px;
+}
+
+ion-header.ios.header-collapse-condense:not(.ios-theme-disabled, .ios26-disabled)
+  > ion-toolbar.ios.toolbar-title-large:not(.ios-theme-disabled, .ios26-disabled) {
+  --min-height: 52px;
+  --padding-top: 2px;
+  --padding-bottom: 2px;
+}
+
+ion-title.ios:not(.title-small, .ios-theme-disabled, .ios26-disabled) {
+  font-size: max(17px, 1rem);
+  &.title-large {
+    font-size: clamp(34px, 2rem, 61.2px);
+  }
+}
+
 ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled).toolbar-searchbar {
   *[slot='start'],
   *[slot='end'] {

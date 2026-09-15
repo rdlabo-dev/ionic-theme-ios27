@@ -1,0 +1,12 @@
+@use '../glass';
+
+@mixin ion-searchbar {
+  ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled, .searchbar-classic) {
+    @include glass.dark-fill('--background');
+    --box-shadow: none;
+    --placeholder-opacity: 0.6;
+    .searchbar-input-container input.searchbar-input {
+      @include glass.dark-rim;
+    }
+  }
+}

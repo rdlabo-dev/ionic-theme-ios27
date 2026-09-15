@@ -23,6 +23,27 @@ Solid primary submit buttons use `--ion-color-primary-brightness` for their fore
 
 Use `.button-submit` when the button needs the same treatment but cannot use `type="submit"`.
 
+## Alert and action-sheet actions
+
+For the prominent action in an alert, use `role: 'preferred'`. It uses the primary
+background and contrast color; it does not change the submit-button brightness
+palette. Keep actions in the intended reading and keyboard order:
+
+```ts
+const buttons = [
+  { text: 'Cancel', role: 'cancel' },
+  { text: 'OK', role: 'preferred', handler: () => confirm() },
+];
+```
+
+Action sheets use Ionic's existing `role: 'selected'` for this emphasis. Other
+actions stay neutral or destructive. The theme follows the centered, unanchored
+`UIAlertController` presentation measured on iOS 26.1/26.5. Use `ion-popover` for
+an anchored menu. `ios-theme-disabled` / `ios26-disabled` retain the original
+Ionic presentation. Long content remains scrollable. Optional measured animation
+builders are described in [Experimental animation](./experimental-animation.md);
+CSS alone does not replace Ionic's enter/leave animations.
+
 ## Two-line inset list items
 
 Place an unslotted `ion-label` immediately alongside an unslotted `ion-note` to render a two-line item. When using the iOS-style inset-list background, wrap the items in `ion-item-group`; keep `ion-list-header` outside the group.

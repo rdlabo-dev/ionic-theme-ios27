@@ -1,4 +1,5 @@
 @use '../utils/api';
+@use '../utils/glass';
 
 /**
  * Note: ion-back-button should not put inner ion-button.
@@ -130,9 +131,35 @@ $scaleup-large-icon-only: 1.22;
     height: 44px;
     padding: 2px;
   }
+
+  // Single plain UINavigationBar action, measured alongside the 26.5 header.
+  &:has(> ion-button.button-clear:only-child:not(.button-small, .button-large, .ios-theme-disabled, .ios26-disabled)) {
+    border: none;
+    border-radius: 22px;
+    backdrop-filter: blur(8px) saturate(250%);
+    @include glass.light-shadow;
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      box-sizing: border-box;
+      @include glass.light-rim;
+    }
+    > ion-button.button-clear:not(.button-small, .button-large, .button-has-icon-only) {
+      --padding-start: 16px;
+      --padding-end: 16px;
+      &::part(native) {
+        min-height: 44px;
+        line-height: max(20.3333px, 1.196078rem);
+      }
+    }
+  }
 }
 
 @mixin theme-button($is-back-button: false) {
+  font-weight: 400;
   max-height: inherit;
   z-index: 0;
   &.ion-activated {
@@ -165,7 +192,7 @@ $scaleup-large-icon-only: 1.22;
 
   // button size default
   &:not(.button-small):not(.button-large) {
-    font-size: 1.05rem;
+    font-size: max(17px, 1rem);
     &:not(.button-has-icon-only):not(.back-button-has-icon-only) {
       --padding-bottom: 0;
       --padding-end: 12px;
@@ -265,22 +292,22 @@ $scaleup-large-icon-only: 1.22;
       }
       &.ion-activated.button-has-icon-only,
       &.ion-activated.back-button-has-icon-only {
-        transform: scale($scaleup-default-icon-only);
+        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default-icon-only}));
         &.button-small {
-          transform: scale($scaleup-small-icon-only);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small-icon-only}));
         }
         &.button-large {
-          transform: scale($scaleup-large-icon-only);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large-icon-only}));
         }
       }
 
       &:not(.button-has-icon-only):not(.back-button-has-icon-only) {
-        transform: scale($scaleup-default);
+        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default}));
         &.button-small {
-          transform: scale($scaleup-small);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small}));
         }
         &.button-large {
-          transform: scale($scaleup-large);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large}));
         }
       }
     }
@@ -317,9 +344,7 @@ $scaleup-large-icon-only: 1.22;
     --background-hover: transparent;
     --background-activated: transparent;
     @if not $is-back-button {
-      --box-shadow:
-        inset 0 0 8px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.2),
-        0 0 10px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.82);
+      @include glass.light-shadow(--box-shadow);
     }
 
     &:not(.button-has-icon-only):not(.back-button-has-icon-only) {
@@ -329,7 +354,11 @@ $scaleup-large-icon-only: 1.22;
     }
 
     &::part(native) {
-      @include api.glass-background($include-background: false, $include-box-shadow: $is-back-button);
+      backdrop-filter: blur(8px) saturate(250%);
+      @include glass.light-rim;
+      @if $is-back-button {
+        @include glass.light-shadow;
+      }
     }
 
     &:not(.button-disabled) {
@@ -350,22 +379,22 @@ $scaleup-large-icon-only: 1.22;
       }
       &.ion-activated.button-has-icon-only,
       &.ion-activated.back-button-has-icon-only {
-        transform: scale($scaleup-default-icon-only);
+        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default-icon-only}));
         &.button-small {
-          transform: scale($scaleup-small-icon-only);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small-icon-only}));
         }
         &.button-large {
-          transform: scale($scaleup-large-icon-only);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large-icon-only}));
         }
       }
 
       &:not(.button-has-icon-only):not(.back-button-has-icon-only) {
-        transform: scale($scaleup-default);
+        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default}));
         &.button-small {
-          transform: scale($scaleup-small);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small}));
         }
         &.button-large {
-          transform: scale($scaleup-large);
+          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large}));
         }
       }
     }

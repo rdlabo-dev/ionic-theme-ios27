@@ -1,6 +1,14 @@
 @use '../api';
+@use '../glass';
 
 @mixin theme-dark-buttons {
+  &:has(> ion-button.button-clear:only-child:not(.button-small, .button-large, .ios-theme-disabled, .ios26-disabled)) {
+    @include glass.dark-fill;
+    box-shadow: none;
+    &::before {
+      @include glass.dark-rim;
+    }
+  }
   &:has(.ion-activated) {
     @include api.glass-background-button-activated-dark;
   }
@@ -27,6 +35,16 @@
 }
 
 @mixin theme-dark-button($is-back-button: false) {
+  &:not(.button-solid):not(.button-outline):not(.button-clear) {
+    @include glass.dark-fill(--background);
+    --box-shadow: none;
+    &::part(native) {
+      @include glass.dark-rim;
+      @if $is-back-button {
+        box-shadow: none;
+      }
+    }
+  }
   &.ion-activated:not(.button-solid):not(.button-outline):not(.button-clear) {
     --background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.56);
     --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 1);

@@ -1,0 +1,39 @@
+name: ButtonCurveProbe
+options:
+  deploymentTarget:
+    iOS: '26.0'
+targets:
+  ButtonCurveProbe:
+    type: application
+    platform: iOS
+    sources:
+      - App.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rdlabo.buttoncurve.probe
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        SWIFT_VERSION: '5.0'
+        TARGETED_DEVICE_FAMILY: '1,2'
+  ButtonCurveTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - Tests.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rdlabo.buttoncurve.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+    dependencies:
+      - target: ButtonCurveProbe
+schemes:
+  ButtonCurveProbe:
+    build:
+      targets:
+        ButtonCurveProbe: all
+        ButtonCurveTests: [test]
+    test:
+      targets:
+        - ButtonCurveTests

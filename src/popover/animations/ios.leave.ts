@@ -57,13 +57,26 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
   return baseAnimation
     .easing('ease')
     .afterAddWrite(() => {
-      baseEl.style.removeProperty('--width');
+      if (baseEl.dataset['ios26PreviousWidth'] !== undefined) {
+        baseEl.style.setProperty('--width', baseEl.dataset['ios26PreviousWidth'], baseEl.dataset['ios26PreviousWidthPriority'] ?? '');
+        delete baseEl.dataset['ios26PreviousWidth'];
+        delete baseEl.dataset['ios26PreviousWidthPriority'];
+      }
       baseEl.classList.remove('popover-bottom');
 
       contentEl.style.removeProperty('top');
       contentEl.style.removeProperty('left');
       contentEl.style.removeProperty('bottom');
       contentEl.style.removeProperty('transform-origin');
+      if (contentEl.dataset['previousMaxWidth'] !== undefined) {
+        contentEl.style.setProperty(
+          'max-width',
+          contentEl.dataset['previousMaxWidth'],
+          contentEl.dataset['previousMaxWidthPriority'] ?? '',
+        );
+        delete contentEl.dataset['previousMaxWidth'];
+        delete contentEl.dataset['previousMaxWidthPriority'];
+      }
 
       if (arrowEl) {
         arrowEl.style.removeProperty('top');

@@ -1,0 +1,32 @@
+// Unanchored UIAlertController, measured on iOS 26.1 and 26.5.
+// Preserve iOS 26 glass RGB customizations.
+@mixin variables {
+  --ios26-overlay-opacity: 0.7;
+  --ios26-overlay-button-opacity: 0.12;
+  --ios26-overlay-secondary-opacity: 0.55;
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), var(--ios26-overlay-opacity));
+}
+@mixin surface {
+  background: var(
+    --background,
+    rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), var(--ios26-overlay-opacity))
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  border: none;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.8),
+    0 12px 28px rgba(0, 0, 0, 0.17);
+  border-radius: 34px;
+  outline: none;
+}
+@mixin button {
+  background: rgba(var(--ion-text-color-rgb, 0, 0, 0), var(--ios26-overlay-button-opacity));
+  color: var(--ion-text-color, #000);
+  &.ion-activated {
+    background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
+  }
+}
+@mixin preferred {
+  background: var(--ion-color-primary, #0289ff);
+  color: var(--ion-color-primary-contrast, #fff);
+}
