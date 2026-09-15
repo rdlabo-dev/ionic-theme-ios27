@@ -55,7 +55,7 @@ jobs:
       - name: Run Playwright tests
         run: |
           if [ "${{ matrix.ionic-major }}" = "8" ]; then
-            PLAYWRIGHT_JSON_OUTPUT_NAME=e2e/screenshot.spec.ts-ionic8.json npm run test:e2e:visual -- --reporter=json,html
+            PLAYWRIGHT_JSON_OUTPUT_NAME=e2e/screenshot.spec.ts-ionic8.json npm run test:e2e -- e2e/screenshot.spec.ts --reporter=json,html
           else
             PLAYWRIGHT_JSON_OUTPUT_NAME=e2e/screenshot.spec.ts-ionic9.json npm run test:e2e -- --reporter=json,html
           fi
