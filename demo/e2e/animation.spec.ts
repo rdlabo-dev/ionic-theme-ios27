@@ -78,7 +78,9 @@ test.describe('Animation Tests', () => {
       const top = (await page.locator('app-button').boundingBox())!;
       expect(cover.y).toBeCloseTo(top.y, 1);
       expect(cover.height).toBeCloseTo(top.height, 1);
-      expect(cover.x + cover.width).toBeCloseTo(top.x, 1);
+      expect(cover.x).toBe(0);
+      const edge = await shade.evaluate((el) => el.nextElementSibling!.getBoundingClientRect().toJSON());
+      expect(edge.x + edge.width).toBeCloseTo(top.x, 1);
       await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
     };
     await page.goto('/main/index', { waitUntil: 'networkidle' });
@@ -92,6 +94,7 @@ test.describe('Animation Tests', () => {
     await expect(page.locator('app-button.ion-page:not(.ion-page-hidden)')).toBeVisible();
     await expect.poll(() => hasRunningAnimation(page), { timeout: 2000 }).toBe(false);
     await expect(shade).toHaveCount(0);
+    expect(await page.locator('app-button').evaluate((el) => (el as HTMLElement).style.clipPath)).toBe('');
 
     await clearAnimationCalls(page);
     await page.locator('app-button > ion-header ion-back-button').click();
