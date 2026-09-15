@@ -2,14 +2,17 @@
 
 @mixin ion-tabs {
   ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-    --_ios26-tab-selected-opacity: 0.145;
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.3);
     &::before {
-      @include api.glass-background($opacity: 0.3, $blur: 20px, $saturate: 180%);
+      @include api.glass-background($blur: 20px, $saturate: 180%, $include-background: false);
       border-color: rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.6);
       box-shadow: none;
     }
   }
   ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    &.tab-selected {
+      --background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.145);
+    }
     &.ion-activated {
       ion-label,
       ion-icon {

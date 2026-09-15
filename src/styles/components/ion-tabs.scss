@@ -4,13 +4,13 @@
   &:has(> ion-tab-button:nth-child(4):last-child) {
     max-width: 328px;
     > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --_ios26-tab-cell-width: calc((100cqw + 48px) / 4);
+      --ios-theme-tab-cell-width: calc((100cqw + 48px) / 4);
     }
   }
   &:has(> ion-tab-button:nth-child(5):last-child) {
     max-width: 406px;
     > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --_ios26-tab-cell-width: calc((100cqw + 64px) / 5);
+      --ios-theme-tab-cell-width: calc((100cqw + 64px) / 5);
     }
   }
 }
@@ -19,6 +19,7 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   // UIKit's platter is 62pt, including its 4pt selection inset. Put the
   // physical-pixel rim on a separate surface so it cannot alter layout.
   border: 0;
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
   background: transparent;
   contain: size layout style;
   container-type: inline-size;
@@ -29,7 +30,8 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
-    @include api.glass-background($blur: 20px, $saturate: 180%);
+    @include api.glass-background($blur: 20px, $saturate: 180%, $include-background: false);
+    background: var(--background);
     box-shadow: 0 2px 26px rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);
   }
   z-index: 2;
@@ -73,15 +75,15 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   &:has(> ion-tab-button:nth-child(4):last-child) {
     justify-content: space-between;
     > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --_ios26-tab-cell-width: min(74px, calc((100cqw + 60px) / 4));
-      flex: 0 0 var(--_ios26-tab-cell-width);
+      --ios-theme-tab-cell-width: min(74px, calc((100cqw + 60px) / 4));
+      flex: 0 0 var(--ios-theme-tab-cell-width);
       & + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-        margin-inline-start: calc((100cqw - 4 * var(--_ios26-tab-cell-width)) / 3);
+        margin-inline-start: calc((100cqw - 4 * var(--ios-theme-tab-cell-width)) / 3);
       }
       // Fractional samples through305.9pt still use the compact74pt cell;
       //306pt starts the regular94pt cell (content width excludes8pt padding).
       @container ios26-tab-platter (width >= 298px) {
-        --_ios26-tab-cell-width: max(94px, calc((100cqw + 40px) / 4));
+        --ios-theme-tab-cell-width: max(94px, calc((100cqw + 40px) / 4));
       }
     }
   }
@@ -90,13 +92,13 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   &:has(> ion-tab-button:nth-child(5):last-child) {
     justify-content: space-between;
     > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --_ios26-tab-cell-width: min(74px, calc((100cqw + 80px) / 5));
+      --ios-theme-tab-cell-width: min(74px, calc((100cqw + 80px) / 5));
       @container ios26-tab-platter (width >= 348px) {
-        --_ios26-tab-cell-width: calc((100cqw + 33px) / 5);
+        --ios-theme-tab-cell-width: calc((100cqw + 33px) / 5);
       }
-      flex: 0 0 var(--_ios26-tab-cell-width);
+      flex: 0 0 var(--ios-theme-tab-cell-width);
       & + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-        margin-inline-start: calc((100cqw - 5 * var(--_ios26-tab-cell-width)) / 4);
+        margin-inline-start: calc((100cqw - 5 * var(--ios-theme-tab-cell-width)) / 4);
       }
     }
   }
@@ -156,8 +158,8 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
    * effectが有効な場合、effectでスタイリングするため不要
    */
   &.ios26-enable-gesture.ios26-animated {
-    ion-tab-button.tab-selected::part(native) {
-      background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0);
+    ion-tab-button.tab-selected {
+      background: transparent;
     }
     ion-tab-button.ion-activated {
       ion-label,
@@ -190,13 +192,13 @@ ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
       filter var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease,
       color var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   }
-  background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0);
+  --background: transparent;
+  border-radius: 27px;
   height: auto;
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   &::part(native) {
     overflow: visible;
     min-height: 54px;
-    border-radius: 27px;
   }
 
   &.ion-activated {
@@ -210,14 +212,11 @@ ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   &.tab-selected {
+    --background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.077);
     font-weight: 600;
-    &::part(native) {
-      background: rgba(
-        var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)),
-        var(--_ios26-tab-selected-opacity, 0.077)
-      );
-      transition: background var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
-    }
+    transition:
+      transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease,
+      background var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   }
 
   &.ion-cloned-element {

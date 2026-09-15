@@ -14,6 +14,12 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
   ion-fab-button:not(.ios-theme-disabled, .ios26-disabled) {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
     @include glass.light-shadow(--box-shadow);
+    --border-width: 0.5px;
+    --border-style: solid;
+    --border-color: rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 1) transparent;
+    @supports (background-clip: border-area) {
+      --border-color: transparent;
+    }
     --transition:
       var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) transform
         cubic-bezier(0.25, 1.11, 0.78, 1.59),
@@ -57,9 +63,9 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
 
     &::part(native) {
-      @include api.glass-background($include-background: false, $include-box-shadow: false);
+      @include api.glass-background($include-background: false, $include-box-shadow: false, $include-border: false);
       backdrop-filter: blur(8px) saturate(250%);
-      @include glass.light-rim;
+      @include glass.light-rim($include-border: false);
       // The previous background shorthand reset Ionic's padding-box default.
       // There is no CSS custom property for background-clip, so preserve it via the Part.
       background-clip: border-box;

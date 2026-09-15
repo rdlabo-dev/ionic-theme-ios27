@@ -134,6 +134,23 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     expect(await getTabsComponent(page)).toBe(true);
   });
 
+  test('Ionic background overrides survive selection effects', async ({ page }) => {
+    const bar = await appendFixtureBar(page, 'tab-background');
+    await registerViaTabs(page, '#tab-background');
+    const buttons = bar.locator('ion-tab-button');
+    await bar.evaluate((el) => {
+      el.style.setProperty('--background', 'rgb(30, 60, 90)');
+      el.querySelectorAll('ion-tab-button').forEach((button) => button.style.setProperty('--background', 'rgb(90, 60, 30)'));
+    });
+    for (const dark of [false, true]) {
+      await page.evaluate((dark) => document.documentElement.classList.toggle('ion-palette-dark', dark), dark);
+      expect(await bar.evaluate((el) => getComputedStyle(el, '::before').backgroundColor)).toBe('rgb(30, 60, 90)');
+      await buttons.nth(dark ? 0 : 1).tap();
+      await expect(bar).not.toHaveClass(/ios26-animated/);
+      await expect(bar.locator('.tab-selected')).toHaveCSS('background-color', 'rgb(90, 60, 30)');
+    }
+  });
+
   // Native cell overlap is intentional. FAB placement comes from production CSS.
   for (const count of [1, 2, 3, 4, 5]) {
     test(`${count} tabs ${count < 5 ? 'with FAB' : 'without FAB'} retain geometry and selection`, async ({ page }) => {

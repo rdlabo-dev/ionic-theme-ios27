@@ -42,7 +42,8 @@
   $blur: 7px,
   $saturate: 180%,
   $include-background: true,
-  $include-box-shadow: true
+  $include-box-shadow: true,
+  $include-border: true
 ) {
   @if $include-background {
     background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), $opacity);
@@ -51,10 +52,12 @@
   @if $include-box-shadow {
     box-shadow: inset 0 0 16px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);
   }
-  border-top: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8);
-  border-right: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.4);
-  border-bottom: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8);
-  border-left: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.6);
+  @if $include-border {
+    border-top: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8);
+    border-right: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.4);
+    border-bottom: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8);
+    border-left: 0.8px solid rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.6);
+  }
 
   // Hardware acceleration optimization for glass effects
   transform: translateZ(0);
@@ -71,11 +74,11 @@
   @include glass-background($opacity: 0.6667, $blur: 8px);
 }
 
-@mixin glass-background-overlay-button {
+@mixin glass-background-overlay-button($opacity: 0.12) {
   transition: background 0.2s ease;
-  background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.065);
+  background: rgba(var(--ion-text-color-rgb, 0, 0, 0), $opacity);
   &.ion-activated {
-    background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.022);
+    background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.06);
   }
 }
 
@@ -84,4 +87,27 @@
   &.ion-activated {
     --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.022);
   }
+}
+
+// Shared material for presented surfaces; values are calibrated to iOS 26.
+@mixin glass-overlay-variables {
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.7);
+  --border-width: 0;
+  --border-style: none;
+  --border-color: transparent;
+  --box-shadow:
+    inset 0 0 0 0.5px rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.8),
+    0 12px 28px rgba(0, 0, 0, 0.17);
+}
+
+@mixin glass-overlay-surface {
+  background: var(--background);
+  border: var(--border-width) var(--border-style) var(--border-color);
+  box-shadow: var(--box-shadow);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+
+@mixin glass-overlay-preferred-button {
+  background: var(--ion-color-primary, #0289ff);
+  color: var(--ion-color-primary-contrast, #fff);
 }

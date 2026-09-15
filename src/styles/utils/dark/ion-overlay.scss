@@ -1,8 +1,25 @@
+@use '../api';
+
 @mixin ion-overlay {
   ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled),
   ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
-    --ios26-overlay-opacity: 0.24;
-    --ios26-overlay-button-opacity: 0.11;
-    --ios26-overlay-secondary-opacity: 0.6;
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.24);
+  }
+  ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.11);
+    .action-sheet-sub-title {
+      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.6);
+    }
+  }
+  ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    .alert-wrapper {
+      .alert-sub-title,
+      .alert-message {
+        color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.6);
+      }
+      .alert-button-group .alert-button:not(.alert-button-role-preferred) {
+        @include api.glass-background-overlay-button($opacity: 0.11);
+      }
+    }
   }
 }

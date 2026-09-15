@@ -140,12 +140,12 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
     ];
     if (finish) {
       // Blend into the actual selected surface, without modifying Ionic's state.
-      const native = selected()?.shadowRoot?.querySelector<HTMLElement>('[part="native"]');
+      const target = selected();
       const offset = Math.max(0, 1 - 120 / duration);
       animations.push(lens.animate([{ opacity: 1 }, { opacity: 1, offset }, { opacity: 0 }], options));
-      if (native)
+      if (target)
         animations.push(
-          native.animate(
+          target.animate(
             [{ backgroundColor: 'transparent' }, { backgroundColor: 'transparent', offset }, { backgroundColor: color }],
             options,
           ),
@@ -210,8 +210,7 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
     viewport = { x: origin.x, y: origin.y, sx: origin.width || 1, sy: origin.height || 1 };
     const from = box(selected() ?? target);
     const to = box(target);
-    const native = (selected() ?? target).shadowRoot?.querySelector<HTMLElement>('[part="native"]');
-    color = native ? win.getComputedStyle(native).backgroundColor : 'transparent';
+    color = win.getComputedStyle(selected() ?? target).backgroundColor;
     lens.style.background = color;
     pointer = {
       id: event.pointerId,

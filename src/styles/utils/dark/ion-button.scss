@@ -38,8 +38,14 @@
   &:not(.button-solid):not(.button-outline):not(.button-clear) {
     @include glass.dark-fill(--background);
     --box-shadow: none;
+    @if not $is-back-button {
+      --border-color: rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.58) transparent;
+      @supports (background-clip: border-area) {
+        --border-color: transparent;
+      }
+    }
     &::part(native) {
-      @include glass.dark-rim;
+      @include glass.dark-rim($include-border: $is-back-button);
       @if $is-back-button {
         box-shadow: none;
       }
@@ -50,12 +56,21 @@
     --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 1);
     @if not $is-back-button {
       --box-shadow: inset 0 0 16px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);
+      --border-width: 0.8px;
+      --border-color: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8)
+        rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.4)
+        rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.8)
+        rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.6);
     }
     &.ion-color {
       --color: rgba(var(--ion-color-base-rgb, var(--ion-text-color-rgb, 0, 0, 0)), 1);
     }
     &::part(native) {
-      @include api.glass-background-button-activated-dark($include-background: false, $include-box-shadow: $is-back-button);
+      @include api.glass-background-button-activated-dark(
+        $include-background: false,
+        $include-box-shadow: $is-back-button,
+        $include-border: $is-back-button
+      );
     }
     ion-icon {
       color: rgb(255, 255, 255);

@@ -8,11 +8,11 @@ protect behavior introduced or overridden by this theme, not Ionic itself:
 
 | Spec | Regression worth maintaining |
 | --- | --- |
-| `ios26-submit-brightness` | Public brightness colors, legacy alias, submit markup and disabled styling |
+| `ios26-submit-brightness` | Public brightness colors, legacy alias, submit markup, disabled styling and Ionic glass-button overrides |
 | `ios26-child-optout` | Nested selectors leaking theme styles into opted-out children |
 | `ios26-popover-position` | Theme positioning losing event coordinates, clipping content or retaining temporary widths |
 | `ios26-segment-parity` | Selection effects duplicating events/lenses or ignoring reduced motion/custom styles |
-| `ios26-tab-lifecycle` | 1–5 tab layout (five without FAB), phone/tablet boundaries, click ownership and cleanup |
+| `ios26-tab-lifecycle` | 1–5 tab layout (five without FAB), phone/tablet boundaries, background overrides, click ownership and cleanup |
 | `ios26-range-parity` | Enlarged thumbs moving past LTR/RTL endpoints or deforming the inactive dual thumb |
 | `toggle` | Short-tap effects not settling, or CSS overriding reduced motion/public styling |
 

@@ -2,6 +2,36 @@ import { expect, test } from '@playwright/test';
 
 // Public iOS26 color contract; not a copy of the theme's default palette.
 for (const dark of [false, true]) {
+  test(`glass buttons retain Ionic background, border and shadow overrides (${dark ? 'dark' : 'light'})`, async ({ page }) => {
+    await page.goto('/main/index/button');
+    await page.evaluate((dark) => {
+      document.documentElement.classList.toggle('ion-palette-dark', dark);
+      document
+        .querySelector('ion-app')!
+        .insertAdjacentHTML(
+          'beforeend',
+          '<div id="glass-overrides"><ion-button fill="default">Glass</ion-button><ion-fab><ion-fab-button>+</ion-fab-button></ion-fab></div>',
+        );
+    }, dark);
+    for (const button of await page.locator('#glass-overrides ion-button, #glass-overrides ion-fab-button').all()) {
+      await expect(button).toHaveClass(/hydrated/);
+      await button.evaluate((el) => {
+        (el as HTMLElement).style.cssText =
+          '--background:rgb(30, 60, 90);--border-width:3px;--border-style:solid;--border-color:rgb(90, 60, 30);--box-shadow:none;';
+      });
+      const native = button.locator('[part="native"]');
+      await expect(native).toHaveCSS('background-color', 'rgb(30, 60, 90)');
+      await expect(native).toHaveCSS('border-top-width', '3px');
+      await expect(native).toHaveCSS('border-top-color', 'rgb(90, 60, 30)');
+      await expect(native).toHaveCSS('box-shadow', 'none');
+      await button.evaluate((el) => el.classList.add('ion-activated'));
+      await expect(native).toHaveCSS('border-top-width', '3px');
+      await expect(native).toHaveCSS('border-top-color', 'rgb(90, 60, 30)');
+      await expect(native).toHaveCSS('background-color', 'rgb(30, 60, 90)');
+      await expect(native).toHaveCSS('box-shadow', 'none');
+    }
+  });
+
   test(`submit brightness respects both markup forms and disabled state (${dark ? 'dark' : 'light'})`, async ({ page }) => {
     await page.goto('/main/index/button');
     await expect(page.locator('app-button ion-button').first()).toHaveClass(/hydrated/);

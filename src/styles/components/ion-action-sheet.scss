@@ -1,10 +1,12 @@
-@use '../utils/overlay';
+@use '../utils/api';
 
 ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include overlay.variables;
+  @include api.glass-overlay-variables;
   --backdrop-opacity: 0.2066;
   --max-width: min(320px, calc(100vw - 32px));
   --color: var(--ion-text-color, #000);
+  --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.12);
+  --button-color: var(--ion-text-color, #000);
   // iOS 26.1/26.5: without a source anchor UIKit uses a centered dialog.
   // Anchored menus are represented by ion-popover, not a bottom sheet.
   justify-content: center;
@@ -24,7 +26,9 @@ ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   .action-sheet-container {
-    @include overlay.surface;
+    @include api.glass-overlay-surface;
+    border-radius: 34px;
+    outline: none;
     margin: 0;
     padding: 0 16px 16px;
 
@@ -45,7 +49,7 @@ ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
       font-size: max(15px, 0.882353rem);
       line-height: max(18px, 1.058823rem);
       font-weight: 400;
-      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), var(--ios26-overlay-secondary-opacity));
+      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.55);
     }
 
     .action-sheet-group {
@@ -56,14 +60,8 @@ ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
       overflow-y: auto;
 
       button {
-        --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), var(--ios26-overlay-button-opacity));
         &::after {
           content: none;
-        }
-        &:not(.action-sheet-destructive):not(.action-sheet-selected) {
-          --button-color: var(--ion-text-color, #000);
-          --button-color-hover: var(--ion-text-color, #000);
-          --button-color-activated: var(--ion-text-color, #000);
         }
         &.action-sheet-destructive {
           --button-color: var(--ion-color-danger, #c5000f);

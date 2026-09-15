@@ -1,7 +1,7 @@
-@use '../utils/overlay';
+@use '../utils/api';
 
 ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include overlay.variables;
+  @include api.glass-overlay-variables;
   --min-width: min(280px, calc(100vw - 32px));
   --max-width: min(320px, calc(100vw - 32px));
   --backdrop-opacity: 0.2066;
@@ -10,7 +10,9 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
   padding-bottom: var(--ion-safe-area-bottom, env(safe-area-inset-bottom, 0px));
 
   .alert-wrapper {
-    @include overlay.surface;
+    @include api.glass-overlay-surface;
+    border-radius: 34px;
+    outline: none;
     .alert-head {
       padding: 22px 30px 7px;
       text-align: start;
@@ -25,7 +27,7 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
     .alert-message {
       font-size: max(15px, 0.882353rem);
       line-height: max(19px, 1.117647rem);
-      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), var(--ios26-overlay-secondary-opacity));
+      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.55);
     }
     .alert-message {
       padding: 0 30px 21px;
@@ -47,7 +49,8 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
       padding: 0 16px 16px;
       gap: 8px;
       .alert-button {
-        @include overlay.button;
+        @include api.glass-background-overlay-button;
+        color: var(--ion-text-color, #000);
         border: none;
         border-radius: 24px;
         margin: 0;
@@ -66,7 +69,7 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
           color: var(--ion-color-danger, #ff383c);
         }
         &.alert-button-role-preferred {
-          @include overlay.preferred;
+          @include api.glass-overlay-preferred-button;
           font-weight: 600;
         }
       }
