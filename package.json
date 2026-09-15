@@ -28,7 +28,7 @@
   ],
   "scripts": {
     "build": "npm run build:css && npm run build:ts",
-    "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map",
+    "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map --pkg-importer=node",
     "build:ts": "tsc",
     "build:demo": "npm run build && cd demo && npm install && npm run build -- --configuration=production",
     "lint": "prettier --check \"./**/*.{scss,ts}\" &&  prettier --parser angular --check \"./**/*.html\"",
@@ -53,6 +53,9 @@
     "url": "https://github.com/rdlabo-dev/ionic-theme-ios27/issues"
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
+  "dependencies": {
+    "@rdlabo/ionic-theme-utils": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-utils.git#main"
+  },
   "devDependencies": {
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",

@@ -1,11 +1,15 @@
 import { createAnimation } from '@ionic/core';
 import type { Animation } from '@ionic/core';
+import {
+  calculateWindowAdjustment,
+  createCalloutSurface,
+  getPopoverDimensions,
+  getPopoverPosition,
+  POPOVER_IOS_BODY_MARGIN,
+} from '@rdlabo/ionic-theme-utils';
 import { getElementRoot } from '../../utils';
-import { calculateWindowAdjustment, getPopoverDimensions, getPopoverPosition } from '../utils';
-import { createCalloutSurface } from '../callout-surface';
 
 const POPOVER_IOS_BODY_PADDING = 5;
-export const POPOVER_IOS_BODY_MARGIN = 8;
 
 /**
  * iOS Popover Enter Animation
