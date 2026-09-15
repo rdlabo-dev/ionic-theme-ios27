@@ -12,6 +12,7 @@ import {
   IonItemGroup,
   IonLabel,
   IonList,
+  IonFooter,
   IonMenuButton,
   IonSearchbar,
   IonSegment,
@@ -20,7 +21,6 @@ import {
   IonTitle,
   IonToolbar,
 } from '@demo/ionic';
-import { IonFooter } from '@ionic/angular';
 
 @Component({
   selector: 'app-toolbar',
