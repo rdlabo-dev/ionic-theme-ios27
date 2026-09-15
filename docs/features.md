@@ -13,6 +13,8 @@ To customize the library's default styles to match your design, several CSS vari
 
 For menus, `--ios-theme-menu-background-rgb` sets the surface RGB channels (light: `225, 230, 240`; dark: `26, 31, 34`). `--ios-theme-menu-background-opacity` controls opacity and defaults to `0.96`. Both are public customization variables and can be set on `ion-menu`.
 
+Button press scaling follows `:active` with a slight overshoot. Set `--ios-theme-button-press-duration` (default: `380ms`) to customize its duration instead of the shared activated-transition duration variables.
+
 ## Liquid Glass mixin
 
 Import the SCSS files from the main package to use the liquid glass mixin.
