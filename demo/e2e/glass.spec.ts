@@ -33,7 +33,7 @@ test('fullscreen page chrome is transparent or frosted according to translucent'
   expect(await footer.evaluate((element) => getComputedStyle(element, '::before').backdropFilter)).toBe('blur(8px)');
   expect(await footer.evaluate((element) => getComputedStyle(element, '::before').backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
   expect(await footer.evaluate((element) => getComputedStyle(element, '::after').backdropFilter)).toBe('blur(2px)');
-  await expect(footerToolbar).toHaveCSS('--border-width', '0.5px 0 0');
+  await expect(footerToolbar).toHaveCSS('--border-width', /^0?\.5px 0 0$/);
 
   await footer.evaluate((element: HTMLIonFooterElement) => (element.translucent = false));
   await header.evaluate((element: HTMLIonHeaderElement) => (element.translucent = false));
