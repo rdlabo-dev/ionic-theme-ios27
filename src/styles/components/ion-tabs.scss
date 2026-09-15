@@ -88,7 +88,7 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease-out;
   &.ios26-enable-gesture {
     transition: none;
-    touch-action: pan-y pinch-zoom;
+    touch-action: pinch-zoom;
     &:has(ion-tab-button.ion-activated) {
       transform: none;
       -webkit-transform: none;

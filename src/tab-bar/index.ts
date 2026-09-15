@@ -179,6 +179,11 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
   const preview = (button: HTMLIonTabButtonElement) => {
     buttons().forEach((candidate) => candidate.classList.toggle('ios26-tab-preview', candidate === button));
   };
+  const dragTarget = (x: number) => {
+    const rect = bar.getBoundingClientRect();
+    const target = doc.elementFromPoint(x, rect.y + rect.height / 2)?.closest<HTMLIonTabButtonElement>('ion-tab-button');
+    return target?.closest('ion-tab-bar') === bar ? target : undefined;
+  };
   const down = (event: PointerEvent) => {
     // A queued second input can precede setTimeout(0), especially when the UI
     // thread was busy. Finish the released session before testing pointer ownership.
@@ -240,13 +245,12 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
   const move = (event: PointerEvent) => {
     if (!pointer || pointer.id !== event.pointerId) return;
     if (!enabled()) return abort();
-    const target = doc.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLIonTabButtonElement>('ion-tab-button') ?? null;
+    // UIKit26 keeps tracking across the bar even when the finger leaves vertically.
+    const target = dragTarget(event.clientX) ?? pointer.target;
     if (!allowed(target)) return;
     const time = win.performance.now();
     const delta = event.clientX - pointer.x;
     if (!pointer.dragged && Math.hypot(delta, event.clientY - pointer.y) < 3) return;
-    // Vertical scrolling is not a tab selection gesture.
-    if (!pointer.dragged && Math.abs(event.clientY - pointer.y) > Math.abs(event.clientX - pointer.x)) return abort();
     pointer.dragged = true;
     pointer.target = target;
     pointer.to = box(target);
@@ -290,7 +294,9 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
       pending = 0;
       finishPending = undefined;
       if (sequence !== token || pointer !== ended || !enabled()) return;
-      const hit = doc.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLIonTabButtonElement>('ion-tab-button') ?? null;
+      const hit = ended.dragged
+        ? (dragTarget(event.clientX) ?? ended.target)
+        : (doc.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLIonTabButtonElement>('ion-tab-button') ?? null);
       if (!allowed(hit)) return abort();
       // WKWebView can suppress its compatibility click after a touch mutates
       // the rendered surface, including a long press. Retain Ionic's handler,

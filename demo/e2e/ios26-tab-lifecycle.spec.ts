@@ -182,6 +182,20 @@ test.describe('iOS26 tab gesture lifecycle', () => {
       await expect(bar.locator('.tab-selected')).toHaveCount(1);
       await expect(bar).not.toHaveClass(/ios26-animated/);
       await expect(bar.locator('.ion-activated, .ios26-tab-preview')).toHaveCount(0);
+      // UIKit26 keeps the held lens alive above the bar, including a single tab.
+      await expect(bar).toHaveCSS('touch-action', 'pinch-zoom');
+      const last = boxes[count - 1]!;
+      const first = boxes[0]!;
+      await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(last.x + last.width / 2, last.y - 45, { steps: 6 });
+      await expect(bar).toHaveClass(/ios26-animated/);
+      await page.mouse.move(first.x + first.width / 2, first.y - 45, { steps: 12 });
+      await expect(buttons.first()).toHaveClass(/ios26-tab-preview/);
+      await expect(buttons.last()).toHaveClass(/tab-selected/);
+      await page.mouse.up();
+      await expect(buttons.first()).toHaveClass(/tab-selected/);
+      await expect(bar).not.toHaveClass(/ios26-animated/);
       if (registration.registered && 'index' in registration) await destroyRegisteredAt(page, registration.index);
       await expect(clones(page)).toHaveCount(1);
     });
@@ -313,7 +327,14 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     const b = (await last.boundingBox())!;
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 - 100, { steps: 12 });
+    await expect(last).toHaveClass(/ios26-tab-preview/);
+    await expect
+      .poll(async () => {
+        const lens = (await clones(page).last().boundingBox())!;
+        return lens.x + lens.width / 2;
+      })
+      .toBeGreaterThan(b.x);
     await expect(first).toHaveClass(/tab-selected/);
     await expect(bar).toHaveAttribute('data-changes', '0');
     await page.mouse.up();
