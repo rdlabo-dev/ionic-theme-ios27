@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-CONTROLS = ("button", "button-short", "toggle", "segment", "range", "tabs", "search", "alert", "action-sheet", "navigation")
+CONTROLS = ("button", "button-short", "toggle", "segment", "range", "tabs", "tabs-motion", "search", "alert", "action-sheet", "navigation")
 APPEARANCES = ("light", "dark")
 AMP = 4
 ROI = (0, 400, 200, 430)  # x0,x1,y0,y1 pt
@@ -334,6 +334,116 @@ def short_button_plot(root: Path, metrics: dict) -> None:
     }, indent=2) + "\n")
 
 
+def tabs_plot(root: Path, metrics: dict) -> None:
+    """Remove the platter transform before comparing lens deformation.
+
+    Delivered input durations and sampling gaps remain visible. No fitted time
+    shift or skipped-frame interpolation is used to turn this into a verdict.
+    """
+    summaries = []
+    for appearance in APPEARANCES:
+        series = {}
+        for renderer in ("native", "web"):
+            env = metrics.get(("tabs-motion", renderer, appearance))
+            if not env:
+                continue
+            samples = env["samples"]
+            downs = [s for s in samples if s.get("event") == "pointerdown"]
+            path = "Tabs/0/0/1" if renderer == "native" else "@web-tabs"
+            for index, down in enumerate(downs):
+                before = next((s for s in reversed(samples) if s["t"] < down["t"] and "layers" in s), None)
+                if not before:
+                    continue
+                bar0 = pick_layer(before, "Tabs/0" if renderer == "native" else "Tabs", None)
+                lens0 = pick_layer(before, path, None)
+                if not bar0 or not lens0:
+                    continue
+                up = next((s for s in samples if s.get("event") == "pointerup" and s["t"] > down["t"]), None)
+                if not up:
+                    continue
+                stop = min(up["t"] + 1.1, downs[index + 1]["t"] if index + 1 < len(downs) else up["t"] + 1.1)
+                points = []
+                center0 = lens0["x"] + lens0["w"] / 2 - bar0["x"]
+                for frame in samples:
+                    if "layers" not in frame or not down["t"] <= frame["t"] < stop:
+                        continue
+                    bar = pick_layer(frame, "Tabs/0" if renderer == "native" else "Tabs", None)
+                    lens = pick_layer(frame, path, None)
+                    if not bar or not lens or bar["w"] <= 0:
+                        continue
+                    scale = bar["w"] / bar0["w"]
+                    points.append([frame["t"] - down["t"],
+                                   (lens["x"] + lens["w"] / 2 - bar["x"]) / scale - center0,
+                                   lens["w"] / scale - lens0["w"], lens["h"] / scale - lens0["h"], bar["w"] - bar0["w"]])
+                if not points:
+                    continue
+                values = np.asarray(points)
+                gaps = np.diff(values[:, 0])
+                hold = (up["t"] - down["t"]) * 1000
+                entry = {"appearance": appearance, "renderer": renderer, "press": index + 1, "hold_ms": hold,
+                         "rest_platter_pt": [bar0["w"], bar0["h"]], "rest_lens_pt": [lens0["w"], lens0["h"]],
+                         "largest_frame_gap_ms": float(gaps.max() * 1000) if len(gaps) else None,
+                         "samples": points}
+                summaries.append(entry)
+                series[(renderer, index)] = (values, hold)
+        if not series:
+            continue
+        count = max(key[1] for key in series) + 1
+        fig, axes = plt.subplots(count, 4, figsize=(15, 2.5 * count), squeeze=False)
+        for (renderer, index), (values, hold) in series.items():
+            # Break plotted lines across missing intervals instead of drawing a
+            # smooth-looking fabricated native trajectory through a long gap.
+            breaks = np.where(np.diff(values[:, 0]) > 0.05)[0] + 1
+            chunks = np.split(values, breaks)
+            for column, label in enumerate(("center travel", "extra lens width", "extra lens height", "extra platter width")):
+                ax = axes[index][column]
+                for part_index, chunk in enumerate(chunks):
+                    ax.plot(chunk[:, 0] * 1000, chunk[:, column + 1], color="C0" if renderer == "native" else "C1",
+                            label=f"{renderer} hold {hold:.1f}ms" if part_index == 0 else None)
+                ax.axvline(hold, color="C0" if renderer == "native" else "C1", linestyle=":", linewidth=0.8)
+                ax.set_title(f"Press {index + 1}: {label} (pt)", fontsize=9)
+                ax.set_xlabel("ms from actual pointerdown")
+                ax.legend(fontsize=7)
+        fig.suptitle(f"iOS26 tabs / {appearance}: input-aligned; different hold durations are different stimuli")
+        fig.tight_layout(rect=(0, 0, 1, 0.98))
+        fig.savefig(root / f"tabs-motion-{appearance}.png", dpi=120)
+        plt.close(fig)
+    if summaries:
+        errors = []
+        for native in (entry for entry in summaries if entry["renderer"] == "native"):
+            web = next((entry for entry in summaries if entry["renderer"] == "web"
+                        and entry["appearance"] == native["appearance"] and entry["press"] == native["press"]), None)
+            if not web:
+                continue
+            ns = np.asarray(native["samples"])
+            differences = []
+            for point in web["samples"]:
+                if point[0] > 0.65:
+                    break
+                index = int(np.searchsorted(ns[:, 0], point[0]))
+                if index == 0 or index == len(ns):
+                    continue
+                a, b = ns[index - 1], ns[index]
+                if b[0] - a[0] > 0.04:
+                    continue
+                ratio = (point[0] - a[0]) / (b[0] - a[0])
+                differences.append(np.abs(np.asarray(point[1:]) - (a[1:] + (b[1:] - a[1:]) * ratio)))
+            if differences:
+                errors.append({"appearance": native["appearance"], "press": native["press"],
+                               "native_hold_ms": native["hold_ms"], "web_hold_ms": web["hold_ms"],
+                               "hold_difference_within_5ms": abs(native["hold_ms"] - web["hold_ms"]) <= 5,
+                               "compared_frames": len(differences),
+                               "mean_absolute_error_pt": np.mean(differences, axis=0).tolist(),
+                               "max_absolute_error_pt": np.max(differences, axis=0).tolist()})
+        (root / "tabs-motion.json").write_text(json.dumps({
+            "disclaimer": "Diagnostic recordings, not a parity verdict. Raw samples retained; no fitted time shift. See error_method for limited interpolation.",
+            "columns": ["seconds_from_down", "center_travel_pt", "extra_lens_width_pt", "extra_lens_height_pt", "extra_platter_width_pt"],
+            "error_method": "First 650ms from actual pointerdown. Native linear interpolation only across gaps <=40ms. Different holds remain flagged, not equivalent stimuli. Error columns follow geometry columns above.",
+            "early_window_errors": errors,
+            "entries": summaries,
+        }, indent=2) + "\n")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Diagnostic native/shell vs web parity collage (not a verdict).")
     parser.add_argument("artifact_dir", type=Path, help="Artifact directory with attachments/, metrics/, build.json")
@@ -368,6 +478,7 @@ def main(argv: list[str]) -> int:
     motion_plot(root, metrics, reference)
     if reference == "native":
         short_button_plot(root, metrics)
+        tabs_plot(root, metrics)
     return 0
 
 

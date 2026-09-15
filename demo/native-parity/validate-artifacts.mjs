@@ -22,5 +22,11 @@ for (const name of expected) {
   if (!(data.width > 0 && data.height > 0 && data.scale > 0)) throw new Error(`${name}: invalid viewport`);
   if (!data.samples?.some((sample) => sample.layers?.length)) throw new Error(`${name}: no geometry frames`);
   if (!data.samples.some((sample) => sample.event === 'pointerdown')) throw new Error(`${name}: no input sequence`);
+  if (name.startsWith('tabs-motion-web-')) {
+    for (const event of ['pointerdown', 'pointerup', 'ionTabButtonClick']) {
+      const count = data.samples.filter((sample) => sample.event === event).length;
+      if (count !== 7) throw new Error(`${name}: expected 7 ${event} events, received ${count}`);
+    }
+  }
   console.log(`${name}: current-build geometry and input recorded`);
 }

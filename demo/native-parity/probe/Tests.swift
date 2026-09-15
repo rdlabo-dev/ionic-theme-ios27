@@ -11,6 +11,12 @@ final class NativeParityTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+    private func flushTabs(_ app: XCUIApplication, kind: String) {
+        guard kind.hasPrefix("tabs") else { return }
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+            CFNotificationName("dev.rdlabo.ios26.parity.flush" as CFString), nil, nil, true)
+        XCTAssertTrue(app.staticTexts["Metrics saved"].waitForExistence(timeout: 15))
+    }
     private func compare(_ kind: String, operation: (XCUIApplication, Bool, String) -> Void) {
         for appearance in ["light", "dark"] {
             for web in [false, true] {
@@ -23,6 +29,7 @@ final class NativeParityTests: XCTestCase {
                 operation(app, web, appearance)
                 Thread.sleep(forTimeInterval: 1.5)
                 capture("\(kind)-\(web ? "web" : "native")-\(appearance)-end")
+                flushTabs(app, kind: kind)
                 app.terminate()
             }
         }
@@ -39,6 +46,7 @@ final class NativeParityTests: XCTestCase {
             operation(app)
             Thread.sleep(forTimeInterval: 1.5)
             capture("\(kind)-shell-\(appearance)-end")
+            flushTabs(app, kind: kind)
             app.terminate()
         }
     }
@@ -139,6 +147,49 @@ final class NativeParityTests: XCTestCase {
             one.press(forDuration: 0.7)
             Thread.sleep(forTimeInterval: 1)
             one.press(forDuration: 0.2, thenDragTo: two)
+        }
+    }
+    func testTabsMotion() {
+        compare("tabs-motion") { app, web, _ in
+            let one = web ? app.webViews.buttons["One"] : app.tabBars.buttons["One"]
+            let two = web ? app.webViews.buttons["Two"] : app.tabBars.buttons["Two"]
+            XCTAssertTrue(one.waitForExistence(timeout: 10))
+            // Selected press, then alternating transfers. Keep actual input timestamps;
+            // XCTest's requested hold is not necessarily the delivered duration.
+            one.press(forDuration: 0.7)
+            Thread.sleep(forTimeInterval: 1.2)
+            for (index, duration) in [0.05, 0.08, 0.15, 0.7].enumerated() {
+                let target = index.isMultiple(of: 2) ? two : one
+                target.press(forDuration: duration)
+                Thread.sleep(forTimeInterval: 1.2)
+                XCTAssertTrue(target.isSelected, "Tab selection must commit, not merely animate then return")
+            }
+            one.press(forDuration: 0.2, thenDragTo: two,
+                withVelocity: XCUIGestureVelocity(rawValue: 80), thenHoldForDuration: 0.3)
+            Thread.sleep(forTimeInterval: 1.2)
+            XCTAssertTrue(two.isSelected)
+            two.press(forDuration: 0.2, thenDragTo: one,
+                withVelocity: XCUIGestureVelocity(rawValue: 600), thenHoldForDuration: 0)
+            Thread.sleep(forTimeInterval: 1.2)
+            XCTAssertTrue(one.isSelected)
+        }
+    }
+    func testTabsController() {
+        for appearance in ["light", "dark"] {
+            let app = XCUIApplication()
+            app.launchArguments = ["control=tabs-controller", appearance]
+            app.launch()
+            let two = app.tabBars.buttons["Two"]
+            XCTAssertTrue(two.waitForExistence(timeout: 10))
+            Thread.sleep(forTimeInterval: 1)
+            capture("tabs-controller-native-\(appearance)-rest")
+            two.tap()
+            Thread.sleep(forTimeInterval: 1.2)
+            app.tabBars.buttons["One"].press(forDuration: 0.7)
+            Thread.sleep(forTimeInterval: 1.5)
+            capture("tabs-controller-native-\(appearance)-end")
+            flushTabs(app, kind: "tabs-controller")
+            app.terminate()
         }
     }
     func testSearch() {

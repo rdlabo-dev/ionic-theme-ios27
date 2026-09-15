@@ -113,6 +113,11 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     const box = (await target.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
+    // Cursor Auto's suggested ownership regression: a visual preview must not
+    // remove Ionic's selection before the real browser click.
+    await expect(bar.locator('ion-tab-button[tab="index"]')).toHaveClass(/tab-selected/);
+    await expect(target).not.toHaveClass(/tab-selected/);
+    await expect(target).toHaveAttribute('data-clicks', '0');
     await page.mouse.up();
     await expect(target).toHaveClass(/tab-selected/);
     await expect.poll(async () => Number(await target.getAttribute('data-clicks'))).toBe(1);
@@ -146,6 +151,206 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     await expect(second).not.toHaveClass(/tab-selected/);
     await expect(second).toHaveAttribute('data-clicks', '0');
     await expect(bar.locator('.ion-activated')).toHaveCount(0);
+    await expect(bar).not.toHaveClass(/ios26-animated/);
+    await expect(clones(page)).toHaveCSS('display', 'none');
+  });
+
+  test('real touch taps commit once per touch, including a rapid second tap', async ({ page }) => {
+    const bar = await appendFixtureBar(page, 'ios26-tab-touch');
+    expect((await registerViaTabs(page, '#ios26-tab-touch')).registered).toBe(true);
+    await bar.evaluate((el) => {
+      el.dataset['changes'] = '0';
+      el.addEventListener('ionTabButtonClick', () => {
+        el.dataset['changes'] = String(Number(el.dataset['changes']) + 1);
+      });
+    });
+    for (const value of ['two', 'three']) {
+      const target = bar.locator(`ion-tab-button[tab="${value}"]`);
+      const rect = (await target.boundingBox())!;
+      await page.touchscreen.tap(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      await expect(target).toHaveClass(/tab-selected/);
+    }
+    await expect(bar).toHaveAttribute('data-changes', '2');
+    await expect(bar).not.toHaveClass(/ios26-animated/);
+    await expect(bar).toHaveAttribute('data-changes', '2');
+  });
+
+  test('a second queued pointerdown flushes the first released session', async ({ page }) => {
+    const bar = await appendFixtureBar(page, 'ios26-tab-queued');
+    expect((await registerViaTabs(page, '#ios26-tab-queued')).registered).toBe(true);
+    await bar.evaluate((el) => {
+      el.dataset['changes'] = '0';
+      el.addEventListener('ionTabButtonClick', () => {
+        el.dataset['changes'] = String(Number(el.dataset['changes']) + 1);
+      });
+      for (const [index, value] of ['two', 'three'].entries()) {
+        const target = el.querySelector(`ion-tab-button[tab="${value}"]`)!;
+        const rect = target.getBoundingClientRect();
+        const init = {
+          bubbles: true,
+          composed: true,
+          isPrimary: true,
+          pointerId: index + 20,
+          pointerType: 'touch',
+          button: 0,
+          clientX: rect.x + rect.width / 2,
+          clientY: rect.y + rect.height / 2,
+        };
+        target.dispatchEvent(new PointerEvent('pointerdown', init));
+        target.dispatchEvent(new PointerEvent('pointerup', init));
+      }
+    });
+    await expect(bar.locator('ion-tab-button[tab="three"]')).toHaveClass(/tab-selected/);
+    await expect(bar).toHaveAttribute('data-changes', '2');
+    await expect(bar).not.toHaveClass(/ios26-animated/);
+    await expect(bar).toHaveAttribute('data-changes', '2');
+  });
+
+  for (const reason of ['blur', 'resize', 'native', 'reduced-motion'] as const) {
+    test(`${reason} during hold cancels only the visual effect`, async ({ page }) => {
+      const bar = page.locator('#tab-bar-bottom');
+      const second = bar.locator('ion-tab-button[tab="docs"]');
+      const box = (await second.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await expect(bar).toHaveClass(/ios26-animated/);
+      await expect(bar.locator('ion-tab-button[tab="index"]')).toHaveClass(/tab-selected/);
+      if (reason === 'reduced-motion') await page.emulateMedia({ reducedMotion: 'reduce' });
+      else if (reason === 'native') await bar.evaluate((el) => el.setAttribute('data-native-ui-shell', ''));
+      else await page.evaluate((event) => window.dispatchEvent(new Event(event)), reason);
+      await expect(bar).not.toHaveClass(/ios26-animated/);
+      await expect(clones(page)).toHaveCSS('display', 'none');
+      await page.mouse.move(8, 8);
+      await page.mouse.up();
+      await expect(bar.locator('ion-tab-button[tab="index"]')).toHaveClass(/tab-selected/);
+      await expect(second).not.toHaveClass(/tab-selected/);
+    });
+  }
+
+  test('measured three-item geometry and additive held expansion', async ({ page }) => {
+    const bar = await appendFixtureBar(page, 'ios26-tab-geometry');
+    await bar.evaluate((el) => {
+      el.style.width = '266px';
+      el.style.right = 'auto';
+    });
+    expect((await registerViaTabs(page, '#ios26-tab-geometry')).registered).toBe(true);
+    const first = bar.locator('ion-tab-button[tab="one"]');
+    const second = bar.locator('ion-tab-button[tab="two"]');
+    const outer = (await bar.boundingBox())!;
+    const initial = (await first.boundingBox())!;
+    const target = (await second.boundingBox())!;
+    expect(outer.width).toBeCloseTo(274, 1);
+    expect(outer.height).toBeCloseTo(62, 1);
+    expect(initial.width).toBeCloseTo(94, 1);
+    expect(initial.height).toBeCloseTo(54, 1);
+    expect(target.x - initial.x).toBeCloseTo(86, 1);
+    // Use a selected-item hold here. Transferring to a different item is still
+    // rebounding at 700ms and must not be asserted as an already-settled lens.
+    await page.mouse.move(initial.x + initial.width / 2, initial.y + initial.height / 2);
+    await page.mouse.down();
+    await bar.evaluate((el) => {
+      const lens = Array.from(document.querySelectorAll('body > ion-tab-button.ion-cloned-element')).find(
+        (node) => getComputedStyle(node).display !== 'none',
+      )!;
+      for (const animation of [...el.getAnimations(), ...lens.getAnimations()]) {
+        animation.pause();
+        animation.currentTime = 700;
+      }
+    });
+    const held = await bar.evaluate((el) => {
+      const lens = Array.from(document.querySelectorAll('body > ion-tab-button.ion-cloned-element')).find(
+        (node) => getComputedStyle(node).display !== 'none',
+      )!;
+      const a = el.getBoundingClientRect();
+      const b = lens.getBoundingClientRect();
+      const target = el.querySelector('ion-tab-button[tab="one"]')!.getBoundingClientRect();
+      return {
+        barWidth: a.width,
+        width: b.width / (a.width / 274),
+        height: b.height / (a.width / 274),
+        dx: b.x + b.width / 2 - target.x - target.width / 2,
+        dy: b.y + b.height / 2 - target.y - target.height / 2,
+      };
+    });
+    expect(held.barWidth).toBeCloseTo(288.1379, 1);
+    expect(held.width).toBeGreaterThan(109);
+    expect(held.width).toBeLessThan(111);
+    expect(held.height).toBeGreaterThan(69);
+    expect(held.height).toBeLessThan(71);
+    expect(Math.abs(held.dx)).toBeLessThan(0.3);
+    expect(Math.abs(held.dy)).toBeLessThan(0.3);
+    await page.mouse.up();
+    await expect(first).toHaveClass(/tab-selected/);
+    await expect(bar).not.toHaveClass(/ios26-animated/);
+  });
+
+  test('drag selects its destination once and keeps Ionic selection during the drag', async ({ page }) => {
+    const bar = await appendFixtureBar(page, 'ios26-tab-drag');
+    expect((await registerViaTabs(page, '#ios26-tab-drag')).registered).toBe(true);
+    await bar.evaluate((el) => {
+      el.dataset['changes'] = '0';
+      el.addEventListener('ionTabButtonClick', () => {
+        el.dataset['changes'] = String(Number(el.dataset['changes']) + 1);
+      });
+    });
+    const first = bar.locator('ion-tab-button[tab="one"]');
+    const last = bar.locator('ion-tab-button[tab="three"]');
+    const a = (await first.boundingBox())!;
+    const b = (await last.boundingBox())!;
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+    await expect(first).toHaveClass(/tab-selected/);
+    await expect(bar).toHaveAttribute('data-changes', '0');
+    await page.mouse.up();
+    await expect(last).toHaveClass(/tab-selected/);
+    await expect(bar).toHaveAttribute('data-changes', '1');
+    await expect(bar).not.toHaveClass(/ios26-animated/);
+    await expect(bar).toHaveAttribute('data-changes', '1');
+  });
+
+  test('body lens uses viewport coordinates after scrolling and disappears on further scroll', async ({ page }) => {
+    const bar = await appendFixtureBar(page, 'ios26-tab-scroll');
+    // ion-app establishes a containing block. This fixture specifically tests a
+    // viewport-fixed bar, so move it outside that transformed app ancestor.
+    await bar.evaluate((el) => document.body.append(el));
+    await page.evaluate(() => {
+      document.documentElement.style.cssText += ';overflow:auto;height:auto;';
+      document.body.style.cssText += ';overflow:auto;height:2000px;position:static;';
+      window.scrollTo(0, 300);
+    });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await bar.evaluate((el) => {
+      el.style.top = '420px';
+    });
+    expect((await registerViaTabs(page, '#ios26-tab-scroll')).registered).toBe(true);
+    const first = bar.locator('ion-tab-button[tab="one"]');
+    const rect = (await first.boundingBox())!;
+    expect(rect.y).toBeGreaterThanOrEqual(0);
+    await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    await page.mouse.down();
+    await expect(bar).toHaveClass(/ios26-animated/);
+    // Compare centers, not top-left corners: a held lens is larger than its cell.
+    const offset = await bar.evaluate((el) => {
+      const lens = Array.from(document.querySelectorAll('body > ion-tab-button.ion-cloned-element')).find(
+        (node) => getComputedStyle(node).display !== 'none',
+      )!;
+      const a = lens.getBoundingClientRect();
+      const b = el.querySelector('ion-tab-button')!.getBoundingClientRect();
+      return {
+        position: getComputedStyle(lens).position,
+        dx: a.x + a.width / 2 - b.x - b.width / 2,
+        dy: a.y + a.height / 2 - b.y - b.height / 2,
+      };
+    });
+    expect(offset.position).toBe('fixed');
+    expect(Math.abs(offset.dx)).toBeLessThan(1);
+    expect(Math.abs(offset.dy)).toBeLessThan(1);
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await expect(bar).not.toHaveClass(/ios26-animated/);
+    await page.mouse.move(8, 8);
+    await page.mouse.up();
   });
 
   test('duplicate registerEffect is a no-op', async ({ page }) => {

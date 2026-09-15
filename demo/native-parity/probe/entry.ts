@@ -57,7 +57,7 @@ const fixtures: Record<string, string> = {
     '<button type="button" id="Show-overlay">Show overlay</button><ion-action-sheet id="ActionSheet" mode="ios" header="Actions" sub-header="Action Sheet"></ion-action-sheet>',
 };
 const root = document.querySelector<HTMLElement>('#controls')!;
-root.innerHTML = fixtures[kind];
+root.innerHTML = fixtures[kind === 'tabs-motion' ? 'tabs' : kind];
 
 const frameOf = (rect: DOMRect, origin?: DOMRect) => ({
   x: rect.x - (origin?.x ?? 0),
@@ -214,9 +214,14 @@ void Promise.all(Array.from(root.querySelectorAll('*')).map(async (element: any)
   }
   // Overlay actions live outside #controls (appended under ion-app); capture those input times too.
   const eventRoot: EventTarget = overlayKind ? document : root;
-  for (const event of ['pointerdown', 'pointerup', 'pointercancel', 'ionChange']) {
+  for (const event of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'ionChange', 'ionTabButtonClick']) {
     eventRoot.addEventListener(event, (e) =>
-      rows.push({ t: (performance.now() - start) / 1000, event, id: (e.target as HTMLElement)?.id ?? '' }),
+      rows.push({
+        t: (performance.now() - start) / 1000,
+        event,
+        id: (e.target as HTMLElement)?.id ?? '',
+        ...('clientX' in e ? { x: (e as PointerEvent).clientX, y: (e as PointerEvent).clientY } : {}),
+      }),
     );
   }
   const collect = (element: Element, path: string): unknown[] => {
@@ -261,6 +266,8 @@ void Promise.all(Array.from(root.querySelectorAll('*')).map(async (element: any)
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
-  setInterval(() => (window as any).webkit?.messageHandlers.metrics.postMessage(rows), 1000);
+  const flushMetrics = () => (window as any).webkit?.messageHandlers.metrics.postMessage(rows);
+  if (kind.startsWith('tabs')) (window as any).flushParityMetrics = flushMetrics;
+  else setInterval(flushMetrics, 1000);
   document.querySelector('#ready')!.textContent = 'Ready';
 });

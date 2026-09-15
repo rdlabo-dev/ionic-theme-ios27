@@ -241,3 +241,122 @@ completed toggle parity yet.
 - Installed runtimes: iOS 26.1, 26.5, 27.0.
 - Existing iOS 27 probes are being recovered from temporary files; their old
   output is historical evidence and must not be reported as a current run.
+
+## Subsequent checkpoint: iOS26 three-item tabs
+
+This is a measured tab increment, **not completion of the overall parity task**.
+The public registration signature and iOS26 brightness palette remain intact.
+No iOS27 component structure, package rename, release metadata or native bridge
+was introduced. Original checkout remains untouched.
+
+### Independent reference and recording quality
+
+- `KITsYi` (26.5) and `qDD5O2` (26.1): an independent three-item
+  `UITabBarController` has a274×62pt platter and94×54pt selection cell,
+  4pt inset and86pt center spacing (8pt cell overlap). The standalone UIKit
+  fixture agrees. Web fixture coordinates now correspond to that independently
+  measured platter, rather than the old320px Web width /360pt UIKit host.
+- `testTabsMotion` separates a selected hold, four requested transfer durations,
+  and80/600pt/s drags. Actual input timestamps, not requested XCTest durations,
+  are authoritative. The driver now asserts actual selected items after each
+  transfer; the validator requires7 down/up/click events in each Web record.
+- `KITsYi`/`srB3U7` exposed recording overhead: repeatedly serializing the entire
+  growing data set introduced100–300ms stalls. Tabs now retain the useful layer
+  containers and flush once after the driver finishes, via a test-only Darwin
+  notification with an acknowledgement. `qDD5O2` native transfers generally
+  have18–21ms maximum gaps, rather than increasingly long pauses. Other controls'
+  existing recorders were not changed by this increment.
+- `report.py` adds raw input-aligned tab curves, separately removing platter
+  scaling from lens dimensions/center. Plotted gaps over50ms remain gaps. JSON
+  includes an explicitly bounded first650ms diagnostic comparison, interpolating
+  native samples only across gaps<=40ms and flagging hold-duration differences.
+
+### Production changes
+
+- `src/tab-bar/` replaces the public tab wrapper's use of the old generic
+  sheets-of-glass gesture. `tab-selected`, Ionic routing, and event emission stay
+  with Ionic. The runtime only previews the lens and calls the Ionic click handler
+  when touch/drag did not deliver a compatibility click.
+- Short right/left transfers use independently recorded26.1 curves. Holding a
+  transfer has a different rebound from tapping; selected holds are separate.
+  All timestamps retain their measured pointerdown origin. Missing intermediate
+  samples are not labelled as measurements; the late held settling endpoint and
+  velocity-dependent drag behavior remain candidates.
+- Native platter release fits an underdamped response:17.5rad/s, damping0.6,
+  onset1/60s. Normalized RMS fit error is<.001 in the selected-hold recording.
+  Short releases continue the press through that onset and carry velocity;
+  a66ms release recording is no longer replayed for a150ms hold.
+- Body-owned lenses use fixed coordinates, including conversion when Ionic's
+  transformed body establishes the containing block. Backwards animation fill
+  prevents zero-size samples when a drag replaces an animation before the next
+  document-timeline tick. Scroll/resize/blur/cancel/reduced-motion/native-shell
+  ownership changes cancel the preview. Callers must still destroy on page leave.
+- WKWebView touch exposed a real failure absent from mouse-only tests: the
+  compatibility click could be suppressed and the preview returned to the old
+  selection. One post-pointerup Ionic click now owns touch commit, and touch
+  identities suppress late native duplicates. A queued second pointerdown flushes
+  the preceding released session before beginning its preview.
+- CSS separates the physical-pixel glass rim from layout, uses62pt outer/54pt
+  inner height,4pt padding, and measured three-item maximum width. Existing
+  four/five-item width policies remain unqualified, not silently replaced with
+  iOS27's layout tables. The right safe-area term no longer repeats the left.
+- Dark resting surface samples in `CS7J5p`: native/Web background bothRGB19,
+  selection bothRGB53, top rim47 versus48. Light material was refined further
+  after that run; typography/rim/shadow and non-uniform backgrounds still require
+  more complete contour/material acceptance than these selected pixel samples.
+
+### Verification and remaining differences
+
+- `CS7J5p` (26.5) and `A2vnzH` (26.1): tab-motion and pinned Shell-tab drivers
+  pass in light/dark, with current-build envelopes and7 Web click events.
+  `A2vnzH` contains the updated26.1 motion tables and velocity-carrying platter
+  release. Earlier `srB3U7`/`qDD5O2` Web drivers lacked selection assertions;
+  they are useful native references but are **not passing Web selection evidence**.
+- In `A2vnzH`, matched-duration transfer/hold cases in the first650ms have mean
+  unscaled lens width/height errors about0.1–0.2pt and center errors0.3–0.5pt.
+  Center maxima still reach~2.8pt. These are sampled trajectory diagnostics,
+  not whole-animation or pixel-equivalence claims. The first light short tap
+  delivered83ms native versus60ms Web and must not be treated as equal input.
+- Drag is still visibly behind the acceptance target: low-speed center error
+  averages~3.4pt in this window; high-speed center maxima reach~25pt and vertical
+  deformation~17pt. The implementation deliberately retains a conservative
+  drag candidate; these figures are not hidden in aggregate tap statistics.
+- Cursor Auto supplied bounded test suggestions and a correctness review.
+  Suggestions were inspected before applying; an incorrect top-left comparison
+  of an expanded lens was replaced by a center comparison. Queued-input and
+  late-touch-click findings were addressed. Release outside an enabled tab still
+  cancels rather than selecting a stale drag destination; gap behavior needs its
+  own native qualification before changing that policy.
+- Ionic9 full244-case suite passed before the final queued/touch additions;
+  the subsequent34 tab cases passed across Chromium/WebKit. Final dependency
+  matrix results are recorded below when complete. No existing image baselines
+  were approved or overwritten.
+
+Next acceptance targets: velocity-dependent drag and its release deformation;
+two/four/five-item bars and custom-width/icon/badge layouts; RTL/iPad/rotation;
+pressed glass material and moving backgrounds. Navigation/scrolling-glass and
+the broader outstanding list from the previous checkpoint also remain open.
+
+- `PqS7IS`: final rendering/curve snapshot on26.5, with the touch-identity and
+  queued-input fixes plus refined light material; both native/Web motion and
+  Shell drivers pass. All6 envelopes validate, including exactly7 Web clicks per
+  appearance. After this snapshot only cancelled-touch identity expiry/cleanup
+  was tightened in production code (covered by the browser matrix).
+  Most native transfer/drag frame gaps are18–22ms; first Web holds still have
+  one51–58ms startup gap, so the probe is not literally overhead-free.
+- `PqS7IS` matched-duration normal transfers reproduce the26.1 improvements on
+  26.5: early-window lens-dimension mean errors~0.1–0.23pt. High-speed drag still
+  reaches~24.6pt center error and~16.7pt vertical deformation error. Source26.1
+  fitting and26.5 validation are kept distinct; no time shift was fitted to
+  make this comparison look better.
+- Final actual Ionic8.8.19 matrix: **248/248 browser cases passed** across
+  Chromium and WebKit; library CSS/TypeScript build and formatting lint passed.
+  Root and demo both used8.8.19 (not an adapter relabelled over9). Package/lockfile
+  diffs remain empty. Dependencies are restored to actual9.0.0 after the matrix.
+- Final actual Ionic9.0.0 matrix: **248/248 passed** across Chromium/WebKit on
+  the final source, including cancelled-touch expiry cleanup. Library build,
+  formatting lint and demo production build pass. Demo initial bundle is2.44MB;
+  existing unused-import, Stencil glob, browser-support and2MB warning-budget
+  warnings remain. Generated docs introduced no extra diff.
+- Final changes are local to `feat/ios26-native-parity`, not pushed. Both package
+  manifests/lockfiles and the original `fix/footer-design` checkout are unchanged.

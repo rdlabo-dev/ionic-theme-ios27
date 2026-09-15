@@ -50,6 +50,28 @@ walks layout trees and serializes data; frame gaps and recording overhead must b
 reviewed before using a trace for timing acceptance. Navigation and overlays use
 full-viewport diagnostic comparisons; control fixtures use a cropped strip.
 
+### Tab measurements
+
+`testTabsController` measures an independent UIKit three-item controller;
+`testTabsMotion` compares a standalone three-item bar with Web, including a
+selected hold, four transfer durations and two drag velocities. It asserts the
+selected item after transfers. The validator also requires exactly seven Web
+click events, not just seven pointer sequences. `testShellTabs` exercises the
+pinned reference shell on the selected iOS26 runtime.
+
+Tab recordings are now flushed once after interaction via a test-only Darwin
+notification, with a saved-data acknowledgement. Periodically serializing the
+growing record caused 100–300ms stalls in earlier runs. Other probes retain
+their existing recording behavior. The source archive and raw timestamps make
+this change distinguishable from earlier measurements.
+
+`report.py` emits `tabs-motion-{light,dark}.png` and `tabs-motion.json`. Lens
+dimensions/center are expressed in unscaled platter coordinates. Actual
+pointerup times are marked; intervals with gaps over50ms are not joined by a
+smooth line. Static geometry, tap/hold motion and velocity-dependent drag
+fidelity are separate acceptance dimensions. See the latest WORKLOG checkpoint
+for what is measured versus still a candidate.
+
 Browser regressions use `demo/native-parity/playwright.config.ts`. With normal
 Playwright browser installations, run from `demo`:
 

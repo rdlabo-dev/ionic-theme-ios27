@@ -51,9 +51,28 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
     private var shellReady: UILabel?
     private var shellInstalled = false
     private let shellRendering = ShellRendering()
+    private var flushObserverInstalled = false
+
+    deinit {
+        if flushObserverInstalled {
+            CFNotificationCenterRemoveEveryObserver(CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque())
+        }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        if kind.hasPrefix("tabs") {
+            // XCTest requests one final snapshot after interaction. Repeatedly
+            // serializing the growing recording caused 100–300ms main-thread
+            // stalls, invalidating the motion the probe was supposed to measure.
+            CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), Unmanaged.passUnretained(self).toOpaque(),
+                { _, context, _, _, _ in
+                    guard let context else { return }
+                    let controller = Unmanaged<ProbeController>.fromOpaque(context).takeUnretainedValue()
+                    DispatchQueue.main.async { controller.flushMetrics() }
+                }, "dev.rdlabo.ios26.parity.flush" as CFString, nil, .deliverImmediately)
+            flushObserverInstalled = true
+        }
         view.backgroundColor = .systemGroupedBackground
         view.tintColor = UIColor(red: 2 / 255, green: 137 / 255, blue: 1, alpha: 1)
         if isWeb || isShell {
@@ -84,7 +103,26 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
         NotificationCenter.default.addObserver(self, selector: #selector(input(_:)), name: Notification.Name("ParityInput"), object: nil)
         display = CADisplayLink(target: self, selector: #selector(sample))
         display?.add(to: .main, forMode: .common)
-        saveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.save() }
+        if !kind.hasPrefix("tabs") {
+            saveTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.save() }
+        }
+    }
+
+    private func flushMetrics() {
+        if isWeb && !isShell {
+            web?.evaluateJavaScript("window.flushParityMetrics()", completionHandler: nil)
+        } else {
+            save()
+            showMetricsSaved()
+        }
+    }
+
+    private func showMetricsSaved() {
+        let label = UILabel(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
+        label.text = "Metrics saved"
+        label.font = .systemFont(ofSize: 1)
+        label.clipsToBounds = true
+        view.addSubview(label)
     }
 
     private func add(_ name: String, _ control: UIView) {
@@ -142,7 +180,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
             let slider = UISlider(frame: CGRect(x: 40, y: 220, width: 320, height: 44))
             slider.value = 0.5
             add("Range", slider)
-        case "tabs":
+        case "tabs", "tabs-motion":
             let bar = UITabBar()
             bar.traitOverrides.horizontalSizeClass = .compact
             bar.traitOverrides.verticalSizeClass = .regular
@@ -153,6 +191,21 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
             bar.delegate = self
             bar.frame = CGRect(x: 20, y: 220, width: 360, height: 90)
             add("Tabs", bar)
+        case "tabs-controller":
+            // Independent UIKit layout, not geometry projected from the web fixture.
+            let controller = UITabBarController()
+            controller.viewControllers = ["One", "Two", "Three"].enumerated().map { index, title in
+                let child = UIViewController()
+                child.view.backgroundColor = .systemGroupedBackground
+                child.tabBarItem = UITabBarItem(title: title, image: UIImage(systemName: "circle"), tag: index)
+                return child
+            }
+            addChild(controller)
+            controller.view.frame = view.bounds
+            controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            view.addSubview(controller.view)
+            controller.didMove(toParent: self)
+            controls.append(("Tabs", controller.tabBar))
         case "search":
             let search = UISearchBar(frame: CGRect(x: 24, y: 220, width: 352, height: 56))
             search.placeholder = "Search"
@@ -244,6 +297,7 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
             let phase: String
             switch touch.phase {
             case .began: phase = "pointerdown"
+            case .moved: phase = "pointermove"
             case .ended: phase = "pointerup"
             case .cancelled: phase = "pointercancel"
             default: continue
@@ -278,9 +332,19 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
             for (index, child) in (layer.sublayers ?? []).enumerated() { values += collect(child, "\(path)/\(index)") }
             return values
         }
-        let layers = presentedViewController != nil
+        var layers = presentedViewController != nil
             ? collect(host, "window")
             : controls.flatMap { collect($0.1.layer, $0.0) }
+        if kind.hasPrefix("tabs") && rows.count > 2 {
+            // Keep platter, lens and item containers, not hundreds of private
+            // backdrop descendants per frame. Growing JSON serialization on
+            // the main thread must not dominate the motion being measured.
+            layers = layers.filter { value in
+                let path = value["path"] as? String ?? ""
+                return path.split(separator: "/").count <= 4
+                    || ["Tabs/0/0/0/0", "Tabs/0/0/0/1", "Tabs/0/0/0/2"].contains(path)
+            }
+        }
         rows.append(["t": CACurrentMediaTime() - start, "layers": layers])
     }
     private func write(_ value: Any) {
@@ -302,6 +366,9 @@ final class ProbeController: UIViewController, WKScriptMessageHandler, UITabBarD
             return
         }
         if isShell { return }
-        if let values = message.body as? [[String: Any]] { write(values) }
+        if let values = message.body as? [[String: Any]] {
+            write(values)
+            if kind.hasPrefix("tabs") { showMetricsSaved() }
+        }
     }
 }
