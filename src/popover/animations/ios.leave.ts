@@ -15,6 +15,12 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
   const backdropAnimation = createAnimation();
   const contentAnimation = createAnimation();
   const targetAnimation = createAnimation();
+  const surfaceAnimation = createAnimation()
+    .addElement(Array.from(root.querySelectorAll<HTMLElement>('.ios-theme-callout-layer')))
+    .duration(400)
+    .easing('ease')
+    .fromTo('opacity', 0.99, 0)
+    .fromTo('transform', 'scale(1)', 'scale(0)');
 
   const doc = baseEl.ownerDocument as any;
   const replaceElement = doc.querySelector('.ios26-replace-element') as HTMLElement | null;
@@ -63,6 +69,8 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
         delete baseEl.dataset['ios26PreviousWidthPriority'];
       }
       baseEl.classList.remove('popover-bottom');
+      baseEl.classList.remove('ios-theme-callout');
+      root.querySelectorAll('.ios-theme-callout-layer').forEach((layer) => layer.remove());
 
       contentEl.style.removeProperty('top');
       contentEl.style.removeProperty('left');
@@ -82,8 +90,10 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
         arrowEl.style.removeProperty('top');
         arrowEl.style.removeProperty('left');
         arrowEl.style.removeProperty('display');
+        arrowEl.style.removeProperty('bottom');
+        arrowEl.style.removeProperty('transform');
       }
     })
     .duration(300)
-    .addAnimation([backdropAnimation, contentAnimation, targetAnimation]);
+    .addAnimation([backdropAnimation, contentAnimation, targetAnimation, surfaceAnimation]);
 };

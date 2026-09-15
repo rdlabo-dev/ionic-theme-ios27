@@ -1,22 +1,66 @@
 @use '../utils/api';
 
 ion-popover.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --backdrop-opacity: 0.2;
-  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+  @include api.glass-overlay-variables;
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.42);
+  --backdrop-opacity: 0;
   --box-shadow:
-    inset 0 0 8px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.2),
-    0 0 10px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.82);
+    inset 0 0.5px 1px rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.6),
+    0 4px 16px color-mix(in srgb, var(--ion-box-shadow-color, #000) 12%, transparent);
+
   &::part(arrow) {
     display: none;
-    ::after {
-      //@include api.glass-background;
+    width: 34px;
+    height: 14px;
+
+    &::after {
+      width: 100%;
+      height: 100%;
+      top: 0;
+      inset-inline-start: 0;
+      border-radius: 0;
+      transform: none;
+      // Rounded tip and concave shoulders join the popover's straight edge.
+      clip-path: path('M 0 14 L 0 13 C 3 13 4.5 12 6.5 10 L 14.5 1.5 C 16 -0.5 18 -0.5 19.5 1.5 L 27.5 10 C 29.5 12 31 13 34 13 L 34 14 Z');
+      backdrop-filter: blur(12px) saturate(115%) brightness(1.35);
+      -webkit-backdrop-filter: blur(12px) saturate(115%) brightness(1.35);
     }
   }
+
   &::part(content) {
-    @include api.glass-background($include-background: false, $include-box-shadow: false);
-    border-radius: 24px;
+    @include api.glass-overlay-surface;
+    backdrop-filter: blur(12px) saturate(115%) brightness(1.35);
+    -webkit-backdrop-filter: blur(12px) saturate(115%) brightness(1.35);
+    border-radius: 34px;
     padding: 0;
   }
+
+  &.ios-theme-callout::part(content) {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  &.ios-theme-callout::part(arrow)::after {
+    display: none;
+  }
+
+  &::part(callout-glass) {
+    background: var(--background);
+    backdrop-filter: blur(12px) saturate(115%) brightness(1.35);
+    -webkit-backdrop-filter: blur(12px) saturate(115%) brightness(1.35);
+  }
+
+  &::part(callout-border) {
+    background: color-mix(in srgb, var(--border-color) 60%, transparent);
+  }
+
+  &::part(callout-shadow) {
+    background: color-mix(in srgb, var(--ion-box-shadow-color, #000) 8%, transparent);
+  }
+
   ion-select-popover {
     ion-list {
       background: transparent;
