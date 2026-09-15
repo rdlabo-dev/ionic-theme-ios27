@@ -27,20 +27,28 @@ Navigate to `http://localhost:4200/`. The application will automatically reload 
 
 ## Testing
 
-### Unit Tests (Karma + Jasmine)
+### Unit Tests (Vitest + jsdom)
 
 ```bash
 npm test
 ```
 
-### E2E Screenshot Tests (Playwright)
+### Browser Contract and Screenshot Tests (Playwright)
 
-This project uses Playwright for visual regression testing. All routes defined in `index.routes.ts` are automatically tested.
+Playwright verifies the theme against hydrated Ionic components, including visual regression, CSS variables, gestures, animations and native-shell integration. Browser-free state and Sass contract tests run in Vitest instead.
 
 #### Run E2E tests
 
 ```bash
 npm run test:e2e
+```
+
+Pull requests run the full browser contract suite with Ionic 9 and the visual suite with Ionic 8. Pushes to `main` run the full suite against both supported Ionic majors.
+
+#### Run visual regression tests only
+
+```bash
+npm run test:e2e:visual
 ```
 
 #### Run E2E tests in UI mode (interactive)
@@ -57,7 +65,7 @@ npm run test:e2e:debug
 
 #### Update baseline screenshots
 
-When you intentionally change the UI and want to update the baseline screenshots:
+When you intentionally change the UI and want to update the baseline screenshots, this command runs only the visual suite:
 
 ```bash
 npm run test:e2e:update
@@ -66,6 +74,7 @@ npm run test:e2e:update
 ### Test Coverage
 
 The screenshot tests cover:
+
 - All routes in light mode
 - All routes in dark mode (`ion-palette-dark` class)
 - Full page screenshots for visual regression testing
@@ -76,9 +85,10 @@ Test reports are generated in `playwright-report/` directory.
 
 ```
 demo/
-├── e2e/                      # Playwright E2E tests
-│   └── screenshot.spec.ts    # Screenshot tests for all routes
+├── e2e/                      # Browser contract and screenshot tests
+│   └── screenshot.spec.ts    # Visual tests for all routes
 ├── src/
+│   ├── *.spec.ts             # Browser-free Vitest contracts
 │   ├── app/
 │   │   └── index/            # Main index routes
 │   │       ├── pages/        # All page components
@@ -114,4 +124,3 @@ To get more help on the Angular CLI use `ng help` or check out the [Angular CLI 
 For Ionic Framework, visit [Ionic Documentation](https://ionicframework.com/docs).
 
 For Playwright, visit [Playwright Documentation](https://playwright.dev/).
-

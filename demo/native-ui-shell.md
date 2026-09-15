@@ -11,12 +11,13 @@ npm ci
 npm run build
 cd demo
 npm ci
+npm test -- --watch=false
 npx --no-install playwright install chromium
-npx --no-install playwright test e2e/native-ui-shell.spec.ts e2e/native-ui-shell-transition.spec.ts e2e/native-ui-shell-edge.spec.ts
+npx --no-install playwright test e2e/native-ui-shell.spec.ts e2e/native-ui-shell-edge.spec.ts
 cd ..
 ```
 
-Browser tests use a mock native bridge to check DOM ownership, event forwarding and transition ordering. Swift tests check this package's snapshot contract and UIKit mapping; XCUITest checks actual native interaction and placement.
+Vitest checks transition ordering and server-safe state without starting a browser. Browser tests use a mock native bridge to check DOM ownership, event forwarding and rendered placement. Swift tests check this package's snapshot contract and UIKit mapping; XCUITest checks actual native interaction and placement.
 
 For native tests, use Xcode 26 or later and boot an iOS 26+ Simulator. Run the Swift tests from the repository root:
 
