@@ -148,14 +148,29 @@ export const iosTransitionAnimation = (navEl: HTMLElement, opts: TransitionOptio
       .beforeRemoveClass('ion-page-invisible');
 
     const topPage = backDirection ? leavingEl : enteringEl;
-    if (topPage?.querySelector(':scope > ion-header.header-translucent:not(.ios-theme-disabled, .ios26-disabled)')) {
-      const shadow = topPage.style.boxShadow;
-      rootAnimation.beforeAddWrite(() => {
-        topPage.style.boxShadow = `${isRTL ? 4 : -4}px 0 24px rgba(0, 0, 0, 0.04)`;
+    const translucentTop = topPage?.querySelector(':scope > ion-header.header-translucent:not(.ios-theme-disabled, .ios26-disabled)');
+    if (topPage && translucentTop) {
+      // UIKit dims the opaque page underneath, including its header, with 10% black.
+      const shade = navEl.ownerDocument.createElement('div');
+      shade.className = 'ios27-transition-shade';
+      shade.setAttribute('aria-hidden', 'true');
+      Object.assign(shade.style, {
+        position: 'absolute',
+        top: '0',
+        bottom: '0',
+        [isRTL ? 'right' : 'left']: '-100%',
+        width: '100%',
+        pointerEvents: 'none',
+        background: 'rgba(0, 0, 0, 0.1)',
+        boxShadow: `inset ${isRTL ? 9 : -9}px 0 9px rgba(0, 0, 0, 0.04)`,
       });
-      rootAnimation.afterAddWrite(() => {
-        topPage.style.boxShadow = shadow;
-      });
+      rootAnimation.beforeAddWrite(() => topPage.appendChild(shade));
+      rootAnimation.afterAddWrite(() => shade.remove());
+      rootAnimation.addAnimation(
+        createAnimation()
+          .addElement(shade)
+          .fromTo(OPACITY, backDirection ? 1 : 0, backDirection ? 0 : 1),
+      );
     }
 
     // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
@@ -180,7 +195,7 @@ export const iosTransitionAnimation = (navEl: HTMLElement, opts: TransitionOptio
       enteringContentAnimation
         .beforeClearStyles([OPACITY])
         .fromTo('transform', `translateX(${OFF_LEFT})`, `translateX(${CENTER})`)
-        .fromTo(OPACITY, OFF_OPACITY, 1);
+        .fromTo(OPACITY, translucentTop ? 1 : OFF_OPACITY, 1);
     } else {
       // entering content, forward direction
       enteringContentAnimation.beforeClearStyles([OPACITY]).fromTo('transform', `translateX(${OFF_RIGHT})`, `translateX(${CENTER})`);
@@ -346,7 +361,9 @@ export const iosTransitionAnimation = (navEl: HTMLElement, opts: TransitionOptio
         });
       } else {
         // leaving content, forward direction
-        leavingContent.fromTo('transform', `translateX(${CENTER})`, `translateX(${OFF_LEFT})`).fromTo(OPACITY, 1, OFF_OPACITY);
+        leavingContent
+          .fromTo('transform', `translateX(${CENTER})`, `translateX(${OFF_LEFT})`)
+          .fromTo(OPACITY, 1, translucentTop ? 1 : OFF_OPACITY);
       }
 
       if (
