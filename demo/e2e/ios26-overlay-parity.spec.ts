@@ -104,64 +104,6 @@ const mountOverlay = async (page: Page, kind: 'alert' | 'action-sheet', classNam
 
 test.describe('iOS26 alert / action-sheet overlay parity', () => {
   for (const kind of ['alert', 'action-sheet'] as const) {
-    test(`${kind} uses the measured centered enter curve and fades out without sliding`, async ({ page }) => {
-      const overlay = await mountOverlay(page, kind);
-      const sample = await overlay.evaluate(async (el, control) => {
-        const host = el as HTMLIonAlertElement | HTMLIonActionSheetElement;
-        host.animated = true;
-        host.style.setProperty('--backdrop-opacity', 'calc(0.1 + 0.2)');
-        const presenting = host.present();
-        const wrapper = host.querySelector<HTMLElement>(`.${control}-wrapper`)!;
-        let animations: Animation[] = [];
-        for (let frame = 0; frame < 30 && !animations.length; frame++) {
-          await new Promise(requestAnimationFrame);
-          animations = wrapper.getAnimations();
-        }
-        const animation = animations.find((a) => (a.effect as KeyframeEffect).getKeyframes().some((f) => f.transform));
-        if (!animation) throw new Error('No wrapper animation');
-        animation.pause();
-        animation.currentTime = 100;
-        const backdrop = host.querySelector('ion-backdrop')!;
-        const dimming = backdrop.getAnimations()[0];
-        if (!dimming) throw new Error('No backdrop animation');
-        dimming.pause();
-        dimming.currentTime = 100;
-        await new Promise(requestAnimationFrame);
-        const style = getComputedStyle(wrapper);
-        const scale = new DOMMatrixReadOnly(style.transform).a;
-        const opacity = Number(style.opacity);
-        const duration = animation.effect!.getTiming().duration;
-        const dimOpacity = Number(getComputedStyle(backdrop).opacity);
-        animation.finish();
-        dimming.finish();
-        await presenting;
-        const dismissing = host.dismiss();
-        let leaving: Animation | undefined;
-        for (let frame = 0; frame < 30 && !leaving; frame++) {
-          await new Promise(requestAnimationFrame);
-          leaving = wrapper.getAnimations().find((a) => a.playState === 'running');
-        }
-        if (!leaving) throw new Error('No leave animation');
-        leaving.pause();
-        leaving.currentTime = 100;
-        await new Promise(requestAnimationFrame);
-        const matrix = new DOMMatrixReadOnly(getComputedStyle(wrapper).transform);
-        const leave = { scale: matrix.a, y: matrix.f, opacity: Number(getComputedStyle(wrapper).opacity) };
-        leaving.finish();
-        await dismissing;
-        return { scale, opacity, dimOpacity, duration, leave, hidden: !host.isConnected || host.classList.contains('overlay-hidden') };
-      }, kind);
-      expect(sample.duration).toBeCloseTo(416.667, 1);
-      const p = 1 - (1 + 2.285) * Math.exp(-2.285);
-      expect(sample.scale).toBeCloseTo(1.2 - 0.2 * p, 3);
-      expect(sample.opacity).toBeCloseTo(p, 3);
-      expect(sample.dimOpacity).toBeCloseTo(0.3 * p, 3);
-      expect(sample.leave.scale).toBe(1);
-      expect(sample.leave.y).toBe(0);
-      expect(sample.leave.opacity).toBeCloseTo(1 - p, 3);
-      expect(sample.hidden).toBe(true);
-    });
-
     test(`${kind} reduced motion completes and can reopen`, async ({ page }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       const overlay = await mountOverlay(page, kind);

@@ -26,9 +26,6 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
     width: 62px;
     height: 62px;
-    &.ios26-enable-gesture {
-      --_ios26-fab-active-opacity: 1;
-    }
 
     &.fab-button-in-list,
     &.fab-button-small {
@@ -37,25 +34,25 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
 
     &.ion-activated {
-      --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), var(--_ios26-fab-active-opacity, 0.1));
+      --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
       &::part(native) {
-        transform: scale(var(--ios26-button-css-scale, $scaleup-default-icon-only)) translateZ(0);
-        -webkit-transform: scale(var(--ios26-button-css-scale, $scaleup-default-icon-only)) translateZ(0);
+        transform: scale($scaleup-default-icon-only) translateZ(0);
+        -webkit-transform: scale($scaleup-default-icon-only) translateZ(0);
       }
       &.fab-button-large {
         &::part(native) {
-          transform: scale(var(--ios26-button-css-scale, $scaleup-large-icon-only)) translateZ(0);
-          -webkit-transform: scale(var(--ios26-button-css-scale, $scaleup-large-icon-only)) translateZ(0);
+          transform: scale($scaleup-large-icon-only) translateZ(0);
+          -webkit-transform: scale($scaleup-large-icon-only) translateZ(0);
         }
       }
       &.fab-button-small {
         &::part(native) {
-          transform: scale(var(--ios26-button-css-scale, $scaleup-small-icon-only)) translateZ(0);
-          -webkit-transform: scale(var(--ios26-button-css-scale, $scaleup-small-icon-only)) translateZ(0);
+          transform: scale($scaleup-small-icon-only) translateZ(0);
+          -webkit-transform: scale($scaleup-small-icon-only) translateZ(0);
         }
       }
       &.ion-color {
-        --color: rgba(var(--ion-color-base-rgb, var(--ion-text-color-rgb, 0, 0, 0)), var(--_ios26-fab-active-opacity, 0.1));
+        --color: rgba(var(--ion-color-base-rgb, var(--ion-text-color-rgb, 0, 0, 0)), 0.1);
       }
     }
 

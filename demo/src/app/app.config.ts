@@ -5,15 +5,7 @@ import * as allIcons from 'ionicons/icons';
 import { routes } from './app.routes';
 import { IONIC_MAJOR, provideIonicAngular } from '@demo/ionic';
 import { addIcons } from 'ionicons';
-import {
-  popoverEnterAnimation,
-  popoverLeaveAnimation,
-  iosTransitionAnimation,
-  alertEnterAnimation,
-  alertLeaveAnimation,
-  actionSheetEnterAnimation,
-  actionSheetLeaveAnimation,
-} from '../../../src';
+import { popoverEnterAnimation, popoverLeaveAnimation, iosTransitionAnimation } from '../../../src';
 
 addIcons(allIcons);
 
@@ -36,10 +28,6 @@ export const appConfig: ApplicationConfig = {
       popoverEnter: popoverEnterAnimation,
       popoverLeave: popoverLeaveAnimation,
       navAnimation: iosTransitionAnimation,
-      alertEnter: alertEnterAnimation,
-      alertLeave: alertLeaveAnimation,
-      actionSheetEnter: actionSheetEnterAnimation,
-      actionSheetLeave: actionSheetLeaveAnimation,
     }),
   ],
 };

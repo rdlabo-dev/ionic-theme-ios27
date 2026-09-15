@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, OnDestroy } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import {
@@ -17,10 +17,7 @@ import {
   IonText,
   IonTitle,
   IonToolbar,
-  ViewDidEnter,
-  ViewDidLeave,
 } from '@demo/ionic';
-import { registeredEffect, registerButtonEffect } from '../../../../../../src';
 
 @Component({
   selector: 'app-floating-action-button',
@@ -46,19 +43,8 @@ import { registeredEffect, registerButtonEffect } from '../../../../../../src';
     IonButtons,
   ],
 })
-export class FloatingActionButtonPage implements ViewDidEnter, ViewDidLeave, OnDestroy {
-  readonly #el = inject(ElementRef<HTMLElement>);
-  readonly registeredGestures: registeredEffect[] = [];
-  ionViewDidEnter() {
-    this.#el.nativeElement.querySelectorAll<HTMLElement>('ion-fab-button').forEach((button) => {
-      const effect = registerButtonEffect(button);
-      if (effect) this.registeredGestures.push(effect);
-    });
-  }
-  ionViewDidLeave() {
-    this.registeredGestures.splice(0).forEach((effect) => effect.destroy());
-  }
-  ngOnDestroy() {
-    this.ionViewDidLeave();
-  }
+export class FloatingActionButtonPage implements OnInit {
+  constructor() {}
+
+  ngOnInit() {}
 }

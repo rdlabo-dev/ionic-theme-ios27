@@ -1,11 +1,35 @@
 # iOS 26 native parity
 
+## Review correction: preserve the existing public API
+
+The five added button/overlay APIs were rejected and removed, including their
+implementations, demo registration/configuration, documentation, CSS switching
+variables, and tests specific to the removed effects. There is no replacement
+API or hidden auto-registration. Existing tab/segment APIs and measured CSS
+improvements remain; button/FAB presses and alert/action-sheet presentation use
+the existing CSS/Ionic behavior.
+
+Earlier button/overlay motion results below describe historical experiments,
+not behavior shipped by the current source. Native measurements are retained as
+evidence, but the Web probe now uses the same existing API surface as consumers.
+The earlier full-suite totals do not validate this revised snapshot.
+
+Validation after removal: the TypeScript compiler resolves exactly the same 15
+public export names as `ios26`; the removed names and CSS switches are absent
+from source, consumers and the built entry. Library, production demo and Web
+probe builds pass, as do changed-file formatting checks. Related browser tests
+finish with 98 passes and 2 failures: WebKit four/five-tab width fixtures at a
+218pt platter differ by 3/3.203125pt. These tab files are unchanged by API removal;
+the failure remains unresolved. A comparison run on snapshot `ea8daa7` could not
+reach the tests because that snapshot's FAB demo has TypeScript errors. No
+before/after regression verdict or full Ionic 8/9 matrix claim is made here.
+
 ## Scope
 
 Bring the iOS 26 Web theme to the measured visual and interaction quality of main
 `2445b7c`, starting from iOS 26 `f187d7f`. Retain the iOS 26 package name, CSS
 entry points, release branch, and public customization contract. Native UI Shell
-is a verification reference; publishing a new native API is outside this change.
+is a verification reference; adding public APIs is outside this change.
 
 ## Evidence ledger
 

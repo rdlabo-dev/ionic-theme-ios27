@@ -292,22 +292,22 @@ $scaleup-large-icon-only: 1.22;
       }
       &.ion-activated.button-has-icon-only,
       &.ion-activated.back-button-has-icon-only {
-        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default-icon-only}));
+        transform: scale($scaleup-default-icon-only);
         &.button-small {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small-icon-only}));
+          transform: scale($scaleup-small-icon-only);
         }
         &.button-large {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large-icon-only}));
+          transform: scale($scaleup-large-icon-only);
         }
       }
 
       &:not(.button-has-icon-only):not(.back-button-has-icon-only) {
-        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default}));
+        transform: scale($scaleup-default);
         &.button-small {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small}));
+          transform: scale($scaleup-small);
         }
         &.button-large {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large}));
+          transform: scale($scaleup-large);
         }
       }
     }
@@ -379,22 +379,22 @@ $scaleup-large-icon-only: 1.22;
       }
       &.ion-activated.button-has-icon-only,
       &.ion-activated.back-button-has-icon-only {
-        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default-icon-only}));
+        transform: scale($scaleup-default-icon-only);
         &.button-small {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small-icon-only}));
+          transform: scale($scaleup-small-icon-only);
         }
         &.button-large {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large-icon-only}));
+          transform: scale($scaleup-large-icon-only);
         }
       }
 
       &:not(.button-has-icon-only):not(.back-button-has-icon-only) {
-        transform: scale(var(--ios26-button-css-scale, #{$scaleup-default}));
+        transform: scale($scaleup-default);
         &.button-small {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-small}));
+          transform: scale($scaleup-small);
         }
         &.button-large {
-          transform: scale(var(--ios26-button-css-scale, #{$scaleup-large}));
+          transform: scale($scaleup-large);
         }
       }
     }

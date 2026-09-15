@@ -6,7 +6,4 @@ export * from './transition/ios.transition';
 
 export { registerSegmentEffect } from './segment';
 
-export { registerButtonEffect } from './button';
-export { alertEnterAnimation, alertLeaveAnimation, actionSheetEnterAnimation, actionSheetLeaveAnimation } from './overlay';
-
 export { registerTabBarEffect } from './tab-bar';

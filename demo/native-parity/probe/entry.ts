@@ -19,24 +19,10 @@ import '@ionic/core/css/normalize.css';
 import '@ionic/core/css/structure.css';
 import '@ionic/core/css/typography.css';
 import '@ionic/core/css/palettes/dark.class.css';
-import {
-  registerButtonEffect,
-  registerSegmentEffect,
-  registerTabBarEffect,
-  alertEnterAnimation,
-  alertLeaveAnimation,
-  actionSheetEnterAnimation,
-  actionSheetLeaveAnimation,
-} from '../../../src';
+import { registerSegmentEffect, registerTabBarEffect } from '../../../src';
 import { setupNavigation } from './NavigationProbe';
 
-initialize({
-  mode: 'ios',
-  alertEnter: alertEnterAnimation,
-  alertLeave: alertLeaveAnimation,
-  actionSheetEnter: actionSheetEnterAnimation,
-  actionSheetLeave: actionSheetLeaveAnimation,
-});
+initialize({ mode: 'ios' });
 [app, button, toggle, segment, segmentButton, range, tabBar, tabButton, fab, fabButton, label, icon, searchbar, alert, actionSheet].forEach(
   (define) => define(),
 );
@@ -269,7 +255,6 @@ void Promise.all(Array.from(root.querySelectorAll('*')).map(async (element: any)
   }
   if (kind === 'navigation') await setupNavigation(root);
   const segmentEl = root.querySelector('ion-segment');
-  root.querySelectorAll<HTMLElement>('ion-button, ion-back-button, ion-fab-button').forEach(registerButtonEffect);
   if (segmentEl) registerSegmentEffect(segmentEl);
   const tabs = root.querySelector('ion-tab-bar');
   if (tabs) {
