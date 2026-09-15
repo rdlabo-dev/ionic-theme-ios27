@@ -22,6 +22,7 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
+    z-index: -1;
     @include api.glass-background($blur: 20px, $saturate: 180%, $include-background: false);
     background: var(--background);
     box-shadow: 0 2px 26px rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);

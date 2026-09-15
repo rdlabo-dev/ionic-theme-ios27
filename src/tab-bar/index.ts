@@ -108,7 +108,7 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
     pointer = undefined;
     hide();
   };
-  const play = (states: (Surface & { offset: number })[], duration: number, start: number, finish = false) => {
+  const play = (states: (Surface & { offset: number })[], duration: number, start: number, target?: HTMLIonTabButtonElement) => {
     cancelAnimations();
     lens.style.display = 'block';
     bar.classList.add('ios26-animated');
@@ -137,21 +137,19 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
         options,
       ),
     ];
-    if (finish) {
+    if (target) {
       // Blend into the actual selected surface, without modifying Ionic's state.
-      const target = selected();
       const offset = Math.max(0, 1 - 120 / duration);
       animations.push(lens.animate([{ opacity: 1 }, { opacity: 1, offset }, { opacity: 0 }], options));
-      if (target)
-        animations.push(
-          target.animate(
-            [{ backgroundColor: 'transparent' }, { backgroundColor: 'transparent', offset }, { backgroundColor: color }],
-            options,
-          ),
-        );
+      animations.push(
+        target.animate(
+          [{ backgroundColor: 'transparent' }, { backgroundColor: 'transparent', offset }, { backgroundColor: color }],
+          options,
+        ),
+      );
     }
     animations.forEach((animation) => (animation.startTime = start));
-    if (finish) {
+    if (target) {
       const running = animations[0];
       void running.finished.then(
         () => {
@@ -301,14 +299,14 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
         lateClick = { target: hit, until: win.performance.now() + 1000 };
         hit.click();
       }
-      const actual = selected();
-      if (!actual) return abort();
+      // Routing updates selectedTab asynchronously. Like main, animate toward
+      // the clicked tab, not the previous selection still exposed by Ionic.
       const from = current();
-      const to = box(actual);
+      const to = box(hit);
       pointer = undefined;
       buttons().forEach((button) => button.classList.remove('ios26-tab-preview', 'ion-activated'));
       const elapsed = (endTime - ended.time) / 1000;
-      if (!ended.dragged && ended.from.x !== ended.to.x && elapsed < 0.18 && actual === ended.target) {
+      if (!ended.dragged && ended.from.x !== ended.to.x && elapsed < 0.18 && hit === ended.target) {
         const duration = Math.max(1, (1.12 - elapsed) * 1000);
         play(
           states(duration, (t) => {
@@ -317,7 +315,7 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
           }),
           duration,
           endTime,
-          true,
+          hit,
         );
       } else {
         play(
@@ -333,7 +331,7 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
           }),
           550,
           endTime,
-          true,
+          hit,
         );
       }
     };

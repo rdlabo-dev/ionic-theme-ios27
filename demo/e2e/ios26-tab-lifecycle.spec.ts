@@ -252,6 +252,32 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     await expect(clones(page)).toHaveCSS('display', 'none');
   });
 
+  test('real routing settles the lens at the clicked tab, not the previous selection', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const target = page.locator('#tab-bar-bottom ion-tab-button[tab="docs"]');
+    await target.click();
+    await expect(page).toHaveURL(/\/main\/docs/);
+    const end = await target.evaluate(async (target) => {
+      const bar = target.parentElement!;
+      const lens = document.querySelector<HTMLElement>('body > ion-tab-button.ion-cloned-element')!;
+      const animations = [...lens.getAnimations(), ...bar.getAnimations()];
+      if (!animations.length) throw new Error('Expected the tab selection animation');
+      // Inspect convergence without sleeping through it or replaying native frame samples.
+      for (const animation of animations) {
+        animation.pause();
+        animation.currentTime = Number(animation.effect!.getComputedTiming().duration) - 1;
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const a = lens.getBoundingClientRect();
+      const b = target.getBoundingClientRect();
+      animations.forEach((animation) => animation.play());
+      return { dx: a.x + a.width / 2 - b.x - b.width / 2, width: b.width };
+    });
+    expect(Math.abs(end.dx)).toBeLessThan(end.width / 4);
+    await expect(target).toHaveClass(/tab-selected/);
+    await expect(page.locator('#tab-bar-bottom')).not.toHaveClass(/ios26-animated/);
+  });
+
   test('real touch taps commit once per touch, including a rapid second tap', async ({ page }) => {
     const bar = await appendFixtureBar(page, 'ios26-tab-touch');
     expect((await registerViaTabs(page, '#ios26-tab-touch')).registered).toBe(true);
