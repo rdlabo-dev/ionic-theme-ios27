@@ -148,14 +148,62 @@ export const iosTransitionAnimation = (navEl: HTMLElement, opts: TransitionOptio
       .beforeRemoveClass('ion-page-invisible');
 
     const topPage = backDirection ? leavingEl : enteringEl;
-    if (topPage?.querySelector(':scope > ion-header.header-translucent:not(.ios-theme-disabled, .ios26-disabled)')) {
-      const shadow = topPage.style.boxShadow;
+    const translucentTop = topPage?.querySelector(':scope > ion-header.header-translucent:not(.ios-theme-disabled, .ios26-disabled)');
+    if (topPage && translucentTop) {
+      // UIKit dims the opaque page underneath, including its header, with 10% black.
+      const shade = navEl.ownerDocument.createElement('div');
+      shade.className = 'ios26-transition-shade';
+      shade.setAttribute('aria-hidden', 'true');
+      const edge = navEl.ownerDocument.createElement('div');
+      edge.setAttribute('aria-hidden', 'true');
+      const clipPath = topPage.style.clipPath;
+      // UIKit's continuous page outline is smaller in tablet-sized panes.
+      const [corner, control] = topPage.offsetWidth >= 768 ? [36, 13] : [78, 22];
+      Object.assign(shade.style, {
+        position: 'absolute',
+        inset: '0',
+        zIndex: topPage.style.zIndex,
+        pointerEvents: 'none',
+        background: 'rgba(0, 0, 0, 0.1)',
+      });
+      Object.assign(edge.style, {
+        position: 'absolute',
+        top: '0',
+        bottom: '0',
+        [isRTL ? 'right' : 'left']: '-100%',
+        width: '100%',
+        zIndex: topPage.style.zIndex,
+        pointerEvents: 'none',
+        background: `linear-gradient(to ${isRTL ? 'right' : 'left'}, rgba(0, 0, 0, 0.02), transparent 18px)`,
+      });
       rootAnimation.beforeAddWrite(() => {
-        topPage.style.boxShadow = `${isRTL ? 4 : -4}px 0 24px rgba(0, 0, 0, 0.04)`;
+        topPage.before(shade, edge);
+        topPage.style.clipPath = `inset(0 round ${corner * 0.82}px)`;
+        topPage.style.clipPath = `shape(from 0px ${corner}px,
+          curve to ${corner}px 0px with 0px ${control}px / ${control}px 0px, hline to calc(100% - ${corner}px),
+          curve to 100% ${corner}px with calc(100% - ${control}px) 0px / 100% ${control}px, vline to calc(100% - ${corner}px),
+          curve to calc(100% - ${corner}px) 100% with 100% calc(100% - ${control}px) / calc(100% - ${control}px) 100%, hline to ${corner}px,
+          curve to 0px calc(100% - ${corner}px) with ${control}px 100% / 0px calc(100% - ${control}px), close)`;
       });
       rootAnimation.afterAddWrite(() => {
-        topPage.style.boxShadow = shadow;
+        shade.remove();
+        edge.remove();
+        topPage.style.clipPath = clipPath;
       });
+      rootAnimation.addAnimation(
+        createAnimation()
+          .addElement(shade)
+          .fromTo(OPACITY, backDirection ? 1 : 0, backDirection ? 0 : 1),
+      );
+      rootAnimation.addAnimation(
+        createAnimation()
+          .addElement(edge)
+          .fromTo(
+            TRANSFORM,
+            `translateX(${backDirection ? CENTER : OFF_RIGHT})`,
+            `translateX(${backDirection ? (isRTL ? '-100%' : '100%') : CENTER})`,
+          ),
+      );
     }
 
     // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
@@ -180,7 +228,7 @@ export const iosTransitionAnimation = (navEl: HTMLElement, opts: TransitionOptio
       enteringContentAnimation
         .beforeClearStyles([OPACITY])
         .fromTo('transform', `translateX(${OFF_LEFT})`, `translateX(${CENTER})`)
-        .fromTo(OPACITY, OFF_OPACITY, 1);
+        .fromTo(OPACITY, translucentTop ? 1 : OFF_OPACITY, 1);
     } else {
       // entering content, forward direction
       enteringContentAnimation.beforeClearStyles([OPACITY]).fromTo('transform', `translateX(${OFF_RIGHT})`, `translateX(${CENTER})`);
@@ -346,7 +394,9 @@ export const iosTransitionAnimation = (navEl: HTMLElement, opts: TransitionOptio
         });
       } else {
         // leaving content, forward direction
-        leavingContent.fromTo('transform', `translateX(${CENTER})`, `translateX(${OFF_LEFT})`).fromTo(OPACITY, 1, OFF_OPACITY);
+        leavingContent
+          .fromTo('transform', `translateX(${CENTER})`, `translateX(${OFF_LEFT})`)
+          .fromTo(OPACITY, 1, translucentTop ? 1 : OFF_OPACITY);
       }
 
       if (

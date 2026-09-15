@@ -65,7 +65,19 @@ for (const [length, scrollTop] of [
     expect(during.y).toBeCloseTo(before.y, 1);
     expect(during.height).toBeCloseTo(before.height, 1);
     await expect(title).toHaveCSS('opacity', '1');
+    await expect(source).toHaveCSS('opacity', '1');
     await expect(page.locator('ion-title.ion-cloned-element')).toBeHidden();
+    const shade = page.locator('.ios26-transition-shade');
+    const shadeBounds = (await shade.boundingBox())!;
+    const topBounds = (await page.locator('app-button').boundingBox())!;
+    expect(shadeBounds.y).toBeCloseTo(topBounds.y, 1);
+    expect(shadeBounds.height).toBeCloseTo(topBounds.height, 1);
+    expect(shadeBounds.x).toBe(0);
+    const edgeBounds = await shade.evaluate((el) => el.nextElementSibling!.getBoundingClientRect().toJSON());
+    expect(edgeBounds.x + edgeBounds.width).toBeCloseTo(topBounds.x, 1);
+    const dimming = await shade.evaluate((el) => Number(getComputedStyle(el).opacity));
+    expect(dimming).toBeGreaterThan(0);
+    expect(dimming).toBeLessThan(1);
     for (const view of [source, page.locator('app-button')]) {
       const header = view.locator(':scope > ion-header');
       expect((await header.boundingBox())!.x).toBeCloseTo((await view.locator(':scope > ion-content').boundingBox())!.x, 1);
@@ -74,6 +86,8 @@ for (const [length, scrollTop] of [
     }
     await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
     await expect(source).toHaveClass(/ion-page-hidden/);
+    await expect(shade).toHaveCount(0);
+    expect(await page.locator('app-button').evaluate((el) => (el as HTMLElement).style.clipPath)).toBe('');
     await expect(page.locator('ion-back-button.ion-cloned-element')).toBeHidden();
     await page.locator('app-button > ion-header ion-back-button').click();
     await expect(source).not.toHaveClass(/ion-page-hidden/);
@@ -82,6 +96,7 @@ for (const [length, scrollTop] of [
       .poll(() => content.evaluate(async (el) => (await (el as HTMLIonContentElement).getScrollElement()).scrollTop))
       .toBe(scrollTop);
     expect((await title.boundingBox())!.y).toBeCloseTo(before.y, 1);
+    await expect(shade).toHaveCount(0);
     await expect(page.locator('ion-back-button.ion-cloned-element')).toBeHidden();
     expect(await source.evaluate((el) => (el as HTMLElement).style.boxShadow)).toBe('');
   });
