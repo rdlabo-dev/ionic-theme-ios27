@@ -15,7 +15,7 @@ const POPOVER_IOS_BODY_PADDING = 5;
  * iOS Popover Enter Animation
  */
 // TODO(FW-2832): types
-export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation => {
+export const iosEnterAnimation = (baseEl: HTMLElement, opts: any = {}): Animation => {
   const { event: ev, size, trigger, reference, side, align } = opts;
   const doc = baseEl.ownerDocument as any;
   const isRTL = doc.dir === 'rtl';
@@ -53,6 +53,7 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
   const availableWidth = Math.max(0, paneRight - paneLeft - paneMargin * 2);
   if (pane && availableWidth > 0 && contentEl.getBoundingClientRect().width > availableWidth) {
     contentEl.dataset['previousMaxWidth'] = contentEl.style.maxWidth;
+    contentEl.dataset['previousMaxWidthPriority'] = contentEl.style.getPropertyPriority('max-width');
     contentEl.style.maxWidth = `${availableWidth}px`;
   }
   const { contentWidth, contentHeight } = getPopoverDimensions(size, contentEl, referenceSizeEl);
@@ -193,7 +194,7 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
       .duration(200)
       .addElement(referenceSizeEl)
       .beforeStyles({ 'transform-origin': `${originY} ${originX}` })
-      .beforeAddClass('ios27-replace-element')
+      .beforeAddClass('ios-theme-replace-element')
       .fromTo('transform', 'scale(1)', 'scale(1.05)')
       .fromTo('opacity', 1, 0);
   }
@@ -204,6 +205,8 @@ export const iosEnterAnimation = (baseEl: HTMLElement, opts?: any): Animation =>
     .duration(100)
     .beforeAddWrite(() => {
       if (size === 'cover') {
+        baseEl.dataset['iosThemePreviousWidth'] = baseEl.style.getPropertyValue('--width');
+        baseEl.dataset['iosThemePreviousWidthPriority'] = baseEl.style.getPropertyPriority('--width');
         baseEl.style.setProperty('--width', `${contentWidth}px`);
       }
 
