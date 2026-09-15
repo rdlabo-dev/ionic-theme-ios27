@@ -31,26 +31,6 @@ const selectionFrames = [
   [0.9, 1, 0, 0],
 ];
 
-// Same component projected at 48pt, kjOhTB. The taller lens has a different
-// vertical rebound; it is not a uniform scale of the content control.
-const toolbarSelectionFrames = [
-  [0, 0, 0, 0],
-  [0.033, 0, 0, 0],
-  [0.0663, 0.134, 6.221, 4.147],
-  [0.0997, 0.3403, 13.448, 8.44],
-  [0.133, 0.5384, 20.198, 10.258],
-  [0.1663, 0.6955, 26.524, 9.707],
-  [0.1997, 0.807, 31.905, 8.041],
-  [0.2663, 0.9293, 34.617, 5.633],
-  [0.333, 0.9858, 14.411, 2.085],
-  [0.3997, 1.0116, -0.76, 3.132],
-  [0.5224, 1.0186, -8.746, 4.587],
-  [0.5997, 1.0124, -6.621, 3.494],
-  [0.6997, 1.0059, -2.917, 1.524],
-  [0.7997, 1.0016, -0.597, 0.301],
-  [0.9, 1, 0, 0],
-];
-
 // Candidate release deformation (not measured for iOS 26.5).
 const releaseFrames = [
   [0, 1, 1],
@@ -94,7 +74,8 @@ export const registerSegmentEffect = (targetElement: HTMLElement): registeredEff
   let surfaceWidth = 1;
   let surfaceColor = 'transparent';
   let pointer:
-    { id: number; startX: number; startedAt: number; from: LensRect; button: HTMLElement; selected: boolean; moved: boolean } | undefined;
+    | { id: number; startX: number; startedAt: number; from: LensRect; button: HTMLElement; selected: boolean; moved: boolean }
+    | undefined;
   const buttons = () => Array.from(segment.querySelectorAll<HTMLIonSegmentButtonElement>('ion-segment-button'));
   const selected = () => buttons().find((button) => button.value === segment.value);
 
@@ -183,11 +164,7 @@ export const registerSegmentEffect = (targetElement: HTMLElement): registeredEff
   };
   const settle = (from: LensRect, to: LensRect, changed: boolean, startTime: number) => {
     const toolbar = segment.classList.contains('in-toolbar') && !segment.classList.contains('segment-expand');
-    const samples = changed
-      ? toolbar
-        ? toolbarSelectionFrames
-        : selectionFrames
-      : releaseFrames.map(([time, width, height]) => [time, 1 - width, 0, 0, width, height]);
+    const samples = changed ? selectionFrames : releaseFrames.map(([time, width, height]) => [time, 1 - width, 0, 0, width, height]);
     const duration = samples[samples.length - 1][0];
     const frames = samples.map(([time, position, width, height, remainingWidth, remainingHeight]) => {
       const remaining = 1 - position;
@@ -195,7 +172,12 @@ export const registerSegmentEffect = (targetElement: HTMLElement): registeredEff
         x: from.x + (to.x - from.x) * position,
         y: from.y + (to.y - from.y) * position,
         width: Math.max(1, to.width + (from.width - to.width) * (changed ? remaining : remainingWidth) + (changed ? width : 0)),
-        height: Math.max(1, to.height + (from.height - to.height) * (changed ? remaining : remainingHeight) + (changed ? height : 0)),
+        height: Math.max(
+          1,
+          to.height +
+            (from.height - to.height) * (changed ? remaining : remainingHeight) +
+            (changed ? height * (toolbar ? 1 / 1.1 : 1) : 0),
+        ),
       };
       return { ...frame(box), offset: time / duration };
     });

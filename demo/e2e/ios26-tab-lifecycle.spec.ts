@@ -187,75 +187,39 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     });
   }
 
-  // Independent UIKit 26.5 samples: compact/regular boundaries and iPad caps.
-  // Keep the discontinuities, not the original 140-case recording dump.
-  for (const { count, ipad, sizes } of [
-    {
-      count: 4,
-      ipad: false,
-      sizes: [
-        [218, 67.5],
-        [305.9, 74],
-        [306, 94],
-        [360, 98],
-      ],
-    },
-    {
-      count: 5,
-      ipad: false,
-      sizes: [
-        [218, 58],
-        [355.9, 74],
-        [356, 76.2],
-        [360, 77],
-      ],
-    },
-    {
-      count: 4,
-      ipad: true,
-      sizes: [
-        [240, 70],
-        [336, 94],
-      ],
-    },
-    {
-      count: 5,
-      ipad: true,
-      sizes: [
-        [240, 59.2],
-        [414, 94],
-      ],
-    },
-  ]) {
-    test(`${ipad ? 'iPad' : 'iPhone'} ${count}-tab cells respect native layout boundaries`, async ({ page }) => {
-      await page.evaluate((ipad) => {
-        document.documentElement.classList.toggle('plt-ipad', ipad);
-        document.documentElement.classList.toggle('plt-iphone', !ipad);
-      }, ipad);
-      const bar = await appendFixtureBar(page, 'tab-boundary', { count });
-      for (const [outerWidth, cellWidth] of sizes) {
-        await bar.evaluate((el, width) => {
-          el.style.width = `${width - 8}px`;
-          el.style.maxWidth = 'none';
-        }, outerWidth);
-        await expect
-          .poll(async () =>
-            bar.evaluate((el) => {
-              const origin = el.getBoundingClientRect();
-              return Array.from(el.children).map((button) => {
-                const rect = button.getBoundingClientRect();
-                return [rect.x - origin.x, rect.width];
-              });
-            }),
-          )
-          .toEqual(
-            Array.from({ length: count }, (_, i) => [
-              expect.closeTo(4 + (i * (outerWidth - 8 - cellWidth)) / (count - 1), 1),
-              expect.closeTo(cellWidth, 1),
-            ]),
-          );
-      }
-    });
+  // Layout safety across sizes matters; fractional native width discontinuities do not.
+  for (const ipad of [false, true]) {
+    for (const count of [4, 5]) {
+      test(`${ipad ? 'iPad' : 'iPhone'} ${count}-tab cells fit narrow and roomy bars`, async ({ page }) => {
+        await page.evaluate((ipad) => {
+          document.documentElement.classList.toggle('plt-ipad', ipad);
+          document.documentElement.classList.toggle('plt-iphone', !ipad);
+        }, ipad);
+        const bar = await appendFixtureBar(page, 'tab-width', { count });
+        for (const width of [218, 360]) {
+          await bar.evaluate((el, width) => {
+            el.style.width = `${width - 8}px`;
+            el.style.maxWidth = 'none';
+          }, width);
+          const outer = (await bar.boundingBox())!;
+          const cells = await Promise.all((await bar.locator('ion-tab-button').all()).map((button) => button.boundingBox()));
+          for (const [index, cell] of cells.entries()) {
+            expect(cell!.width).toBeGreaterThanOrEqual(44);
+            expect(cell!.width).toBeCloseTo(cells[0]!.width, 1);
+            expect(cell!.x).toBeGreaterThanOrEqual(outer.x + 3.9);
+            expect(cell!.x + cell!.width).toBeLessThanOrEqual(outer.x + outer.width - 3.9);
+            if (index) expect(cell!.x).toBeGreaterThan(cells[index - 1]!.x);
+          }
+        }
+        if (ipad) {
+          await bar.evaluate((el) => {
+            el.style.width = '500px';
+            el.style.removeProperty('max-width');
+          });
+          expect((await bar.boundingBox())!.width).toBe(count === 4 ? 336 : 414);
+        }
+      });
+    }
   }
 
   test('pointercancel restores selection and never commits a click', async ({ page }) => {

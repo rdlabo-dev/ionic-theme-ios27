@@ -1,16 +1,10 @@
 @use '../utils/api';
 
 @mixin tablet-tabs {
-  &:has(> ion-tab-button:nth-child(4):last-child) {
-    max-width: 328px;
-    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --ios-theme-tab-cell-width: calc((100cqw + 48px) / 4);
-    }
-  }
-  &:has(> ion-tab-button:nth-child(5):last-child) {
-    max-width: 406px;
-    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --ios-theme-tab-cell-width: calc((100cqw + 64px) / 5);
+  --ios-theme-tab-overlap: 16px;
+  @each $count, $width in (4: 336px, 5: 414px) {
+    &:has(> ion-tab-button:nth-child(#{$count}):last-child) {
+      max-width: $width - 8px;
     }
   }
 }
@@ -22,8 +16,6 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
   background: transparent;
   contain: size layout style;
-  container-type: inline-size;
-  container-name: ios26-tab-platter;
   &::before {
     content: '';
     position: absolute;
@@ -72,41 +64,13 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     max-width: 546px;
   }
   padding: 4px;
-  &:has(> ion-tab-button:nth-child(4):last-child) {
-    justify-content: space-between;
-    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --ios-theme-tab-cell-width: min(74px, calc((100cqw + 60px) / 4));
-      flex: 0 0 var(--ios-theme-tab-cell-width);
-      & + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-        margin-inline-start: calc((100cqw - 4 * var(--ios-theme-tab-cell-width)) / 3);
-      }
-      // Fractional samples through305.9pt still use the compact74pt cell;
-      //306pt starts the regular94pt cell (content width excludes8pt padding).
-      @container ios26-tab-platter (width >= 298px) {
-        --ios-theme-tab-cell-width: max(94px, calc((100cqw + 40px) / 4));
-      }
-    }
+  // Use main's shared overlap layout; avoid width-specific native breakpoints.
+  --ios-theme-tab-overlap: 8px;
+  &:where(:has(> ion-tab-button:nth-child(4):last-child)) {
+    --ios-theme-tab-overlap: 13px;
   }
-  // UIKit's five-item selection cells are wider than the equal-width hit
-  // regions. 26.5 standalone UITabBar samples cover 218–558pt platters.
-  &:has(> ion-tab-button:nth-child(5):last-child) {
-    justify-content: space-between;
-    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-      --ios-theme-tab-cell-width: min(74px, calc((100cqw + 80px) / 5));
-      @container ios26-tab-platter (width >= 348px) {
-        --ios-theme-tab-cell-width: calc((100cqw + 33px) / 5);
-      }
-      flex: 0 0 var(--ios-theme-tab-cell-width);
-      & + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-        margin-inline-start: calc((100cqw - 5 * var(--ios-theme-tab-cell-width)) / 4);
-      }
-    }
-  }
-  // Native three-item cells overlap by 8pt (94pt cell, 86pt center spacing).
-  &:not(:has(ion-tab-button:nth-child(4)))
-    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled)
-    + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
-    margin-inline-start: -8px;
+  > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+    margin-inline-start: calc(-1 * var(--ios-theme-tab-overlap));
   }
   // iPad compact-height/icon-top UITabBar uses16pt overlap and natural caps,
   // including narrow multitasking windows. Desktop previews use the roomy

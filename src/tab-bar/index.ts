@@ -1,6 +1,5 @@
 import type { registeredEffect } from '../sheets-of-glass/interfaces';
-import { appendDragStep, dragDeformation, dragPosition, dragReleaseDelay, dragReleaseExpansion, type DragStep } from './drag';
-import { platterRelease, release, sample, selectedPress, shortTransfer, shortTransferLeft, transfer } from './motion';
+import { release, sample, shortTransfer, transfer } from './motion';
 
 interface Box {
   x: number;
@@ -52,10 +51,8 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
         target: HTMLIonTabButtonElement;
         dragged: boolean;
         clicked: boolean;
-        steps: DragStep[];
-        delta: number;
-        spacing: number;
-        origin: Box;
+        lastX: number;
+        lastTime: number;
       }
     | undefined;
   const buttons = () => Array.from(bar.querySelectorAll<HTMLIonTabButtonElement>('ion-tab-button'));
@@ -111,7 +108,7 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
     pointer = undefined;
     hide();
   };
-  const play = (states: Surface[], duration: number, start: number, finish = false) => {
+  const play = (states: (Surface & { offset: number })[], duration: number, start: number, finish = false) => {
     cancelAnimations();
     lens.style.display = 'block';
     bar.classList.add('ios26-animated');
@@ -120,6 +117,7 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
       const width = state.width * scale;
       const height = state.height * scale;
       return {
+        offset: state.offset,
         transform: `translate3d(${(base.x + base.width / 2 + (state.x - base.width / 2) * scale - width / 2 - viewport.x) / viewport.sx}px, ${(base.y + base.height / 2 + (state.y - base.height / 2) * scale - height / 2 - viewport.y) / viewport.sy}px, 0)`,
         width: `${width / viewport.sx}px`,
         height: `${height / viewport.sy}px`,
@@ -133,6 +131,7 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
       lens.animate(frames, options),
       bar.animate(
         states.map((state) => ({
+          offset: state.offset,
           transform: `${baseTransform === 'none' ? '' : baseTransform} scale(${1 + state.platter / base.width})`,
         })),
         options,
@@ -163,8 +162,8 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
     }
   };
   const states = (duration: number, at: (seconds: number) => Surface) => {
-    const count = Math.max(1, Math.ceil(duration / (1000 / 120)));
-    return Array.from({ length: count + 1 }, (_, index) => at((duration * index) / count / 1000));
+    const times = [0, 33, 67, 100, 133, 167, 200, 267, 333, 400, 467, 600, 733, 900, 1100];
+    return [...times.filter((time) => time < duration), duration].map((time) => ({ ...at(time / 1000), offset: time / duration }));
   };
   const measured = (from: Box, to: Box, values: number[], source: 'left' | 'right' = 'left'): Surface => {
     let [progress, width, height, platter] = values;
@@ -223,22 +222,18 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
       target,
       dragged: false,
       clicked: false,
-      steps: [],
-      delta: 0,
-      spacing: Math.abs(box(buttons()[1] ?? target).x - box(buttons()[0] ?? target).x) || to.width,
-      origin: to,
+      lastX: event.clientX,
+      lastTime: time,
     };
     preview(target);
-    const table = selected() === target ? selectedPress : transfer;
-    const initial = measured(from, to, sample(table, 0));
+    const inPlace = selected() === target;
     play(
       states(1100, (t) => {
-        const state = measured(from, to, sample(table, t));
-        if (interrupted) {
-          const remaining = Math.exp(-24 * t) * Math.max(0, 1 - t / 0.3);
-          for (const key of ['x', 'y', 'width', 'height', 'platter'] as const) state[key] += (interrupted[key] - initial[key]) * remaining;
-        }
-        return state;
+        if (interrupted && t === 0) return interrupted;
+        const values = sample(transfer, t);
+        // main approximates an in-place press with one critically damped expansion.
+        if (inPlace) values[1] = values[2] = 16 * (1 - Math.exp(-18 * t) * (1 + 18 * t));
+        return measured(from, to, values);
       }),
       1100,
       time,
@@ -251,10 +246,6 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
     if (!allowed(target)) return;
     const time = win.performance.now();
     const delta = event.clientX - pointer.x;
-    if (delta !== pointer.delta) {
-      appendDragStep(pointer.steps, (time - pointer.time) / 1000, delta - pointer.delta);
-      pointer.delta = delta;
-    }
     if (!pointer.dragged && Math.hypot(delta, event.clientY - pointer.y) < 3) return;
     // Vertical scrolling is not a tab selection gesture.
     if (!pointer.dragged && Math.abs(event.clientY - pointer.y) > Math.abs(event.clientX - pointer.x)) return abort();
@@ -266,24 +257,27 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
       .filter(allowed)
       .map(box)
       .map((item) => item.x);
-    const session = pointer;
-    const elapsed = (time - session.time) / 1000;
-    const at = (t: number): Surface => {
-      const seconds = elapsed + t;
-      const [, width, height, platter] = sample(selectedPress, seconds);
-      const deformation = dragDeformation(session.steps, seconds, session.spacing);
-      return {
-        ...session.to,
-        x: Math.max(Math.min(...available), Math.min(Math.max(...available), session.origin.x + dragPosition(session.steps, seconds))),
-        width: session.to.width + (width + height) / 2 + deformation,
-        height: session.to.height + (width + height) / 2 - deformation,
-        platter,
-      };
-    };
-    // Evaluate the same input-clock trajectory on replacement. Correcting to
-    // the last painted frame on every move would add a second, frame-rate-
-    // dependent lag to the measured spring.
-    play(states(1100, at), 1100, time);
+    // Match main's bounded velocity stretch and four-keyframe rebound.
+    // Do not retain or integrate the history of pointer events.
+    const velocity = (event.clientX - pointer.lastX) / Math.max(1, time - pointer.lastTime);
+    pointer.lastX = event.clientX;
+    pointer.lastTime = time;
+    const from = current();
+    const outer = bar.getBoundingClientRect();
+    const x = Math.max(Math.min(...available), Math.min(Math.max(...available), (event.clientX - outer.x) / (outer.width / base.width)));
+    const stretch = Math.min(16, 32 * velocity * velocity);
+    const rebound = Math.max(stretch, from.width - pointer.to.width - 16) * 0.8;
+    const targetBox = { ...pointer.to, x, platter: 14.14 };
+    play(
+      [
+        { ...from, x, offset: 0 },
+        { ...targetBox, width: targetBox.width + 16 + stretch, height: targetBox.height + 16 - stretch, offset: 0.2 },
+        { ...targetBox, width: targetBox.width + 16 - rebound, height: targetBox.height + 16 + rebound, offset: 0.44 },
+        { ...targetBox, width: targetBox.width + 16, height: targetBox.height + 16, offset: 1 },
+      ],
+      500,
+      time,
+    );
   };
   const up = (event: PointerEvent) => {
     const ended = pointer;
@@ -316,57 +310,25 @@ export const registerTabBarEffect = (bar: HTMLElement): registeredEffect | undef
       const elapsed = (endTime - ended.time) / 1000;
       if (!ended.dragged && ended.from.x !== ended.to.x && elapsed < 0.18 && actual === ended.target) {
         const duration = Math.max(1, (1.12 - elapsed) * 1000);
-        const direction = to.x > ended.from.x ? 'right' : 'left';
-        const table = direction === 'right' ? shortTransfer : shortTransferLeft;
-        const initial = measured(ended.from, to, sample(table, elapsed), direction);
-        initial.platter = platterRelease(elapsed, 0);
         play(
           states(duration, (t) => {
-            const state = measured(ended.from, to, sample(table, elapsed + t), direction);
-            state.platter = platterRelease(elapsed, t);
-            const remaining = Math.exp(-24 * t) * Math.max(0, 1 - t / 0.3);
-            for (const key of ['x', 'y', 'width', 'height', 'platter'] as const) state[key] += (from[key] - initial[key]) * remaining;
-            return state;
+            if (t === 0) return from;
+            return measured(ended.from, to, sample(shortTransfer, elapsed + t), 'right');
           }),
           duration,
-          endTime,
-          true,
-        );
-      } else if (ended.dragged) {
-        const delay = dragReleaseDelay(ended.steps, elapsed);
-        const restExpansion = (from.width - to.width + from.height - to.height) / 2;
-        const position0 = ended.origin.x + dragPosition(ended.steps, elapsed);
-        const deformation0 = dragDeformation(ended.steps, elapsed, ended.spacing);
-        const actualDeformation = (from.width - to.width - (from.height - to.height)) / 2;
-        ended.steps.push({ time: elapsed, delta: to.x - ended.origin.x - ended.delta });
-        play(
-          states(1100, (t) => {
-            const common = dragReleaseExpansion(restExpansion, delay, t);
-            const correction = Math.exp(-30 * t);
-            const deformation = dragDeformation(ended.steps, elapsed + t, ended.spacing) + (actualDeformation - deformation0) * correction;
-            return {
-              x: ended.origin.x + dragPosition(ended.steps, elapsed + t) + (from.x - position0) * correction,
-              y: to.y + (from.y - to.y) * correction,
-              width: to.width + common + deformation,
-              height: to.height + common - deformation,
-              platter: (from.platter * platterRelease(elapsed, t)) / (sample(transfer, elapsed)[3] || 1),
-            };
-          }),
-          1100,
           endTime,
           true,
         );
       } else {
         play(
           states(550, (t) => {
-            const [width, height] = sample(release, t);
-            const center = Math.exp(-20 * t) * (1 + 20 * t);
+            const [remaining] = sample(release, t);
             return {
-              x: to.x + (from.x - to.x) * center,
-              y: to.y + (from.y - to.y) * center,
-              width: to.width + (from.width - to.width) * width,
-              height: to.height + (from.height - to.height) * height,
-              platter: (from.platter * platterRelease(elapsed, t)) / (sample(transfer, elapsed)[3] || 1),
+              x: to.x + (from.x - to.x) * remaining,
+              y: to.y + (from.y - to.y) * remaining,
+              width: to.width + (from.width - to.width) * remaining,
+              height: to.height + (from.height - to.height) * remaining,
+              platter: from.platter * remaining,
             };
           }),
           550,
