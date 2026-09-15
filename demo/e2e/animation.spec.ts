@@ -60,15 +60,49 @@ test.describe('Animation Tests', () => {
   });
 
   test('runs and completes the iOS page transition', async ({ page }) => {
+    const shade = page.locator('.ios27-transition-shade');
+    const checkDimming = async (back: boolean) => {
+      const opacity: number[] = [];
+      for (const progress of [0.2, 0.4]) {
+        await page.evaluate((progress) => {
+          document.getAnimations().forEach((animation) => {
+            animation.pause();
+            animation.currentTime = Number(animation.effect!.getTiming().duration) * progress;
+          });
+        }, progress);
+        await expect(page.locator('index-page')).toHaveCSS('opacity', '1');
+        opacity.push(await shade.evaluate((el) => Number(getComputedStyle(el).opacity)));
+      }
+      expect(back ? opacity[0] - opacity[1] : opacity[1] - opacity[0]).toBeGreaterThan(0);
+      const cover = (await shade.boundingBox())!;
+      const top = (await page.locator('app-button').boundingBox())!;
+      expect(cover.y).toBeCloseTo(top.y, 1);
+      expect(cover.height).toBeCloseTo(top.height, 1);
+      expect(cover.x).toBe(0);
+      const edge = await shade.evaluate((el) => el.nextElementSibling!.getBoundingClientRect().toJSON());
+      expect(edge.x + edge.width).toBeCloseTo(top.x, 1);
+      await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
+    };
     await page.goto('/main/index', { waitUntil: 'networkidle' });
     await clearAnimationCalls(page);
 
     await page.getByRole('button', { name: 'button', exact: true }).click();
 
     await expect.poll(() => hasRunningAnimation(page), { timeout: 2000 }).toBe(true);
+    await checkDimming(false);
     await expect(page).toHaveURL('/main/index/button');
     await expect(page.locator('app-button.ion-page:not(.ion-page-hidden)')).toBeVisible();
     await expect.poll(() => hasRunningAnimation(page), { timeout: 2000 }).toBe(false);
+    await expect(shade).toHaveCount(0);
+    expect(await page.locator('app-button').evaluate((el) => (el as HTMLElement).style.clipPath)).toBe('');
+
+    await clearAnimationCalls(page);
+    await page.locator('app-button > ion-header ion-back-button').click();
+    await expect.poll(() => hasRunningAnimation(page), { timeout: 2000 }).toBe(true);
+    await checkDimming(true);
+    await expect(page).toHaveURL('/main/index');
+    await expect.poll(() => hasRunningAnimation(page), { timeout: 2000 }).toBe(false);
+    await expect(shade).toHaveCount(0);
   });
 
   test('runs and completes the iOS popover animations', async ({ page }) => {
