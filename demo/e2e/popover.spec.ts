@@ -136,7 +136,7 @@ for (const width of [390, 1210]) {
         const measure = el.getBoundingClientRect;
         el.getBoundingClientRect = () => {
           const rect = measure.call(el);
-          if (!el.classList.contains('ios27-replace-element')) el.presentationBounds = rect;
+          if (!el.classList.contains('ios-theme-replace-element')) el.presentationBounds = rect;
           return rect;
         };
         el.restoreMeasurement = () => {
@@ -249,7 +249,7 @@ for (const tag of ['button', 'ion-button']) {
             originY: rect.top + origin[1],
             expected: horizontal ? 320.5 : 520.5,
             callout: root.querySelectorAll('[part="callout-glass"]').length,
-            replacing: anchor.classList.contains('ios27-replace-element'),
+            replacing: anchor.classList.contains('ios-theme-replace-element'),
           };
           await popover.dismiss();
           popover.remove();

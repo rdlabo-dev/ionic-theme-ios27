@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { compile } from 'sass';
+import { compile, NodePackageImporter } from 'sass';
 import { resolve } from 'node:path';
 import * as overlayTypes from '../src/app/overlay-types';
+
+const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
 const mockNative = async (page: Page, fail = false) => {
   await page.addInitScript((fail) => {
@@ -1730,7 +1732,9 @@ for (const theme of ['light', 'class', 'system', 'always'] as const) {
       document.documentElement.style.colorScheme = 'normal';
     });
     if (theme !== 'light') {
-      await page.addStyleTag({ content: compile(resolve(__dirname, `../../src/styles/ionic-theme-ios27-dark-${theme}.scss`)).css });
+      await page.addStyleTag({
+        content: compile(resolve(__dirname, `../../src/styles/ionic-theme-ios27-dark-${theme}.scss`), { importers: [importer] }).css,
+      });
     }
     for (const dark of [true, false, true]) {
       if (theme === 'class') {

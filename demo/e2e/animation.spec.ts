@@ -60,7 +60,7 @@ test.describe('Animation Tests', () => {
   });
 
   test('runs and completes the iOS page transition', async ({ page }) => {
-    const shade = page.locator('.ios27-transition-shade');
+    const shade = page.locator('.ios-transition-shade');
     const checkDimming = async (back: boolean) => {
       const opacity: number[] = [];
       for (const progress of [0.2, 0.4]) {

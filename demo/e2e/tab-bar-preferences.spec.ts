@@ -1,14 +1,18 @@
 import { expect, test } from '@playwright/test';
-import { compile } from 'sass';
+import { compile, NodePackageImporter } from 'sass';
 import { resolve } from 'node:path';
 
 test.use({ viewport: { width: 402, height: 874 }, hasTouch: true });
 
+const importer = new NodePackageImporter(resolve(__dirname, '../../'));
+
 for (const theme of ['light', 'class', 'system', 'always']) {
   test(`tab selection color fallbacks in ${theme} mode`, async ({ page }) => {
     const styles = resolve(__dirname, '../../src/styles');
-    const css = compile(`${styles}/default-variables.scss`).css + compile(`${styles}/ionic-theme-ios27.scss`).css;
-    const darkCss = theme === 'light' ? '' : compile(`${styles}/ionic-theme-ios27-dark-${theme}.scss`).css;
+    const css =
+      compile(`${styles}/default-variables.scss`, { importers: [importer] }).css +
+      compile(`${styles}/ionic-theme-ios27.scss`, { importers: [importer] }).css;
+    const darkCss = theme === 'light' ? '' : compile(`${styles}/ionic-theme-ios27-dark-${theme}.scss`, { importers: [importer] }).css;
     await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
     const html = `
       <html class="${theme === 'class' ? 'ion-palette-dark' : ''}"><body>

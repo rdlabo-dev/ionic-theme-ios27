@@ -1,7 +1,6 @@
-import { ElementReferences, ElementSizes } from '../interfaces';
 import { Animation, createAnimation } from '@ionic/core';
+import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION, type ElementReferences, type ElementSizes } from '@rdlabo/ionic-theme-utils';
 import { cloneElement } from '../../utils';
-import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION } from '../utils';
 
 export const createReverseEffectAnimation = (
   references: ElementReferences,

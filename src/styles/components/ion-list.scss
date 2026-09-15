@@ -1,4 +1,4 @@
-@use '../utils/structured-list';
+@use 'pkg:@rdlabo/ionic-theme-utils/styles/structured-list';
 
 ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --ion-border-color: var(--ion-color-step-100, var(--ion-background-color-step-100, #e8e8e8));
@@ -11,7 +11,7 @@ ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 
 ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include structured-list.layout(20px, 28px);
+  @include structured-list.layout(20px, 28px, $variant: ios27);
 
   ion-radio-group,
   ion-reorder-group {
