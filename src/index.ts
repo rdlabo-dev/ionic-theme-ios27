@@ -1,8 +1,10 @@
 import { registeredEffect } from './sheets-of-glass/interfaces';
 import { registerEffect } from './sheets-of-glass';
 export * from './sheets-of-glass/interfaces';
-export { iosEnterAnimation as popoverEnterAnimation } from './popover/animations/ios.enter';
-export { iosLeaveAnimation as popoverLeaveAnimation } from './popover/animations/ios.leave';
+export {
+  iosPopoverEnterAnimation as popoverEnterAnimation,
+  iosPopoverLeaveAnimation as popoverLeaveAnimation,
+} from '@rdlabo/ionic-theme-utils';
 export * from './tab-bar-searchable';
 export * from './searchbar';
 export * from './transition/ios.transition';
