@@ -6,6 +6,10 @@
 @use 'dark/ion-tabs' as *;
 @forward 'dark/ion-segment';
 @use 'dark/ion-segment' as *;
+@forward 'dark/ion-searchbar';
+@use 'dark/ion-searchbar' as *;
+@forward 'dark/ion-overlay';
+@use 'dark/ion-overlay' as *;
 
 @mixin default-variables {
   //--ios26-glass-background-rgb: 35, 35, 35;
@@ -22,4 +26,6 @@
   @include ion-fab;
   @include ion-tabs;
   @include ion-segment;
+  @include ion-searchbar;
+  @include ion-overlay;
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import {
@@ -17,6 +17,7 @@ import {
   IonText,
   IonTitle,
   IonToolbar,
+  NavController,
 } from '@demo/ionic';
 
 @Component({
@@ -44,7 +45,12 @@ import {
   ],
 })
 export class ButtonPage implements OnInit {
+  readonly navCtrl = inject(NavController);
   constructor() {}
 
   ngOnInit() {}
+
+  navigateTo() {
+    return this.navCtrl.navigateForward('/main/index/action-sheet');
+  }
 }

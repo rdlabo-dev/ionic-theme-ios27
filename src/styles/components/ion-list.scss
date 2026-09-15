@@ -1,7 +1,9 @@
-@use '../utils/structured-list';
+@use 'pkg:@rdlabo/ionic-theme-utils/styles/structured-list';
+
+$ios26-disabled: '.ios-theme-disabled, .ios26-disabled';
 
 ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include structured-list.support-text;
+  @include structured-list.support-text($disabled-selector: $ios26-disabled);
   ion-item {
     --background-hover-opacity: 0;
     --background-focused-opacity: 0;
@@ -9,7 +11,9 @@ ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 
 ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include structured-list.layout(20px, 24px);
+  // Native iOS 26.5 insetGrouped: 20pt outside, 28pt corners, 53pt rows.
+  @include structured-list.layout(20px, 28px, $disabled-selector: $ios26-disabled);
+  margin-inline: calc(20px + var(--ion-safe-area-left, 0px)) calc(20px + var(--ion-safe-area-right, 0px));
 
   ion-radio-group,
   ion-reorder-group {
@@ -21,16 +25,23 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
     padding-inline-end: calc(var(--ion-safe-area-right, 0) + 20px);
   }
 
-  > :is(#{structured-list.$groups}) {
-    ion-item {
+  > :is(#{structured-list.$groups}):not(.ios-theme-disabled, .ios26-disabled) {
+    ion-item:not(.ios-theme-disabled, .ios26-disabled) {
       // To draw lines inside
       --inner-padding-end: 0;
 
       &::part(native) {
-        padding-right: calc(var(--ion-safe-area-right, 0px) + 18px);
+        padding-inline-end: 16px;
       }
 
-      --min-height: 52px;
+      --min-height: 53px;
+      font-size: max(17px, 1rem);
+      line-height: max(20.3333px, 1.196078rem);
+
+      > ion-label:not([slot], .ios-theme-disabled, .ios26-disabled) {
+        font-size: inherit;
+        line-height: inherit;
+      }
 
       & > ion-input[labelplacement='floating'] {
         transition: transform 200ms ease;
@@ -41,4 +52,11 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
       }
     }
   }
+}
+
+// UIKit's first inset group starts directly below the expanded large title.
+ion-content.ios:not(.ios-theme-disabled, .ios26-disabled)
+  > ion-header.header-collapse-condense:not(.ios-theme-disabled, .ios26-disabled)
+  + ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  margin-top: 0;
 }

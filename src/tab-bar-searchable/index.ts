@@ -6,8 +6,10 @@ import {
   getElementReferences,
   getElementSizes,
   throwErrorByFailedClickElement,
-} from './utils';
-import { SearchableEventCache, TabBarSearchableFunction, TabBarSearchableType } from './interfaces';
+  type SearchableEventCache,
+  type TabBarSearchableFunction,
+  TabBarSearchableType,
+} from '@rdlabo/ionic-theme-utils';
 import {
   createCloseButtonsAnimation,
   createEffectAnimation,
@@ -23,7 +25,13 @@ import {
   createReverseTabBarAnimation,
 } from './animations/leave';
 
-export * from './interfaces';
+export {
+  TabBarSearchableType,
+  type TabBarSearchableFunction,
+  type SearchableEventCache,
+  type ElementSizes,
+  type ElementReferences,
+} from '@rdlabo/ionic-theme-utils';
 
 /**
  *  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
@@ -55,7 +63,6 @@ export const attachTabBarSearchable = (
   // Initialize
   ionFooter.style.pointerEvents = 'none';
   ionFooter.style.opacity = '0';
-  ionTabBar.style.transformOrigin = 'left center';
 
   // Saved Params
   let searchableEventCache: SearchableEventCache | undefined;

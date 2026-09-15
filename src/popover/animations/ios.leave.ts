@@ -15,9 +15,15 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
   const backdropAnimation = createAnimation();
   const contentAnimation = createAnimation();
   const targetAnimation = createAnimation();
+  const surfaceAnimation = createAnimation()
+    .addElement(Array.from(root.querySelectorAll<HTMLElement>('.ios-theme-callout-layer')))
+    .duration(400)
+    .easing('ease')
+    .fromTo('opacity', 0.99, 0)
+    .fromTo('transform', 'scale(1)', 'scale(0)');
 
   const doc = baseEl.ownerDocument as any;
-  const replaceElement = doc.querySelector('.ios26-replace-element') as HTMLElement | null;
+  const replaceElement = doc.querySelector('.ios-theme-replace-element') as HTMLElement | null;
 
   if (replaceElement) {
     const ratio = contentEl.getBoundingClientRect().width / contentEl.getBoundingClientRect().height;
@@ -27,7 +33,7 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
       .addElement(replaceElement)
       .delay(100)
       .duration(300)
-      .afterRemoveClass('ios26-replace-element')
+      .afterRemoveClass('ios-theme-replace-element')
       .fromTo('transform', `scale(${scale})`, 'scale(1)')
       .fromTo('opacity', 0, 0.9);
   }
@@ -57,20 +63,37 @@ export const iosLeaveAnimation = (baseEl: HTMLElement): Animation => {
   return baseAnimation
     .easing('ease')
     .afterAddWrite(() => {
-      baseEl.style.removeProperty('--width');
+      if (baseEl.dataset['iosThemePreviousWidth'] !== undefined) {
+        baseEl.style.setProperty('--width', baseEl.dataset['iosThemePreviousWidth'], baseEl.dataset['iosThemePreviousWidthPriority'] ?? '');
+        delete baseEl.dataset['iosThemePreviousWidth'];
+        delete baseEl.dataset['iosThemePreviousWidthPriority'];
+      }
       baseEl.classList.remove('popover-bottom');
+      baseEl.classList.remove('ios-theme-callout');
+      root.querySelectorAll('.ios-theme-callout-layer').forEach((layer) => layer.remove());
 
       contentEl.style.removeProperty('top');
       contentEl.style.removeProperty('left');
       contentEl.style.removeProperty('bottom');
       contentEl.style.removeProperty('transform-origin');
+      if (contentEl.dataset['previousMaxWidth'] !== undefined) {
+        contentEl.style.setProperty(
+          'max-width',
+          contentEl.dataset['previousMaxWidth'],
+          contentEl.dataset['previousMaxWidthPriority'] ?? '',
+        );
+        delete contentEl.dataset['previousMaxWidth'];
+        delete contentEl.dataset['previousMaxWidthPriority'];
+      }
 
       if (arrowEl) {
         arrowEl.style.removeProperty('top');
         arrowEl.style.removeProperty('left');
         arrowEl.style.removeProperty('display');
+        arrowEl.style.removeProperty('bottom');
+        arrowEl.style.removeProperty('transform');
       }
     })
     .duration(300)
-    .addAnimation([backdropAnimation, contentAnimation, targetAnimation]);
+    .addAnimation([backdropAnimation, contentAnimation, targetAnimation, surfaceAnimation]);
 };

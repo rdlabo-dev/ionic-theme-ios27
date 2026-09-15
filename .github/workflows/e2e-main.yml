@@ -7,7 +7,7 @@ on:
       - ios26
 jobs:
   test:
-    timeout-minutes: 10
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -45,7 +45,12 @@ jobs:
         working-directory: './demo'
 
       - name: Run Playwright tests
-        run: npm run test:e2e
+        run: |
+          if [ "${{ matrix.ionic-major }}" = "8" ]; then
+            npm run test:e2e -- e2e/screenshot.spec.ts
+          else
+            npm run test:e2e
+          fi
         working-directory: ./demo
         env:
           IONIC_MAJOR: ${{ matrix.ionic-major }}

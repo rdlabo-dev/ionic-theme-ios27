@@ -1,64 +1,135 @@
-@use '../utils/api';
-
-/**
- * Adjustments have been made to prevent the right edge from being cut off within the ion-item.
- * When the native-inner part be added to the ion-item, it will be removed.
- */
-ion-item.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toggle.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  &.toggle-checked.toggle-activated::part(track) {
-    transform-origin: left;
-    transform: scaleX(0.894) translateZ(0);
-    -webkit-transform: scaleX(0.894) translateZ(0);
-  }
-  &.toggle-activated::part(handle) {
-    transform: scale(1.4, 1.6) translateX(calc(38px * -0.15)) translateZ(0);
-    -webkit-transform: scale(1.4, 1.6) translateX(calc(38px * -0.15)) translateZ(0);
-  }
-}
-
+// Keep Ionic's native handle positioning when the lens CSS is unavailable.
 ion-toggle.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --handle-width: 38px;
+  --handle-width: 37px;
   --handle-height: 24px;
   --handle-max-width: none;
   --handle-max-height: none;
-  &.ion-color {
-    --track-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.23);
-  }
-  &:not(.ion-color) {
-    --track-background: rgba(var(--ion-color-contrast-rgb, var(--ion-text-color-rgb, 0, 0, 0)), 0.23);
-  }
+  --border-radius: 14px;
+  --track-background-checked: var(--ion-color-base, #34c759);
   &::part(track) {
-    overflow: visible;
-    width: 64px;
+    width: 63px;
     height: 28px;
-    transition: transform 280ms ease;
   }
-  &.toggle-activated:not(.toggle-checked)::part(handle) {
-    transform: translateX(-4px) scale(1.4, 1.6) translateZ(0);
-    -webkit-transform: translateX(-4px) scale(1.4, 1.6) translateZ(0);
+}
+
+@supports (scale: 1) and (translate: 0) and (width: calc(sin(1rad) * 1px)) and (background: color-mix(in srgb, white, transparent)) and
+  (transition-timing-function: linear(0, 1)) {
+  // Interpolated state keeps a tap's lens animation alive after :active disappears.
+  @property --ios26-toggle-change {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
   }
-  &.toggle-activated.toggle-checked::part(handle) {
-    transform: scale(1.4, 1.6) translateZ(0);
+  @property --ios26-toggle-press {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
   }
-  &.toggle-activated::part(handle) {
-    transform: scale(1.4, 1.6) translateZ(0);
-    -webkit-transform: scale(1.4, 1.6) translateZ(0);
-    --handle-transition: transform 280ms, width 120ms ease-in-out 80ms, left 110ms ease-in-out 80ms, right 110ms ease-in-out 80ms;
-    @include api.glass-background($opacity: 0.1, $blur: 0.5px, $saturate: 120%, $include-background: false, $include-box-shadow: false);
+  @property --ios26-toggle-held {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
   }
-  &.toggle-activated {
-    --handle-background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.1);
-    --handle-background-checked: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.1);
-    --handle-box-shadow: inset 0 0 8px 0 var(--track-background);
-  }
-  &.ion-color.toggle-checked.toggle-activated {
+
+  ion-toggle.ios:not(.ios-theme-disabled, .ios26-disabled) {
     --handle-box-shadow:
-      inset 0 8px 8px -8px var(--ion-color-base), inset 8px 0 8px -8px var(--track-background),
-      inset 8px 0 8px -8px var(--track-background), inset -8px 0 8px -8px var(--ion-color-base);
+      inset 0 0 0 0.5px rgba(0, 0, 0, calc(var(--ios26-toggle-glass) * 0.25)),
+      inset 0 5px 3px -4px rgba(255, 255, 255, calc(var(--ios26-toggle-glass) * 0.8)),
+      inset 0 -5px 3px -4px rgba(255, 255, 255, calc(var(--ios26-toggle-glass) * 0.8)),
+      0 5px 8px rgba(0, 0, 0, calc(var(--ios26-toggle-glass) * 0.18));
+    &.ion-color {
+      --track-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.23);
+    }
+    &:not(.ion-color) {
+      --track-background: rgba(var(--ion-color-contrast-rgb, var(--ion-text-color-rgb, 0, 0, 0)), 0.23);
+    }
+    // iOS 26.5 UISwitch: resting 37 x 24pt; held 58 x 38.333pt.
+    --ios26-toggle-release: linear(
+      0,
+      0.092 4.7%,
+      0.272 9.4%,
+      0.459 14.3%,
+      0.621 19%,
+      0.802 26.1%,
+      0.923 33.3%,
+      1.047 47.6%,
+      1.0666 57.1%,
+      1.0635 61.9%,
+      1.034 69%,
+      1.0175 83.3%,
+      1
+    );
+    --handle-transition: transform 700ms var(--ios26-toggle-release);
+    --ios26-toggle-change: 0;
+    --ios26-toggle-press: 0;
+    --ios26-toggle-held: 0;
+    --ios26-toggle-progress: calc(1 - var(--ios26-toggle-change));
+    --ios26-toggle-pulse: calc(sin(var(--ios26-toggle-progress) * 180deg) * (1 - var(--ios26-toggle-held)));
+    // Blend the press and checked-state pulse instead of switching between them.
+    --ios26-toggle-expansion: calc(var(--ios26-toggle-press) + var(--ios26-toggle-pulse) * max(0, 1.145 - var(--ios26-toggle-press)));
+    --ios26-toggle-expansion-y: calc(var(--ios26-toggle-press) + var(--ios26-toggle-pulse) * max(0, 1.122 - var(--ios26-toggle-press)));
+    --ios26-toggle-glass: clamp(0, calc(var(--ios26-toggle-expansion) * 2), 1);
+    transition:
+      --ios26-toggle-change 300ms ease-out,
+      --ios26-toggle-press 700ms var(--ios26-toggle-release) calc((1 - var(--ios26-toggle-held)) * 60ms),
+      --ios26-toggle-held 0s 700ms;
+
+    &.toggle-checked {
+      --ios26-toggle-change: 1;
+      --ios26-toggle-progress: var(--ios26-toggle-change);
+    }
+
+    // Ionic's toggle-activated only covers dragging; :active also covers a tap.
+    &:is(.toggle-activated, :active):not(.toggle-disabled) {
+      --ios26-toggle-press: 1;
+      --ios26-toggle-held: 1;
+      transition:
+        --ios26-toggle-change 300ms ease-out,
+        --ios26-toggle-press 250ms linear(0, 0.15 10%, 0.37 20%, 0.72 30%, 0.96 40%, 1.122 50%, 1.126 60%, 1.09 70%, 1.034 80%, 1),
+        --ios26-toggle-held 0s 120ms;
+    }
+
+    &::part(track) {
+      overflow: visible;
+    }
+
+    &::part(handle) {
+      // Separate translation from scale so the checked offset is not scaled.
+      transform: none;
+      translate: 0;
+      scale: calc(1 + (21 / 37) * var(--ios26-toggle-expansion)) calc(1 + (14.333333 / 24) * var(--ios26-toggle-expansion-y));
+      background: color-mix(in srgb, var(--handle-background) calc(100% - var(--ios26-toggle-glass) * 90%), transparent);
+      backdrop-filter: blur(calc(var(--ios26-toggle-glass) * 0.5px)) saturate(calc(100% + var(--ios26-toggle-glass) * 20%));
+      transition: var(--handle-transition);
+      transition-property: translate;
+    }
+
+    &.toggle-checked::part(handle) {
+      translate: calc(var(--handle-spacing) * -2);
+      background: color-mix(in srgb, var(--handle-background-checked) calc(100% - var(--ios26-toggle-glass) * 90%), transparent);
+    }
+    &.toggle-checked.toggle-rtl::part(handle) {
+      translate: calc(var(--handle-spacing) * 2);
+    }
+
+    &.toggle-disabled {
+      --ios26-toggle-expansion: 0;
+      --ios26-toggle-expansion-y: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      --handle-transition: none;
+      --ios26-toggle-expansion: 0;
+      --ios26-toggle-expansion-y: 0;
+      transition: none;
+      &::part(handle) {
+        transition: none;
+      }
+    }
   }
-  &.toggle-checked.toggle-activated {
-    --handle-box-shadow:
-      inset 0 8px 8px -8px var(--track-background-checked), inset 8px 0 8px -8px var(--track-background),
-      inset 8px 0 8px -8px var(--track-background), inset -8px 0 8px -8px var(--track-background-checked);
+
+  // Reserve the lens overhang inside the slotted content's clipping boundary.
+  ion-item.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toggle.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    padding-inline-end: 10px;
   }
 }

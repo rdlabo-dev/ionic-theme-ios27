@@ -1,7 +1,6 @@
-import { ElementReferences, ElementSizes } from '../interfaces';
 import { Animation, createAnimation } from '@ionic/core';
+import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION, type ElementReferences, type ElementSizes } from '@rdlabo/ionic-theme-utils';
 import { cloneElement } from '../../utils';
-import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION } from '../utils';
 
 export const createReverseEffectAnimation = (
   references: ElementReferences,
@@ -59,13 +58,14 @@ export const createReverseTabBarAnimation = (ionTabBar: HTMLElement, references:
   return createAnimation()
     .addElement(ionTabBar)
     .beforeAddWrite(() => {
+      ionTabBar.style.transformOrigin = 'left center';
       ionTabBar.style.pointerEvents = 'auto';
       ionTabBar.querySelectorAll<HTMLElement>('ion-tab-button').forEach((element: HTMLElement) => {
         element.style.transition = OPACITY_TRANSITION;
         element.style.opacity = '1';
       });
     })
-    .afterClearStyles(['transform', 'opacity'])
+    .afterClearStyles(['transform', 'opacity', 'transform-origin'])
     .fromTo(
       'transform',
       `scale(${sizes.closeButton.width / sizes.tabBar.width}, ${sizes.closeButton.height / sizes.tabBar.height})`,

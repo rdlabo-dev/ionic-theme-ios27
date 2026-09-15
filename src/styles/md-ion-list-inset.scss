@@ -1,10 +1,12 @@
-@use 'utils/structured-list';
+@use 'pkg:@rdlabo/ionic-theme-utils/styles/structured-list';
+
+$ios26-disabled: '.ios-theme-disabled, .ios26-disabled';
 
 ion-list.md {
-  @include structured-list.support-text;
+  @include structured-list.support-text($disabled-selector: $ios26-disabled);
 
   &.list-inset {
-    @include structured-list.layout(8px, 16px);
+    @include structured-list.layout(8px, 16px, $disabled-selector: $ios26-disabled);
     :is(#{structured-list.$groups}) ion-item {
       & > ion-input[labelplacement='floating'] {
         transition: transform 200ms ease;

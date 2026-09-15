@@ -1,10 +1,35 @@
 @use '../utils/api';
 
+@mixin tablet-tabs {
+  --ios-theme-tab-overlap: 16px;
+  @each $count, $width in (4: 336px, 5: 414px) {
+    &:has(> ion-tab-button:nth-child(#{$count}):last-child) {
+      max-width: $width - 8px;
+    }
+  }
+}
+
 ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  @include api.glass-background;
+  // UIKit's platter is 62pt, including its 4pt selection inset. Put the
+  // physical-pixel rim on a separate surface so it cannot alter layout.
+  border: 0;
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+  background: transparent;
+  contain: size layout style;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: -1;
+    @include api.glass-background($blur: 20px, $saturate: 180%, $include-background: false);
+    background: var(--background);
+    box-shadow: 0 2px 26px rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);
+  }
   z-index: 2;
 
-  border-radius: 40px;
+  border-radius: 31px;
   --color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
 
   &[slot='top'] {
@@ -22,16 +47,60 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   /**
    * 100% - margin-left - margin-right - right-fab - margin-left-fab
    */
-  width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-left, 0px)) - 60px - 12px);
+  width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - 60px - 12px);
   max-width: 474px;
-  min-height: 56px;
+  &:not(:has(ion-tab-button:nth-child(4))) {
+    max-width: 266px;
+  }
+  &:has(> ion-tab-button:only-child) {
+    max-width: 94px;
+  }
+  &:has(> ion-tab-button:nth-child(2):last-child) {
+    max-width: 180px;
+  }
+  min-height: 54px;
+  height: 54px;
   &:has(:nth-child(5)) {
-    width: calc(100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-left, 0px)));
+    width: calc(100% - calc(25px + var(--ion-safe-area-left, 0px)) - calc(25px + var(--ion-safe-area-right, 0px)));
     max-width: 546px;
   }
-  padding: 2px 2px;
+  padding: 4px;
+  // Use main's shared overlap layout; avoid width-specific native breakpoints.
+  --ios-theme-tab-overlap: 8px;
+  &:where(:has(> ion-tab-button:nth-child(4):last-child)) {
+    --ios-theme-tab-overlap: 13px;
+  }
+  > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+    margin-inline-start: calc(-1 * var(--ios-theme-tab-overlap));
+  }
+  // iPad compact-height/icon-top UITabBar uses16pt overlap and natural caps,
+  // including narrow multitasking windows. Desktop previews use the roomy
+  // fallback; a real iPhone in landscape must not be mistaken for an iPad.
+  :where(.plt-ipad) & {
+    @include tablet-tabs;
+  }
+  @media (min-width: 768px) {
+    :where(html:not(.plt-iphone)) & {
+      @include tablet-tabs;
+    }
+  }
 
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease-out;
+  &.ios26-enable-gesture {
+    transition: none;
+    touch-action: pinch-zoom;
+    &:has(ion-tab-button.ion-activated) {
+      transform: none;
+      -webkit-transform: none;
+    }
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      transform: none;
+      transition: none;
+    }
+    .ios26-tab-preview {
+      color: var(--color-selected);
+    }
+  }
 
   // will-change is optimized to only apply when needed for performance
   &:has(ion-tab-button.ion-activated) {
@@ -54,8 +123,8 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
    * effectが有効な場合、effectでスタイリングするため不要
    */
   &.ios26-enable-gesture.ios26-animated {
-    ion-tab-button.tab-selected::part(native) {
-      background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0);
+    ion-tab-button.tab-selected {
+      background: transparent;
     }
     ion-tab-button.ion-activated {
       ion-label,
@@ -67,6 +136,18 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 
 ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  font-size: 0.5882352941rem;
+  font-weight: 500;
+  &:not(.ion-cloned-element):not(:has(ion-icon)) {
+    justify-content: flex-end;
+    --padding-bottom: 7px;
+  }
+  ion-label {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: 12px;
+    margin: 0;
+  }
   ion-icon {
     font-size: 26px;
   }
@@ -76,13 +157,13 @@ ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
       filter var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease,
       color var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   }
-  background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0);
+  --background: transparent;
+  border-radius: 27px;
   height: auto;
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   &::part(native) {
     overflow: visible;
-    min-height: 56px;
-    border-radius: 32px;
+    min-height: 54px;
   }
 
   &.ion-activated {
@@ -96,10 +177,11 @@ ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   &.tab-selected {
-    &::part(native) {
-      background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.095);
-      transition: background var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
-    }
+    --background: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.077);
+    font-weight: 600;
+    transition:
+      transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease,
+      background var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease;
   }
 
   &.ion-cloned-element {
@@ -113,6 +195,38 @@ ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
     transform-origin: center;
     & > * {
       visibility: hidden;
+    }
+  }
+  &.ios26-tab-lens {
+    position: fixed;
+    z-index: 9999;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    flex: none;
+    border-radius: 999px;
+    transition: none;
+    contain: layout style;
+    &::part(native) {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      border-radius: inherit;
+      box-sizing: border-box;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled),
+  ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    transition: none;
+    &.ion-activated,
+    &:has(ion-tab-button.ion-activated) {
+      transform: none;
+      -webkit-transform: none;
     }
   }
 }

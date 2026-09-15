@@ -1,4 +1,4 @@
-@use '../utils/api';
+@use '../utils/glass';
 
 ion-modal.ios {
   ion-searchbar:not(.ios-theme-disabled, .ios26-disabled) {
@@ -12,32 +12,50 @@ ion-modal.ios {
 }
 
 ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(.searchbar-classic) {
-  min-height: 60px;
-  padding: 0;
+  // iOS 26.5 minimal UISearchBar: 56pt host, 44pt field, 8pt inline inset.
+  --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+  --border-radius: 22px;
+  --icon-color: var(--ion-text-color, #000);
+  --placeholder-opacity: 0.55;
+  @include glass.light-shadow('--box-shadow');
+  min-height: 56px;
+  padding: 6px 8px;
 
   ion-icon.searchbar-search-icon {
     inset-inline-start: 12px;
+    margin-inline-start: 0 !important;
+    width: 22px;
+    opacity: 1;
   }
 
   .searchbar-input-container {
-    margin: 0 8px 0 16px;
+    margin: 0;
     align-self: center;
     justify-self: center;
     input.searchbar-input {
       min-height: 44px;
-      @include api.glass-background;
-      border-radius: 20px;
-      padding-inline-start: 2.4rem;
+      height: 44px;
+      background: var(--background);
+      box-shadow: var(--box-shadow);
+      backdrop-filter: blur(8px) saturate(250%);
+      @include glass.light-rim;
+      border-radius: var(--border-radius);
+      padding-inline-start: 39.6667px;
+      font-size: 1.0625rem;
+      transition: none;
     }
     .searchbar-clear-button {
-      padding-inline-end: 2rem;
+      // Unlike the iOS 27 candidate, this iOS 26 reference keeps clear inside.
+      padding: 0;
+      width: 44px;
+      inset-inline-end: 0;
     }
   }
 
   // Ionic writes a physical inline padding while the placeholder is centered.
   // Match before hydration as well, so Ionic's `transition: all` cannot animate through the inline value.
   &:not(.searchbar-left-aligned) .searchbar-input-container input.searchbar-input {
-    padding-inline-start: 2.4rem !important;
+    padding-inline-start: 39.6667px !important;
   }
 }
 

@@ -1,20 +1,25 @@
 @use '../utils/api';
+@use '../utils/glass';
 
 $scaleup-small-icon-only: 1.18;
 $scaleup-default-icon-only: 1.2;
 $scaleup-large-icon-only: 1.12;
 
 ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --transform-value: 2.5px;
+  --transform-value: 3px;
   &:has(> ion-fab-button.fab-button-small) {
     --transform-value: 4px;
   }
 
-  ion-fab-button {
+  ion-fab-button:not(.ios-theme-disabled, .ios26-disabled) {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
-    --box-shadow:
-      inset 0 0 8px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.2),
-      0 0 10px 0 rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.82);
+    @include glass.light-shadow(--box-shadow);
+    --border-width: 0.5px;
+    --border-style: solid;
+    --border-color: rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 1) transparent;
+    @supports (background-clip: border-area) {
+      --border-color: transparent;
+    }
     --transition:
       var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) transform
         cubic-bezier(0.25, 1.11, 0.78, 1.59),
@@ -25,11 +30,8 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
     --color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
 
-    /**
-     * 60px + border0.5px + 0.5px
-     */
-    width: 61px;
-    height: 61px;
+    width: 62px;
+    height: 62px;
 
     &.fab-button-in-list,
     &.fab-button-small {
@@ -61,7 +63,9 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
 
     &::part(native) {
-      @include api.glass-background($include-background: false, $include-box-shadow: false);
+      @include api.glass-background($include-background: false, $include-box-shadow: false, $include-border: false);
+      backdrop-filter: blur(8px) saturate(250%);
+      @include glass.light-rim($include-border: false);
       // The previous background shorthand reset Ionic's padding-box default.
       // There is no CSS custom property for background-clip, so preserve it via the Part.
       background-clip: border-box;

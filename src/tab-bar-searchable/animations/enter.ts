@@ -1,7 +1,6 @@
-import { ElementReferences, ElementSizes } from '../interfaces';
 import { Animation, createAnimation } from '@ionic/core';
+import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION, type ElementReferences, type ElementSizes } from '@rdlabo/ionic-theme-utils';
 import { cloneElement } from '../../utils';
-import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION } from '../utils';
 
 export const createEffectAnimation = (references: ElementReferences, sizes: ElementSizes): Animation => {
   const effectElement = cloneElement('ion-icon');
@@ -56,6 +55,7 @@ export const createTabBarAnimation = (ionTabBar: HTMLElement, references: Elemen
   return createAnimation()
     .addElement(ionTabBar)
     .beforeAddWrite(() => {
+      ionTabBar.style.transformOrigin = 'left center';
       ionTabBar.querySelectorAll<HTMLElement>('ion-tab-button').forEach((element: HTMLElement) => {
         element.style.transition = OPACITY_TRANSITION;
         element.style.opacity = '0';

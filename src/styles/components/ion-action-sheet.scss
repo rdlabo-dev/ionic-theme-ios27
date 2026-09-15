@@ -1,61 +1,91 @@
 @use '../utils/api';
 
 ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --backdrop-opacity: 0.2;
-  --color: var(--ion-color-step-600, var(--ion-text-color-step-400, #666666));
+  @include api.glass-overlay-variables;
+  --backdrop-opacity: 0.2066;
+  --max-width: min(320px, calc(100vw - 32px));
+  --color: var(--ion-text-color, #000);
+  --button-background: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.12);
+  --button-color: var(--ion-text-color, #000);
+  // iOS 26.1/26.5: without a source anchor UIKit uses a centered dialog.
+  // Anchored menus are represented by ion-popover, not a bottom sheet.
+  justify-content: center;
+  &:not(.overlay-hidden) {
+    display: flex;
+  }
+  flex-direction: column;
+  box-sizing: border-box;
+  padding-top: var(--ion-safe-area-top, env(safe-area-inset-top, 0px));
+  padding-bottom: var(--ion-safe-area-bottom, env(safe-area-inset-bottom, 0px));
 
   .action-sheet-wrapper {
+    position: relative;
+    margin: 0 auto;
     padding-bottom: 0;
-    bottom: var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom));
+    bottom: auto;
   }
 
   .action-sheet-container {
-    @include api.glass-background-overlay;
-    transition: transform 200ms ease;
-    &:has(.ion-activated) {
-      transform: scale(1.016);
-      @include api.glass-background-overlay-activated;
-    }
-    margin: 0 12px;
-    border-radius: 32px;
+    @include api.glass-overlay-surface;
+    border-radius: 34px;
+    outline: none;
+    margin: 0;
+    padding: 0 16px 16px;
 
     .action-sheet-title,
     .action-sheet-has-sub-title {
       background: none;
     }
     .action-sheet-title {
-      padding-top: 8px;
+      padding: 22px 14px 20.6667px;
+      text-align: start;
+      font-size: max(17px, 1rem);
+      line-height: max(20.3333px, 1.196078rem);
+      font-weight: 600;
     }
-    .action-sheet-has-sub-title {
+    .action-sheet-sub-title {
+      padding: 0;
+      margin-top: 7.3333px;
+      font-size: max(15px, 0.882353rem);
+      line-height: max(18px, 1.058823rem);
+      font-weight: 400;
+      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.55);
     }
 
     .action-sheet-group {
       background: transparent;
+      border-radius: 0;
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
 
       button {
-        @include api.glass-background-overlay-button-variable;
         &::after {
           content: none;
-        }
-        &:not(.action-sheet-destructive):not(.action-sheet-selected) {
-          --button-color: var(--ion-text-color, #000);
-          --button-color-hover: var(--ion-text-color, #000);
-          --button-color-activated: var(--ion-text-color, #000);
         }
         &.action-sheet-destructive {
           --button-color: var(--ion-color-danger, #c5000f);
           --button-color-hover: var(--ion-color-danger, #c5000f);
         }
-        font-weight: 550;
-        &.action-sheet-cancel {
-          margin-top: 12px;
-          font-weight: 550;
+        &.action-sheet-selected {
+          --button-background: var(--ion-color-primary, #0289ff);
+          --button-color: var(--ion-color-primary-contrast, #fff);
+          --button-color-selected: var(--ion-color-primary-contrast, #fff);
+          --button-color-hover: var(--ion-color-primary-contrast, #fff);
+          --button-color-activated: var(--ion-color-primary-contrast, #fff);
+          font-weight: 600;
         }
-        border-radius: 32px;
+        font-weight: 500;
+        &.action-sheet-cancel {
+          margin-top: 8px;
+          font-weight: 500;
+        }
+        border-radius: 24px;
         padding: 0 14px;
-        min-height: 52px;
+        min-height: 48px;
         span.action-sheet-button-inner {
-          font-size: 1rem;
+          font-size: max(17px, 1rem);
+          line-height: max(20.3333px, 1.196078rem);
           ion-icon {
             font-size: 1.2rem;
           }
