@@ -20,6 +20,7 @@ import {
   IonTitle,
   IonToolbar,
 } from '@demo/ionic';
+import { IonFooter } from '@ionic/angular';
 
 @Component({
   selector: 'app-toolbar',
@@ -45,6 +46,7 @@ import {
     IonSearchbar,
     IonSegment,
     IonSegmentButton,
+    IonFooter,
   ],
 })
 export class ToolbarPage implements OnInit {
