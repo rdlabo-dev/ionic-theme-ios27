@@ -12,6 +12,7 @@ import {
   IonItemGroup,
   IonLabel,
   IonList,
+  IonFooter,
   IonMenuButton,
   IonSearchbar,
   IonSegment,
@@ -45,6 +46,7 @@ import {
     IonSearchbar,
     IonSegment,
     IonSegmentButton,
+    IonFooter,
   ],
 })
 export class ToolbarPage implements OnInit {

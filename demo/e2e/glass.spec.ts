@@ -17,6 +17,43 @@ test('glass-background keeps positional and named argument compatibility', () =>
   );
 });
 
+test('fullscreen page chrome is transparent or frosted according to translucent', async ({ page }) => {
+  await page.goto('/main/album');
+  const content = page.locator('app-album-page > ion-content');
+  const header = page.locator('app-album-page > ion-header');
+  const footer = page.locator('app-album-page > ion-footer');
+  const headerToolbar = header.locator(':scope > ion-toolbar');
+  const footerToolbar = footer.locator(':scope > ion-toolbar');
+
+  await expect(header).toHaveClass(/header-translucent/);
+  await expect(headerToolbar).toHaveCSS('--background', 'transparent');
+  expect(await header.evaluate((element) => getComputedStyle(element, '::after').backdropFilter)).toBe('blur(2px)');
+
+  await expect(footer).toHaveClass(/footer-translucent/);
+  expect(await footer.evaluate((element) => getComputedStyle(element, '::before').backdropFilter)).toBe('blur(8px)');
+  expect(await footer.evaluate((element) => getComputedStyle(element, '::before').backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+  expect(await footer.evaluate((element) => getComputedStyle(element, '::after').backdropFilter)).toBe('blur(2px)');
+  await expect(footerToolbar).toHaveCSS('--border-width', /^0?\.5px 0 0$/);
+
+  await footer.evaluate((element: HTMLIonFooterElement) => (element.translucent = false));
+  await header.evaluate((element: HTMLIonHeaderElement) => (element.translucent = false));
+  await expect(header).not.toHaveClass(/header-translucent/);
+  await expect(footer).not.toHaveClass(/footer-translucent/);
+  await expect(headerToolbar).toHaveCSS('--background', 'transparent');
+  await expect(footerToolbar).toHaveCSS('--background', 'transparent');
+  expect(await header.evaluate((element) => getComputedStyle(element, '::after').content)).toBe('none');
+  expect(await footer.evaluate((element) => getComputedStyle(element, '::after').content)).toBe('none');
+
+  await content.evaluate((element: HTMLIonContentElement) => (element.fullscreen = false));
+  await expect(content).not.toHaveClass(/content-fullscreen/);
+  await expect(headerToolbar).not.toHaveCSS('--background', 'transparent');
+  await expect(footerToolbar).not.toHaveCSS('--background', 'transparent');
+
+  await footer.evaluate((element: HTMLIonFooterElement) => (element.translucent = true));
+  await expect(footer).toHaveClass(/footer-translucent/);
+  expect(await footer.evaluate((element) => getComputedStyle(element, '::after').content)).toBe('none');
+});
+
 test('dark resting glass applies the directional rim to standalone and grouped controls', async ({ page }) => {
   await page.goto('/main/index/native-ui-shell');
   await page.evaluate(() => document.documentElement.classList.add('ion-palette-dark'));

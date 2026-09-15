@@ -36,7 +36,7 @@ export class TabsPage implements OnInit, ViewDidEnter, ViewDidLeave {
       if (!tabBar) {
         return;
       }
-      if (['/main/settings'].includes(params.urlAfterRedirects)) {
+      if (['/main/settings', '/main/index/toolbar'].includes(params.urlAfterRedirects)) {
         tabBar.classList.add('tab-bar-hidden');
       } else if (tabBar) {
         tabBar.classList.remove('tab-bar-hidden');

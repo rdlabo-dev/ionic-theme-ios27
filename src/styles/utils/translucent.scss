@@ -20,6 +20,18 @@ ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled).footer-translucent {
   }
 }
 
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-header.ios:not(.ios-theme-disabled, .ios26-disabled):not(.header-translucent),
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled):not(.footer-translucent) {
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    --background: transparent;
+    --opacity: 1;
+
+    &::part(background) {
+      --opacity: 0;
+    }
+  }
+}
+
 ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-translucent:not(.header-collapse-condense) {
   &:has(> ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) > *)::before {
     height: 100%;
@@ -32,6 +44,27 @@ ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-translucent:not(
 
   &:not(.ion-no-border) > ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):has(> *):last-of-type {
     --border-width: 0 0 0.5px;
+    --border-color: var(--ion-toolbar-border-color, rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.08));
+    &::part(background) {
+      --opacity: 1;
+      background: transparent;
+    }
+  }
+}
+
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled).footer-translucent {
+  &:has(> ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) > *)::before {
+    bottom: 0;
+    height: 100%;
+    background: rgba(
+      var(--ion-color-base-rgb, var(--ios-theme-content-box-shadow-rgb, var(--ios26-content-box-shadow-rgb))),
+      calc(0.2 * var(--opacity-scale, 1))
+    );
+    backdrop-filter: blur(8px);
+  }
+
+  &:not(.ion-no-border) > ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):has(> *):first-of-type {
+    --border-width: 0.5px 0 0;
     --border-color: var(--ion-toolbar-border-color, rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.08));
     &::part(background) {
       --opacity: 1;
@@ -58,6 +91,8 @@ ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-collapse-condens
 
 ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-translucent::before,
 ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-translucent::after,
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled).footer-translucent::before,
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled).footer-translucent::after,
 ion-content.ios:not(.ios-theme-disabled, .ios26-disabled).content-fullscreen::part(background)::before {
   content: '';
   position: absolute;
@@ -81,6 +116,15 @@ ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-translucent::aft
   height: 100%;
   backdrop-filter: blur(2px);
   mask-image: linear-gradient(rgba(0, 0, 0, 1) 80%, rgba(0, 0, 0, 0) 100%);
+  mask-composite: intersect;
+}
+
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled).footer-translucent::after {
+  z-index: 2;
+  bottom: 0;
+  height: 100%;
+  backdrop-filter: blur(2px);
+  mask-image: linear-gradient(rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 20%);
   mask-composite: intersect;
 }
 
