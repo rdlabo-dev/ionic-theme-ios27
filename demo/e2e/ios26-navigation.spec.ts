@@ -67,7 +67,7 @@ for (const [length, scrollTop] of [
     await expect(title).toHaveCSS('opacity', '1');
     await expect(source).toHaveCSS('opacity', '1');
     await expect(page.locator('ion-title.ion-cloned-element')).toBeHidden();
-    const shade = page.locator('.ios26-transition-shade');
+    const shade = page.locator('.ios-transition-shade');
     const shadeBounds = (await shade.boundingBox())!;
     const topBounds = (await page.locator('app-button').boundingBox())!;
     expect(shadeBounds.y).toBeCloseTo(topBounds.y, 1);

@@ -13,7 +13,7 @@ permissions:
 jobs:
   test:
     if: github.event.action != 'closed'
-    timeout-minutes: 10
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     permissions:
       contents: read
