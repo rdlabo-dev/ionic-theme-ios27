@@ -47,7 +47,10 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   &[slot='bottom'] {
     position: absolute;
-    bottom: var(--ios-theme-tab-bar-floating-safe-area-bottom, var(--ios26-tab-bar-floating-safe-area-bottom));
+    bottom: var(
+      --ios-theme-tab-bar-floating-safe-area-bottom,
+      var(--ios-theme-floating-safe-area-bottom, var(--ios26-tab-bar-floating-safe-area-bottom))
+    );
     inset-inline-start: calc(var(--ios-theme-tab-bar-inline-inset) + var(--ios-theme-safe-area-inline-start));
   }
 

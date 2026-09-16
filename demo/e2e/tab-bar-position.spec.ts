@@ -62,3 +62,23 @@ for (const direction of ['ltr', 'rtl']) {
     }
   }
 }
+
+test('tab-specific bottom placement overrides the shared compatibility token', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await page.goto('/main/index');
+  await page.evaluate(() => {
+    const bar = document.createElement('ion-tab-bar');
+    bar.id = 'bottom-token-probe';
+    bar.mode = 'ios';
+    bar.slot = 'bottom';
+    bar.style.setProperty('--ios-theme-floating-safe-area-bottom', '37px');
+    bar.innerHTML = '<ion-tab-button mode="ios">One</ion-tab-button>';
+    document.body.append(bar);
+  });
+  const bar = page.locator('#bottom-token-probe');
+  await expect(bar).toHaveClass(/hydrated/);
+  expect((await bar.boundingBox())!.y).toBeCloseTo(775, 1);
+
+  await bar.evaluate((element) => element.style.setProperty('--ios-theme-tab-bar-floating-safe-area-bottom', '43px'));
+  expect((await bar.boundingBox())!.y).toBeCloseTo(769, 1);
+});
