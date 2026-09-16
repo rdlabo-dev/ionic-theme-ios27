@@ -107,7 +107,11 @@
   backdrop-filter: blur(20px) saturate(180%);
 }
 
-@mixin glass-overlay-preferred-button {
-  background: var(--ion-color-primary, #0289ff);
-  color: var(--ion-color-primary-contrast, #fff);
+// Filled emphasis for the recommended action in presented overlays.
+@mixin glass-overlay-preferred-button($background-property: background, $color-property: color) {
+  #{$background-property}: var(--ion-color-primary, #0289ff);
+  #{$color-property}: var(--ion-color-primary-contrast, #fff);
+  &.ion-activated {
+    #{$background-property}: var(--ion-color-primary-shade, #017be5);
+  }
 }

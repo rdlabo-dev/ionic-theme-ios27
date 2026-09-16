@@ -23,26 +23,20 @@ Solid primary submit buttons use `--ion-color-primary-brightness` for their fore
 
 Use `.button-submit` when the button needs the same treatment but cannot use `type="submit"`.
 
-## Alert and action-sheet actions
+## Preferred overlay actions
 
-For the prominent action in an alert, use `role: 'preferred'`. It uses the primary
-background and contrast color; it does not change the submit-button brightness
-palette. Keep actions in the intended reading and keyboard order:
+For iOS alerts and action sheets, set `role: 'preferred'` on a button to give it a filled `--ion-color-primary` background and `--ion-color-primary-contrast` text and icons. While pressed, the background uses `--ion-color-primary-shade`. This is a theme convention using Ionic's custom button roles; it does not automatically select or invoke the action. Dismissal reports the role as `preferred`.
 
 ```ts
 const buttons = [
   { text: 'Cancel', role: 'cancel' },
-  { text: 'OK', role: 'preferred', handler: () => confirm() },
+  { text: 'Continue', role: 'preferred' },
 ];
 ```
 
-Action sheets use Ionic's existing `role: 'selected'` for this emphasis. Other
-actions stay neutral or destructive. The theme follows the centered, unanchored
-`UIAlertController` presentation measured on iOS 26.1/26.5. Use `ion-popover` for
-an anchored menu. `ios-theme-disabled` / `ios26-disabled` retain the original
-Ionic presentation. Long content remains scrollable. Optional measured animation
-builders are described in [Experimental animation](./experimental-animation.md);
-CSS alone does not replace Ionic's enter/leave animations.
+Buttons with no role or `default` keep the normal text color. `cancel` retains Ionic's cancellation behavior, `selected` remains a selection state, and `destructive` uses `--ios-theme-destructive-color`. An existing `confirm` role is not treated as preferred. Use `preferred` for the recommended action, not simply any action that confirms a choice.
+
+The theme follows the centered, unanchored `UIAlertController` presentation measured on iOS 26.1/26.5. Use `ion-popover` for an anchored menu. `ios-theme-disabled` / `ios26-disabled` retain the original Ionic presentation. Long content remains scrollable. Optional measured animation builders are described in [Experimental animation](./experimental-animation.md); CSS alone does not replace Ionic's enter/leave animations.
 
 ## Tab bar position
 
