@@ -79,8 +79,25 @@
 }
 
 @mixin ion-button {
-  ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(:has(ion-back-button, ion-button:not(.button-clear))) {
+  ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(
+      :has(ion-back-button, ion-button:not(.button-clear), > ion-button.button-clear:nth-of-type(2))
+    ) {
     @include theme-dark-buttons;
+  }
+  ion-toolbar.ios ion-buttons.ios:has(> ion-button.button-clear:nth-of-type(2)):not(:has(ion-back-button)) {
+    > ion-button.button-clear::part(native) {
+      @include glass.dark-fill;
+      @include glass.dark-rim;
+      box-shadow: none;
+    }
+    > ion-button.button-clear.ion-activated {
+      color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
+      --color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
+      &::part(native) {
+        @include api.glass-background-button-activated-dark;
+        color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
+      }
+    }
   }
   ion-button:not(.ios-theme-disabled, .ios26-disabled) {
     @include theme-dark-button;

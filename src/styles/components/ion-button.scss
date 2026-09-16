@@ -444,8 +444,56 @@ $scaleup-large-icon-only: 1.22;
 
 ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(
     :has(ion-back-button, ion-button:not(.button-clear), ion-menu-button.menu-button-hidden)
-  ) {
+  ):not(:has(> ion-button.button-clear:nth-of-type(2))) {
   @include theme-buttons;
+}
+
+// UINavigationBar does not merge adjacent UIBarButtonItems into one platter.
+// Keep ion-buttons as layout only and render each plain action independently.
+ion-toolbar.ios
+  ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):has(> ion-button.button-clear:nth-of-type(2)):not(
+    :has(ion-back-button, ion-menu-button.menu-button-hidden)
+  ) {
+  gap: 12px;
+
+  > ion-button.button-clear:not(.ios-theme-disabled, .ios26-disabled) {
+    margin: 0;
+    color: rgb(var(--ion-text-color-rgb, 0, 0, 0));
+    --padding-bottom: 0;
+    --padding-top: 0;
+    --padding-start: 16px;
+    --padding-end: 16px;
+
+    &.button-has-icon-only {
+      --padding-bottom: 2px;
+      --padding-top: 2px;
+      --padding-start: 2px;
+      --padding-end: 2px;
+    }
+
+    &::part(native) {
+      min-height: 44px;
+      border-radius: 22px;
+      background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+      backdrop-filter: blur(8px) saturate(250%);
+      @include glass.light-rim;
+      @include glass.light-shadow($geometry: 0 2px 8px -2px);
+    }
+
+    &.ion-activated {
+      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+      --color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+      transform: scale($scaleup-default);
+
+      &::part(native) {
+        color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.1);
+      }
+
+      &.button-has-icon-only {
+        transform: scale($scaleup-default-icon-only);
+      }
+    }
+  }
 }
 
 // Ionic's collapsing-header transition has a more specific contextual selector.
@@ -453,7 +501,7 @@ ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(
   :where(ion-toolbar.in-toolbar)
   ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(
     :has(ion-back-button, ion-button:not(.button-clear), ion-menu-button.menu-button-hidden)
-  ) {
+  ):not(:has(> ion-button.button-clear:nth-of-type(2))) {
   transition: transform var(--ios-theme-activated-transition-duration, var(--ios26-activated-transition-duration)) ease-out;
 }
 
