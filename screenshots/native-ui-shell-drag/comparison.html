@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Native UI Shell: tab drag comparison</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f4f6f9;
+        color: #17212f;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 48px 24px 64px; }
+      main { max-width: 1220px; margin: 0 auto; }
+      h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.035em; }
+      .lead { margin: 0 0 36px; color: #516073; font-size: 17px; line-height: 1.5; }
+      .comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+      .panel { min-width: 0; }
+      .label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+      h2 { margin: 0; font-size: 23px; letter-spacing: -.02em; }
+      .badge { border-radius: 999px; padding: 6px 11px; font-size: 13px; font-weight: 650; white-space: nowrap; }
+      .web { background: #e5ebf3; color: #324765; }
+      .native { background: #dcebf9; color: #075392; }
+      .phone { width: min(100%, 440px); margin: 0 auto; padding: 8px; background: #15191e; border: 2px solid #505963; border-radius: 48px; box-shadow: 0 18px 44px #25354d29; overflow: hidden; }
+      .phone img { width: 100%; display: block; border-radius: 39px; }
+      .detail-heading { margin: 46px 0 14px; font-size: 20px; }
+      .detail { height: 285px; position: relative; overflow: hidden; border: 1px solid #c8d3df; border-radius: 20px; background: white; }
+      .detail img { position: absolute; width: 100%; height: auto; bottom: 0; left: 0; transform: scale(1.65); transform-origin: center bottom; }
+      .caption { color: #516073; line-height: 1.5; margin: 12px 0 0; }
+      .method { margin: 38px 0 0; color: #68778a; font-size: 13px; line-height: 1.5; }
+      @media (max-width: 760px) {
+        body { padding: 28px 16px 40px; }
+        .comparison { grid-template-columns: 1fr; gap: 42px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Tab drag: Web UI and Native UI Shell</h1>
+      <p class="lead">The same Ionic Library screen on an iPhone 18 Pro simulator running iOS 27. Both frames were captured while dragging the selected tab toward Docs.</p>
+      <div class="comparison">
+        <section class="panel">
+          <div class="label"><h2>Native UI Shell off</h2><span class="badge web">Web glass</span></div>
+          <div class="phone"><img src="web-ui.png" alt="Ionic Library screen with a Web-rendered tab selection held over Docs" /></div>
+          <h3 class="detail-heading">Tab bar, enlarged</h3>
+          <div class="detail"><img src="web-ui.png" alt="Enlarged Web tab bar while dragging" /></div>
+          <p class="caption">The Ionic tab bar and its selection effect are rendered in the WebView.</p>
+        </section>
+        <section class="panel">
+          <div class="label"><h2>Native UI Shell on</h2><span class="badge native">UIKit glass</span></div>
+          <div class="phone"><img src="native-ui.png" alt="Ionic Library screen with a native UIKit tab selection held over Docs" /></div>
+          <h3 class="detail-heading">Tab bar, enlarged</h3>
+          <div class="detail"><img src="native-ui.png" alt="Enlarged native UIKit tab bar showing optical refraction while dragging" /></div>
+          <p class="caption">The same Ionic labels, icons, and selection are projected into <code>UITabBar</code> with the system's Liquid Glass material.</p>
+        </section>
+      </div>
+      <p class="method">Capture method: same iOS 27 simulator, seeded gallery images, and XCTest press-and-drag coordinates. Only Native UI Shell startup differed. The native run verified that UIKit's <code>UITabBar</code> was present.</p>
+    </main>
+  </body>
+</html>
