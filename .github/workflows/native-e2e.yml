@@ -18,7 +18,7 @@ concurrency:
 jobs:
   suite:
     timeout-minutes: 75
-    runs-on: macos-26
+    runs-on: xcode-27-arm64
     strategy:
       fail-fast: false
       matrix:
