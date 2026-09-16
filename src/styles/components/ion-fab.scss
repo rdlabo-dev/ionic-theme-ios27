@@ -102,7 +102,7 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   &.fab-horizontal-end {
-    inset-inline-end: calc(16px + var(--ios-theme-safe-area-inline-end));
+    inset-inline-end: calc(21px + var(--ios-theme-safe-area-inline-end));
   }
 
   &:has(.fab-button-small) {

@@ -161,15 +161,17 @@ test.describe('iOS26 tab gesture lifecycle', () => {
       const buttons = bar.locator('ion-tab-button');
       await expect(buttons).toHaveCount(count);
       const outer = (await bar.boundingBox())!;
+      const nativeOuterWidths = [102, 188, 290, 290, 360];
+      const nativeCellWidths = [94, 94, 100 + 2 / 3, 76, 77];
+      const nativeCellStrides = [0, 86, 90 + 2 / 3, 68 + 2 / 3, 68.75];
       expect(outer.height).toBeCloseTo(62, 1);
-      expect(outer.width).toBeCloseTo([102, 188, 274, 302, 360][count - 1], 1);
+      expect(outer.width).toBeCloseTo(nativeOuterWidths[count - 1], 1);
       const boxes = await Promise.all(Array.from({ length: count }, (_, index) => buttons.nth(index).boundingBox()));
       for (let index = 0; index < count; index++) {
         const box = boxes[index]!;
-        expect(box.x).toBeGreaterThanOrEqual(outer.x + 3.9);
-        expect(box.x + box.width).toBeLessThanOrEqual(outer.x + outer.width - 3.9);
+        expect(box.x - outer.x).toBeCloseTo(4 + index * nativeCellStrides[count - 1], 1);
+        expect(box.width).toBeCloseTo(nativeCellWidths[count - 1], 1);
         expect(box.height).toBeCloseTo(54, 1);
-        if (index) expect(box.x).toBeGreaterThan(boxes[index - 1]!.x);
       }
       if (count < 5) {
         const fab = (await page.locator(`#${id}-fab`).boundingBox())!;
@@ -201,7 +203,8 @@ test.describe('iOS26 tab gesture lifecycle', () => {
     });
   }
 
-  // Layout safety across sizes matters; fractional native width discontinuities do not.
+  // Explicit widths may override the native fixture geometry, but cells must
+  // continue to fit at both compact and roomy sizes.
   for (const ipad of [false, true]) {
     for (const count of [4, 5]) {
       test(`${ipad ? 'iPad' : 'iPhone'} ${count}-tab cells fit narrow and roomy bars`, async ({ page }) => {

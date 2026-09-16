@@ -64,8 +64,19 @@ ion-action-sheet.ios:not(.ios-theme-disabled, .ios26-disabled) {
           content: none;
         }
         &.action-sheet-destructive {
-          --button-color: var(--ion-color-danger, #c5000f);
-          --button-color-hover: var(--ion-color-danger, #c5000f);
+          --button-color: var(--ios-theme-destructive-color, var(--ion-color-danger, #c5000f));
+          --button-color-hover: var(--button-color);
+        }
+        &.action-sheet-preferred {
+          @include api.glass-overlay-preferred-button(--button-background, --button-color);
+          font-weight: 600;
+        }
+        &.action-sheet-destructive,
+        &.action-sheet-preferred {
+          color: var(--button-color);
+          --button-color-hover: var(--button-color);
+          --button-color-activated: var(--button-color);
+          --button-color-focused: var(--button-color);
         }
         &.action-sheet-selected {
           --button-background: var(--ion-color-primary, #0289ff);

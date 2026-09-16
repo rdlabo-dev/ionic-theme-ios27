@@ -66,7 +66,7 @@ ion-alert.ios:not(.ios-theme-disabled, .ios26-disabled) {
           min-height: 0;
         }
         &.alert-button-role-destructive {
-          color: var(--ion-color-danger, #ff383c);
+          color: var(--ios-theme-destructive-color, var(--ion-color-danger, #ff383c));
         }
         &.alert-button-role-preferred {
           @include api.glass-overlay-preferred-button;
