@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { setConfig } from '../transition/ios.transition';
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellPlugin, WebViewMetrics } from './definitions';
+import { bindMetricsLifecycle } from './lifecycle';
 import { createRuntime } from './runtime';
 export type {
   NativeUIShellComponent,
@@ -48,16 +49,11 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         return web('Requires iOS 26 or later');
       }
       const runtime = await createRuntime(document, plugin, options);
-      const metricsListener = await plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius }));
-      return {
-        getStatus: runtime.getStatus,
-        suspend: runtime.suspend,
-        async destroy() {
-          await metricsListener.remove();
-          await runtime.destroy();
-          active = undefined;
-        },
-      };
+      return await bindMetricsLifecycle(
+        runtime,
+        () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
+        () => (active = undefined),
+      );
     } catch (error) {
       active = undefined;
       return web(error instanceof Error ? error.message : String(error));
