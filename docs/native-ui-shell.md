@@ -24,6 +24,14 @@ import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
 void enableNativeUIShell();
 ```
 
+`enableNativeUIShell()` also reads the WebView's effective top-left corner radius and applies it to page transitions. To configure only the transition without enabling native controls, call:
+
+```ts
+import { configureNativeTransition } from '@rdlabo/ionic-theme-ios27/native';
+
+await configureNativeTransition();
+```
+
 Keep the existing `navAnimation: iosTransitionAnimation` setting. No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
 
 This is an opt-in feature. The ordinary package entry point does not import Capacitor, and `@capacitor/core` is an optional peer dependency. Native sources are still detected and built by Capacitor's sync when this package is installed in a Capacitor project, even if the application does not call `enableNativeUIShell()`.
@@ -123,6 +131,70 @@ await shell.destroy(); // restore DOM, remove native controls and release listen
 ```
 
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
+
+## Plugin API
+
+Application code should normally use `configureNativeTransition()` or `enableNativeUIShell()`. The generated reference below documents the low-level Capacitor contract used to read and observe WebView geometry; the internal control-snapshot protocol is intentionally excluded.
+
+<docgen-index>
+
+* [`getWebViewMetrics()`](#getwebviewmetrics)
+* [`addListener('webViewMetricsChange', ...)`](#addlistenerwebviewmetricschange-)
+* [Interfaces](#interfaces)
+
+</docgen-index>
+
+<docgen-api>
+<!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
+
+### getWebViewMetrics()
+
+```typescript
+getWebViewMetrics() => Promise<WebViewMetrics>
+```
+
+Reads geometry derived from the current native WebView. Unsupported iOS versions return a zero radius.
+
+**Returns:** <code>Promise&lt;<a href="#webviewmetrics">WebViewMetrics</a>&gt;</code>
+
+--------------------
+
+
+### addListener('webViewMetricsChange', ...)
+
+```typescript
+addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void) => Promise<PluginListenerHandle>
+```
+
+Listens for metrics refreshed after orientation changes or when the app becomes active.
+
+| Param          | Type                                                                          |
+| -------------- | ----------------------------------------------------------------------------- |
+| **`name`**     | <code>'webViewMetricsChange'</code>                                           |
+| **`listener`** | <code>(event: <a href="#webviewmetrics">WebViewMetrics</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### Interfaces
+
+
+#### WebViewMetrics
+
+| Prop         | Type                | Description                                                                        |
+| ------------ | ------------------- | ---------------------------------------------------------------------------------- |
+| **`radius`** | <code>number</code> | The WebView's effective top-left corner radius in points, or `0` when unavailable. |
+
+
+#### PluginListenerHandle
+
+| Prop         | Type                                      |
+| ------------ | ----------------------------------------- |
+| **`remove`** | <code>() =&gt; Promise&lt;void&gt;</code> |
+
+</docgen-api>
 
 ## Source layout
 

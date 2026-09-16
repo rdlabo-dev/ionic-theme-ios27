@@ -98,10 +98,28 @@ export interface ShellActivation {
   sequence: number;
 }
 
+export interface WebViewMetrics {
+  /** The WebView's effective top-left corner radius in points, or `0` when unavailable. */
+  radius: number;
+}
+
 export interface NativeUIShellPlugin {
+  /** Reads geometry derived from the current native WebView. Unsupported iOS versions return a zero radius. */
+  getWebViewMetrics(): Promise<WebViewMetrics>;
+  /** Listens for metrics refreshed after orientation changes or when the app becomes active. */
+  addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
+}
+
+/** Internal bridge contract used to synchronize projected Ionic controls. */
+export interface NativeUIShellBridgePlugin extends NativeUIShellPlugin {
   configure(): Promise<{ supported: boolean }>;
+  /** Applies a complete, revisioned snapshot of supported Ionic controls. */
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
+  /** Removes projected native controls through the supplied revision. */
   clear(options: { revision: number }): Promise<void>;
+  /** Listens for activation of a projected native control. */
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
+  /** Listens for edits and lifecycle changes from a projected native search field. */
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
 }

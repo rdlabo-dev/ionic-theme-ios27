@@ -2,7 +2,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
 import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
-import type { ShellActivation, ShellSnapshot, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus } from './definitions';
+import type { ShellActivation, ShellSnapshot, NativeUIShellBridgePlugin, NativeUIShellHandle, NativeUIShellStatus } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector } from './components';
 import { marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
@@ -20,7 +20,7 @@ const bounded = <T>(promise: Promise<T>): Promise<T> =>
     promise.then(resolve, reject).finally(() => clearTimeout(timer));
   });
 
-export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin): Promise<NativeUIShellHandle> => {
+export const createRuntime = async (doc: Document, plugin: NativeUIShellBridgePlugin): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);

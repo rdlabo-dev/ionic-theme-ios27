@@ -27,9 +27,10 @@
     "Package.swift"
   ],
   "scripts": {
-    "build": "npm run build:css && npm run build:ts",
+    "build": "npm run docgen && npm run build:css && npm run build:ts",
     "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map --pkg-importer=node",
     "build:ts": "tsc",
+    "docgen": "docgen --project tsconfig.docgen.json --api NativeUIShellPlugin --output-readme docs/native-ui-shell.md",
     "build:demo": "npm run build && cd demo && npm install && npm run build -- --configuration=production",
     "lint": "prettier --check \"./**/*.{scss,ts}\" &&  prettier --parser angular --check \"./**/*.html\"",
     "fmt": "prettier --write \"./**/*.{scss,ts}\" &&  prettier --parser angular --write \"./**/*.html\"",
@@ -59,6 +60,7 @@
   "devDependencies": {
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
+    "@rdlabo/capacitor-docgen": "^0.4.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.1",
     "np": "^10.2.0",

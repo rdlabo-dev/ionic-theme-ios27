@@ -8,6 +8,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     public let jsName = "IonicNativeUIShell"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
     ]
@@ -45,6 +46,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     }
                 }
                 if keyboard { self.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh") }
+                else if name == UIDevice.orientationDidChangeNotification { self.notifyWebViewMetricsChange() }
             })
         }
         for name in [UIApplication.didBecomeActiveNotification, UIResponder.keyboardDidHideNotification,
@@ -52,12 +54,38 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 if name == UIResponder.keyboardDidHideNotification { self?.keyboardVisible = false }
                 self?.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh", data: name == UIApplication.didBecomeActiveNotification ? "{\"retireSearch\":true}" : "{}")
+                if name == UIApplication.didBecomeActiveNotification { self?.notifyWebViewMetricsChange() }
             })
         }
     }
 
     deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    private func webViewMetrics() -> JSObject? {
+        guard #available(iOS 26.0, *), let webView = bridge?.webView else { return nil }
+        webView.layoutIfNeeded()
+        return ["radius": Double(webView.effectiveRadius(corner: .topLeft))]
+    }
+
+    private func notifyWebViewMetricsChange() {
+        guard let metrics = webViewMetrics() else { return }
+        notifyListeners("webViewMetricsChange", data: metrics)
+    }
+
+    @objc func getWebViewMetrics(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard #available(iOS 26.0, *) else {
+                call.resolve(["radius": 0])
+                return
+            }
+            guard let metrics = self?.webViewMetrics() else {
+                call.reject("WebView unavailable")
+                return
+            }
+            call.resolve(metrics)
+        }
     }
 
     @objc func configure(_ call: CAPPluginCall) {

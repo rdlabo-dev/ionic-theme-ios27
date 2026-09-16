@@ -6,7 +6,7 @@ import {
   setNativeUIShellIntegration,
 } from '../../src/native-integration';
 import type { Animation } from '@ionic/core';
-import { enableNativeUIShell } from '../../src/native';
+import { configureNativeTransition, enableNativeUIShell } from '../../src/native';
 
 const fixture = () => {
   const doc = {} as Document;
@@ -87,6 +87,7 @@ test('without native enablement the animation remains untouched', () => {
 });
 
 test('server rendering has no DOM side effects', async () => {
+  await expect(configureNativeTransition()).resolves.toEqual({ radius: 0 });
   const handle = await enableNativeUIShell();
   expect(handle.getStatus().state).toBe('web');
   expect(handle.getStatus().projected).toBe(0);
