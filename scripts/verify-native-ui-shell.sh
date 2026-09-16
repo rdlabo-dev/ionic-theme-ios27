@@ -6,7 +6,12 @@ set -eu
 
 simulator=${1:?Usage: sh scripts/verify-native-ui-shell.sh SIMULATOR_UDID}
 repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-artifacts=$(mktemp -d /tmp/ionic-native-ui-shell-verification.XXXXXX)
+if [ "${VERIFY_ARTIFACTS_DIR:-}" ]; then
+  artifacts=$VERIFY_ARTIFACTS_DIR
+  mkdir -p "$artifacts"
+else
+  artifacts=$(mktemp -d /tmp/ionic-native-ui-shell-verification.XXXXXX)
+fi
 printf 'Native UI Shell verification artifacts: %s\n' "$artifacts"
 
 cd "$repo"
@@ -26,7 +31,14 @@ mkdir -p "$artifacts/consumer/www"
 cp "$repo/demo/native-package-fixture/app.js" "$repo/demo/native-package-fixture/capacitor.config.json" "$artifacts/consumer/"
 cp "$repo/demo/native-package-fixture/index.html" "$artifacts/consumer/www/"
 cd "$artifacts/consumer"
-npm install --ignore-scripts "$artifacts/$archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @ionic/core@8.8.19
+# --ignore-scripts would skip the git dependency's prepare script, leaving
+# @rdlabo/ionic-theme-utils without its dist build.
+npm install "$artifacts/$archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @ionic/core@8.8.19
+# Some npm versions skip `prepare` for transitive git dependencies; build the
+# utils dist explicitly when it was not produced.
+if [ ! -f node_modules/@rdlabo/ionic-theme-utils/dist/index.js ]; then
+  (cd node_modules/@rdlabo/ionic-theme-utils && npm install --no-save --no-audit --no-fund typescript && npm run build)
+fi
 "$repo/demo/node_modules/.bin/esbuild" app.js --bundle --format=esm --outdir=www
 npx cap add ios --packagemanager SPM
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
