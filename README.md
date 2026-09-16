@@ -1,13 +1,11 @@
 # Ionic Theme iOS27
 
-A CSS/JS theme library that brings the iOS 27 Liquid Glass appearance and navigation animations to Ionic applications while preserving Ionic components and conventions.
+A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web, with an optional way to project existing Ionic controls into native UI.
 
 > [!IMPORTANT]
 > This `main` branch contains the iOS 27 theme under the package name `@rdlabo/ionic-theme-ios27`. For the iOS 26 theme (`@rdlabo/ionic-theme-ios26`), see the [`ios26` branch](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios26).
 
 > All versions before 1.0.0 are release candidates (RC). APIs, CSS variables, classes, styling, and behavior may change without backward compatibility, including in minor and patch releases. A stable compatibility commitment starts with 1.0.0.
-
-[Try the iOS 27 demo](https://ionic-theme-ios27.rdlabo.dev/).
 
 <!-- rdlabo-docs-pick -->
 
@@ -19,9 +17,23 @@ A CSS/JS theme library that brings the iOS 27 Liquid Glass appearance and naviga
 
 <!-- /rdlabo-docs-pick -->
 
+## Features
+
+### Bring the iOS 27 look to Ionic
+
+Give familiar Ionic screens the iOS 27 visual language: Liquid Glass, styled toolbars and tabs, lists, buttons, search, overlays, page transitions, and coordinated light and dark appearances. See the result in the [Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) and [Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/).
+
+### Project your Ionic UI into Native UI
+
+On Capacitor iOS, the optional, experimental [Native UI Shell](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) reads supported fixed controls from your existing Ionic markup. It projects their text, resolved `ion-icon` artwork or supported static SVGs, and selection state into UIKit controls with system Liquid Glass. Changes and native actions flow through the original Ionic components, so the Web and native presentations share one UI definition. Page content and routing stay in the WebView; unsupported layouts keep their Web presentation.
+
+### Follow the user's device
+
+Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [adaptive setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) uses browser feature checks to select the corresponding theme styles and animations; it does not read the iOS version. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
+
 ## Installation
 
-Capacitor apps can optionally use an experimental [Native UI Shell](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell): fixed Ionic navigation and action controls rendered by UIKit with system Liquid Glass, while page content, application logic and routing remain in the WebView. The guide covers the idea's origins, the one-time startup call, supported components and fallback behavior.
+The steps below install the iOS 27 theme on its own. To switch between the iOS 26 and iOS 27 themes, follow [Adaptive iOS themes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) instead of using the unconditional stylesheet imports and animation setup below.
 
 Requires `@ionic/core` 8.8.1 or later (Ionic 8 and 9). Install it in an existing Ionic project:
 
@@ -91,6 +103,8 @@ createApp(App)
         popoverLeave: isPlatform('ios') ? popoverLeaveAnimation: undefined,
 })
 ```
+
+To enable Native UI Shell, follow its [setup guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell). Importing the theme's styles alone does not turn on native controls.
 
 The page-transition radius defaults to `0`. Native apps can update it after measuring the web view:
 
@@ -175,13 +189,13 @@ createApp(App)
 
 **Full documentation:** [Ionic Theme iOS27](https://docs.rdlabo.dev/projects/ionic-theme-ios27)
 
-- [Adaptive iOS themes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) — conditionally load iOS 26 or iOS 27 styles.
+- [Adaptive iOS themes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) — select iOS 26 or iOS 27 styles and animations by browser capabilities.
 - [Using ion-item-group](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/using-ion-item-group) — required markup for inset lists.
 - [Special markup and classes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/special-markup) — opt-in markup and utility classes used by the theme.
 - [ESLint](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/eslint) — check list structure with ESLint rules.
 - [Features](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/features) — CSS variables, Liquid Glass, selective imports, and dark mode.
-- [Native UI Shell (Experimental)](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) — native controls around Web content, using the included Capacitor plugin.
-- [Animation](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/experimental-animation) — tab bar and searchable effects.
+- [Native UI Shell (Experimental)](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) — project supported Ionic controls, text, and icons into UIKit.
+- [Animation](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/experimental-animation) — tab, segment, and searchable effects.
 - [Migration](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) — stylesheet, class, and CSS variable naming changes.
 - [iOS 26 migration history](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration) — earlier major-version changes for the previous package.
 
@@ -208,7 +222,7 @@ npm start
 
 ### Visual Regression Testing
 
-We use Playwright for visual regression testing to ensure consistent styling across all components. The test suite automatically captures screenshots of all routes in both light and dark modes.
+Playwright compares screenshots of demo routes in light and dark modes against stored baselines to catch unintended visual changes. These regression tests do not measure similarity to iOS 27 reference screens.
 
 #### Running Tests
 
