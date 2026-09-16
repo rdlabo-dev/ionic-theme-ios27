@@ -1,0 +1,57 @@
+name: Native Parity E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * 0'
+  # Temporary while validating this workflow on the branch; remove before
+  # considering PR gating.
+  push:
+    branches:
+      - ci/native-e2e-ios26
+
+concurrency:
+  group: native-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    timeout-minutes: 45
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+      - name: Install xcodegen
+        run: brew install xcodegen
+      - name: Fetch shared simulator setup script
+        run: |
+          sha=$(jq -r '.packages["node_modules/@rdlabo/ionic-theme-utils"].resolved' package-lock.json | sed 's/.*#//')
+          curl -fsSL "https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-utils/$sha/scripts/ci-simulator.sh" -o "$RUNNER_TEMP/ci-simulator.sh"
+      - name: Create and boot simulator
+        run: sh "$RUNNER_TEMP/ci-simulator.sh" "iPhone 17" "iOS 26.5"
+      - name: Install dependencies
+        run: npm ci && npm ci --prefix demo
+      - name: Run native parity suite
+        env:
+          VERIFY_ARTIFACTS_DIR: ${{ runner.temp }}/ios26-parity
+        run: sh scripts/verify-ios26-parity.sh "$SIM_UDID"
+      - name: Upload parity artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios26-parity-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/ios26-parity
+          if-no-files-found: ignore
+      - name: Clean up simulator
+        if: always()
+        run: |
+          if [ -n "${SIM_UDID:-}" ]; then
+            xcrun simctl shutdown "$SIM_UDID" || true
+            xcrun simctl delete "$SIM_UDID" || true
+          fi

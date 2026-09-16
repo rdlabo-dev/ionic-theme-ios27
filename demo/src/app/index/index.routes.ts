@@ -43,6 +43,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/modal/modal.page').then((m) => m.ModalPage),
   },
   {
+    path: 'native-ui-shell',
+    loadComponent: () => import('./pages/native-ui-shell/native-ui-shell.page').then((m) => m.NativeUIShellPage),
+  },
+  {
     path: 'card',
     loadComponent: () => import('./pages/card/card.page').then((m) => m.CardPage),
   },

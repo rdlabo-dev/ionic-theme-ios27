@@ -64,6 +64,7 @@ export class IndexPageComponent {
     { name: 'inputs', enable: true },
     { name: 'item-list', enable: true },
     { name: 'modal', enable: true },
+    { name: 'native-ui-shell', enable: true },
     { name: 'popover', enable: true },
     { name: 'progress-indicators', enable: true },
     { name: 'radio', enable: true },

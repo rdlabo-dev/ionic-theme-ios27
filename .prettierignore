@@ -1,5 +1,6 @@
 node_modules
 dist
 www
+demo/ios/App/App/public
 demo/playwright-report
 demo/test-results
