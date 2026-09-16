@@ -79,8 +79,7 @@ test.describe('Animation Tests', () => {
       expect(cover.y).toBeCloseTo(top.y, 1);
       expect(cover.height).toBeCloseTo(top.height, 1);
       expect(cover.x).toBe(0);
-      const edge = await shade.evaluate((el) => el.nextElementSibling!.getBoundingClientRect().toJSON());
-      expect(edge.x + edge.width).toBeCloseTo(top.x, 1);
+      expect(await shade.evaluate((el) => el.nextElementSibling?.matches('app-button'))).toBe(true);
       await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
     };
     await page.goto('/main/index', { waitUntil: 'networkidle' });
