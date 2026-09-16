@@ -2,7 +2,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
 import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
-import type { ShellActivation, ShellSnapshot, NativeUIShellBridgePlugin, NativeUIShellHandle, NativeUIShellStatus } from './definitions';
+import type { ShellActivation, ShellSnapshot, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector } from './components';
 import { marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
@@ -20,7 +20,7 @@ const bounded = <T>(promise: Promise<T>): Promise<T> =>
     promise.then(resolve, reject).finally(() => clearTimeout(timer));
   });
 
-export const createRuntime = async (doc: Document, plugin: NativeUIShellBridgePlugin): Promise<NativeUIShellHandle> => {
+export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
@@ -30,6 +30,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellBridgePl
   const suspended = new Set<HTMLElement[]>();
   const pages = new Set<HTMLElement>();
   const presented = new Set<HTMLElement>();
+  const manualSuspensions = new Set<symbol>();
   const moving = new Map<HTMLElement, Set<string>>();
   const observed = new Set<Element | ShadowRoot>();
   const listeners = new AbortController();
@@ -108,6 +109,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellBridgePl
   const overlayOpen = () => {
     for (const element of presented) if (!element.isConnected) presented.delete(element);
     return (
+      manualSuspensions.size > 0 ||
       presented.size > 0 ||
       Array.from(doc.querySelectorAll(overlays)).some(
         (element) => (element as Element & { presented?: boolean }).presented || element.classList.contains('show-menu'),
@@ -375,6 +377,23 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellBridgePl
       updates,
       reason,
     }),
+    async suspend() {
+      const token = Symbol();
+      let resumed = false;
+      if (!stopped) {
+        manualSuspensions.add(token);
+        getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
+        await flush();
+      }
+      return {
+        async resume() {
+          if (resumed) return;
+          resumed = true;
+          if (stopped || !manualSuspensions.delete(token)) return;
+          await flush();
+        },
+      };
+    },
     async destroy() {
       if (stopped) return;
       stopped = true;
@@ -399,6 +418,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellBridgePl
       icons.clear();
       pages.clear();
       presented.clear();
+      manualSuspensions.clear();
       moving.clear();
       suspended.clear();
       await listener?.remove().catch(() => {});

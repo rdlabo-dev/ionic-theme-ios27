@@ -11,8 +11,17 @@ export interface NativeUIShellStatus {
 }
 
 export interface NativeUIShellHandle {
+  /** Returns the current Web/native projection state. */
   getStatus(): NativeUIShellStatus;
+  /** Restores projected controls to the Web until the returned lease is resumed. */
+  suspend(): Promise<NativeUIShellSuspension>;
+  /** Stops synchronization, restores Web controls and releases native resources. */
   destroy(): Promise<void>;
+}
+
+export interface NativeUIShellSuspension {
+  /** Releases this suspension. Native projection resumes after all active suspensions are released. */
+  resume(): Promise<void>;
 }
 
 export interface Frame {
@@ -104,22 +113,11 @@ export interface WebViewMetrics {
 }
 
 export interface NativeUIShellPlugin {
-  /** Reads geometry derived from the current native WebView. Unsupported iOS versions return a zero radius. */
-  getWebViewMetrics(): Promise<WebViewMetrics>;
-  /** Listens for metrics refreshed after orientation changes or when the app becomes active. */
-  addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
-}
-
-/** Internal bridge contract used to synchronize projected Ionic controls. */
-export interface NativeUIShellBridgePlugin extends NativeUIShellPlugin {
   configure(): Promise<{ supported: boolean }>;
-  /** Applies a complete, revisioned snapshot of supported Ionic controls. */
+  getWebViewMetrics(): Promise<WebViewMetrics>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
-  /** Removes projected native controls through the supplied revision. */
   clear(options: { revision: number }): Promise<void>;
-  /** Listens for activation of a projected native control. */
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
-  /** Listens for edits and lifecycle changes from a projected native search field. */
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
   addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
 }

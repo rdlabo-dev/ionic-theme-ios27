@@ -91,6 +91,9 @@ test('server rendering has no DOM side effects', async () => {
   const handle = await enableNativeUIShell();
   expect(handle.getStatus().state).toBe('web');
   expect(handle.getStatus().projected).toBe(0);
+  const suspension = await handle.suspend();
+  await suspension.resume();
+  await suspension.resume();
   await handle.destroy();
 });
 

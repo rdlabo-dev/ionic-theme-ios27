@@ -130,16 +130,32 @@ console.log(shell.getStatus()); // state, projected control count, update count,
 await shell.destroy(); // restore DOM, remove native controls and release listeners/cache
 ```
 
+For a custom modal or overlay that Native UI Shell cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
+
+```ts
+const suspension = await shell.suspend();
+
+try {
+  await modal.present();
+  await modal.onDidDismiss();
+} finally {
+  await suspension.resume();
+}
+```
+
+Suspensions are nestable and `resume()` is idempotent. Native projection resumes only after every active suspension has been released, using the current DOM rather than a stale snapshot.
+
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
 
-## Plugin API
+## Native UI Shell API
 
-Application code should normally use `configureNativeTransition()` or `enableNativeUIShell()`. The generated reference below documents the low-level Capacitor contract used to read and observe WebView geometry; the internal control-snapshot protocol is intentionally excluded.
+The generated reference below documents the handle returned by `enableNativeUIShell()`. The underlying Capacitor bridge and its control-snapshot protocol are implementation details.
 
 <docgen-index>
 
-* [`getWebViewMetrics()`](#getwebviewmetrics)
-* [`addListener('webViewMetricsChange', ...)`](#addlistenerwebviewmetricschange-)
+* [`getStatus()`](#getstatus)
+* [`suspend()`](#suspend)
+* [`destroy()`](#destroy)
 * [Interfaces](#interfaces)
 
 </docgen-index>
@@ -147,33 +163,39 @@ Application code should normally use `configureNativeTransition()` or `enableNat
 <docgen-api>
 <!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
 
-### getWebViewMetrics()
+### getStatus()
 
 ```typescript
-getWebViewMetrics() => Promise<WebViewMetrics>
+getStatus() => NativeUIShellStatus
 ```
 
-Reads geometry derived from the current native WebView. Unsupported iOS versions return a zero radius.
+Returns the current Web/native projection state.
 
-**Returns:** <code>Promise&lt;<a href="#webviewmetrics">WebViewMetrics</a>&gt;</code>
+**Returns:** <code><a href="#nativeuishellstatus">NativeUIShellStatus</a></code>
 
 --------------------
 
 
-### addListener('webViewMetricsChange', ...)
+### suspend()
 
 ```typescript
-addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void) => Promise<PluginListenerHandle>
+suspend() => Promise<NativeUIShellSuspension>
 ```
 
-Listens for metrics refreshed after orientation changes or when the app becomes active.
+Restores projected controls to the Web until the returned lease is resumed.
 
-| Param          | Type                                                                          |
-| -------------- | ----------------------------------------------------------------------------- |
-| **`name`**     | <code>'webViewMetricsChange'</code>                                           |
-| **`listener`** | <code>(event: <a href="#webviewmetrics">WebViewMetrics</a>) =&gt; void</code> |
+**Returns:** <code>Promise&lt;<a href="#nativeuishellsuspension">NativeUIShellSuspension</a>&gt;</code>
 
-**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+--------------------
+
+
+### destroy()
+
+```typescript
+destroy() => Promise<void>
+```
+
+Stops synchronization, restores Web controls and releases native resources.
 
 --------------------
 
@@ -181,18 +203,21 @@ Listens for metrics refreshed after orientation changes or when the app becomes 
 ### Interfaces
 
 
-#### WebViewMetrics
+#### NativeUIShellStatus
 
-| Prop         | Type                | Description                                                                        |
-| ------------ | ------------------- | ---------------------------------------------------------------------------------- |
-| **`radius`** | <code>number</code> | The WebView's effective top-left corner radius in points, or `0` when unavailable. |
+| Prop            | Type                                        |
+| --------------- | ------------------------------------------- |
+| **`state`**     | <code>'native' \| 'stopped' \| 'web'</code> |
+| **`projected`** | <code>number</code>                         |
+| **`updates`**   | <code>number</code>                         |
+| **`reason`**    | <code>string</code>                         |
 
 
-#### PluginListenerHandle
+#### NativeUIShellSuspension
 
-| Prop         | Type                                      |
-| ------------ | ----------------------------------------- |
-| **`remove`** | <code>() =&gt; Promise&lt;void&gt;</code> |
+| Method     | Signature                    | Description                                                                                    |
+| ---------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| **resume** | () =&gt; Promise&lt;void&gt; | Releases this suspension. Native projection resumes after all active suspensions are released. |
 
 </docgen-api>
 

@@ -1,13 +1,20 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { setConfig } from '../transition/ios.transition';
-import type { NativeUIShellBridgePlugin, NativeUIShellHandle, WebViewMetrics } from './definitions';
+import type { NativeUIShellHandle, NativeUIShellPlugin, WebViewMetrics } from './definitions';
 import { createRuntime } from './runtime';
-export type { NativeUIShellComponent, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus, WebViewMetrics } from './definitions';
+export type {
+  NativeUIShellComponent,
+  NativeUIShellHandle,
+  NativeUIShellStatus,
+  NativeUIShellSuspension,
+  WebViewMetrics,
+} from './definitions';
 
-const plugin = registerPlugin<NativeUIShellBridgePlugin>('IonicNativeUIShell');
+const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
 let active: Promise<NativeUIShellHandle> | undefined;
 const web = (reason: string): NativeUIShellHandle => ({
   getStatus: () => ({ state: 'web', projected: 0, updates: 0, reason }),
+  suspend: async () => ({ resume: async () => {} }),
   destroy: async () => {},
 });
 
@@ -32,6 +39,7 @@ export const enableNativeUIShell = (): Promise<NativeUIShellHandle> => {
       const metricsListener = await plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius }));
       return {
         getStatus: runtime.getStatus,
+        suspend: runtime.suspend,
         async destroy() {
           await metricsListener.remove();
           await runtime.destroy();
