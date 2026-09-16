@@ -58,21 +58,23 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled).toolbar-searchbar {
   }
   &:has(ion-buttons[slot='start']) {
     ion-buttons[slot='start'] {
-      margin-right: 6px;
+      margin-inline-end: 6px;
     }
     ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       .searchbar-input-container {
-        margin: 0 12px 0 6px;
+        margin-block: 0;
+        margin-inline: 6px 12px;
       }
     }
   }
   &:has(ion-buttons[slot='end']) {
     ion-buttons[slot='end'] {
-      margin-left: 6px;
+      margin-inline-start: 6px;
     }
     ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       .searchbar-input-container {
-        margin: 0 6px 0 12px;
+        margin-block: 0;
+        margin-inline: 12px 6px;
       }
     }
   }
@@ -80,15 +82,12 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled).toolbar-searchbar {
 
 ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   ion-buttons {
-    margin-left: 12px;
-    margin-right: 12px;
+    margin-inline: 12px;
   }
   ion-back-button {
-    margin-left: 12px;
-    margin-right: 12px;
+    margin-inline: 12px;
   }
   ion-buttons > ion-back-button {
-    margin-left: 0;
-    margin-right: 0;
+    margin-inline: 0;
   }
 }

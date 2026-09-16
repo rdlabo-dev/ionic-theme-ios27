@@ -15,6 +15,10 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
   @include structured-list.layout(20px, 28px, $disabled-selector: $ios26-disabled);
   margin-inline: calc(20px + var(--ion-safe-area-left, 0px)) calc(20px + var(--ion-safe-area-right, 0px));
 
+  &:dir(rtl) {
+    margin-inline: calc(20px + var(--ion-safe-area-right, 0px)) calc(20px + var(--ion-safe-area-left, 0px));
+  }
+
   ion-radio-group,
   ion-reorder-group {
     display: block;
@@ -23,6 +27,11 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
   ion-radio-group > .radio-group-top {
     padding-inline-start: calc(var(--ion-safe-area-left, 0) + 20px);
     padding-inline-end: calc(var(--ion-safe-area-right, 0) + 20px);
+  }
+
+  &:dir(rtl) ion-radio-group > .radio-group-top {
+    padding-inline-start: calc(var(--ion-safe-area-right, 0) + 20px);
+    padding-inline-end: calc(var(--ion-safe-area-left, 0) + 20px);
   }
 
   > :is(#{structured-list.$groups}):not(.ios-theme-disabled, .ios26-disabled) {

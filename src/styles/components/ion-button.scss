@@ -459,12 +459,13 @@ ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(
 
 ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(:has(ion-back-button, ion-button.button-clear)) {
   ion-button {
-    margin: 0 6px;
+    margin-block: 0;
+    margin-inline: 6px;
     &:first-child {
-      margin-left: 0;
+      margin-inline-start: 0;
     }
     &:last-child {
-      margin-right: 0;
+      margin-inline-end: 0;
     }
     &:only-child {
       margin: 0;

@@ -10,6 +10,12 @@
 }
 
 ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-safe-area-inline-start: var(--ion-safe-area-left, 0px);
+  --ios-theme-safe-area-inline-end: var(--ion-safe-area-right, 0px);
+  &:dir(rtl) {
+    --ios-theme-safe-area-inline-start: var(--ion-safe-area-right, 0px);
+    --ios-theme-safe-area-inline-end: var(--ion-safe-area-left, 0px);
+  }
   // UIKit's platter is 62pt, including its 4pt selection inset. Put the
   // physical-pixel rim on a separate surface so it cannot alter layout.
   border: 0;
@@ -35,13 +41,13 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   &[slot='top'] {
     position: absolute;
     top: var(--ios-theme-floating-safe-area-top, var(--ios26-floating-safe-area-top));
-    right: calc(16px + var(--ion-safe-area-right, 0px));
+    inset-inline-end: calc(16px + var(--ios-theme-safe-area-inline-end));
   }
 
   &[slot='bottom'] {
     position: absolute;
     bottom: var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom));
-    left: calc(16px + var(--ion-safe-area-left, 0px));
+    inset-inline-start: calc(16px + var(--ios-theme-safe-area-inline-start));
   }
 
   /**
