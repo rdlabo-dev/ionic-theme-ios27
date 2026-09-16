@@ -65,7 +65,7 @@ for (const direction of ['ltr', 'rtl'] as const) {
     });
 
     expect(values.fabStart).toBeCloseTo(16, 1);
-    expect(values.tabsStart).toBeCloseTo(direction === 'ltr' ? 36 : 24, 1);
+    expect(values.tabsStart).toBeCloseTo(direction === 'ltr' ? 41 : 29, 1);
     expect(values.noteStart).toBe(direction === 'ltr' ? '40px' : '28px');
     expect(values.noteEnd).toBe(direction === 'ltr' ? '28px' : '40px');
     expect(values.radioStart).toBe(direction === 'ltr' ? '40px' : '28px');

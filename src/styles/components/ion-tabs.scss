@@ -47,7 +47,25 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   &[slot='bottom'] {
     position: absolute;
     bottom: var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom));
-    inset-inline-start: calc(16px + var(--ios-theme-safe-area-inline-start));
+    inset-inline-start: calc(21px + var(--ios-theme-safe-area-inline-start));
+  }
+
+  &.tab-bar-position-start {
+    inset-inline-start: calc(21px + var(--ios-theme-safe-area-inline-start));
+    inset-inline-end: auto;
+    margin-inline: 0;
+  }
+
+  &.tab-bar-position-end {
+    inset-inline-start: auto;
+    inset-inline-end: calc(21px + var(--ios-theme-safe-area-inline-end));
+    margin-inline: 0;
+  }
+
+  &.tab-bar-position-center {
+    left: calc(21px + var(--ion-safe-area-left, 0px));
+    right: calc(21px + var(--ion-safe-area-right, 0px));
+    margin-inline: auto;
   }
 
   /**
@@ -64,6 +82,10 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   &:has(> ion-tab-button:nth-child(2):last-child) {
     max-width: 180px;
   }
+  &:has(> ion-tab-button:nth-child(3):last-child),
+  &:has(> ion-tab-button:nth-child(4):last-child) {
+    max-width: 282px;
+  }
   min-height: 54px;
   height: 54px;
   &:has(:nth-child(5)) {
@@ -71,10 +93,26 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     max-width: 546px;
   }
   padding: 4px;
-  // Use main's shared overlap layout; avoid width-specific native breakpoints.
+  // iOS 26 controller-managed cells use count-specific overlap inside their
+  // measured platter widths. Percentages keep fractional points intact.
   --ios-theme-tab-overlap: 8px;
-  &:where(:has(> ion-tab-button:nth-child(4):last-child)) {
-    --ios-theme-tab-overlap: 13px;
+  &:has(> ion-tab-button:nth-child(3):last-child) {
+    --ios-theme-tab-overlap: 10px;
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      flex: 0 0 calc((100% + 2 * var(--ios-theme-tab-overlap)) / 3);
+    }
+  }
+  &:has(> ion-tab-button:nth-child(4):last-child) {
+    --ios-theme-tab-overlap: calc(22px / 3);
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      flex: 0 0 calc((100% + 3 * var(--ios-theme-tab-overlap)) / 4);
+    }
+  }
+  &:has(> ion-tab-button:nth-child(5):last-child) {
+    --ios-theme-tab-overlap: 8.25px;
+    > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
+      flex: 0 0 calc((100% + 4 * var(--ios-theme-tab-overlap)) / 5);
+    }
   }
   > ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) + ion-tab-button:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline-start: calc(-1 * var(--ios-theme-tab-overlap));
