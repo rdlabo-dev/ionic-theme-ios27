@@ -1,0 +1,155 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e5]:
+  - generic:
+    - navigation "menu" [ref=e6]:
+      - list [ref=e11]:
+        - group [ref=e12]:
+          - listitem [ref=e13]:
+            - link "Index" [ref=e14] [cursor=pointer]:
+              - /url: /main/index
+              - img [ref=e15]:
+                - img [ref=e17]
+              - generic [ref=e21]:
+                - generic [ref=e23]: Index
+                - img [ref=e24]:
+                  - img [ref=e26]
+          - listitem [ref=e28]:
+            - link "Docs" [ref=e29] [cursor=pointer]:
+              - /url: /main/docs
+              - img [ref=e30]:
+                - img [ref=e32]
+              - generic [ref=e37]:
+                - generic [ref=e39]: Docs
+                - img [ref=e40]:
+                  - img [ref=e42]
+          - listitem [ref=e44]:
+            - link "Library" [ref=e45] [cursor=pointer]:
+              - /url: /main/album
+              - img [ref=e46]:
+                - img [ref=e48]
+              - generic [ref=e51]:
+                - generic [ref=e53]: Library
+                - img [ref=e54]:
+                  - img [ref=e56]
+          - listitem [ref=e58]:
+            - link "Settings" [ref=e59] [cursor=pointer]:
+              - /url: /main/settings
+              - img [ref=e60]:
+                - img [ref=e62]
+              - generic [ref=e65]:
+                - generic [ref=e67]: Settings
+                - img [ref=e68]:
+                  - img [ref=e70]
+    - generic [ref=e73]:
+      - generic [ref=e76]:
+        - button "back" [ref=e82] [cursor=pointer]:
+          - generic [ref=e83]:
+            - img:
+              - generic:
+                - img
+        - main [ref=e85]:
+          - generic [ref=e87]:
+            - generic:
+              - list [ref=e88]:
+                - group [ref=e89]:
+                  - listitem [ref=e90]:
+                    - generic [ref=e94]:
+                      - img [ref=e95]:
+                        - img [ref=e97]
+                      - heading "range" [level=2] [ref=e100]
+                      - banner [ref=e101]
+                      - code [ref=e103]: This page is a component demo for @rdlabo/ionic-theme-ios26.
+              - list [ref=e104]:
+                - generic [ref=e107]: Default styles
+                - group [ref=e108]:
+                  - listitem [ref=e109]:
+                    - slider "Range with ticks" [ref=e118]
+                  - listitem [ref=e119]:
+                    - slider "Range with pin" [ref=e128]: "0"
+                  - listitem [ref=e129]:
+                    - generic [ref=e136]:
+                      - slider "Dual Knobs Range" [ref=e138]
+                      - slider "Dual Knobs Range" [ref=e139]
+                  - listitem [ref=e140]:
+                    - generic [ref=e145]:
+                      - generic [ref=e147]: Label at the Start
+                      - slider "Label at the Start 0" [ref=e151]
+                  - listitem [ref=e152]:
+                    - generic [ref=e157]:
+                      - generic [ref=e159]: Color Success
+                      - slider "Color Success 0" [ref=e163]
+                  - listitem [ref=e164]:
+                    - generic [ref=e169]:
+                      - generic [ref=e171]: Label not select
+                      - slider "Label not select 0" [ref=e175]
+                  - listitem [ref=e176]:
+                    - generic [ref=e181]:
+                      - generic [ref=e183]: Label end
+                      - slider "Label end 0" [ref=e187]
+                  - listitem [ref=e188]:
+                    - generic [ref=e193]:
+                      - generic [ref=e195]: Label floating
+                      - slider "Label floating 0" [ref=e199]
+                  - listitem [ref=e200]:
+                    - generic [ref=e206]:
+                      - generic [ref=e207]: slot=start
+                      - slider "slot=start 0" [ref=e210]
+                  - listitem [ref=e211]:
+                    - generic [ref=e217]:
+                      - slider "0 slot=end" [ref=e220]
+                      - generic [ref=e221]: slot=end
+                  - listitem [ref=e222]:
+                    - generic [ref=e227]:
+                      - generic [ref=e229]: Label not select
+                      - generic [ref=e230]:
+                        - slider "Label not select 0 slot=end" [ref=e233]
+                        - generic [ref=e234]: slot=end
+                - generic [ref=e235]:
+                  - generic: This component is overwrite.
+              - generic [ref=e236]:
+                - generic [ref=e238]:
+                  - generic [ref=e240]: Label at the Start
+                  - slider "Label at the Start 0" [ref=e244]
+                - generic [ref=e246]:
+                  - generic [ref=e248]: Label at the End
+                  - slider "Label at the End 0" [ref=e252]
+                - generic [ref=e254]:
+                  - generic [ref=e256]: Fixed Width Label
+                  - slider "Fixed Width Label 0" [ref=e260]
+                - generic [ref=e262]:
+                  - generic [ref=e264]: Stacked Label
+                  - slider "Stacked Label 0" [ref=e268]
+                - generic [ref=e270]:
+                  - generic [ref=e272]:
+                    - text: Label with
+                    - generic: custom HTML
+                  - slider "Label with custom HTML 0" [ref=e276]
+      - tablist [ref=e277]:
+        - generic:
+          - tab "Index" [selected] [ref=e279] [cursor=pointer]:
+            - generic [ref=e280]:
+              - generic:
+                - img [ref=e281]:
+                  - img [ref=e283]
+                - generic [ref=e287]: Index
+          - tab "Docs" [ref=e289] [cursor=pointer]:
+            - generic [ref=e290]:
+              - generic:
+                - img [ref=e291]:
+                  - img [ref=e293]
+                - generic [ref=e298]: Docs
+          - tab "Library" [ref=e300] [cursor=pointer]:
+            - generic [ref=e301]:
+              - generic:
+                - img [ref=e302]:
+                  - img [ref=e304]
+                - generic [ref=e307]: Library
+          - tab "Settings" [ref=e309] [cursor=pointer]:
+            - generic [ref=e310]:
+              - generic:
+                - img [ref=e311]:
+                  - img [ref=e313]
+                - generic [ref=e315]: Settings
+```
