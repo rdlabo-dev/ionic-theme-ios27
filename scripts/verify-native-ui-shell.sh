@@ -34,6 +34,11 @@ cd "$artifacts/consumer"
 # --ignore-scripts would skip the git dependency's prepare script, leaving
 # @rdlabo/ionic-theme-utils without its dist build.
 npm install "$artifacts/$archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @ionic/core@8.8.19
+# Some npm versions skip `prepare` for transitive git dependencies; build the
+# utils dist explicitly when it was not produced.
+if [ ! -f node_modules/@rdlabo/ionic-theme-utils/dist/index.js ]; then
+  (cd node_modules/@rdlabo/ionic-theme-utils && npm install --no-save --no-audit --no-fund typescript && npm run build)
+fi
 "$repo/demo/node_modules/.bin/esbuild" app.js --bundle --format=esm --outdir=www
 npx cap add ios --packagemanager SPM
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \

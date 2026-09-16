@@ -18,7 +18,9 @@ concurrency:
 jobs:
   suite:
     timeout-minutes: 75
-    runs-on: xcode-27-arm64
+    # xcode-27 preview label; Xcode 27 beta is the default toolchain on that
+    # image, so no DEVELOPER_DIR override is needed.
+    runs-on: xcode-27
     strategy:
       fail-fast: false
       matrix:
@@ -34,8 +36,6 @@ jobs:
             script: scripts/verify-native-search.sh
             scenario: edge
             kana: ''
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -70,8 +70,13 @@ jobs:
       - run: npm ci
         working-directory: './demo'
 
+      - name: Fetch shared simulator setup script
+        run: |
+          sha=$(jq -r '.packages["node_modules/@rdlabo/ionic-theme-utils"].resolved' package-lock.json | sed 's/.*#//')
+          curl -fsSL "https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-utils/$sha/scripts/ci-simulator.sh" -o "$RUNNER_TEMP/ci-simulator.sh"
+
       - name: Create and boot simulator
-        run: sh scripts/ci-simulator.sh "iPhone 17" "iOS 26.5" ${{ matrix.kana }}
+        run: sh "$RUNNER_TEMP/ci-simulator.sh" "iPhone 17" "iOS 27.0" ${{ matrix.kana }}
 
       - name: Run ${{ matrix.suite }} suite
         run: sh ${{ matrix.script }} "$SIM_UDID" ${{ matrix.scenario }}
