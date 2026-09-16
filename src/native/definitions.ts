@@ -10,9 +10,36 @@ export interface NativeUIShellStatus {
   reason?: string;
 }
 
+export interface NativeUIShellOptions {
+  /** Enables Native UI Shell globally. Defaults to `true`. */
+  enabled?: boolean;
+  /** Controls eligible for native projection. Omit to enable every control; when present, only `true` controls are enabled. */
+  controls?: NativeUIShellControls;
+}
+
+export interface NativeUIShellControls {
+  /** Projects tab bars and their native search presentation. */
+  tabs?: boolean;
+  /** Projects toolbar buttons, including back and menu buttons. */
+  toolbar?: boolean;
+  /** Projects segments. */
+  segment?: boolean;
+  /** Projects floating action buttons. */
+  fab?: boolean;
+}
+
 export interface NativeUIShellHandle {
+  /** Returns the current Web/native projection state. */
   getStatus(): NativeUIShellStatus;
+  /** Restores projected controls to the Web until the returned lease is resumed. */
+  suspend(): Promise<NativeUIShellSuspension>;
+  /** Stops synchronization, restores Web controls and releases native resources. */
   destroy(): Promise<void>;
+}
+
+export interface NativeUIShellSuspension {
+  /** Releases this suspension. Native projection resumes after all active suspensions are released. */
+  resume(): Promise<void>;
 }
 
 export interface Frame {
@@ -98,10 +125,17 @@ export interface ShellActivation {
   sequence: number;
 }
 
+export interface WebViewMetrics {
+  /** The WebView's effective top-left corner radius in points, or `0` when unavailable. */
+  radius: number;
+}
+
 export interface NativeUIShellPlugin {
   configure(): Promise<{ supported: boolean }>;
+  getWebViewMetrics(): Promise<WebViewMetrics>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
 }

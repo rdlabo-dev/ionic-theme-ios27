@@ -17,6 +17,7 @@ const mockNative = async (page: Page, fail = false) => {
       rejectAllSearch: false,
       activate: (_event: any) => {},
       search: (_event: any) => {},
+      metrics: (_event: any) => {},
     };
     Object.assign(window, {
       __nativeUIShell: state,
@@ -27,6 +28,7 @@ const mockNative = async (page: Page, fail = false) => {
             name: 'IonicNativeUIShell',
             methods: [
               { name: 'configure', rtype: 'promise' },
+              { name: 'getWebViewMetrics', rtype: 'promise' },
               { name: 'update', rtype: 'promise' },
               { name: 'clear', rtype: 'promise' },
               { name: 'addListener' },
@@ -36,6 +38,7 @@ const mockNative = async (page: Page, fail = false) => {
         ],
         nativePromise: async (_plugin: string, method: string, options: any) => {
           if (method === 'configure') return { supported: true };
+          if (method === 'getWebViewMetrics') return { radius: 0 };
           state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
           if (state.hang && method === 'update') await new Promise(() => {});
           if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
@@ -53,7 +56,8 @@ const mockNative = async (page: Page, fail = false) => {
         nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
           if (method === 'addListener') {
             if (options.eventName === 'search') state.search = callback;
-            else state.activate = callback;
+            else if (options.eventName === 'activate') state.activate = callback;
+            else if (options.eventName === 'webViewMetricsChange') state.metrics = callback;
           }
           return 'shell-listener';
         },

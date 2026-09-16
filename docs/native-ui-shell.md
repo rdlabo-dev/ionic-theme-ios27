@@ -24,6 +24,14 @@ import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
 void enableNativeUIShell();
 ```
 
+`enableNativeUIShell()` also reads the WebView's effective top-left corner radius and applies it to page transitions. To configure only the transition without enabling native controls, call:
+
+```ts
+import { configureNativeTransition } from '@rdlabo/ionic-theme-ios27/native';
+
+await configureNativeTransition();
+```
+
 Keep the existing `navAnimation: iosTransitionAnimation` setting. No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
 
 This is an opt-in feature. The ordinary package entry point does not import Capacitor, and `@capacitor/core` is an optional peer dependency. Native sources are still detected and built by Capacitor's sync when this package is installed in a Capacitor project, even if the application does not call `enableNativeUIShell()`.
@@ -122,7 +130,112 @@ console.log(shell.getStatus()); // state, projected control count, update count,
 await shell.destroy(); // restore DOM, remove native controls and release listeners/cache
 ```
 
+Projection is globally enabled by default. Limit it to selected Ionic components when an application only wants part of the native shell, or disable it globally while retaining the same configuration path:
+
+```ts
+const shell = await enableNativeUIShell({
+  enabled: true,
+  controls: {
+    tabs: true,
+  },
+});
+
+// Equivalent to leaving Native UI Shell off; all controls remain on the Web.
+const disabledShell = await enableNativeUIShell({ enabled: false });
+```
+
+Omitting `controls` enables every supported control for backward compatibility. When `controls` is present, only entries set to `true` are native-eligible. Available entries are `tabs`, `toolbar`, `segment`, and `fab`.
+
+For a custom modal or overlay that Native UI Shell cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
+
+```ts
+const suspension = await shell.suspend();
+
+try {
+  await modal.present();
+  await modal.onDidDismiss();
+} finally {
+  await suspension.resume();
+}
+```
+
+Suspensions are nestable and `resume()` is idempotent. Native projection resumes only after every active suspension has been released, using the current DOM rather than a stale snapshot.
+
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
+
+## Native UI Shell API
+
+The generated reference below documents the handle returned by `enableNativeUIShell()`. The underlying Capacitor bridge and its control-snapshot protocol are implementation details.
+
+<docgen-index>
+
+* [`getStatus()`](#getstatus)
+* [`suspend()`](#suspend)
+* [`destroy()`](#destroy)
+* [Interfaces](#interfaces)
+
+</docgen-index>
+
+<docgen-api>
+<!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
+
+### getStatus()
+
+```typescript
+getStatus() => NativeUIShellStatus
+```
+
+Returns the current Web/native projection state.
+
+**Returns:** <code><a href="#nativeuishellstatus">NativeUIShellStatus</a></code>
+
+--------------------
+
+
+### suspend()
+
+```typescript
+suspend() => Promise<NativeUIShellSuspension>
+```
+
+Restores projected controls to the Web until the returned lease is resumed.
+
+**Returns:** <code>Promise&lt;<a href="#nativeuishellsuspension">NativeUIShellSuspension</a>&gt;</code>
+
+--------------------
+
+
+### destroy()
+
+```typescript
+destroy() => Promise<void>
+```
+
+Stops synchronization, restores Web controls and releases native resources.
+
+--------------------
+
+
+### Interfaces
+
+
+#### NativeUIShellStatus
+
+| Prop            | Type                                        |
+| --------------- | ------------------------------------------- |
+| **`state`**     | <code>'native' \| 'stopped' \| 'web'</code> |
+| **`projected`** | <code>number</code>                         |
+| **`updates`**   | <code>number</code>                         |
+| **`reason`**    | <code>string</code>                         |
+
+
+#### NativeUIShellSuspension
+
+| Method     | Signature                    | Description                                                                                    |
+| ---------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| **resume** | () =&gt; Promise&lt;void&gt; | Releases this suspension. Native projection resumes after all active suspensions are released. |
+
+</docgen-api>
 
 ## Source layout
 

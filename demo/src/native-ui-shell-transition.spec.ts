@@ -6,7 +6,7 @@ import {
   setNativeUIShellIntegration,
 } from '../../src/native-integration';
 import type { Animation } from '@ionic/core';
-import { enableNativeUIShell } from '../../src/native';
+import { configureNativeTransition, enableNativeUIShell } from '../../src/native';
 
 const fixture = () => {
   const doc = {} as Document;
@@ -87,10 +87,17 @@ test('without native enablement the animation remains untouched', () => {
 });
 
 test('server rendering has no DOM side effects', async () => {
+  await expect(configureNativeTransition()).resolves.toEqual({ radius: 0 });
   const handle = await enableNativeUIShell();
   expect(handle.getStatus().state).toBe('web');
   expect(handle.getStatus().projected).toBe(0);
+  const suspension = await handle.suspend();
+  await suspension.resume();
+  await suspension.resume();
   await handle.destroy();
+  const disabled = await enableNativeUIShell({ enabled: false, controls: { tabs: true } });
+  expect(disabled.getStatus()).toMatchObject({ state: 'web', reason: 'Disabled' });
+  await disabled.destroy();
 });
 
 test('re-registering a cached search footer replaces its binding without waiting for GC', () => {
