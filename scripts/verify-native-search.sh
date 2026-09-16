@@ -10,7 +10,12 @@ case "$scenario" in
 esac
 repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 fixture="$repo/demo/native-$scenario-fixture"
-artifacts=$(mktemp -d "/tmp/ionic-native-$scenario-verification.XXXXXX")
+if [ "${VERIFY_ARTIFACTS_DIR:-}" ]; then
+  artifacts=$VERIFY_ARTIFACTS_DIR
+  mkdir -p "$artifacts"
+else
+  artifacts=$(mktemp -d "/tmp/ionic-native-$scenario-verification.XXXXXX")
+fi
 printf 'Native %s verification artifacts: %s\n' "$scenario" "$artifacts"
 cd "$repo"
 npm run build

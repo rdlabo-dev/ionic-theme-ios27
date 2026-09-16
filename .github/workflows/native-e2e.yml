@@ -1,0 +1,98 @@
+name: Native Simulator Tests
+
+on:
+  push:
+    branches:
+      - ci/native-e2e
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * 0' # Weekly, Monday 03:00 JST
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  suite:
+    timeout-minutes: 75
+    runs-on: xcode-27
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: ui-shell
+            script: scripts/verify-native-ui-shell.sh
+            kana: ''
+          - suite: search
+            script: scripts/verify-native-search.sh
+            scenario: search
+            kana: kana
+          - suite: edge
+            script: scripts/verify-native-search.sh
+            scenario: edge
+            kana: ''
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+      VERIFY_ARTIFACTS_DIR: ${{ runner.temp }}/native-${{ matrix.suite }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - id: meta
+        run: |
+          xcodebuild -version
+          echo "xcode_version=$(xcodebuild -version | head -n 1 | tr ' ' '-')" >> "$GITHUB_OUTPUT"
+          echo "image_version=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Restore incremental build products
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.VERIFY_ARTIFACTS_DIR }}
+          key: native-${{ matrix.suite }}-${{ steps.meta.outputs.xcode_version }}-${{ hashFiles('**/package-lock.json', 'ios/**', 'demo/ios/**', 'demo/native-*-fixture/**', 'src/**') }}
+          restore-keys: |
+            native-${{ matrix.suite }}-${{ steps.meta.outputs.xcode_version }}-
+
+      - name: Install XcodeGen
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - run: npm ci
+      - run: npm ci
+        working-directory: './demo'
+
+      - name: Create and boot simulator
+        run: sh scripts/ci-simulator.sh "iPhone 17" "iOS 27.0" ${{ matrix.kana }}
+
+      - name: Run ${{ matrix.suite }} suite
+        run: sh ${{ matrix.script }} "$SIM_UDID" ${{ matrix.scenario }}
+
+      - name: Upload screenshots and logs
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: native-${{ matrix.suite }}-screenshots
+          path: |
+            ${{ env.VERIFY_ARTIFACTS_DIR }}/screenshots
+            ${{ env.VERIFY_ARTIFACTS_DIR }}/*.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload result bundle on failure
+        uses: actions/upload-artifact@v5
+        if: failure()
+        with:
+          name: native-${{ matrix.suite }}-xcresult
+          path: ${{ env.VERIFY_ARTIFACTS_DIR }}/tests.xcresult
+          if-no-files-found: warn
+          retention-days: 7
