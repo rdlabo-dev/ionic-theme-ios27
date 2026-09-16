@@ -274,6 +274,6 @@ ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled).searchbar-classic {
     width: 1.18rem;
   }
   button.searchbar-clear-button {
-    right: 8px;
+    inset-inline-end: 8px;
   }
 }

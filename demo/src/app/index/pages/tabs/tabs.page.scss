@@ -1,6 +1,9 @@
 :host {
   ion-tab-bar {
-    margin-left: calc(16px + var(--ion-safe-area-left, 0px));
-    margin-right: calc(16px + var(--ion-safe-area-right, 0px));
+    margin-inline: calc(16px + var(--ion-safe-area-left, 0px)) calc(16px + var(--ion-safe-area-right, 0px));
+
+    &:dir(rtl) {
+      margin-inline: calc(16px + var(--ion-safe-area-right, 0px)) calc(16px + var(--ion-safe-area-left, 0px));
+    }
   }
 }

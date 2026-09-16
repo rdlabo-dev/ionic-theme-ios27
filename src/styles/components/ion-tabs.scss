@@ -1,6 +1,12 @@
 @use '../utils/api';
 
 ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-safe-area-inline-start: var(--ion-safe-area-left, 0px);
+  --ios-theme-safe-area-inline-end: var(--ion-safe-area-right, 0px);
+  &:dir(rtl) {
+    --ios-theme-safe-area-inline-start: var(--ion-safe-area-right, 0px);
+    --ios-theme-safe-area-inline-end: var(--ion-safe-area-left, 0px);
+  }
   // Ionic forces content-box on the host. Keep the Glass border in a
   // separate layer so its physical-pixel rounding cannot resize the bar.
   border: 0;
@@ -29,26 +35,24 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   &[slot='top'] {
     position: absolute;
     top: var(--ios-theme-floating-safe-area-top, var(--ios26-floating-safe-area-top));
-    right: calc(16px + var(--ion-safe-area-right, 0px));
+    inset-inline-end: calc(16px + var(--ios-theme-safe-area-inline-end));
   }
 
   &[slot='bottom'] {
     position: absolute;
     bottom: var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom));
-    left: calc(16px + var(--ion-safe-area-left, 0px));
+    inset-inline-start: calc(16px + var(--ios-theme-safe-area-inline-start));
   }
 
-  &.tab-bar-position-start,
-  &.tab-bar-position-end:dir(rtl) {
-    left: calc(16px + var(--ion-safe-area-left, 0px));
-    right: auto;
+  &.tab-bar-position-start {
+    inset-inline-start: calc(16px + var(--ios-theme-safe-area-inline-start));
+    inset-inline-end: auto;
     margin-inline: 0;
   }
 
-  &.tab-bar-position-end,
-  &.tab-bar-position-start:dir(rtl) {
-    left: auto;
-    right: calc(16px + var(--ion-safe-area-right, 0px));
+  &.tab-bar-position-end {
+    inset-inline-start: auto;
+    inset-inline-end: calc(16px + var(--ios-theme-safe-area-inline-end));
     margin-inline: 0;
   }
 
