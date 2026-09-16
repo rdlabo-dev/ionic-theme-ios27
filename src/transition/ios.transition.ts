@@ -6,9 +6,20 @@ import { connectNativeUIShellTransition } from '../native-integration';
 
 export { shadow };
 
+export interface IosTransitionConfig {
+  radius: number;
+}
+
+const transitionConfig = {
+  offLeftPercent: 30,
+  getIonPageElement,
+  connectNativeUIShellTransition,
+  radius: 0,
+};
+
+export const setConfig = (config: Partial<IosTransitionConfig>): void => {
+  Object.assign(transitionConfig, config);
+};
+
 export const iosTransitionAnimation: (navEl: HTMLElement, opts: TransitionOptions) => Animation =
-  createIosTransitionAnimation<TransitionOptions>({
-    offLeftPercent: 30,
-    getIonPageElement,
-    connectNativeUIShellTransition,
-  });
+  createIosTransitionAnimation<TransitionOptions>(transitionConfig);

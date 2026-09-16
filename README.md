@@ -92,6 +92,14 @@ createApp(App)
 })
 ```
 
+The page-transition radius defaults to `0`. Native apps can update it after measuring the web view:
+
+```ts
+import { setConfig } from '@rdlabo/ionic-theme-ios27';
+
+setConfig({ radius });
+```
+
 ### Check the theme
 
 Test on iOS. When previewing on desktop, set Ionic mode to `ios` in your existing framework initialization config (for example `mode: 'ios'`).
