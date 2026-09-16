@@ -13,8 +13,21 @@ export interface NativeUIShellStatus {
 export interface NativeUIShellOptions {
   /** Enables Native UI Shell globally. Defaults to `true`. */
   enabled?: boolean;
-  /** Components eligible for native projection. Omit to enable every supported component. */
-  components?: readonly NativeUIShellComponent[];
+  /** Controls eligible for native projection. Every control defaults to `all`, which defaults to `true`. */
+  controls?: NativeUIShellControls;
+}
+
+export interface NativeUIShellControls {
+  /** Default for controls without an explicit override. Defaults to `true`. */
+  all?: boolean;
+  /** Projects tab bars and their native search presentation. */
+  tabs?: boolean;
+  /** Projects toolbar buttons, including back and menu buttons. */
+  toolbar?: boolean;
+  /** Projects segments. */
+  segment?: boolean;
+  /** Projects floating action buttons. */
+  fab?: boolean;
 }
 
 export interface NativeUIShellHandle {

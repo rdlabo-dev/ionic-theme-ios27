@@ -4,6 +4,7 @@ import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellPlugin, We
 import { createRuntime } from './runtime';
 export type {
   NativeUIShellComponent,
+  NativeUIShellControls,
   NativeUIShellHandle,
   NativeUIShellOptions,
   NativeUIShellStatus,

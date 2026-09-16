@@ -64,7 +64,16 @@ export const createRuntime = async (
   let listener: PluginListenerHandle | undefined;
   let searchListener: PluginListenerHandle | undefined;
   let waiters: (() => void)[] = [];
-  const allowedComponents = options.components ? new Set(options.components) : undefined;
+  const control = (kind: Candidate['control']['kind']): keyof NonNullable<NativeUIShellOptions['controls']> => {
+    if (kind === 'ion-tab-bar') return 'tabs';
+    if (kind === 'ion-segment') return 'segment';
+    if (kind === 'ion-fab') return 'fab';
+    return 'toolbar';
+  };
+  const controlEnabled = (candidate: Candidate) => {
+    const controls = options.controls;
+    return controls?.[control(candidate.control.kind)] ?? controls?.all ?? true;
+  };
   const id = (element: Element) => {
     let value = ids.get(element);
     if (!value) {
@@ -106,7 +115,7 @@ export const createRuntime = async (
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
     const candidate = readCandidate(element, id);
-    return !candidate || (allowedComponents && !allowedComponents.has(candidate.control.kind)) ? undefined : candidate;
+    return candidate && controlEnabled(candidate) ? candidate : undefined;
   };
   const flush = async () => {
     if (stopped) return;

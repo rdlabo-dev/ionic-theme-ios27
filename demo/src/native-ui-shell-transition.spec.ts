@@ -95,7 +95,7 @@ test('server rendering has no DOM side effects', async () => {
   await suspension.resume();
   await suspension.resume();
   await handle.destroy();
-  const disabled = await enableNativeUIShell({ enabled: false, components: ['ion-tab-bar'] });
+  const disabled = await enableNativeUIShell({ enabled: false, controls: { all: false, tabs: true } });
   expect(disabled.getStatus()).toMatchObject({ state: 'web', reason: 'Disabled' });
   await disabled.destroy();
 });
