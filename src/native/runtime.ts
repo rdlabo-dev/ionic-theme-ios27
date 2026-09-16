@@ -72,7 +72,7 @@ export const createRuntime = async (
   };
   const controlEnabled = (candidate: Candidate) => {
     const controls = options.controls;
-    return controls?.[control(candidate.control.kind)] ?? controls?.all ?? true;
+    return controls === undefined || controls[control(candidate.control.kind)] === true;
   };
   const id = (element: Element) => {
     let value = ids.get(element);
