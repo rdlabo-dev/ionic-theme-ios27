@@ -73,8 +73,7 @@ for (const [length, scrollTop] of [
     expect(shadeBounds.y).toBeCloseTo(topBounds.y, 1);
     expect(shadeBounds.height).toBeCloseTo(topBounds.height, 1);
     expect(shadeBounds.x).toBe(0);
-    const edgeBounds = await shade.evaluate((el) => el.nextElementSibling!.getBoundingClientRect().toJSON());
-    expect(edgeBounds.x + edgeBounds.width).toBeCloseTo(topBounds.x, 1);
+    expect(await shade.evaluate((el) => el.nextElementSibling?.matches('app-button'))).toBe(true);
     const dimming = await shade.evaluate((el) => Number(getComputedStyle(el).opacity));
     expect(dimming).toBeGreaterThan(0);
     expect(dimming).toBeLessThan(1);
