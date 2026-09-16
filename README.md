@@ -27,6 +27,10 @@ Give familiar Ionic screens the iOS 27 visual language: Liquid Glass, styled too
 
 On Capacitor iOS, the optional, experimental [Native UI Shell](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) reads supported fixed controls from your existing Ionic markup. It projects their text, resolved `ion-icon` artwork or supported static SVGs, and selection state into UIKit controls with system Liquid Glass. Changes and native actions flow through the original Ionic components, so the Web and native presentations share one UI definition. Page content and routing stay in the WebView; unsupported layouts keep their Web presentation.
 
+**Tab drag on iOS 27:** The same Library screen with Native UI Shell off (Web) and on (UIKit). Both frames were captured while dragging the selected tab; the lower panels enlarge the glass around the tab bar.
+
+[![Native UI Shell off and on during the same Library tab drag, with enlarged tab bars](./screenshots/native-ui-shell-drag/comparison.png)](./screenshots/native-ui-shell-drag/comparison.png)
+
 ### Follow the user's device
 
 Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [adaptive setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) uses browser feature checks to select the corresponding theme styles and animations; it does not read the iOS version. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
