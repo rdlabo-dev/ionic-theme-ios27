@@ -1,0 +1,23 @@
+name: NativeGlassPoCTests
+options:
+  deploymentTarget:
+    iOS: '26.0'
+targets:
+  NativeGlassPoCTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - NativeGlassPoCTests.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.ionic.theme.nativeglass.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+schemes:
+  NativeGlassPoCTests:
+    build:
+      targets:
+        NativeGlassPoCTests: [test]
+    test:
+      targets:
+        - NativeGlassPoCTests
