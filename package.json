@@ -48,7 +48,7 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios26",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-utils.git#1937b175b2498d2f272ae697190300e94f367213"
+    "@rdlabo/ionic-theme-utils": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-utils.git#66eb2fccca10646ebfccdfb3b6c2f3b4c9b00bf6"
   },
   "devDependencies": {
     "@ionic/angular": "^9.0.0",

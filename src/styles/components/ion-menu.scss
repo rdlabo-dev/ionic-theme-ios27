@@ -8,13 +8,13 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
   .split-pane-main {
     ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       width: calc(
-        100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-left, 0px)) - 60px -
+        100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - 60px -
           12px - var(--ios-theme-menu-width, var(--ios26-menu-width))
       );
 
       &:has(:nth-child(5)) {
         width: calc(
-          100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-left, 0px)) - var(
+          100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - var(
               --ios-theme-menu-width,
               var(--ios26-menu-width)
             )
@@ -33,7 +33,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
           /*
            * 90px: https://github.com/ionic-team/ionic-framework/blob/main/core/src/components/title/title.ios.scss#L8
            */
-          padding-left: calc(90px + var(--ios-theme-menu-width, var(--ios26-menu-width)));
+          padding-inline-start: calc(90px + var(--ios-theme-menu-width, var(--ios26-menu-width)));
         }
       }
       ion-content {
@@ -47,7 +47,10 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
       }
       ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
         &[slot='bottom'] {
-          left: calc(16px + var(--ion-safe-area-left, 0px) + var(--ios-theme-menu-width, var(--ios26-menu-width)));
+          inset-inline-start: calc(16px + var(--ion-safe-area-left, 0px) + var(--ios-theme-menu-width, var(--ios26-menu-width)));
+          &:dir(rtl) {
+            inset-inline-start: calc(16px + var(--ion-safe-area-right, 0px) + var(--ios-theme-menu-width, var(--ios26-menu-width)));
+          }
         }
       }
     }
@@ -64,7 +67,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
           /*
            * 90px: https://github.com/ionic-team/ionic-framework/blob/main/core/src/components/title/title.ios.scss#L8
            */
-          padding-right: calc(90px + var(--ios-theme-menu-width, var(--ios26-menu-width)));
+          padding-inline-end: calc(90px + var(--ios-theme-menu-width, var(--ios26-menu-width)));
         }
       }
       ion-content {
@@ -89,10 +92,10 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
   z-index: 999;
 
   &.menu-side-start {
-    left: 0;
+    inset-inline-start: 0;
   }
   &.menu-side-end {
-    left: calc(100vw - var(--ios-theme-menu-width, var(--ios26-menu-width)));
+    inset-inline-end: 0;
   }
 
   &::part(backdrop) {
@@ -106,10 +109,14 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
     &::part(scroll) {
       @include api.glass-background;
-      margin: calc(var(--ios-theme-floating-safe-area-top, var(--ios26-floating-safe-area-top)) + 6px)
-        calc(16px + var(--ion-safe-area-right)) var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom))
-        calc(12px + var(--ion-safe-area-left));
+      margin-block: calc(var(--ios-theme-floating-safe-area-top, var(--ios26-floating-safe-area-top)) + 6px)
+        var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom));
+      margin-inline: calc(12px + var(--ion-safe-area-left, 0px)) calc(16px + var(--ion-safe-area-right, 0px));
       border-radius: 24px;
+    }
+
+    &:dir(rtl)::part(scroll) {
+      margin-inline: calc(12px + var(--ion-safe-area-right, 0px)) calc(16px + var(--ion-safe-area-left, 0px));
     }
   }
 }
