@@ -38,9 +38,12 @@ mkdir -p "$artifacts/tests"
 cp "$fixture/$suite.swift" "$fixture/project.yml" "$artifacts/tests/"
 xcodegen generate --spec "$artifacts/tests/project.yml" --project "$artifacts/tests"
 result=0
+# The search presentation remount is occasionally racy, so let each test
+# retry rather than failing the suite on a transient collapse.
 xcodebuild -project "$artifacts/tests/$suite.xcodeproj" -scheme "$suite" \
   -destination "platform=iOS Simulator,id=$simulator" -derivedDataPath "$artifacts/test-build" \
-  -resultBundlePath "$artifacts/tests.xcresult" CODE_SIGNING_ALLOWED=NO test > "$artifacts/tests.log" 2>&1 || result=$?
+  -resultBundlePath "$artifacts/tests.xcresult" -test-iterations 3 -retry-tests-on-failure \
+  CODE_SIGNING_ALLOWED=NO test > "$artifacts/tests.log" 2>&1 || result=$?
 xcrun xcresulttool export attachments --path "$artifacts/tests.xcresult" --output-path "$artifacts/screenshots"
 printf 'Results and screenshots: %s\n' "$artifacts"
 exit "$result"

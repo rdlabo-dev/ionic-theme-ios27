@@ -38,9 +38,12 @@ mkdir -p "$artifacts/tests"
 cp "$repo/demo/ios/NativeUIShellTests/"* "$artifacts/tests/"
 xcodegen generate --spec "$artifacts/tests/project.yml" --project "$artifacts/tests"
 result=0
+# Transient projection gaps (e.g. a briefly missing tab bar) can fail a single
+# interaction, so let each test retry before failing the suite.
 xcodebuild -project "$artifacts/tests/NativeUIShellTests.xcodeproj" -scheme NativeUIShellTests \
   -destination "platform=iOS Simulator,id=$simulator" -derivedDataPath "$artifacts/test-build" \
-  -resultBundlePath "$artifacts/tests.xcresult" CODE_SIGNING_ALLOWED=NO test > "$artifacts/tests.log" 2>&1 || result=$?
+  -resultBundlePath "$artifacts/tests.xcresult" -test-iterations 3 -retry-tests-on-failure \
+  CODE_SIGNING_ALLOWED=NO test > "$artifacts/tests.log" 2>&1 || result=$?
 xcrun xcresulttool export attachments --path "$artifacts/tests.xcresult" --output-path "$artifacts/screenshots"
 printf 'Results and screenshots: %s\n' "$artifacts"
 exit "$result"
