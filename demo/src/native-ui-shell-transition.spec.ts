@@ -95,6 +95,9 @@ test('server rendering has no DOM side effects', async () => {
   await suspension.resume();
   await suspension.resume();
   await handle.destroy();
+  const disabled = await enableNativeUIShell({ enabled: false, components: ['ion-tab-bar'] });
+  expect(disabled.getStatus()).toMatchObject({ state: 'web', reason: 'Disabled' });
+  await disabled.destroy();
 });
 
 test('re-registering a cached search footer replaces its binding without waiting for GC', () => {

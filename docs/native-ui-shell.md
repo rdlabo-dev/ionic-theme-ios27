@@ -130,6 +130,20 @@ console.log(shell.getStatus()); // state, projected control count, update count,
 await shell.destroy(); // restore DOM, remove native controls and release listeners/cache
 ```
 
+Projection is globally enabled by default. Limit it to selected Ionic components when an application only wants part of the native shell, or disable it globally while retaining the same configuration path:
+
+```ts
+const shell = await enableNativeUIShell({
+  enabled: true,
+  components: ['ion-tab-bar'],
+});
+
+// Equivalent to leaving Native UI Shell off; all controls remain on the Web.
+const disabledShell = await enableNativeUIShell({ enabled: false });
+```
+
+Omitting `components` enables every supported component for backward compatibility. An empty array projects none. Component names are type-checked by `NativeUIShellComponent`.
+
 For a custom modal or overlay that Native UI Shell cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
 
 ```ts

@@ -10,6 +10,13 @@ export interface NativeUIShellStatus {
   reason?: string;
 }
 
+export interface NativeUIShellOptions {
+  /** Enables Native UI Shell globally. Defaults to `true`. */
+  enabled?: boolean;
+  /** Components eligible for native projection. Omit to enable every supported component. */
+  components?: readonly NativeUIShellComponent[];
+}
+
 export interface NativeUIShellHandle {
   /** Returns the current Web/native projection state. */
   getStatus(): NativeUIShellStatus;

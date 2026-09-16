@@ -2,7 +2,14 @@ import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
 import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
-import type { ShellActivation, ShellSnapshot, NativeUIShellHandle, NativeUIShellPlugin, NativeUIShellStatus } from './definitions';
+import type {
+  ShellActivation,
+  ShellSnapshot,
+  NativeUIShellHandle,
+  NativeUIShellOptions,
+  NativeUIShellPlugin,
+  NativeUIShellStatus,
+} from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector } from './components';
 import { marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
@@ -20,7 +27,11 @@ const bounded = <T>(promise: Promise<T>): Promise<T> =>
     promise.then(resolve, reject).finally(() => clearTimeout(timer));
   });
 
-export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin): Promise<NativeUIShellHandle> => {
+export const createRuntime = async (
+  doc: Document,
+  plugin: NativeUIShellPlugin,
+  options: NativeUIShellOptions = {},
+): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
@@ -53,6 +64,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
   let listener: PluginListenerHandle | undefined;
   let searchListener: PluginListenerHandle | undefined;
   let waiters: (() => void)[] = [];
+  const allowedComponents = options.components ? new Set(options.components) : undefined;
   const id = (element: Element) => {
     let value = ids.get(element);
     if (!value) {
@@ -92,6 +104,10 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
   };
   const search = createSearchSupport(doc, id, schedule);
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
+  const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
+    const candidate = readCandidate(element, id);
+    return !candidate || (allowedComponents && !allowedComponents.has(candidate.control.kind)) ? undefined : candidate;
+  };
   const flush = async () => {
     if (stopped) return;
     schedule();
@@ -130,7 +146,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
         .decorate(
           Array.from(doc.querySelectorAll<HTMLElement>(selector))
             .filter((element) => !blocked(element))
-            .map((element) => readCandidate(element, id))
+            .map(readEnabledCandidate)
             .filter((candidate): candidate is Candidate => !!candidate),
           blocked,
         )
@@ -447,7 +463,7 @@ export const createRuntime = async (doc: Document, plugin: NativeUIShellPlugin):
     if (!element) return;
     const owner = Array.from(sources.keys()).find((source) => source === element || source.contains(element));
     if (!owner) return;
-    const direct = !blocked(owner) && unprojected(sources.keys(), () => readCandidate(owner, id));
+    const direct = !blocked(owner) && unprojected(sources.keys(), () => readEnabledCandidate(owner));
     const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
     const item = candidate?.control.items.find((item) => item.id === event.id);
     const searchAction =
