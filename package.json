@@ -1,7 +1,7 @@
 {
   "name": "@rdlabo/ionic-theme-ios27",
   "private": false,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "iOS27 Theme for Ionic Framework",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -55,8 +55,11 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-utils.git#66eb2fccca10646ebfccdfb3b6c2f3b4c9b00bf6"
+    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#66eb2fccca10646ebfccdfb3b6c2f3b4c9b00bf6"
   },
+  "bundleDependencies": [
+    "@rdlabo/ionic-theme-utils"
+  ],
   "devDependencies": {
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
@@ -70,8 +73,8 @@
     "wrangler": "^4.125.0"
   },
   "peerDependencies": {
-    "@ionic/core": ">=8.8.1 <10",
-    "@capacitor/core": ">=8.0.0 <9"
+    "@capacitor/core": ">=8.0.0 <9",
+    "@ionic/core": ">=8.8.1 <10"
   },
   "peerDependenciesMeta": {
     "@capacitor/core": {
