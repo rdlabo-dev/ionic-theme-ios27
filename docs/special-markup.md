@@ -46,7 +46,7 @@ CSS alone does not replace Ionic's enter/leave animations.
 
 ## Tab bar position
 
-Add one of `tab-bar-position-start`, `tab-bar-position-center`, or `tab-bar-position-end` to an iOS `ion-tab-bar` to position the whole bar within its safe area. These classes work with both `slot="top"` and `slot="bottom"` and preserve the bar's width and press animation. Start and end follow the text direction (reversed in RTL). Without a class, the existing placement is unchanged.
+Add one of `tab-bar-position-start`, `tab-bar-position-center`, or `tab-bar-position-end` to an iOS `ion-tab-bar` to position the whole bar within its safe area. These classes work with both `slot="top"` and `slot="bottom"` and preserve the bar's width and press animation. Start and end follow the text direction (reversed in RTL). Without a class, the theme uses its default placement.
 
 ```html
 <ion-tab-bar slot="bottom" class="tab-bar-position-center">

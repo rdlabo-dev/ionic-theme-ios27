@@ -2,7 +2,7 @@
 
 @mixin tablet-tabs {
   --ios-theme-tab-overlap: 16px;
-  @each $count, $width in (4: 336px, 5: 414px) {
+  @each $count, $width in (3: 274px, 4: 336px, 5: 414px) {
     &:has(> ion-tab-button:nth-child(#{$count}):last-child) {
       max-width: $width - 8px;
     }
@@ -10,6 +10,7 @@
 }
 
 ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-tab-bar-inline-inset: 21px;
   --ios-theme-safe-area-inline-start: var(--ion-safe-area-left, 0px);
   --ios-theme-safe-area-inline-end: var(--ion-safe-area-right, 0px);
   &:dir(rtl) {
@@ -46,25 +47,25 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   &[slot='bottom'] {
     position: absolute;
-    bottom: var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom));
-    inset-inline-start: calc(21px + var(--ios-theme-safe-area-inline-start));
+    bottom: var(--ios-theme-tab-bar-floating-safe-area-bottom, var(--ios26-tab-bar-floating-safe-area-bottom));
+    inset-inline-start: calc(var(--ios-theme-tab-bar-inline-inset) + var(--ios-theme-safe-area-inline-start));
   }
 
   &.tab-bar-position-start {
-    inset-inline-start: calc(21px + var(--ios-theme-safe-area-inline-start));
+    inset-inline-start: calc(var(--ios-theme-tab-bar-inline-inset) + var(--ios-theme-safe-area-inline-start));
     inset-inline-end: auto;
     margin-inline: 0;
   }
 
   &.tab-bar-position-end {
     inset-inline-start: auto;
-    inset-inline-end: calc(21px + var(--ios-theme-safe-area-inline-end));
+    inset-inline-end: calc(var(--ios-theme-tab-bar-inline-inset) + var(--ios-theme-safe-area-inline-end));
     margin-inline: 0;
   }
 
   &.tab-bar-position-center {
-    left: calc(21px + var(--ion-safe-area-left, 0px));
-    right: calc(21px + var(--ion-safe-area-right, 0px));
+    left: calc(var(--ios-theme-tab-bar-inline-inset) + var(--ion-safe-area-left, 0px));
+    right: calc(var(--ios-theme-tab-bar-inline-inset) + var(--ion-safe-area-right, 0px));
     margin-inline: auto;
   }
 
