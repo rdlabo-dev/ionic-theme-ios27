@@ -17,11 +17,19 @@ final class NativeGlassPoCTests: XCTestCase {
         app.launchArguments = [name.contains("Dark") ? "-parity-dark" : "-parity"]
         app.launch()
 
-        let ready = app.staticTexts["parity-ready"]
-        XCTAssertTrue(ready.waitForExistence(timeout: 60), "parity report never became ready")
-
         let report = app.staticTexts["parity-report"]
-        XCTAssertTrue(report.waitForExistence(timeout: 5), "parity-report label missing")
+        XCTAssertTrue(report.waitForExistence(timeout: 60), "parity-report label missing")
+
+        // The label mounts empty and is populated once web metrics arrive;
+        // wait for non-empty content rather than mere existence.
+        let populated = NSPredicate(format: "label.length > 0")
+        let populatedExpectation = XCTNSPredicateExpectation(predicate: populated, object: report)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [populatedExpectation], timeout: 60),
+            .completed,
+            "parity report never populated")
+
+        XCTAssertTrue(app.staticTexts["parity-ready"].exists, "parity-ready flag missing")
         let text = report.label
         payload = try XCTUnwrap(
             try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],

@@ -9,7 +9,9 @@ set -u
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 demo="$root/demo"
 artifacts=${VERIFY_ARTIFACTS_DIR:-$(mktemp -d /tmp/ios26-parity.XXXXXX)}
-mkdir -p "$artifacts"
+# DerivedData holds multi-GB index caches; keep it outside the uploaded dir.
+derived=${VERIFY_DERIVEDDATA_DIR:-$(mktemp -d /tmp/ios26-parity-dd.XXXXXX)}
+mkdir -p "$artifacts" "$derived"
 printf 'Artifacts: %s\n' "$artifacts"
 
 sim_udid=${1:-}
@@ -31,14 +33,14 @@ npx cap sync ios > "$artifacts/cap-sync.log" 2>&1 || { tail -50 "$artifacts/cap-
 result=0
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -sdk iphonesimulator -destination "platform=iOS Simulator,id=$sim_udid" \
-  -derivedDataPath "$artifacts/app-build" \
+  -derivedDataPath "$derived/app" \
   CODE_SIGNING_ALLOWED=NO build > "$artifacts/app-build.log" 2>&1 || result=$?
 if [ "$result" -ne 0 ]; then
   tail -50 "$artifacts/app-build.log"
   exit "$result"
 fi
 
-xcrun simctl install "$sim_udid" "$artifacts/app-build/Build/Products/Debug-iphonesimulator/App.app"
+xcrun simctl install "$sim_udid" "$derived/app/Build/Products/Debug-iphonesimulator/App.app"
 
 # --- 3. Generate the UI test project and run -----------------------------------
 if ! command -v xcodegen >/dev/null 2>&1; then
@@ -51,7 +53,7 @@ xcodegen generate --spec ios/NativeGlassPoCTests/project.yml --project ios/Nativ
 xcodebuild -project ios/NativeGlassPoCTests/NativeGlassPoCTests.xcodeproj \
   -scheme NativeGlassPoCTests \
   -destination "platform=iOS Simulator,id=$sim_udid" \
-  -derivedDataPath "$artifacts/test-build" \
+  -derivedDataPath "$derived/test" \
   -resultBundlePath "$artifacts/parity.xcresult" \
   CODE_SIGNING_ALLOWED=NO test > "$artifacts/tests.log" 2>&1 || result=$?
 
