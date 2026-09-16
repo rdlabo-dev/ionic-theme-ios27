@@ -1,0 +1,30 @@
+:host {
+  ion-header,
+  ion-toolbar {
+    --background: transparent;
+    --border-width: 0;
+  }
+
+  .controls {
+    padding: 100px 20px 24px;
+    background: var(--ion-background-color, white);
+  }
+
+  .controls button {
+    padding: 10px;
+    margin: 4px;
+  }
+
+  .band {
+    height: 150px;
+    padding: 20px;
+    background: repeating-linear-gradient(90deg, #f85d79 0 24px, #ffdb70 24px 48px);
+    color: #171717;
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .band.alternate {
+    background: repeating-linear-gradient(90deg, #68d8fb 0 24px, #79efba 24px 48px);
+  }
+}

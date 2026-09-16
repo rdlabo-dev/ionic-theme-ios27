@@ -1,6 +1,7 @@
 #!/bin/sh
-# Build the demo app, install it on a simulator, and run the NativeGlassPoC
-# XCTest suite that compares the projected DOM against UIKit references.
+# Build the demo app, install it on a simulator, and run the XCTest suite
+# that audits the /main/index/native-ui-shell page and the shell tab bar
+# against UIKit references mounted by the app's -parity mode.
 # Usage: sh scripts/verify-ios26-parity.sh [SIM_UDID]
 #   SIM_UDID  booted simulator UDID; when empty the script picks a booted iPhone.
 # Artifacts land in $VERIFY_ARTIFACTS_DIR (default: a mktemp dir under /tmp).

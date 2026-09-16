@@ -1,0 +1,66 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start"><ion-back-button defaultHref="/main/index"></ion-back-button></ion-buttons>
+    <ion-title>Native UI Shell</ion-title>
+    <ion-buttons slot="end" [style.display]="hidden() ? 'none' : null" [class.ionic-theme-disabled]="themeDisabled()">
+      <ion-button [fill]="fill()" type="submit" [form]="formRef" [disabled]="disabled()" aria-label="Save">
+        <ion-icon slot="start" name="heart" aria-hidden="true"></ion-icon>
+        <span data-label>Save</span>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-segment [value]="selected()" (ionChange)="selected.set($event.detail.value!); changes.update(increment)">
+      <ion-segment-button value="one"><ion-label>One</ion-label></ion-segment-button>
+      <ion-segment-button [value]="2"><ion-label>Two</ion-label></ion-segment-button>
+      <ion-segment-button value="three" [disabled]="true"><ion-label>Three</ion-label></ion-segment-button>
+    </ion-segment>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-title>Actions: {{ github() }} / {{ refreshes() }}</ion-title>
+    <ion-buttons slot="end" data-glass-group>
+      <ion-button fill="clear" type="button" aria-label="GitHub" (click)="github.update(increment)">
+        <ion-icon slot="icon-only" name="logo-github" aria-hidden="true"></ion-icon>
+      </ion-button>
+      <ion-button fill="clear" type="button" aria-label="Refresh" (click)="refreshes.update(increment)">
+        <ion-icon slot="icon-only" name="refresh-circle" aria-hidden="true"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+<ion-content [fullscreen]="true">
+  <section class="controls">
+    <form #formRef (submit)="save($event)">
+      <p>
+        Save count: <strong data-save-count>{{ saves() }}</strong>
+      </p>
+    </form>
+    <p>Experimental: On supported iOS versions, fixed glass controls are rendered natively.</p>
+    <p>
+      Selection: <strong data-selection>{{ selected() }}</strong> / Change count: <strong data-changes>{{ changes() }}</strong>
+    </p>
+    <button type="button" (click)="selected.set('one')">Select One programmatically</button>
+    <button type="button" (click)="modalOpen.set(true)">Open modal</button>
+    <p>Scroll the background to compare transparency and refraction in the top-right button.</p>
+    <button type="button" (click)="disabled.set(!disabled())">disabled: {{ disabled() }}</button>
+    <button type="button" (click)="hidden.set(!hidden())">Parent hidden: {{ hidden() }}</button>
+    <button type="button" (click)="themeDisabled.set(!themeDisabled())">Theme disabled: {{ themeDisabled() }}</button>
+    @for (value of fills; track value) {
+      <button type="button" (click)="fill.set(value)">fill: {{ value }}</button>
+    }
+  </section>
+  @for (band of bands; track band) {
+    <div class="band" [class.alternate]="band % 2 === 0">
+      <span>{{ band }} — GLASS / Glass / 123456789</span>
+    </div>
+  }
+</ion-content>
+<ion-modal [isOpen]="modalOpen()" (didDismiss)="modalOpen.set(false)">
+  <ng-template>
+    <ion-header
+      ><ion-toolbar><ion-title>Modal</ion-title></ion-toolbar></ion-header
+    >
+    <ion-content><button type="button" (click)="modalOpen.set(false)">Close modal</button></ion-content>
+  </ng-template>
+</ion-modal>

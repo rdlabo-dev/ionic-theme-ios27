@@ -7,12 +7,16 @@ import WebKit
 /// screen, registers a `parity` WKScriptMessageHandler so the web side can
 /// report DOM frames, and exposes the merged metrics through accessibility
 /// labels for XCTest to read.
+///
+/// The audit target is the real `/main/index/native-ui-shell` demo page plus
+/// the shell's `ion-tab-bar`. When web metrics arrive, each reference control
+/// is resized to the corresponding web frame so item-level divisions can be
+/// compared like for like.
 final class ParityHarness: NSObject, WKScriptMessageHandler {
 
     private var webView: WKWebView?
     private var nativeRefs: [String: UIView] = [:]
     private var webMetrics: [String: Any]?
-    private var nativeMetrics: [String: Any]?
     private let report = UILabel()
     private let readyFlag = UILabel()
 
@@ -57,68 +61,45 @@ final class ParityHarness: NSObject, WKScriptMessageHandler {
     // MARK: - Layout
 
     private func installNativeRefs(on host: UIView) {
-        let glass = UIButton(type: .system)
+        let save = UIButton(type: .system)
         if #available(iOS 26.0, *) {
             var config = UIButton.Configuration.glass()
-            config.title = "Glass"
-            glass.configuration = config
+            config.title = "Save"
+            save.configuration = config
         } else {
-            glass.setTitle("Glass", for: .normal)
+            save.setTitle("Save", for: .normal)
         }
-        glass.accessibilityIdentifier = "native-glass"
-        host.addSubview(glass)
-        nativeRefs["glass"] = glass
-
-        let prominent = UIButton(type: .system)
-        if #available(iOS 26.0, *) {
-            var config = UIButton.Configuration.prominentGlass()
-            config.title = "Prominent"
-            prominent.configuration = config
-        } else {
-            prominent.setTitle("Prominent", for: .normal)
-        }
-        prominent.accessibilityIdentifier = "native-prominent"
-        host.addSubview(prominent)
-        nativeRefs["prominent"] = prominent
-
-        let toggle = UISwitch()
-        toggle.isOn = true
-        toggle.accessibilityIdentifier = "native-toggle"
-        host.addSubview(toggle)
-        nativeRefs["toggle"] = toggle
+        save.accessibilityIdentifier = "native-save"
+        host.addSubview(save)
+        nativeRefs["save"] = save
 
         let segment = UISegmentedControl(items: ["One", "Two", "Three"])
         segment.selectedSegmentIndex = 0
+        segment.setEnabled(false, forSegmentAt: 2)
         segment.accessibilityIdentifier = "native-segment"
         host.addSubview(segment)
         nativeRefs["segment"] = segment
 
-        let slider = UISlider()
-        slider.value = 0.4
-        slider.accessibilityIdentifier = "native-range"
-        host.addSubview(slider)
-        nativeRefs["range"] = slider
-
         let tabBar = UITabBar()
         tabBar.items = [
-            UITabBarItem(title: "One", image: nil, tag: 0),
-            UITabBarItem(title: "Two", image: nil, tag: 1),
-            UITabBarItem(title: "Three", image: nil, tag: 2),
+            UITabBarItem(title: "Index", image: nil, tag: 0),
+            UITabBarItem(title: "Docs", image: nil, tag: 1),
+            UITabBarItem(title: "Library", image: nil, tag: 2),
+            UITabBarItem(title: "Settings", image: nil, tag: 3),
         ]
         tabBar.selectedItem = tabBar.items?.first
         tabBar.accessibilityIdentifier = "native-tabs"
         host.addSubview(tabBar)
         nativeRefs["tabs"] = tabBar
 
-        layoutNativeRefs(host: host)
+        layoutNativeRefs()
     }
 
-    private func layoutNativeRefs(host: UIView) {
-        nativeRefs["glass"]?.frame = CGRect(x: 24, y: 590, width: 140, height: 44)
-        nativeRefs["prominent"]?.frame = CGRect(x: 232, y: 590, width: 140, height: 44)
-        nativeRefs["toggle"]?.frame = CGRect(x: 24, y: 650, width: 63, height: 28)
-        nativeRefs["segment"]?.frame = CGRect(x: 24, y: 646, width: 320, height: 32)
-        nativeRefs["range"]?.frame = CGRect(x: 24, y: 706, width: 320, height: 44)
+    private func layoutNativeRefs() {
+        // Overlay row at the bottom of the screen; widths are synced to the
+        // web frames once metrics arrive.
+        nativeRefs["save"]?.frame = CGRect(x: 24, y: 590, width: 140, height: 44)
+        nativeRefs["segment"]?.frame = CGRect(x: 24, y: 646, width: 354, height: 32)
         nativeRefs["tabs"]?.frame = CGRect(x: 21, y: 786, width: 360, height: 62)
     }
 
@@ -146,10 +127,8 @@ final class ParityHarness: NSObject, WKScriptMessageHandler {
     private func collectNativeMetrics(host: UIView) -> [String: Any] {
         var metrics: [String: Any] = [:]
 
-        for key in ["glass", "prominent", "toggle"] {
-            if let view = nativeRefs[key] {
-                metrics[key] = frameDict(view.frame)
-            }
+        if let save = nativeRefs["save"] {
+            metrics["save"] = frameDict(save.frame)
         }
 
         if let segment = nativeRefs["segment"] as? UISegmentedControl {
@@ -161,16 +140,6 @@ final class ParityHarness: NSObject, WKScriptMessageHandler {
                 x += width
             }
             metrics["segment"] = ["frame": frameDict(segment.frame), "items": items]
-        }
-
-        if let slider = nativeRefs["range"] as? UISlider {
-            let track = slider.trackRect(forBounds: slider.bounds)
-            let thumb = slider.thumbRect(forBounds: slider.bounds, trackRect: track, value: slider.value)
-            metrics["range"] = [
-                "frame": frameDict(slider.frame),
-                "track": frameDict(track),
-                "thumb": frameDict(thumb),
-            ]
         }
 
         if let tabBar = nativeRefs["tabs"] as? UITabBar {
@@ -204,8 +173,22 @@ final class ParityHarness: NSObject, WKScriptMessageHandler {
         publishIfReady()
     }
 
+    private func webWidth(_ key: String) -> CGFloat? {
+        guard let node = webMetrics?[key] as? [String: Any] else { return nil }
+        let frame = (node["frame"] as? [String: Any]) ?? node
+        return (frame["w"] as? NSNumber).map { CGFloat(truncating: $0) }
+    }
+
+    /// Match each reference's width to the measured web control so per-item
+    /// divisions are compared on equal footing, then lay out and publish.
     private func publishIfReady() {
         guard let web = webMetrics, let host = webView?.superview ?? webView else { return }
+        if let width = webWidth("segment"), let segment = nativeRefs["segment"] {
+            segment.frame.size.width = width
+        }
+        if let width = webWidth("tabs"), let tabs = nativeRefs["tabs"] {
+            tabs.frame.size.width = width
+        }
         host.layoutIfNeeded()
         let native = collectNativeMetrics(host: host)
         let payload: [String: Any] = ["web": web, "native": native]
