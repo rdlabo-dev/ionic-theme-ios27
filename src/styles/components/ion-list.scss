@@ -23,13 +23,22 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
     padding-inline-end: calc(var(--ion-safe-area-right, 0) + 20px);
   }
 
+  &:dir(rtl) ion-radio-group > .radio-group-top {
+    padding-inline-start: calc(var(--ion-safe-area-right, 0) + 20px);
+    padding-inline-end: calc(var(--ion-safe-area-left, 0) + 20px);
+  }
+
   > :is(#{structured-list.$groups}) {
     ion-item {
       // To draw lines inside
       --inner-padding-end: 0;
 
       &::part(native) {
-        padding-right: calc(var(--ion-safe-area-right, 0px) + 18px);
+        padding-inline-end: calc(var(--ion-safe-area-right, 0px) + 18px);
+      }
+
+      &:dir(rtl)::part(native) {
+        padding-inline-end: calc(var(--ion-safe-area-left, 0px) + 18px);
       }
 
       --min-height: 52px;

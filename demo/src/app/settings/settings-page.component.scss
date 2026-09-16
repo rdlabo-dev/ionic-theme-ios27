@@ -14,7 +14,7 @@ ion-item > ion-icon[slot='start'] {
   ion-item > ion-icon[slot='start'] {
     padding: 4px;
     font-size: 1.3rem;
-    margin-right: 14px;
+    margin-inline-end: 14px;
     border-radius: 8px;
   }
 }
@@ -24,7 +24,7 @@ ion-item > ion-icon[slot='start'] {
     padding: 8px;
     width: calc(40px - 16px);
     height: calc(40px - 16px);
-    margin-right: 16px;
+    margin-inline-end: 16px;
     border-radius: 50%;
     background: var(--ion-color-light-shade);
   }

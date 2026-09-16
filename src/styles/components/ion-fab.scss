@@ -6,7 +6,13 @@ $scaleup-default-icon-only: api.$button-scaleup-default-icon-only;
 $scaleup-large-icon-only: api.$button-scaleup-large-icon-only;
 
 ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-safe-area-inline-start: var(--ion-safe-area-left, 0px);
+  --ios-theme-safe-area-inline-end: var(--ion-safe-area-right, 0px);
   --transform-value: 2.5px;
+  &:dir(rtl) {
+    --ios-theme-safe-area-inline-start: var(--ion-safe-area-right, 0px);
+    --ios-theme-safe-area-inline-end: var(--ion-safe-area-left, 0px);
+  }
   &:has(> ion-fab-button.fab-button-small) {
     --transform-value: 4px;
   }
@@ -85,20 +91,20 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   &.fab-horizontal-start {
-    left: calc(16px + var(--ios-theme-menu-width, var(--ios26-menu-width, var(--ion-safe-area-left), 0px)));
+    inset-inline-start: calc(16px + var(--ios-theme-menu-width, var(--ios26-menu-width, var(--ios-theme-safe-area-inline-start))));
   }
 
   &.fab-horizontal-end {
-    right: calc(16px + var(--ion-safe-area-right, 0px));
+    inset-inline-end: calc(16px + var(--ios-theme-safe-area-inline-end));
   }
 
   &:has(.fab-button-small) {
     &.fab-horizontal-start {
-      left: calc(10px + var(--ios-theme-menu-width, var(--ios26-menu-width, var(--ion-safe-area-left), 0px)));
+      inset-inline-start: calc(10px + var(--ios-theme-menu-width, var(--ios26-menu-width, var(--ios-theme-safe-area-inline-start))));
     }
 
     &.fab-horizontal-end {
-      right: calc(10px + var(--ion-safe-area-right, 0px));
+      inset-inline-end: calc(10px + var(--ios-theme-safe-area-inline-end));
     }
   }
 }
