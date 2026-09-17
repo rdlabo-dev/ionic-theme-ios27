@@ -1,0 +1,7 @@
+// Playwright Chromium lacks :heading, so adaptive CSS would load iOS 26 and
+// invalidate the iOS 27 screenshot baseline. E2E builds pin iOS 27 instead.
+@use '../../../src/styles/default-variables';
+@use '../../../src/styles/ionic-theme-ios27';
+@use '../../../src/styles/ionic-theme-ios27-dark-class';
+@use '../../../src/styles/md-ion-list-inset';
+@use '../../../src/styles/md-remove-ios-class-effect';

@@ -28,7 +28,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env['IONIC_MAJOR'] === '8' ? 'npm run start -- --configuration=ionic8' : 'npm run start',
+    command: process.env['IONIC_MAJOR'] === '8' ? 'npm run start -- --configuration=ionic8-e2e' : 'npm run start -- --configuration=e2e',
     url: 'http://localhost:4200',
     reuseExistingServer: !process.env['CI'] && process.env['IONIC_MAJOR'] === undefined,
     timeout: 120000,

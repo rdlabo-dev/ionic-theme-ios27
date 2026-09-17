@@ -1,12 +1,6 @@
 /*
- * App Global CSS
- * ----------------------------------------------------------------------------
- * Put style rules here that you want to apply globally. These styles are for
- * the entire app and not just one component. Additionally, this file can be
- * used as an entry point to import other CSS/Sass files to be included in the
- * output CSS.
- * For more information on global stylesheets, visit the documentation:
- * https://ionicframework.com/docs/layout/global-stylesheets
+ * E2E global stylesheet — pins iOS 27 so Chromium screenshot baselines stay stable.
+ * Adaptive selection lives in global.scss / theme/ios-theme.scss.
  */
 
 /* Core CSS required for Ionic components to work properly */
@@ -25,16 +19,9 @@
 @use '@ionic/angular/css/text-transformation.css';
 @use '@ionic/angular/css/flex-utils.css';
 
-/**
- * Ionic Dark Mode
- * -----------------------------------------------------
- * For more info, please see:
- * https://ionicframework.com/docs/theming/dark-mode
- */
-
 //@use "@ionic/angular/css/palettes/dark.always.css";
 //@use '@ionic/angular/css/palettes/dark.system.css';
 @use '@ionic/angular/css/palettes/dark.class.css';
 
-@use './theme/ios-theme';
+@use './theme/ios-theme.e2e';
 @use './theme/demo-app';
