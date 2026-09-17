@@ -38,7 +38,7 @@
 
 @use 'sass:meta';
 
-// Adaptive iOS themes: capability checks, not OS version. See docs/ios-adaptive.md.
+// Adaptive iOS themes: capability checks, not OS version. See README.md.
 // `overflow-anchor: auto` selects the newer theme; `text-wrap: pretty` without it keeps iOS 26.
 @supports (overflow-anchor: auto) {
   @include meta.load-css('../../src/styles/default-variables');

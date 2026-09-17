@@ -1,11 +1,8 @@
 # Ionic Theme iOS27
 
-A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web, with an optional way to project existing Ionic controls into native UI.
+A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Capacitor iOS apps can also opt into an experimental Native UI Shell for supported controls.
 
-> [!IMPORTANT]
-> This `main` branch contains the iOS 27 theme under the package name `@rdlabo/ionic-theme-ios27`. For the iOS 26 theme (`@rdlabo/ionic-theme-ios26`), see the [`ios26` branch](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios26).
-
-> All versions before 1.0.0 are release candidates (RC). APIs, CSS variables, classes, styling, and behavior may change without backward compatibility, including in minor and patch releases. A stable compatibility commitment starts with 1.0.0.
+**[Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) · [Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/) · [Documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios27)**
 
 <!-- rdlabo-docs-pick -->
 
@@ -33,84 +30,63 @@ On Capacitor iOS, the optional, experimental [Native UI Shell](https://docs.rdla
 
 ### Follow the user's device
 
-Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [adaptive setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
+Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [default setup](#get-started) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
 
-## Installation
+## Get started
 
-The steps below install the iOS 27 theme on its own. To switch between the iOS 26 and iOS 27 themes, follow [Adaptive iOS themes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) instead of using the unconditional stylesheet imports and animation setup below.
-
-Requires `@ionic/core` 8.8.1 or later (Ionic 8 and 9). Install it in an existing Ionic project:
+Install both themes in an existing Ionic 8 or 9 app (`@ionic/core` 8.8.1 or later):
 
 ```bash
-npm install @rdlabo/ionic-theme-ios27
+npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27
 ```
 
-And import the theme in your project's main CSS file (e.g., `src/styles.scss`).
+In your global Sass stylesheet (for example, `src/styles.scss`), load the styles by browser capability:
 
-```css
-@import '@rdlabo/ionic-theme-ios27/dist/css/default-variables.css';
-@import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27.css';
+```scss
+@use 'sass:meta';
 
-/**
- * Keep Material Design mode unaffected by the iOS theme
- * when the same markup is used in both modes.
- * Note: This stylesheet is not included in `@rdlabo/ionic-theme-md3`.
- */
-@import '@rdlabo/ionic-theme-ios27/dist/css/md-remove-ios-class-effect.css';
+@supports (overflow-anchor: auto) {
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/default-variables');
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27');
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class');
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect');
+}
 
-/**
- * If you will use the design of ion-item-group with ion-list on Android as well, import it.
- * More info: https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/using-ion-item-group
- * Note: This stylesheet is included in `@rdlabo/ionic-theme-md3`.
- * @import '@rdlabo/ionic-theme-ios27/dist/css/md-ion-list-inset.css';
- */
-
-/*
- * Support Dark Mode
- * We support Ionic Dark Mode. More information is here: https://ionicframework.com/docs/theming/dark-mode
- * use Always:    @import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-always.css'
- * use System:    @import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-system.css'
- * use CSS Class: @import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-class.css'
- */
+@supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/default-variables');
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect');
+}
 ```
+
+These checks select styles by browser features, not by iOS version. Browsers without either feature retain Ionic's default iOS appearance. The example uses class-based dark mode: also load [Ionic's matching dark palette](https://ionicframework.com/docs/theming/dark-mode). For system or always-dark mode, replace both `-dark-class` imports with the matching variant. The `md-remove-ios-class-effect` styles prevent iOS-specific classes from affecting Material Design mode.
 
 ### Configure animations
 
-If you installed only the iOS 27 theme, configure its animations as follows.
+Keep the iOS 27 page transition and popover animations for both styled generations. Resolve these options before Ionic initializes. For Angular:
 
 ```ts
-import { isPlatform } from '@ionic/core'; // or @ionic/angular (Ionic 9), @ionic/angular/standalone (Ionic 8), @ionic/react, @ionic/vue
+import { isPlatform, provideIonicAngular } from '@ionic/angular/standalone'; // Ionic 8
 import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
 
-// Angular
-provideIonicAngular({
-    ...
-    navAnimation: isPlatform('ios') ? iosTransitionAnimation: undefined,
-    popoverEnter: isPlatform('ios') ? popoverEnterAnimation: undefined,
-    popoverLeave: isPlatform('ios') ? popoverLeaveAnimation: undefined,
-});
+function loadIOSAnimations() {
+  if (typeof CSS === 'undefined') return {};
+  if (!CSS.supports('overflow-anchor: auto') && !CSS.supports('text-wrap: pretty')) return {};
 
-// React
-setupIonicReact({
-    ...
-    navAnimation: isPlatform('ios') ? iosTransitionAnimation: undefined,
-    popoverEnter: isPlatform('ios') ? popoverEnterAnimation: undefined,
-    popoverLeave: isPlatform('ios') ? popoverLeaveAnimation: undefined,
-});
+  return {
+    navAnimation: iosTransitionAnimation,
+    popoverEnter: popoverEnterAnimation,
+    popoverLeave: popoverLeaveAnimation,
+  };
+}
 
-// Vue
-createApp(App)
-    .use(IonicVue, {
-        ...
-        navAnimation: isPlatform('ios') ? iosTransitionAnimation: undefined,
-        popoverEnter: isPlatform('ios') ? popoverEnterAnimation: undefined,
-        popoverLeave: isPlatform('ios') ? popoverLeaveAnimation: undefined,
-})
+provideIonicAngular(isPlatform('ios') ? loadIOSAnimations() : {});
 ```
 
-To enable Native UI Shell, follow its [setup guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell). Importing the theme's styles alone does not turn on native controls.
+For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/angular`. React and Vue can pass the same options to `setupIonicReact` or `IonicVue` during initialization. In server-rendered apps, run the selection during browser initialization.
 
-The page-transition radius defaults to `0`. Native apps can update it after measuring the web view:
+The page-transition radius defaults to `0`. Native apps can update it after measuring the WebView:
 
 ```ts
 import { setConfig } from '@rdlabo/ionic-theme-ios27';
@@ -133,17 +109,29 @@ Use this markup to preview the inset grouped list look. For the list structure t
 </ion-list>
 ```
 
-### Optional: use the iOS 27 and MD3 themes together
+## Optional setups
 
-Install the MD3 theme to style both Ionic modes from the same application.
+### Use only the iOS 27 theme
 
-The current releases of both themes require `@ionic/core` 8.8.1 or later.
+Install only `@rdlabo/ionic-theme-ios27` and import its styles unconditionally in your global stylesheet:
 
-```bash
-npm install @rdlabo/ionic-theme-md3
+```css
+@import '@rdlabo/ionic-theme-ios27/dist/css/default-variables.css';
+@import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27.css';
+@import '@rdlabo/ionic-theme-ios27/dist/css/md-remove-ios-class-effect.css';
+@import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-class.css';
 ```
 
-When your global stylesheet uses Sass, initialize the themes in this order:
+The last import uses class-based dark mode; choose the `-dark-system` or `-dark-always` variant and matching Ionic palette for another mode. Configure the iOS 27 animations with `isPlatform('ios')` as above, without the browser feature checks.
+
+### Other options
+
+- **Native controls:** Follow the [Native UI Shell setup guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell). Stylesheet imports alone do not enable it.
+- **Inset lists on Android:** Load the matching package's `md-ion-list-inset` stylesheet inside each `@supports` branch if needed. It is already included in `@rdlabo/ionic-theme-md3`.
+
+### Use with the MD3 theme
+
+For the iOS 27-only setup above, install `@rdlabo/ionic-theme-md3` to style both Ionic modes. Both themes require `@ionic/core` 8.8.1 or later. In a global Sass stylesheet, load the iOS 27 styles before MD3:
 
 ```scss
 @use '@rdlabo/ionic-theme-ios27/src/styles/default-variables.scss' as ios27-vars;
@@ -154,58 +142,24 @@ When your global stylesheet uses Sass, initialize the themes in this order:
 @use '@rdlabo/ionic-theme-md3/dist/css/ionic-theme-md3.css';
 ```
 
-The example uses Ionic's class-based dark mode. Your global stylesheet must also load Ionic's matching dark palette, such as `@ionic/angular/css/palettes/dark.class.css` for Angular. When using `dark-system` or `dark-always`, select the same variant for both Ionic's palette and the iOS 27 theme. See Ionic's [Dark Mode documentation](https://ionicframework.com/docs/theming/dark-mode). The explicit `ios27-vars` and `md3-vars` namespaces prevent the two variable modules from using the same default namespace.
-
-Configure both transition implementations when both themes are installed:
-
-```ts
-import { isPlatform } from '@ionic/core'; // or @ionic/angular (Ionic 9), @ionic/angular/standalone (Ionic 8), @ionic/react, @ionic/vue
-import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
-import { mdTransitionAnimation } from '@rdlabo/ionic-theme-md3';
-
-// Angular
-provideIonicAngular({
-    ...
-    navAnimation: isPlatform('ios') ? iosTransitionAnimation : mdTransitionAnimation,
-    popoverEnter: isPlatform('ios') ? popoverEnterAnimation : undefined,
-    popoverLeave: isPlatform('ios') ? popoverLeaveAnimation : undefined,
-});
-
-// React
-setupIonicReact({
-    ...
-    navAnimation: isPlatform('ios') ? iosTransitionAnimation : mdTransitionAnimation,
-    popoverEnter: isPlatform('ios') ? popoverEnterAnimation : undefined,
-    popoverLeave: isPlatform('ios') ? popoverLeaveAnimation : undefined,
-});
-
-// Vue
-createApp(App)
-    .use(IonicVue, {
-        ...
-        navAnimation: isPlatform('ios') ? iosTransitionAnimation : mdTransitionAnimation,
-        popoverEnter: isPlatform('ios') ? popoverEnterAnimation : undefined,
-        popoverLeave: isPlatform('ios') ? popoverLeaveAnimation : undefined,
-    });
-```
+Load Ionic's matching dark palette too. To use MD3's page transition in Material Design mode, set `navAnimation` to `isPlatform('ios') ? iosTransitionAnimation : mdTransitionAnimation`, importing the latter from `@rdlabo/ionic-theme-md3`.
 
 ## Documentation
 
 **Full documentation:** [Ionic Theme iOS27](https://docs.rdlabo.dev/projects/ionic-theme-ios27)
 
-- [Adaptive iOS themes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) — select iOS 26 or iOS 27 styles by browser capabilities; keep the iOS 27 page transition when both packages are installed.
 - [Using ion-item-group](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/using-ion-item-group) — required markup for inset lists.
 - [Special markup and classes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/special-markup) — opt-in markup and utility classes used by the theme.
 - [ESLint](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/eslint) — check list structure with ESLint rules.
 - [Features](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/features) — CSS variables, Liquid Glass, selective imports, and dark mode.
 - [Native UI Shell (Experimental)](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) — project supported Ionic controls, text, and icons into UIKit.
 - [Animation](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/experimental-animation) — tab, segment, and searchable effects.
-- [Migration](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) — stylesheet, class, and CSS variable naming changes.
+- [Migration from iOS 26](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) — upgrade an existing app, including stylesheet, class, and CSS variable changes.
 - [iOS 26 migration history](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration) — earlier major-version changes for the previous package.
 
 <!-- rdlabo-docs-omit -->
 
-**iOS 26 documentation:** See the [iOS 26 documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios26) for the previous theme.
+**iOS 26 theme:** See the [`ios26` branch](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios26) and [iOS 26 documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios26).
 
 ## Development & Testing
 
@@ -246,23 +200,9 @@ npm run test:e2e:debug
 npm run test:e2e:update
 ```
 
-### Prerelease channels
+### Releases
 
-An open, non-draft pull request can be published to the npm `beta` dist-tag after its `Lint`, `E2E Screenshot Tests Pull Request`, and `Package Candidate` workflows pass. A repository owner or maintainer must add a comment whose entire body is:
-
-```text
-/beta
-```
-
-The request authorizes only the pull request head SHA and base branch that existed when the comment was added. The workflow revalidates the owner or maintainer permission, head SHA, and base branch immediately before publishing. Any new commit or retargeting invalidates the request; the new state must pass CI and receive a fresh owner or maintainer `/beta` comment. Fork pull requests are supported. Pull requests that change a release-gating workflow cannot be beta-published until those workflow changes land on their target branch.
-
-Beta versions use `<base>-beta.pr<PR number>.sha<12-character SHA>`. The pull request receives a comment containing the immutable version and exact `npm install` command.
-
-When a pull request is merged into `main` or `ios26`, it is automatically published to the npm `beta` dist-tag only after `Lint`, `E2E Screenshot Tests`, and `Package Candidate` all succeed for that exact merge commit. Direct pushes do not publish a candidate. Merge candidates use `<base>-beta.pr<PR number>.sha<12-character SHA>` and the merged pull request receives the exact install command.
-
-Candidate code is built in a read-only workflow without npm publishing credentials. The privileged release workflow never checks out or executes pull request code; it revalidates the source workflow and package identity, then publishes only the immutable packed artifact with lifecycle scripts disabled. The install-command comment is a separate best-effort notification and cannot invalidate a successful npm publish.
-
-Only `npm run release` can create a release tag. Stable `ios27-vX.Y.Z` tags (major, minor, or patch releases) publish to npm `latest`; revision/prerelease tags publish to `next`. Neither `beta` nor `next` publishing changes the npm `latest` dist-tag.
+Stable `ios27-vX.Y.Z` tags publish to npm `latest` through the [release workflow](./.github/workflows/release.yml). Maintainers create release tags with `npm run release`. Pull request and merge candidates use the npm `beta` tag; prerelease tags use `next`.
 
 <!-- /rdlabo-docs-omit -->
 
