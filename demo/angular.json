@@ -68,26 +68,6 @@
                   "with": "src/ionic/ionic.v8.ts"
                 }
               ]
-            },
-            "e2e": {
-              "optimization": false,
-              "extractLicenses": false,
-              "sourceMap": true,
-              "namedChunks": true,
-              "styles": ["src/global.e2e.scss", "src/theme/variables.scss"]
-            },
-            "ionic8-e2e": {
-              "optimization": false,
-              "extractLicenses": false,
-              "sourceMap": true,
-              "namedChunks": true,
-              "styles": ["src/global.e2e.scss", "src/theme/variables.scss"],
-              "fileReplacements": [
-                {
-                  "replace": "src/ionic/ionic.ts",
-                  "with": "src/ionic/ionic.v8.ts"
-                }
-              ]
             }
           },
           "defaultConfiguration": "production"
@@ -106,12 +86,6 @@
             },
             "ionic8": {
               "buildTarget": "app:build:ionic8"
-            },
-            "e2e": {
-              "buildTarget": "app:build:e2e"
-            },
-            "ionic8-e2e": {
-              "buildTarget": "app:build:ionic8-e2e"
             }
           },
           "defaultConfiguration": "development"
