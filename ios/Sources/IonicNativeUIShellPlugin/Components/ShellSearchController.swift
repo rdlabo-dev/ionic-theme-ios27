@@ -47,6 +47,9 @@ private final class ShellSearchInputDelegate: NSObject, UITextFieldDelegate {
 
 @available(iOS 26.0, *)
 final class ShellSearchController: UITabBarController, UITabBarControllerDelegate, UISearchBarDelegate {
+    // Wire stays active+focused; local session drives chrome (idle / presented / focused).
+    private enum Session: Equatable { case idle, presented, focused }
+
     let surface = ShellSearchHost()
     private let search = UISearchController(searchResultsController: nil)
     private let inputDelegate = ShellSearchInputDelegate()
@@ -59,7 +62,12 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     private var valueVersion = -1
     private var lastLayout = ""
     private var layoutItems: [ShellItemContent] = []
+    private var lockedWebFrame: CGRect? // frozen while search is active
+    private var session: Session = .idle
+    private var focusWork: DispatchWorkItem?
+    private var pendingSelection: ShellTabBar.PendingSelection? // optimistic ordinary tab
     var ownsKeyboard: Bool { search.searchBar.searchTextField.isFirstResponder }
+    var ownsKeyboardChrome: Bool { session == .focused || ownsKeyboard }
     var activate: ((String) -> Void)?
     var changed: ((String, ShellSearchPhase, String, Bool, Int) -> Int)?
 
@@ -84,6 +92,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             child.view.backgroundColor = .clear
             child.definesPresentationContext = true
             child.navigationItem.searchController = self?.search
+            child.navigationItem.hidesSearchBarWhenScrolling = false
             child.navigationItem.preferredSearchBarPlacement = .integrated
             let navigation = UINavigationController(rootViewController: child)
             navigation.view.backgroundColor = .clear
@@ -91,6 +100,69 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         }
         searchTab.automaticallyActivatesSearch = false
         inputDelegate.clear = { [weak self] in self?.emit(.clear) }
+    }
+
+    deinit { focusWork?.cancel() }
+
+    private func wantedSession(active: Bool, focused: Bool) -> Session {
+        if !active { return .idle }
+        return focused ? .focused : .presented
+    }
+
+    private func endEditing() {
+        focusWork?.cancel()
+        focusWork = nil
+        if search.searchBar.searchTextField.isFirstResponder {
+            search.searchBar.searchTextField.resignFirstResponder()
+        }
+        if search.isActive { search.isActive = false }
+    }
+
+    private func applySession(_ wanted: Session, selectingSearchTab: Bool) {
+        if wanted == session && !selectingSearchTab { return }
+        if wanted == .idle {
+            endEditing()
+            session = .idle
+            return
+        }
+        if selectingSearchTab || selectedTab !== searchTab { selectedTab = searchTab }
+        if wanted == .presented {
+            if session == .focused { endEditing() }
+            session = .presented
+            return
+        }
+        session = .focused
+        if !search.isActive { search.isActive = true }
+        guard !search.searchBar.searchTextField.isFirstResponder, focusWork == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.focusWork = nil
+            guard self.session == .focused, !self.search.searchBar.searchTextField.isFirstResponder else { return }
+            if !self.search.isActive { self.search.isActive = true }
+            _ = self.search.searchBar.searchTextField.becomeFirstResponder()
+        }
+        focusWork = work
+        DispatchQueue.main.async(execute: work)
+    }
+
+    private func resolveOrdinarySelection(_ items: [ShellItem], fallback: UITab?) {
+        let domSelected = ordinary[selectedID] ?? fallback
+        guard let pending = pendingSelection else {
+            if selectedTab !== domSelected { selectedTab = domSelected }
+            return
+        }
+        let pendingTab = ordinary[pending.id]
+        let expired = CFAbsoluteTimeGetCurrent() >= pending.until
+        let unavailable = pendingTab == nil || (items.first { $0.id == pending.id }?.content.disabled ?? true)
+        if unavailable || expired {
+            pendingSelection = nil
+            selectedTab = domSelected
+        } else if selectedID == pending.id {
+            pendingSelection = nil
+            if selectedTab !== domSelected { selectedTab = domSelected }
+        } else if selectedTab !== pendingTab {
+            selectedTab = pendingTab
+        }
     }
 
     func attach(to parent: UIViewController, in container: UIView) {
@@ -102,7 +174,9 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
 
     func detach() {
         closing = true
-        search.isActive = false
+        lockedWebFrame = nil
+        pendingSelection = nil
+        applySession(.idle, selectingSearchTab: false)
         willMove(toParent: nil)
         surface.removeFromSuperview()
         view.removeFromSuperview()
@@ -117,18 +191,22 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             editingSequence = 0
             valueVersion = -1
         }
+        let wasActive = self.configuration.map { $0.available && $0.active } ?? false
         self.configuration = configuration
         let available = configuration.available
         let active = available && configuration.active
-        // UIKit may clear the field while changing tabs. Retiring must not
-        // advance native editing beyond the last input accepted by Ionic.
-        if !active { closing = true }
+        let wanted = wantedSession(active: active, focused: configuration.focused)
+        if !active {
+            closing = true
+            if lockedWebFrame != nil {
+                lockedWebFrame = nil
+                lastLayout = ""
+            }
+        }
         let items = snapshot.items
         let content = items.map(\.content)
         if layoutItems != content {
             layoutItems = content
-            // Defer fitting while search is active, but keep the resting layout
-            // invalid until new labels, typography, icons and badges are measured.
             lastLayout = ""
         }
         let ids = items.map(\.id)
@@ -153,7 +231,12 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         searchTab.image = rendering.image(trigger.content)
         searchTab.isEnabled = !configuration.disabled
         let requested = ids.compactMap { ordinary[$0] } + (available ? [searchTab!] : [])
-        if tabs.map(\.identifier) != requested.map(\.identifier) { tabs = requested; lastLayout = "" }
+        if active {
+            if tabs.isEmpty { tabs = requested }
+        } else if wasActive || tabs.isEmpty || tabs.map(\.identifier) != requested.map(\.identifier) {
+            tabs = requested
+            lastLayout = ""
+        }
         for item in items {
             if let nativeItem = ordinary[item.id]?.viewController?.tabBarItem {
                 nativeItem.accessibilityLabel = item.content.accessibilityLabel
@@ -161,7 +244,6 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
                 ShellTabBar.applyBadge(item.content.badge, to: nativeItem, rendering: rendering)
             }
         }
-        // This is a public iOS 27 property; dynamic dispatch also supports apps built with SDK 26.
         let prominent = NSSelectorFromString("setProminentTabIdentifier:")
         if responds(to: prominent) { setValue(available ? searchTab.identifier : nil, forKey: "prominentTabIdentifier") }
         let field = configuration.field
@@ -180,29 +262,33 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             inputDelegate.original = search.searchBar.searchTextField.delegate
             search.searchBar.searchTextField.delegate = inputDelegate
         }
-        surface.frame = webFrame
+        if active {
+            if lockedWebFrame == nil {
+                lockedWebFrame = surface.bounds.isEmpty ? webFrame : surface.frame
+            }
+            if let lockedWebFrame, surface.frame != lockedWebFrame { surface.frame = lockedWebFrame }
+        } else {
+            surface.frame = webFrame
+        }
         surface.isHidden = false
         surface.overrideUserInterfaceStyle = snapshot.dark ? .dark : .light
         view.semanticContentAttribute = snapshot.rtl ? .forceRightToLeft : .forceLeftToRight
-        // Only measure the resting tabs. UIKit owns all frames during search and keyboard movement.
-        let layout = "\(webFrame):\(barFrame):\(triggerFrame):\(available):\(snapshot.rtl)"
-        if !active && lastLayout != layout {
-            closing = true
-            search.isActive = false
-            selectedTab = ordinary[selectedID] ?? requested.first
-            view.frame = surface.bounds
-            view.layoutIfNeeded()
-            guard fit(barFrame: surface.convert(barFrame, from: surface.superview), triggerFrame: surface.convert(triggerFrame, from: surface.superview),
-                      available: available, anchor: snapshot.tabBarAnchor) else { return false }
-            lastLayout = layout
-        }
-        let wanted = active ? searchTab : ordinary[selectedID]
-        if selectedTab !== wanted { selectedTab = wanted }
         closing = !active
-        if !active { search.isActive = false }
-        else if configuration.focused && !search.searchBar.searchTextField.isFirstResponder {
-            search.isActive = true
-            search.searchBar.searchTextField.becomeFirstResponder()
+        let layout = "\(webFrame):\(barFrame):\(triggerFrame):\(available):\(snapshot.rtl)"
+        if !active {
+            applySession(.idle, selectingSearchTab: false)
+            resolveOrdinarySelection(items, fallback: requested.first)
+            if lastLayout != layout {
+                view.frame = surface.bounds
+                view.layoutIfNeeded()
+                guard fit(barFrame: surface.convert(barFrame, from: surface.superview),
+                          triggerFrame: surface.convert(triggerFrame, from: surface.superview),
+                          available: available, anchor: snapshot.tabBarAnchor) else { return false }
+                lastLayout = layout
+            }
+        } else {
+            pendingSelection = nil
+            applySession(wanted, selectingSearchTab: !wasActive)
         }
         return true
     }
@@ -233,8 +319,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         let final = group.convert(group.bounds, to: surface)
         guard abs(final.minX + final.width * x - (barFrame.minX + barFrame.width * x)) <= 1,
               abs(final.maxY - barFrame.maxY) <= 1 else { return false }
-        if let targetSearch,
-           let control = searchControl {
+        if let targetSearch, let control = searchControl {
             let rect = control.convert(control.bounds, to: surface)
             return abs(rect.midX - targetSearch) <= 1 && abs(rect.midY - triggerFrame.midY) <= 1
         }
@@ -243,11 +328,20 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
 
     func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
         guard let configuration else { return false }
-        let active = configuration.active
-        if tab === searchTab { activate?(configuration.trigger.id) }
-        else if active && tab.identifier == selectedID { activate?(configuration.closeId) }
-        else { activate?(tab.identifier) }
-        return false
+        if tab === searchTab {
+            pendingSelection = nil
+            activate?(configuration.trigger.id)
+            return true
+        }
+        if configuration.active {
+            if tab.identifier == selectedID { activate?(configuration.closeId) }
+            else { activate?(tab.identifier) }
+            return false
+        }
+        pendingSelection = .start(tab.identifier)
+        if selectedTab !== tab { selectedTab = tab }
+        activate?(tab.identifier)
+        return true
     }
 
     private func emit(_ phase: ShellSearchPhase) {
@@ -255,8 +349,14 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         editingSequence = changed?(configuration.id, phase, search.searchBar.text ?? "", search.searchBar.searchTextField.markedTextRange != nil, valueVersion) ?? editingSequence
     }
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) { emit(.input) }
-    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) { emit(.focus) }
-    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) { emit(.blur) }
+    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
+        if session != .idle { session = .focused }
+        emit(.focus)
+    }
+    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
+        if session == .focused { session = .presented }
+        emit(.blur)
+    }
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) { emit(.commit) }
     func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
         closing = true

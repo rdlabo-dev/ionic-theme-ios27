@@ -40,14 +40,21 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     }
                 }
                 if !keyboard { self.host?.isHidden = true }
+                var searchOwnsKeyboard = false
                 if #available(iOS 26.0, *) {
                     self.searchControllers.values.forEach {
                         guard let controller = $0 as? ShellSearchController else { return }
+                        if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
                         if !keyboard { controller.surface.isHidden = true }
                     }
                 }
-                if keyboard { self.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh") }
-                else if name == UIDevice.orientationDidChangeNotification { self.notifyWebViewMetricsChange() }
+                if keyboard {
+                    if !searchOwnsKeyboard {
+                        self.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh")
+                    }
+                } else if name == UIDevice.orientationDidChangeNotification {
+                    self.notifyWebViewMetricsChange()
+                }
             })
         }
         for name in [UIApplication.didBecomeActiveNotification, UIResponder.keyboardDidHideNotification,

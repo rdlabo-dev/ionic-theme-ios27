@@ -25,7 +25,46 @@ interface SearchState {
 export const createSearchSupport = (doc: Document, id: (element: Element) => string, schedule: () => void) => {
   const states = new Map<NativeSearchBinding, SearchState>();
   let keyboardVisible = false;
+  let heldKeyboardResize: string | null = null;
+  type KeyboardPlugin = {
+    setResizeMode?: (options: { mode: string }) => Promise<void>;
+    getResizeMode?: () => Promise<{ mode?: string }>;
+  };
+  const keyboardPlugin = (): KeyboardPlugin | undefined =>
+    (
+      doc.defaultView as Window & {
+        Capacitor?: { Plugins?: { Keyboard?: KeyboardPlugin } };
+      }
+    )?.Capacitor?.Plugins?.Keyboard;
   const projected = (binding: NativeSearchBinding) => binding.footer.hasAttribute(marker);
+  // Hold Cap resize at none while search is active so WebView shrink does not fight UISearchTab.
+  const holdKeyboardResize = () => {
+    const keyboard = keyboardPlugin();
+    if (!keyboard?.setResizeMode || heldKeyboardResize !== null) return;
+    const setResizeMode = keyboard.setResizeMode.bind(keyboard);
+    heldKeyboardResize = 'native';
+    void (async () => {
+      try {
+        const current = await keyboard.getResizeMode?.();
+        if (typeof current?.mode === 'string') heldKeyboardResize = current.mode;
+      } catch {
+        /* keep default restore target */
+      }
+      try {
+        await setResizeMode({ mode: 'none' });
+      } catch {
+        heldKeyboardResize = null;
+      }
+    })();
+  };
+  const hasActiveProjection = () => [...states.keys()].some((binding) => binding.active && projected(binding));
+  const releaseKeyboardResize = () => {
+    if (hasActiveProjection()) return;
+    const mode = heldKeyboardResize;
+    heldKeyboardResize = null;
+    if (!mode) return;
+    void keyboardPlugin()?.setResizeMode?.({ mode });
+  };
   const isCurrent = (state: SearchState) =>
     state.bar.isConnected &&
     state.binding.footer.querySelector('ion-searchbar') === state.bar &&
@@ -118,7 +157,10 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
   return {
     keyboard(visible: boolean) {
       keyboardVisible = visible;
-      if (!visible) states.forEach((state) => (state.keyboardHidden = false));
+      if (!visible) {
+        states.forEach((state) => (state.keyboardHidden = false));
+        releaseKeyboardResize();
+      }
       schedule();
     },
     keepSearchTabsVisible() {
@@ -153,7 +195,32 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         )
           continue;
         if (isShellDisabled(fab) || isShellDisabled(binding.footer)) continue;
-        if (blocked(binding.footer) || !visible(binding.trigger) || binding.footer.closest(excluded)) {
+        if (blocked(binding.footer) || binding.footer.closest(excluded)) {
+          const state = states.get(binding);
+          if (state?.last) inactive.push([candidate, { ...state.last, active: false, available: false, focused: false }]);
+          continue;
+        }
+        const existing = states.get(binding);
+        if (binding.active && existing && isCurrent(existing) && existing.last) {
+          candidate.control.search = {
+            ...existing.last,
+            active: true,
+            available: true,
+            focused: binding.focused,
+            value: existing.bar.value ?? '',
+            placeholder: existing.bar.placeholder ?? '',
+            disabled: existing.bar.disabled,
+            editSequence: existing.editSequence,
+            valueVersion: existing.valueVersion,
+          };
+          existing.last = candidate.control.search;
+          candidate.sources = [binding.tabBar, binding.trigger.closest<HTMLElement>('ion-fab') ?? binding.trigger, binding.footer];
+          candidate.actions.set(existing.last.trigger.id, binding.trigger);
+          const back = binding.footer.querySelector<HTMLIonButtonElement>('ion-buttons[slot=start] ion-button');
+          if (back) candidate.actions.set(existing.last.closeId, back);
+          continue;
+        }
+        if (!visible(binding.trigger)) {
           const state = states.get(binding);
           if (state?.last) inactive.push([candidate, { ...state.last, active: false, available: false, focused: false }]);
           continue;
@@ -205,13 +272,13 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           !getComputedStyle(nativeTrigger).backdropFilter.includes('blur')
         )
           continue;
+        const state = existing ?? install(binding, bar, input);
         const trigger = readIcon(binding.trigger, binding.trigger, candidate);
         const searchIcon = bar.querySelector<HTMLElement>('.searchbar-search-icon');
         const field = searchIcon && readIcon(searchIcon, bar, candidate);
         if (!trigger || !field) continue;
         field.label = '';
         field.accessibilityLabel = bar.getAttribute('aria-label') ?? input.getAttribute('aria-label') ?? 'Search';
-        const state = states.get(binding) ?? install(binding, bar, input);
         state.layout = JSON.stringify([
           innerWidth,
           innerHeight,
@@ -256,9 +323,25 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
       return candidates.filter((c) => !groups.some((group) => group !== c && group.sources?.some((source) => source.contains(c.element))));
     },
     projected,
+    hasActive() {
+      for (const [binding] of states) if (binding.active && projected(binding)) return true;
+      return false;
+    },
     begin(binding: NativeSearchBinding, revision: number) {
       const state = states.get(binding);
       if (state) state.minimumRevision = revision;
+    },
+    /** Enter / focus / leave. `focused` is ignored when leaving. */
+    setStatus(binding: NativeSearchBinding, active: boolean, focused = false) {
+      const state = states.get(binding);
+      if (!active) {
+        this.retire(binding);
+        return;
+      }
+      binding.active = true;
+      binding.focused = focused;
+      if (state) state.focused = focused;
+      holdKeyboardResize();
     },
     release(element: HTMLElement) {
       for (const binding of states.keys()) if (binding.footer === element) this.retire(binding);
@@ -319,6 +402,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         state.input.dispatchEvent(new FocusEvent('blur'));
       }
       binding.active = binding.focused = false;
+      releaseKeyboardResize();
     },
     destroy() {
       states.forEach((state) => {
@@ -326,6 +410,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         state.restore();
       });
       states.clear();
+      releaseKeyboardResize();
     },
   };
 };
