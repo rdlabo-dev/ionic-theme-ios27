@@ -184,6 +184,13 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         }
       }
       const inactive: [Candidate, ShellSearch][] = [];
+      const pageHidden = (element: HTMLElement) => !!element.closest('.ion-page-hidden, .ion-page-invisible');
+      const retainInactive = (candidate: Candidate, state?: SearchState, keepAvailable = false) => {
+        // Keep ShellSearchController across page transitions instead of demoting to UITabBar.
+        // While the searchable page is only blocked mid-transition (not yet hidden), keep
+        // available:true so native chrome does not swap to ordinary idleBar over album content.
+        if (state?.last) inactive.push([candidate, { ...state.last, active: false, available: keepAvailable, focused: false }]);
+      };
       for (const binding of bindings) {
         const candidate = candidates.find((c) => c.element === binding.tabBar);
         if (!candidate || candidate.control.search || binding.tabBar.getAttribute('slot') !== 'bottom') continue;
@@ -195,13 +202,14 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         )
           continue;
         if (isShellDisabled(fab) || isShellDisabled(binding.footer)) continue;
-        if (blocked(binding.footer) || binding.footer.closest(excluded)) {
-          const state = states.get(binding);
-          if (state?.last) inactive.push([candidate, { ...state.last, active: false, available: false, focused: false }]);
-          continue;
-        }
+        const pageUnavailable = blocked(binding.footer) || !!binding.footer.closest(excluded);
         const existing = states.get(binding);
-        if (binding.active && existing && isCurrent(existing) && existing.last) {
+        if (pageUnavailable) {
+          retainInactive(candidate, existing, !!existing?.last?.available && !pageHidden(binding.footer));
+          if (existing?.last) continue;
+          // First registration during a transition: fall through and measure available:false.
+        }
+        if (binding.active && existing && isCurrent(existing) && existing.last && !pageUnavailable) {
           candidate.control.search = {
             ...existing.last,
             active: true,
@@ -220,9 +228,8 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           if (back) candidate.actions.set(existing.last.closeId, back);
           continue;
         }
-        if (!visible(binding.trigger)) {
-          const state = states.get(binding);
-          if (state?.last) inactive.push([candidate, { ...state.last, active: false, available: false, focused: false }]);
+        if (!visible(binding.trigger) && !pageUnavailable) {
+          retainInactive(candidate, existing);
           continue;
         }
         const bar = binding.footer.querySelector<HTMLIonSearchbarElement>('ion-searchbar');
@@ -235,11 +242,13 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           !binding.footer.matches('ion-footer') ||
           !inFixedToolbar(bar) ||
           !inFixedToolbar(back) ||
-          bar.closest(excluded) ||
+          (!pageUnavailable && bar.closest(excluded)) ||
           !bar.classList.contains('ios') ||
           bar.classList.contains('searchbar-classic')
-        )
+        ) {
+          retainInactive(candidate, existing);
           continue;
+        }
         if (
           bar.color ||
           back.fill !== 'default' ||
@@ -254,14 +263,19 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           bar.spellcheck ||
           bar.showClearButton !== 'always' ||
           bar.clearIcon
-        )
+        ) {
+          retainInactive(candidate, existing);
           continue;
-        if (bar.showCancelButton !== 'never' || bar.type !== 'search' || !getComputedStyle(input).backdropFilter.includes('blur')) continue;
+        }
+        if (bar.showCancelButton !== 'never' || bar.type !== 'search' || !getComputedStyle(input).backdropFilter.includes('blur')) {
+          retainInactive(candidate, existing);
+          continue;
+        }
         const fabButton = binding.trigger as HTMLIonFabButtonElement;
         const nativeTrigger = fabButton.shadowRoot?.querySelector<HTMLElement>('[part=native]');
         if (
-          binding.trigger.closest(excluded) ||
-          back.closest(excluded) ||
+          (!pageUnavailable && binding.trigger.closest(excluded)) ||
+          (!pageUnavailable && back.closest(excluded)) ||
           back.disabled ||
           fabButton.disabled ||
           fabButton.color ||
@@ -270,13 +284,18 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           !nativeTrigger ||
           getComputedStyle(fabButton).backgroundColor !== 'rgba(0, 0, 0, 0)' ||
           !getComputedStyle(nativeTrigger).backdropFilter.includes('blur')
-        )
+        ) {
+          retainInactive(candidate, existing);
           continue;
+        }
         const state = existing ?? install(binding, bar, input);
         const trigger = readIcon(binding.trigger, binding.trigger, candidate);
         const searchIcon = bar.querySelector<HTMLElement>('.searchbar-search-icon');
         const field = searchIcon && readIcon(searchIcon, bar, candidate);
-        if (!trigger || !field) continue;
+        if (!trigger || !field) {
+          retainInactive(candidate, state);
+          continue;
+        }
         field.label = '';
         field.accessibilityLabel = bar.getAttribute('aria-label') ?? input.getAttribute('aria-label') ?? 'Search';
         state.layout = JSON.stringify([
@@ -298,15 +317,19 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           bar.placeholder,
           bar.disabled,
         ]);
-        if (state.rejectedLayout === state.layout) continue;
+        if (state.rejectedLayout === state.layout) {
+          retainInactive(candidate, state);
+          continue;
+        }
+        const available = !pageUnavailable && visible(binding.trigger);
         candidate.control.search = {
           id: id(input),
           field,
           trigger,
           closeId: id(back),
-          active: binding.active,
-          available: true,
-          focused: binding.focused,
+          active: available && binding.active,
+          available,
+          focused: available && binding.focused,
           value: bar.value ?? '',
           placeholder: bar.placeholder ?? '',
           disabled: bar.disabled,
@@ -314,9 +337,11 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           valueVersion: state.valueVersion,
         };
         state.last = candidate.control.search;
-        candidate.sources = [binding.tabBar, binding.trigger.closest<HTMLElement>('ion-fab') ?? binding.trigger, binding.footer];
-        candidate.actions.set(id(binding.trigger), binding.trigger);
-        candidate.actions.set(id(back), back);
+        if (available) {
+          candidate.sources = [binding.tabBar, binding.trigger.closest<HTMLElement>('ion-fab') ?? binding.trigger, binding.footer];
+          candidate.actions.set(id(binding.trigger), binding.trigger);
+          candidate.actions.set(id(back), back);
+        }
       }
       for (const [candidate, configuration] of inactive) candidate.control.search ??= configuration;
       const groups = candidates.filter((c) => c.control.search);
@@ -350,9 +375,9 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
       states.forEach((state) => {
         if (ids.includes(id(state.binding.tabBar))) {
           state.rejectedLayout = state.layout;
-          // A rejected search surface has been removed by UIKit. Do not reuse its
-          // cached configuration on an inactive page; project ordinary tabs instead.
-          state.last = undefined;
+          // Keep the last searchable config so the next paint retains ShellSearchController
+          // (available:false) instead of demoting to UITabBar and flashing Web chrome.
+          if (state.last) state.last = { ...state.last, active: false, available: false, focused: false };
         }
       });
     },

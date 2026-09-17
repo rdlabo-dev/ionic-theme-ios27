@@ -190,7 +190,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             var rejectedControls: [String] = []
             var fabs: [(ShellFab, ShellControl)] = []
-            var searches: [(ShellSearchController, ShellControl, CGRect, CGRect)] = []
+            var searches: [(ShellSearchController, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
             UIView.performWithoutAnimation {
                 if host.superview !== parent { parent.addSubview(host) }
@@ -218,9 +218,11 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     if let search = node.search {
                         guard let owner = self.bridge?.viewController else { rejectedSearches.append(id); continue }
                         let controller: ShellSearchController
-                        if let existing = self.searchControllers[id] as? ShellSearchController { controller = existing }
+                        let previousCover = self.controls[id]
+                        let replacing = self.searchControllers[id] as? ShellSearchController
+                        if let existing = replacing { controller = existing }
                         else {
-                            self.removeControl(id)
+                            // Keep the ordinary UITabBar cover until the search controller applies.
                             controller = ShellSearchController()
                             controller.activate = { [weak self] id in self?.activate(id) }
                             controller.changed = { [weak self] id, phase, value, composing, valueVersion in
@@ -239,7 +241,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             y: webView.bounds.minY + local.minY * scale, width: local.width * scale, height: local.height * scale), to: owner.view)
                         let triggerFrame = webView.convert(CGRect(x: webView.bounds.minX + trigger.minX * scale,
                             y: webView.bounds.minY + trigger.minY * scale, width: trigger.width * scale, height: trigger.height * scale), to: owner.view)
-                        searches.append((controller, node, searchBarFrame, triggerFrame))
+                        searches.append((controller, node, searchBarFrame, triggerFrame, previousCover, replacing == nil))
                         continue
                     } else if self.searchControllers[id] != nil {
                         self.removeControl(id)
@@ -282,13 +284,28 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             for (fab, node) in fabs {
                 fab.apply(node, scale: scale, rendering: self.rendering, activate: { [weak self] id in self?.activate(id) })
             }
-            for (controller, node, frame, triggerFrame) in searches {
+            for (controller, node, frame, triggerFrame, previousCover, created) in searches {
+                let id = node.id
                 let webFrame = webView.convert(webView.bounds, to: controller.surface.superview)
                 if !controller.apply(node, webFrame: webFrame, barFrame: frame, triggerFrame: triggerFrame, rendering: self.rendering) {
-                    let id = node.id
-                    self.removeControl(id)
+                    if created {
+                        self.searchControllers.removeValue(forKey: id)
+                        controller.detach()
+                        if let previousCover, previousCover.superview != nil {
+                            self.controls[id] = previousCover
+                        } else {
+                            self.controls.removeValue(forKey: id)?.removeFromSuperview()
+                            self.fingerprints.removeValue(forKey: id)
+                            self.pendingTabSelections[id] = nil
+                        }
+                    } else {
+                        self.removeControl(id)
+                    }
                     rejectedSearches.append(id)
                 } else {
+                    if created, let previousCover, previousCover !== controller.surface {
+                        previousCover.removeFromSuperview()
+                    }
                     controller.surface.isHidden = self.keyboardVisible && !controller.ownsKeyboard
                 }
             }

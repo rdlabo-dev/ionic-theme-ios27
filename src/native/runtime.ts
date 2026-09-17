@@ -149,8 +149,7 @@ export const createRuntime = async (
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
     if (doc.hidden || overlayOpen()) return [];
-    if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive())
-      return [];
+    if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
     return unprojected(sources.keys(), () =>
       search
         .decorate(
@@ -247,6 +246,7 @@ export const createRuntime = async (
       }
       if (result.rejectedSearches?.length) {
         search.reject(result.rejectedSearches);
+        lastSnapshot = '';
         dirty = true;
       }
       for (const candidate of candidates) {

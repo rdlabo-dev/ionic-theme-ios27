@@ -444,4 +444,33 @@ final class ShellSnapshotTests: XCTestCase {
         XCTAssertEqual(controller.tabs.map(\.identifier), tabsAfterLeave)
     }
 
+    @MainActor
+    func testSearchEmitsInputAfterRestingToActive() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
+        let controller = ShellSearchController()
+        let rendering = ShellRendering()
+        let resting = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let bar = CGRect(x: 18, y: 730, width: 280, height: 62)
+        let trigger = CGRect(x: 320, y: 730, width: 56, height: 56)
+        func node(active: Bool) throws -> ShellControl {
+            let search: JSObject = ["id": "search", "field": item(), "trigger": item(["id": "trigger"]),
+                "closeId": "close", "active": active, "available": true, "focused": active,
+                "value": "", "placeholder": "Search", "disabled": false, "editSequence": 0, "valueVersion": 0]
+            return try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "search": search,
+                "items": [item(["id": "first", "selected": true]), item(["id": "second"])]])]).controls.first)
+        }
+        // Resting must not permanently close the editing bridge.
+        _ = controller.apply(try node(active: false), webFrame: resting, barFrame: bar, triggerFrame: trigger, rendering: rendering)
+        var phases: [String] = []
+        controller.changed = { _, phase, _, _, _ in
+            phases.append(phase.rawValue)
+            return phases.count
+        }
+        XCTAssertTrue(controller.apply(try node(active: true), webFrame: resting, barFrame: bar, triggerFrame: trigger, rendering: rendering))
+        let navigation = try XCTUnwrap(controller.tabs.last?.viewController as? UINavigationController)
+        let searchBar = try XCTUnwrap(navigation.topViewController?.navigationItem.searchController?.searchBar)
+        controller.searchBar(searchBar, textDidChange: "query")
+        XCTAssertEqual(phases, ["input"])
+    }
+
 }
