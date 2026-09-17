@@ -62,7 +62,9 @@ Both examples use class-based dark mode. Load Ionic's matching dark palette in y
 When both packages are installed, keep **page transition** (`navAnimation`) on the iOS 27 animation. Styles still follow the feature queries above; only the transition stays on `@rdlabo/ionic-theme-ios27`. Use the same package for popover enter/leave so overlay motion stays consistent with that transition.
 
 ```ts
-async function loadIOSAnimations() {
+import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
+
+function loadIOSAnimations() {
   if (typeof CSS === 'undefined') {
     return {};
   }
@@ -72,8 +74,6 @@ async function loadIOSAnimations() {
     return {};
   }
 
-  const { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } = await import('@rdlabo/ionic-theme-ios27');
-
   return {
     navAnimation: iosTransitionAnimation,
     popoverEnter: popoverEnterAnimation,
@@ -81,8 +81,8 @@ async function loadIOSAnimations() {
   };
 }
 
-// In your browser bootstrap, before initializing Ionic:
-const animations = isPlatform('ios') ? await loadIOSAnimations() : {};
+// Resolve synchronously before bootstrapping so Ionic's global config exists before any element upgrades.
+const animations = isPlatform('ios') ? loadIOSAnimations() : {};
 provideIonicAngular({ ...animations });
 ```
 
