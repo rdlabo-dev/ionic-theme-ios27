@@ -17,6 +17,8 @@ enum ShellTabBar {
     }
 
     static let kind = ShellComponent.tabBar
+    /// Tab bars waiting for an iOS 26 title-layout warmup after the next `fit`.
+    private static var pendingTitleWarmup = Set<ObjectIdentifier>()
 
     static func make(_ node: ShellControl, rendering: ShellRendering, delegate: UITabBarDelegate) -> UITabBar {
         let control = UITabBar()
@@ -48,6 +50,7 @@ enum ShellTabBar {
                        pendingSelection: inout PendingSelection?) {
         let items = node.items
         let ids = items.map(\.id)
+        var needsTitleWarmup = false
         // Keep UIKit's item identities and interaction state across DOM selection updates.
         if tabBar.items?.map({ $0.accessibilityIdentifier ?? "" }) != ids {
             tabBar.items = items.map { item in
@@ -55,17 +58,24 @@ enum ShellTabBar {
                 tab.accessibilityIdentifier = item.id
                 return tab
             }
+            needsTitleWarmup = true
         }
         let nativeItems = tabBar.items ?? []
         for (tab, item) in zip(nativeItems, items) {
             let title = item.content.label
-            if tab.title != title { tab.title = title }
+            if tab.title != title {
+                tab.title = title
+                needsTitleWarmup = true
+            }
             let icon = rendering.image(item.content)
-            if tab.image !== icon { tab.image = icon }
+            if tab.image !== icon {
+                tab.image = icon
+                needsTitleWarmup = true
+            }
             if tab.selectedImage !== icon { tab.selectedImage = icon }
             tab.isEnabled = !item.content.disabled
             tab.accessibilityLabel = item.content.accessibilityLabel
-            applyTypography(item.content, to: tab)
+            if applyTypography(item.content, to: tab) { needsTitleWarmup = true }
             applyBadge(item.content.badge, to: tab, rendering: rendering)
         }
         let domSelected = zip(nativeItems, items).first { $0.1.content.selected }
@@ -90,9 +100,12 @@ enum ShellTabBar {
         }
         tabBar.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         tabBar.accessibilityIdentifier = node.id
+        // Warm after `fit` settles geometry — not on every motion-driven frame sync.
+        if needsTitleWarmup { pendingTitleWarmup.insert(ObjectIdentifier(tabBar)) }
     }
 
-    static func applyTypography(_ content: ShellItemContent, to item: UITabBarItem) {
+    @discardableResult
+    static func applyTypography(_ content: ShellItemContent, to item: UITabBarItem) -> Bool {
         let weight: UIFont.Weight
         switch content.fontWeight {
         case ..<150: weight = .ultraLight
@@ -106,11 +119,14 @@ enum ShellTabBar {
         default: weight = .black
         }
         let font = UIFont.systemFont(ofSize: content.fontSize, weight: weight)
+        var changed = false
         for state in [UIControl.State.normal, .selected] {
             if item.titleTextAttributes(for: state)?[.font] as? UIFont != font {
                 item.setTitleTextAttributes([.font: font], for: state)
+                changed = true
             }
         }
+        return changed
     }
 
     static func applyBadge(_ badge: ShellBadge?, to item: UITabBarItem, rendering: ShellRendering) {
@@ -161,7 +177,29 @@ enum ShellTabBar {
         let center = CGPoint(x: bounds.minX + (bounds.width - content.width) * x - content.minX + size.width / 2,
                              y: bounds.minY + (bounds.height - content.height) * y - content.minY + size.height / 2)
         if tabBar.center != center { tabBar.center = center }
+        if pendingTitleWarmup.remove(ObjectIdentifier(tabBar)) != nil {
+            warmUnselectedTitleLayout(tabBar)
+        }
         return true
+    }
+
+    /// iOS 26 only: programmatically visit each unselected item so UIKit measures
+    /// its title the same way a user tap would. Selection does not call the
+    /// tab-bar delegate. No-op on iOS 27+, where first paint already matches Web.
+    static func warmUnselectedTitleLayout(_ tabBar: UITabBar) {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        guard version.majorVersion == 26, let items = tabBar.items, items.count > 1 else { return }
+        let selected = tabBar.selectedItem
+        UIView.performWithoutAnimation {
+            for item in items where item !== selected {
+                tabBar.selectedItem = item
+                tabBar.layoutIfNeeded()
+            }
+            if tabBar.selectedItem !== selected {
+                tabBar.selectedItem = selected
+                tabBar.layoutIfNeeded()
+            }
+        }
     }
 
     private static func contentFrame(_ tabBar: UITabBar) -> CGRect? {
