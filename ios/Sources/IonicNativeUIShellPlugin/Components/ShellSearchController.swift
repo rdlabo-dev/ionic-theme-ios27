@@ -47,7 +47,24 @@ private final class ShellSearchInputDelegate: NSObject, UITextFieldDelegate {
 
 @available(iOS 26.0, *)
 final class ShellSearchController: UITabBarController, UITabBarControllerDelegate, UISearchBarDelegate {
+    // Wire stays active+focused; local session drives chrome (idle / presented / focused).
+    private enum Session: Equatable { case idle, presented, focused }
+
+    private final class IdleBarDelegate: NSObject, UITabBarDelegate {
+        var select: ((String) -> Void)?
+        func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+            guard item.isEnabled, let id = item.accessibilityIdentifier else { return }
+            select?(id)
+        }
+    }
+
     let surface = ShellSearchHost()
+    /// Ordinary `UITabBar` chrome while searchable is registered but the session is idle.
+    /// Matches `ShellTabBar.fit` so Index/Album resting tabs do not jump.
+    private let idleBar = UITabBar()
+    private let idleBarDelegate = IdleBarDelegate()
+    /// Resting search trigger pinned to the Web FAB while `available && !active`.
+    private var searchTrigger: UIButton?
     private let search = UISearchController(searchResultsController: nil)
     private let inputDelegate = ShellSearchInputDelegate()
     private var searchTab: UISearchTab!
@@ -59,7 +76,13 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     private var valueVersion = -1
     private var lastLayout = ""
     private var layoutItems: [ShellItemContent] = []
+    private var lockedWebFrame: CGRect? // frozen while search is active (width changes re-lock)
+    private var session: Session = .idle
+    private var focusWork: DispatchWorkItem?
+    private var pendingSelection: ShellTabBar.PendingSelection? // optimistic ordinary tab
+    private var pendingExpiryWork: DispatchWorkItem?
     var ownsKeyboard: Bool { search.searchBar.searchTextField.isFirstResponder }
+    var ownsKeyboardChrome: Bool { session == .focused || ownsKeyboard }
     var activate: ((String) -> Void)?
     var changed: ((String, ShellSearchPhase, String, Bool, Int) -> Int)?
 
@@ -72,6 +95,14 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         delegate = self
         mode = .tabBar
         ShellTabBar.configureLayout(tabBar)
+        ShellTabBar.configureLayout(idleBar)
+        // Must not use self as idleBar.delegate — UITabBarController asserts item↔VC pairing.
+        idleBar.delegate = idleBarDelegate
+        idleBarDelegate.select = { [weak self] id in
+            self?.armPendingSelection(id)
+            self?.activate?(id)
+        }
+        idleBar.isHidden = true
         search.obscuresBackgroundDuringPresentation = false
         search.hidesNavigationBarDuringPresentation = false
         search.searchBar.delegate = self
@@ -84,6 +115,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             child.view.backgroundColor = .clear
             child.definesPresentationContext = true
             child.navigationItem.searchController = self?.search
+            child.navigationItem.hidesSearchBarWhenScrolling = false
             child.navigationItem.preferredSearchBarPlacement = .integrated
             let navigation = UINavigationController(rootViewController: child)
             navigation.view.backgroundColor = .clear
@@ -93,17 +125,124 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         inputDelegate.clear = { [weak self] in self?.emit(.clear) }
     }
 
+    deinit {
+        focusWork?.cancel()
+        pendingExpiryWork?.cancel()
+    }
+
+    private func wantedSession(active: Bool, focused: Bool) -> Session {
+        if !active { return .idle }
+        return focused ? .focused : .presented
+    }
+
+    private func endEditing() {
+        focusWork?.cancel()
+        focusWork = nil
+        if search.searchBar.searchTextField.isFirstResponder {
+            search.searchBar.searchTextField.resignFirstResponder()
+        }
+        if search.isActive { search.isActive = false }
+    }
+
+    private func applySession(_ wanted: Session, selectingSearchTab: Bool) {
+        if wanted == session && !selectingSearchTab { return }
+        if wanted == .idle {
+            endEditing()
+            session = .idle
+            return
+        }
+        if selectingSearchTab || selectedTab !== searchTab { selectedTab = searchTab }
+        if wanted == .presented {
+            if session == .focused { endEditing() }
+            session = .presented
+            return
+        }
+        session = .focused
+        if !search.isActive { search.isActive = true }
+        guard !search.searchBar.searchTextField.isFirstResponder, focusWork == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.focusWork = nil
+            guard self.session == .focused, !self.search.searchBar.searchTextField.isFirstResponder else { return }
+            if !self.search.isActive { self.search.isActive = true }
+            _ = self.search.searchBar.searchTextField.becomeFirstResponder()
+        }
+        focusWork = work
+        DispatchQueue.main.async(execute: work)
+    }
+
+    private func armPendingSelection(_ id: String) {
+        pendingSelection = .start(id)
+        schedulePendingExpiry()
+    }
+
+    private func clearPendingSelection() {
+        pendingExpiryWork?.cancel()
+        pendingExpiryWork = nil
+        pendingSelection = nil
+    }
+
+    private func schedulePendingExpiry() {
+        pendingExpiryWork?.cancel()
+        pendingExpiryWork = nil
+        guard let pending = pendingSelection else { return }
+        let delay = max(0, pending.until - CFAbsoluteTimeGetCurrent()) + 0.02
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingExpiryWork = nil
+            guard let pending = self.pendingSelection, CFAbsoluteTimeGetCurrent() >= pending.until else { return }
+            self.pendingSelection = nil
+            // No later apply: revert idle chrome + controller selection to the last DOM selected id.
+            if let item = self.idleBar.items?.first(where: { $0.accessibilityIdentifier == self.selectedID }) {
+                self.idleBar.selectedItem = item
+            }
+            if let selected = self.ordinary[self.selectedID], self.selectedTab !== selected {
+                self.selectedTab = selected
+            }
+        }
+        pendingExpiryWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private func resolveOrdinarySelection(_ items: [ShellItem], fallback: UITab?) {
+        let domSelected = ordinary[selectedID] ?? fallback
+        guard let pending = pendingSelection else {
+            pendingExpiryWork?.cancel()
+            pendingExpiryWork = nil
+            if selectedTab !== domSelected { selectedTab = domSelected }
+            return
+        }
+        let pendingTab = ordinary[pending.id]
+        let expired = CFAbsoluteTimeGetCurrent() >= pending.until
+        let unavailable = pendingTab == nil || (items.first { $0.id == pending.id }?.content.disabled ?? true)
+        if unavailable || expired {
+            clearPendingSelection()
+            selectedTab = domSelected
+        } else if selectedID == pending.id {
+            clearPendingSelection()
+            if selectedTab !== domSelected { selectedTab = domSelected }
+        } else if selectedTab !== pendingTab {
+            selectedTab = pendingTab
+        }
+    }
+
     func attach(to parent: UIViewController, in container: UIView) {
         parent.addChild(self)
         container.addSubview(surface)
         surface.addSubview(view)
+        if idleBar.superview !== surface { surface.addSubview(idleBar) }
         didMove(toParent: parent)
     }
 
     func detach() {
         closing = true
-        search.isActive = false
+        lockedWebFrame = nil
+        clearPendingSelection()
+        applySession(.idle, selectingSearchTab: false)
         willMove(toParent: nil)
+        idleBar.removeFromSuperview()
+        searchTrigger?.removeFromSuperview()
+        searchTrigger = nil
         surface.removeFromSuperview()
         view.removeFromSuperview()
         removeFromParent()
@@ -117,18 +256,16 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             editingSequence = 0
             valueVersion = -1
         }
+        let previousAvailable = self.configuration?.available
+        let wasActive = self.configuration.map { $0.available && $0.active } ?? false
         self.configuration = configuration
         let available = configuration.available
         let active = available && configuration.active
-        // UIKit may clear the field while changing tabs. Retiring must not
-        // advance native editing beyond the last input accepted by Ionic.
-        if !active { closing = true }
+        let wanted = wantedSession(active: active, focused: configuration.focused)
         let items = snapshot.items
         let content = items.map(\.content)
         if layoutItems != content {
             layoutItems = content
-            // Defer fitting while search is active, but keep the resting layout
-            // invalid until new labels, typography, icons and badges are measured.
             lastLayout = ""
         }
         let ids = items.map(\.id)
@@ -153,7 +290,11 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         searchTab.image = rendering.image(trigger.content)
         searchTab.isEnabled = !configuration.disabled
         let requested = ids.compactMap { ordinary[$0] } + (available ? [searchTab!] : [])
-        if tabs.map(\.identifier) != requested.map(\.identifier) { tabs = requested; lastLayout = "" }
+        if !active, wasActive || tabs.isEmpty || tabs.map(\.identifier) != requested.map(\.identifier) {
+            // Leave / availability flips rebuild tabs (UISearchTab morph cleanup when leaving).
+            tabs = requested
+            lastLayout = ""
+        }
         for item in items {
             if let nativeItem = ordinary[item.id]?.viewController?.tabBarItem {
                 nativeItem.accessibilityLabel = item.content.accessibilityLabel
@@ -161,7 +302,6 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
                 ShellTabBar.applyBadge(item.content.badge, to: nativeItem, rendering: rendering)
             }
         }
-        // This is a public iOS 27 property; dynamic dispatch also supports apps built with SDK 26.
         let prominent = NSSelectorFromString("setProminentTabIdentifier:")
         if responds(to: prominent) { setValue(available ? searchTab.identifier : nil, forKey: "prominentTabIdentifier") }
         let field = configuration.field
@@ -180,74 +320,107 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             inputDelegate.original = search.searchBar.searchTextField.delegate
             search.searchBar.searchTextField.delegate = inputDelegate
         }
-        surface.frame = webFrame
+        let layout = "\(webFrame):\(barFrame):\(triggerFrame):\(available):\(snapshot.rtl)"
+        // Resting keeps closing=true so hidden UISearchBar noise cannot emit; clear it while active.
+        closing = !active
         surface.isHidden = false
         surface.overrideUserInterfaceStyle = snapshot.dark ? .dark : .light
-        view.semanticContentAttribute = snapshot.rtl ? .forceRightToLeft : .forceLeftToRight
-        // Only measure the resting tabs. UIKit owns all frames during search and keyboard movement.
-        let layout = "\(webFrame):\(barFrame):\(triggerFrame):\(available):\(snapshot.rtl)"
-        if !active && lastLayout != layout {
-            closing = true
-            search.isActive = false
-            selectedTab = ordinary[selectedID] ?? requested.first
-            view.frame = surface.bounds
-            view.layoutIfNeeded()
-            guard fit(barFrame: surface.convert(barFrame, from: surface.superview), triggerFrame: surface.convert(triggerFrame, from: surface.superview),
-                      available: available, anchor: snapshot.tabBarAnchor) else { return false }
-            lastLayout = layout
+        if active {
+            // UISearchTab session owns the bar + keyboard; freeze Web layout for the session.
+            if tabs.isEmpty || tabs.map(\.identifier) != requested.map(\.identifier) {
+                tabs = requested
+            }
+            let reveal = {
+                self.idleBar.isHidden = true
+                self.searchTrigger?.isHidden = true
+                self.view.isHidden = false
+                self.view.frame = self.surface.bounds
+            }
+            if !wasActive {
+                UIView.transition(with: surface, duration: 0.35, options: [.transitionCrossDissolve, .beginFromCurrentState], animations: reveal)
+            } else {
+                reveal()
+            }
+            let nextLock = surface.bounds.isEmpty ? webFrame : surface.frame
+            if let locked = lockedWebFrame, abs(locked.width - webFrame.width) > 0.5 {
+                // Rotation / size-class change: adopt the new width while still ignoring keyboard shrink.
+                lockedWebFrame = webFrame
+            } else if lockedWebFrame == nil {
+                lockedWebFrame = nextLock
+            }
+            if let lockedWebFrame, surface.frame != lockedWebFrame { surface.frame = lockedWebFrame }
+            clearPendingSelection()
+            applySession(wanted, selectingSearchTab: !wasActive)
+            return true
         }
-        let wanted = active ? searchTab : ordinary[selectedID]
-        if selectedTab !== wanted { selectedTab = wanted }
-        closing = !active
-        if !active { search.isActive = false }
-        else if configuration.focused && !search.searchBar.searchTextField.isFirstResponder {
-            search.isActive = true
-            search.searchBar.searchTextField.becomeFirstResponder()
-        }
-        return true
-    }
 
-    private func fit(barFrame: CGRect, triggerFrame: CGRect, available: Bool, anchor: ShellTabBar.Anchor?) -> Bool {
-        func descendants(_ view: UIView) -> [UIView] { [view] + view.subviews.flatMap(descendants) }
-        let groups = tabBar.subviews.filter { descendants($0).contains { $0 is UIControl } }
-        guard ordinary.count > 1,
-              let group = groups.first(where: { descendants($0).filter { $0 is UIControl }.count >= ordinary.count }) else { return false }
-        let searchControl = groups.filter { $0 !== group }.flatMap(descendants).first { $0 is UIControl }
-        let rect = group.convert(group.bounds, to: surface)
-        let x = anchor?.x ?? 0
-        let dx = barFrame.minX + (barFrame.width - rect.width) * x - rect.minX
-        var frame = view.frame
-        frame.origin.x += dx
-        frame.size.height += barFrame.maxY - rect.maxY
-        var targetSearch: CGFloat?
-        if available {
-            guard let control = searchControl else { return false }
-            let target = triggerFrame.midX
-            targetSearch = target
-            frame.size.width += target - control.convert(control.bounds, to: surface).midX - dx
-        } else {
-            frame.size.width += barFrame.width - rect.width
+        surface.frame = webFrame
+        view.semanticContentAttribute = snapshot.rtl ? .forceRightToLeft : .forceLeftToRight
+        idleBar.semanticContentAttribute = snapshot.rtl ? .forceRightToLeft : .forceLeftToRight
+        if lockedWebFrame != nil {
+            lockedWebFrame = nil
+            lastLayout = ""
         }
-        view.frame = frame
-        view.layoutIfNeeded()
-        let final = group.convert(group.bounds, to: surface)
-        guard abs(final.minX + final.width * x - (barFrame.minX + barFrame.width * x)) <= 1,
-              abs(final.maxY - barFrame.maxY) <= 1 else { return false }
-        if let targetSearch,
-           let control = searchControl {
-            let rect = control.convert(control.bounds, to: surface)
-            return abs(rect.midX - targetSearch) <= 1 && abs(rect.midY - triggerFrame.midY) <= 1
+        applySession(.idle, selectingSearchTab: false)
+
+        // Resting chrome: ordinary UITabBar (+ FAB trigger when available). UISearchTab stays off-screen.
+        if idleBar.superview !== surface { surface.addSubview(idleBar) }
+        let localBar = surface.convert(barFrame, from: surface.superview)
+        let localTrigger = surface.convert(triggerFrame, from: surface.superview)
+        // Apply optimistic selection to the visible idle bar before reconciling the hidden controller.
+        ShellTabBar.update(idleBar, node: snapshot, rendering: rendering, pendingSelection: &pendingSelection)
+        resolveOrdinarySelection(items, fallback: requested.first)
+        if !available {
+            searchTrigger?.removeFromSuperview()
+            searchTrigger = nil
+        } else {
+            let triggerButton = ShellButton.render(configuration.trigger.content, glass: true, existing: searchTrigger, rendering: rendering) { [weak self] id in
+                self?.activate?(id)
+            }
+            if searchTrigger !== triggerButton {
+                searchTrigger?.removeFromSuperview()
+                searchTrigger = triggerButton
+                surface.addSubview(triggerButton)
+            }
+            triggerButton.frame = localTrigger
+        }
+
+        let revealResting = {
+            self.view.isHidden = true
+            self.idleBar.isHidden = false
+            self.idleBar.overrideUserInterfaceStyle = snapshot.dark ? .dark : .light
+            self.searchTrigger?.isHidden = !available
+            self.searchTrigger?.overrideUserInterfaceStyle = snapshot.dark ? .dark : .light
+        }
+        let animateChrome = wasActive || (previousAvailable != nil && previousAvailable != available)
+        if animateChrome {
+            UIView.transition(with: surface, duration: 0.35, options: [.transitionCrossDissolve, .beginFromCurrentState], animations: revealResting)
+        } else {
+            revealResting()
+        }
+        if lastLayout != layout {
+            guard ShellTabBar.fit(idleBar, node: snapshot, bounds: localBar) else { return false }
+            lastLayout = layout
         }
         return true
     }
 
     func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
         guard let configuration else { return false }
-        let active = configuration.active
-        if tab === searchTab { activate?(configuration.trigger.id) }
-        else if active && tab.identifier == selectedID { activate?(configuration.closeId) }
-        else { activate?(tab.identifier) }
-        return false
+        if tab === searchTab {
+            clearPendingSelection()
+            activate?(configuration.trigger.id)
+            return true
+        }
+        if configuration.active {
+            if tab.identifier == selectedID { activate?(configuration.closeId) }
+            else { activate?(tab.identifier) }
+            return false
+        }
+        armPendingSelection(tab.identifier)
+        if selectedTab !== tab { selectedTab = tab }
+        activate?(tab.identifier)
+        return true
     }
 
     private func emit(_ phase: ShellSearchPhase) {
@@ -255,8 +428,14 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         editingSequence = changed?(configuration.id, phase, search.searchBar.text ?? "", search.searchBar.searchTextField.markedTextRange != nil, valueVersion) ?? editingSequence
     }
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) { emit(.input) }
-    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) { emit(.focus) }
-    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) { emit(.blur) }
+    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
+        if session != .idle { session = .focused }
+        emit(.focus)
+    }
+    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
+        if session == .focused { session = .presented }
+        emit(.blur)
+    }
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) { emit(.commit) }
     func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
         closing = true

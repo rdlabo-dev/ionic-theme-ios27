@@ -46,7 +46,7 @@ Native appearance follows the applied class, system or always-dark theme CSS. Sy
 | `ion-buttons`                                 | Fixed toolbar, two or more direct clear `ion-button` / `ion-menu-button` children sharing the theme glass | One `UIGlassEffect` surface with independent native buttons           |
 | `ion-back-button`                             | Standard icon and color in a fixed header/footer toolbar                                                  | Glass `UIButton`, using the resolved Ionic label/icon                 |
 | `ion-menu-button`                             | Fixed toolbar, inside the theme glass `ion-buttons`                                                       | Glass `UIButton`; original Ionic menu toggle                          |
-| `ion-tab-bar`                                 | Fixed tabs, icon-only/label-only items, one icon per item, dot/text badges, selection and disabled state                          | `UITabBar` and `UITabBarItem`                                         |
+| `ion-tab-bar`                                 | Fixed tabs, icon-only/label-only items, one icon per item, dot/text badges, selection and disabled state  | `UITabBar` and `UITabBarItem`                                         |
 | `ion-segment`                                 | Fixed toolbar, non-scrollable, text **or** one icon per item                                              | `UISegmentedControl`                                                  |
 | `ion-fab` / `ion-fab-button` / `ion-fab-list` | Glass FAB in an `ion-content` fixed slot; one main button and optional directional lists                  | Persistent glass `UIButton` per button; one FAB synchronization group |
 
@@ -92,7 +92,9 @@ Existing `attachTabBarSearchable(tabBar, fabButton, footer)` registrations autom
 
 Search registration does not bypass placement restrictions. Its searchbar and close button must be in fixed footer toolbars. Its trigger must belong to an `ion-fab[slot="fixed"]` directly inside `ion-content`, or directly on the existing non-scrolling `.ion-page` layout. A wrapper inside scrolling content is not a fixed slot.
 
-Opening search preserves the selected Ionic tab and does not automatically show the keyboard. Tap the search field or call the existing `ion-searchbar.setFocus()`. UIKit owns the search expansion, keyboard placement and return to the ordinary tabs. The trigger's resolved SVG and the search icon are projected from Ionic, including `ion-icon name`. The resting layout is measured against `ion-tab-bar` and both coordinates of the original FAB's center. A layout that cannot preserve those origins uses Web search.
+While a registration is alive, Native UI Shell keeps the searchable controller even when the page is transitioning or temporarily unavailable (`available: false`), instead of demoting back to a separate ordinary control identity. Resting chrome (including Album before search opens) uses the same `UITabBar` + `ShellTabBar.fit` path as ordinary tabs, with the search trigger pinned to the FAB when available; `UISearchTab` is shown only while the search session is active. Flipping availability or entering/leaving search crossfades between those layers. Register before the destination page finishes entering (for example in `ionViewWillEnter`) so the first visit does not paint ordinary tabs and then swap.
+
+Opening search preserves the selected Ionic tab and does not automatically show the keyboard (`automaticallyActivatesSearch` stays off). Tap the field or call `ion-searchbar.setFocus()` for the keyboard. While search is active, Native UI Shell freezes Web layout projection and holds Capacitor Keyboard resize at `none`; UIKit owns tab/search chrome (no Ionic `fit` mid-session). Leave re-fits ordinary tabs to `ion-tab-bar` and search to the FAB. Ordinary native tabs keep an optimistic selection until the Web `selected` state catches up. Input events and application `value` updates continue across the bridge until search closes. The trigger's resolved SVG and the search icon are projected from Ionic, including `ion-icon name`.
 
 Native edits pass through Ionic's input handlers, preserving `ionInput` debounce, `ionChange`, `ionFocus`, `ionBlur`, and `ionClear`. Programmatic `value` changes do not emit `ionInput`; synchronous application corrections and stale native input are distinguished. Native editing owns marked text and the caret. Returning through the footer's close action retains the value and does not emit `ionCancel` or `ionClear`.
 
@@ -189,8 +191,7 @@ Returns the current Web/native projection state.
 
 **Returns:** <code><a href="#nativeuishellstatus">NativeUIShellStatus</a></code>
 
---------------------
-
+---
 
 ### suspend()
 
@@ -202,8 +203,7 @@ Restores projected controls to the Web until the returned lease is resumed.
 
 **Returns:** <code>Promise&lt;<a href="#nativeuishellsuspension">NativeUIShellSuspension</a>&gt;</code>
 
---------------------
-
+---
 
 ### destroy()
 
@@ -213,11 +213,9 @@ destroy() => Promise<void>
 
 Stops synchronization, restores Web controls and releases native resources.
 
---------------------
-
+---
 
 ### Interfaces
-
 
 #### NativeUIShellStatus
 
@@ -227,7 +225,6 @@ Stops synchronization, restores Web controls and releases native resources.
 | **`projected`** | <code>number</code>                         |
 | **`updates`**   | <code>number</code>                         |
 | **`reason`**    | <code>string</code>                         |
-
 
 #### NativeUIShellSuspension
 
@@ -246,6 +243,5 @@ On iOS, [`Components`](../ios/Sources/IonicNativeUIShellPlugin/Components) owns 
 ## Demo and verification
 
 See the [demo and verification guide](../demo/native-ui-shell.md) for browser tests, Simulator tests and an independent SPM consumer built from the npm package.
-
 
 Search controllers retain their UIKit-managed transition and are excluded from the ordinary control acquisition crossfade.

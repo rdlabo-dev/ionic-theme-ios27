@@ -7,6 +7,15 @@ enum ShellTabBar {
         var isValid: Bool { [0, 0.5, 1].contains(x) && [0, 1].contains(y) }
     }
 
+    /// Optimistic tab selection until the Web selected state catches up (or times out).
+    struct PendingSelection: Equatable {
+        var id: String
+        var until: CFAbsoluteTime
+        static func start(_ id: String, ttl: CFTimeInterval = 1) -> PendingSelection {
+            PendingSelection(id: id, until: CFAbsoluteTimeGetCurrent() + ttl)
+        }
+    }
+
     static let kind = ShellComponent.tabBar
 
     static func make(_ node: ShellControl, rendering: ShellRendering, delegate: UITabBarDelegate) -> UITabBar {
@@ -31,6 +40,12 @@ enum ShellTabBar {
     }
 
     static func update(_ tabBar: UITabBar, node: ShellControl, rendering: ShellRendering) {
+        var pending: PendingSelection?
+        update(tabBar, node: node, rendering: rendering, pendingSelection: &pending)
+    }
+
+    static func update(_ tabBar: UITabBar, node: ShellControl, rendering: ShellRendering,
+                       pendingSelection: inout PendingSelection?) {
         let items = node.items
         let ids = items.map(\.id)
         // Keep UIKit's item identities and interaction state across DOM selection updates.
@@ -53,8 +68,26 @@ enum ShellTabBar {
             applyTypography(item.content, to: tab)
             applyBadge(item.content.badge, to: tab, rendering: rendering)
         }
-        let selectedItem = zip(nativeItems, items).first { $0.1.content.selected }?.0
-        if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
+        let domSelected = zip(nativeItems, items).first { $0.1.content.selected }
+        let selectedItem = domSelected?.0
+        if let pending = pendingSelection {
+            let pendingItem = zip(nativeItems, items).first { $0.1.id == pending.id }
+            let expired = CFAbsoluteTimeGetCurrent() >= pending.until
+            let unavailable = pendingItem == nil || pendingItem!.1.content.disabled
+            if unavailable || expired {
+                // Ionic rejected the tap, the item vanished, or the echo timed out.
+                pendingSelection = nil
+                if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
+            } else if domSelected?.1.id == pending.id {
+                pendingSelection = nil
+                if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
+            } else if tabBar.selectedItem !== pendingItem!.0 {
+                // Keep the optimistic native selection until the Web selected state catches up.
+                tabBar.selectedItem = pendingItem!.0
+            }
+        } else if tabBar.selectedItem !== selectedItem {
+            tabBar.selectedItem = selectedItem
+        }
         tabBar.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         tabBar.accessibilityIdentifier = node.id
     }

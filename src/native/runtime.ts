@@ -148,8 +148,8 @@ export const createRuntime = async (
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
-    if (doc.hidden || overlayOpen() || (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0)))
-      return [];
+    if (doc.hidden || overlayOpen()) return [];
+    if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
     return unprojected(sources.keys(), () =>
       search
         .decorate(
@@ -246,6 +246,7 @@ export const createRuntime = async (
       }
       if (result.rejectedSearches?.length) {
         search.reject(result.rejectedSearches);
+        lastSnapshot = '';
         dirty = true;
       }
       for (const candidate of candidates) {
@@ -496,10 +497,14 @@ export const createRuntime = async (
     setNativeUIShellIntegration(doc, {
       async search(binding, active, focus) {
         if (!getNativeSearchBindings(doc).includes(binding) || !search.projected(binding)) return false;
-        if (active && !binding.active) search.begin(binding, revision + 1);
-        binding.active = active;
-        binding.focused = focus ?? (active && binding.focused);
-        if (!active) search.retire(binding);
+        if (!active) {
+          search.setStatus(binding, false);
+        } else {
+          const entering = !binding.active;
+          if (entering) search.begin(binding, revision + 1);
+          const nextFocused = focus === true ? true : focus === false ? false : entering ? false : binding.focused;
+          search.setStatus(binding, true, nextFocused);
+        }
         await flush();
         return !stopped && search.projected(binding);
       },

@@ -20,6 +20,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var revision = 0
     private var sequence = 0
     private var keyboardVisible = false
+    private var pendingTabSelections: [String: ShellTabBar.PendingSelection] = [:]
+    private var pendingTabExpiryWorks: [String: DispatchWorkItem] = [:]
     private var restoreTopEdge: (() -> Void)?
     private var observers: [NSObjectProtocol] = []
 
@@ -39,14 +41,21 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     }
                 }
                 if !keyboard { self.host?.isHidden = true }
+                var searchOwnsKeyboard = false
                 if #available(iOS 26.0, *) {
                     self.searchControllers.values.forEach {
                         guard let controller = $0 as? ShellSearchController else { return }
+                        if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
                         if !keyboard { controller.surface.isHidden = true }
                     }
                 }
-                if keyboard { self.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh") }
-                else if name == UIDevice.orientationDidChangeNotification { self.notifyWebViewMetricsChange() }
+                if keyboard {
+                    if !searchOwnsKeyboard {
+                        self.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh")
+                    }
+                } else if name == UIDevice.orientationDidChangeNotification {
+                    self.notifyWebViewMetricsChange()
+                }
             })
         }
         for name in [UIApplication.didBecomeActiveNotification, UIResponder.keyboardDidHideNotification,
@@ -129,6 +138,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         }
         if let control = controls.removeValue(forKey: id) { ShellCrossfade.retire(control, duration: duration) }
         fingerprints.removeValue(forKey: id)
+        pendingTabSelections.removeValue(forKey: id)
+        pendingTabExpiryWorks.removeValue(forKey: id)?.cancel()
     }
 
     private func removeControls(duration: TimeInterval = 0) {
@@ -136,6 +147,36 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         host?.removeFromSuperview()
         host = nil
         rendering.clear()
+        pendingTabSelections.removeAll()
+        pendingTabExpiryWorks.values.forEach { $0.cancel() }
+        pendingTabExpiryWorks.removeAll()
+    }
+
+    private func syncTabBar(_ tabBar: UITabBar, id: String, node: ShellControl) {
+        var pending = pendingTabSelections[id]
+        ShellTabBar.update(tabBar, node: node, rendering: rendering, pendingSelection: &pending)
+        if let pending {
+            pendingTabSelections[id] = pending
+        } else {
+            pendingTabSelections.removeValue(forKey: id)
+            pendingTabExpiryWorks.removeValue(forKey: id)?.cancel()
+        }
+    }
+
+    private func schedulePendingTabExpiry(_ id: String, until: CFAbsoluteTime) {
+        pendingTabExpiryWorks[id]?.cancel()
+        let delay = max(0, until - CFAbsoluteTimeGetCurrent()) + 0.02
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingTabExpiryWorks.removeValue(forKey: id)
+            guard let pending = self.pendingTabSelections[id],
+                  CFAbsoluteTimeGetCurrent() >= pending.until,
+                  let tabBar = self.controls[id] as? UITabBar,
+                  let node = self.fingerprints[id] else { return }
+            self.syncTabBar(tabBar, id: id, node: node)
+        }
+        pendingTabExpiryWorks[id] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     @objc func update(_ call: CAPPluginCall) {
@@ -173,7 +214,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             var rejectedControls: [String] = []
             var fabs: [(ShellFab, ShellControl)] = []
-            var searches: [(ShellSearchController, ShellControl, CGRect, CGRect)] = []
+            var searches: [(ShellSearchController, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
             UIView.performWithoutAnimation {
                 if host.superview !== parent { parent.addSubview(host) }
@@ -201,9 +242,11 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     if let search = node.search {
                         guard let owner = self.bridge?.viewController else { rejectedSearches.append(id); continue }
                         let controller: ShellSearchController
-                        if let existing = self.searchControllers[id] as? ShellSearchController { controller = existing }
+                        let previousCover = self.controls[id]
+                        let replacing = self.searchControllers[id] as? ShellSearchController
+                        if let existing = replacing { controller = existing }
                         else {
-                            self.removeControl(id)
+                            // Keep the ordinary UITabBar cover until the search controller applies.
                             controller = ShellSearchController()
                             controller.activate = { [weak self] id in self?.activate(id) }
                             controller.changed = { [weak self] id, phase, value, composing, valueVersion in
@@ -222,7 +265,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             y: webView.bounds.minY + local.minY * scale, width: local.width * scale, height: local.height * scale), to: owner.view)
                         let triggerFrame = webView.convert(CGRect(x: webView.bounds.minX + trigger.minX * scale,
                             y: webView.bounds.minY + trigger.minY * scale, width: trigger.width * scale, height: trigger.height * scale), to: owner.view)
-                        searches.append((controller, node, searchBarFrame, triggerFrame))
+                        searches.append((controller, node, searchBarFrame, triggerFrame, previousCover, replacing == nil))
                         continue
                     } else if self.searchControllers[id] != nil {
                         self.removeControl(id)
@@ -236,7 +279,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         } else if let segment = self.controls[id] as? ShellSegment, node.kind == ShellSegment.kind {
                             segment.update(node, scale: scale, rendering: self.rendering)
                         } else if let tabBar = self.controls[id] as? UITabBar, node.kind == ShellTabBar.kind {
-                            ShellTabBar.update(tabBar, node: node, rendering: self.rendering)
+                            self.syncTabBar(tabBar, id: id, node: node)
                         } else {
                             guard let control = ShellComponents.make(node, scale: scale, rendering: self.rendering, tabDelegate: self,
                                 activate: { [weak self] id in self?.activate(id) }) else { reject(); continue }
@@ -245,6 +288,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             host.addSubview(control)
                         }
                         self.fingerprints[id] = node
+                    } else if let tabBar = self.controls[id] as? UITabBar, self.pendingTabSelections[id] != nil {
+                        // Resolve an in-flight native tap even when other fingerprint fields are unchanged.
+                        self.syncTabBar(tabBar, id: id, node: node)
                     }
                     guard let control = self.controls[id] else { reject(); continue }
                     if let tabBar = control as? UITabBar {
@@ -262,13 +308,29 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             for (fab, node) in fabs {
                 fab.apply(node, scale: scale, rendering: self.rendering, activate: { [weak self] id in self?.activate(id) })
             }
-            for (controller, node, frame, triggerFrame) in searches {
+            for (controller, node, frame, triggerFrame, previousCover, created) in searches {
+                let id = node.id
                 let webFrame = webView.convert(webView.bounds, to: controller.surface.superview)
                 if !controller.apply(node, webFrame: webFrame, barFrame: frame, triggerFrame: triggerFrame, rendering: self.rendering) {
-                    let id = node.id
-                    self.removeControl(id)
+                    if created {
+                        self.searchControllers.removeValue(forKey: id)
+                        controller.detach()
+                        if let previousCover, previousCover.superview != nil {
+                            self.controls[id] = previousCover
+                        } else {
+                            self.controls.removeValue(forKey: id)?.removeFromSuperview()
+                            self.fingerprints.removeValue(forKey: id)
+                            self.pendingTabSelections[id] = nil
+                            self.pendingTabExpiryWorks.removeValue(forKey: id)?.cancel()
+                        }
+                    } else {
+                        self.removeControl(id)
+                    }
                     rejectedSearches.append(id)
                 } else {
+                    if created, let previousCover, previousCover !== controller.surface {
+                        previousCover.removeFromSuperview()
+                    }
                     controller.surface.isHidden = self.keyboardVisible && !controller.ownsKeyboard
                 }
             }
@@ -284,8 +346,13 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     }
 
     public func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-        guard item.isEnabled, let id = item.accessibilityIdentifier else { return }
-        activate(id)
+        guard item.isEnabled, let itemId = item.accessibilityIdentifier else { return }
+        if let controlId = controls.first(where: { $0.value === tabBar })?.key {
+            let pending = ShellTabBar.PendingSelection.start(itemId)
+            pendingTabSelections[controlId] = pending
+            schedulePendingTabExpiry(controlId, until: pending.until)
+        }
+        activate(itemId)
     }
 
     private func activate(_ id: String) {

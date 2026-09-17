@@ -145,6 +145,22 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
     }
 
+    func testNativeKeyboardKeepsSearchFieldOrigin() throws {
+        let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
+        let field = openSearch(app)
+        let before = field.frame
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let after = field.frame
+        let keyboard = app.keyboards.firstMatch.frame
+        // WebView keyboard resize must not lift the native search surface again on top of UIKit avoidance.
+        XCTAssertLessThan(before.minY - after.minY, keyboard.height * 0.5, app.debugDescription)
+        XCTAssertGreaterThanOrEqual(after.minY, -1)
+        XCTAssertTrue(field.isHittable)
+        capture("native-search-keyboard-origin")
+        app.buttons["Close"].firstMatch.tap()
+    }
+
     func testSearchPositionVariants() throws {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         _ = openSearch(app)

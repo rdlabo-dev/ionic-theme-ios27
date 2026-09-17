@@ -13,7 +13,7 @@ import {
   IonSearchbar,
   IonTitle,
   IonToolbar,
-  ViewDidEnter,
+  ViewWillEnter,
 } from '@demo/ionic';
 import { attachTabBarSearchable, TabBarSearchableFunction, TabBarSearchableType } from '../../../../src';
 
@@ -36,19 +36,23 @@ import { attachTabBarSearchable, TabBarSearchableFunction, TabBarSearchableType 
     IonSearchbar,
   ],
 })
-export class AlbumPage implements ViewDidEnter {
+export class AlbumPage implements ViewWillEnter {
   readonly sourceIonIcons = [...Array(60)].map((_, i) => i);
 
   readonly document = inject(DOCUMENT);
   readonly el = inject(ElementRef);
   searchableFun: TabBarSearchableFunction | undefined;
+  #attachedFooter?: HTMLElement;
 
-  ionViewDidEnter() {
-    this.searchableFun = attachTabBarSearchable(
-      this.document.querySelector<HTMLElement>('ion-tab-bar')!,
-      this.el.nativeElement.querySelector('ion-fab-button'),
-      this.el.nativeElement.querySelector('ion-footer'),
-    );
+  ionViewWillEnter() {
+    // Register before the page transition paints so searchable projection can
+    // replace ordinary UITabBar without a Web flash after didEnter.
+    const tabBar = this.document.querySelector<HTMLElement>('ion-tab-bar')!;
+    const fab = this.el.nativeElement.querySelector('ion-fab-button') as HTMLElement;
+    const footer = this.el.nativeElement.querySelector('ion-footer') as HTMLElement;
+    if (this.searchableFun && this.#attachedFooter === footer) return;
+    this.#attachedFooter = footer;
+    this.searchableFun = attachTabBarSearchable(tabBar, fab, footer);
   }
 
   present(event: Event) {

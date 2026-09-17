@@ -36,11 +36,24 @@
 //@use '@ionic/angular/css/palettes/dark.system.css';
 @use '@ionic/angular/css/palettes/dark.class.css';
 
-@use '../../src/styles/default-variables';
-@use '../../src/styles/ionic-theme-ios27';
-@use '../../src/styles/ionic-theme-ios27-dark-class';
-@use '../../src/styles/md-ion-list-inset';
-@use '../../src/styles/md-remove-ios-class-effect';
+@use 'sass:meta';
+
+// Capability-based theme selection (not OS version). See docs/ios-adaptive.md.
+@supports selector(:heading) {
+  @include meta.load-css('../../src/styles/default-variables');
+  @include meta.load-css('../../src/styles/ionic-theme-ios27');
+  @include meta.load-css('../../src/styles/ionic-theme-ios27-dark-class');
+  @include meta.load-css('../../src/styles/md-ion-list-inset');
+  @include meta.load-css('../../src/styles/md-remove-ios-class-effect');
+}
+
+@supports (text-wrap: pretty) and (not selector(:heading)) {
+  @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/default-variables');
+  @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
+  @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');
+  @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/md-ion-list-inset');
+  @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect');
+}
 
 :root {
   --ios-theme-menu-width: 300px;
