@@ -19,7 +19,6 @@ import { filter } from 'rxjs';
 
 // import { registerTabBarEffect } from '@rdlabo/ionic-theme-ios27';
 import { registeredEffect, registerTabBarEffect } from '../../../../src';
-import { notifyNativeUIShellTabSwitch } from '../../../../src/native-integration';
 
 @Component({
   selector: 'app-tabs',
@@ -43,14 +42,6 @@ export class TabsPage implements OnInit, ViewDidEnter, ViewDidLeave {
         tabBar.classList.remove('tab-bar-hidden');
       }
     });
-  }
-
-  onTabsWillChange() {
-    notifyNativeUIShellTabSwitch(true);
-  }
-
-  onTabsDidChange() {
-    notifyNativeUIShellTabSwitch(false);
   }
 
   ionViewDidEnter() {

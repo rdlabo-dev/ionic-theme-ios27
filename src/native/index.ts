@@ -12,7 +12,6 @@ export type {
   NativeUIShellSuspension,
   WebViewMetrics,
 } from './definitions';
-export { notifyNativeUIShellTabSwitch } from '../native-integration';
 
 const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
 let active: Promise<NativeUIShellHandle> | undefined;

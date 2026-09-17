@@ -4,8 +4,6 @@ import type { Animation } from '@ionic/core';
 export interface NativeUIShellIntegration {
   suspend(scopes: HTMLElement[]): Promise<() => void>;
   search?(binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean>;
-  /** Instant handoff while ion-tabs switches (Angular outputs or equivalent). */
-  tabSwitch?(active: boolean): void;
 }
 
 export interface NativeSearchBinding {
@@ -44,15 +42,6 @@ export const isNativeUIShell = (element: HTMLElement) => element.hasAttribute('d
 
 export const suspendNativeUIShell = async (scopes: HTMLElement[]): Promise<() => void> =>
   (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes)) ?? (() => {});
-
-/**
- * Call from Angular `(ionTabsWillChange)` / `(ionTabsDidChange)` (or equivalent).
- * `@ionic/angular` emits those as EventEmitters, not DOM events, so the runtime
- * cannot observe them on `document`.
- */
-export const notifyNativeUIShellTabSwitch = (active: boolean, doc: Document = document): void => {
-  runtimes.get(doc)?.tabSwitch?.(active);
-};
 
 /** Ionic write hooks cannot await the bridge. Gate playback, including interactive playback. */
 export const connectNativeUIShellTransition = (animation: Animation, entering: HTMLElement, leaving?: HTMLElement) => {

@@ -118,21 +118,7 @@ Custom host animation or transition declarations on the FAB, list or button keep
 
 The connection in `src/transition/ios.transition.ts` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events.
 
-Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Vanilla `ion-tabs` dispatches `ionTabsWillChange` / `ionTabsDidChange` as DOM events; `@ionic/angular` emits them only as Angular outputs. Wire those outputs to `notifyNativeUIShellTabSwitch` (from `@rdlabo/ionic-theme-ios27/native`):
-
-```ts
-import { notifyNativeUIShellTabSwitch } from '@rdlabo/ionic-theme-ios27/native';
-
-// template: <ion-tabs (ionTabsWillChange)="onTabsWillChange()" (ionTabsDidChange)="onTabsDidChange()">
-onTabsWillChange() {
-  notifyNativeUIShellTabSwitch(true);
-}
-onTabsDidChange() {
-  notifyNativeUIShellTabSwitch(false);
-}
-```
-
-Stack pushes and pops keep the normal 180ms handoff.
+Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Stack pushes and pops keep the normal 180ms handoff.
 
 Standard Ionic overlays suspend native projection until dismissal. Unsupported searchable-tab configurations use the existing Web animation and share this ownership with Web glass gestures. CSS motion of supported containing surfaces also causes temporary Web rendering.
 

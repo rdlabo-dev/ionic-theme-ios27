@@ -58,7 +58,7 @@ export const createRuntime = async (
   let dirty = false;
   let pending = false;
   let stopped = false;
-  /** True while a tab switch handoff should skip crossfade (WC events or notifyNativeUIShellTabSwitch). */
+  /** True while a tab-switch handoff should skip crossfade. */
   let tabSwitchHandoff = false;
   /** Captured at the start of each sync so an in-flight update keeps a stable duration. */
   let handoffInstant = false;
@@ -328,12 +328,48 @@ export const createRuntime = async (
     getNativeSearchBindings(doc)
       .filter((binding) => page.contains(binding.footer))
       .forEach((binding) => search.retire(binding));
+    // Angular updates the URL before willLeave, but keeps ion-tab-bar.selectedTab on the
+    // leaving tab until DidChange. A mismatch means this leave is a tab switch, not a stack push.
+    if (event.type === LIFECYCLE_WILL_LEAVE) beginTabSwitchHandoffIfNeeded(page);
     pages.add(page);
     schedule();
   };
   const pageDid: EventListener = (event) => {
     pages.delete(event.target as HTMLElement);
     schedule();
+    if (tabSwitchHandoff && pages.size === 0) endTabSwitchHandoff();
+  };
+  const tabOfPath = (tabs: Element, pathname: string) => {
+    let best: { tab: string; length: number } | undefined;
+    for (const button of Array.from(tabs.querySelectorAll('ion-tab-button'))) {
+      const tab = button.getAttribute('tab');
+      const href = button.getAttribute('href')?.split(/[?#]/)[0];
+      if (!tab || !href) continue;
+      if (pathname === href || pathname.startsWith(`${href}/`)) {
+        if (!best || href.length > best.length) best = { tab, length: href.length };
+      }
+    }
+    return best?.tab;
+  };
+  const beginTabSwitchHandoffIfNeeded = (page: HTMLElement) => {
+    const tabs = page.closest('ion-tabs');
+    if (!tabs) return;
+    const bar = tabs.querySelector('ion-tab-bar');
+    const selected =
+      (bar && 'selectedTab' in bar ? String((bar as HTMLElement & { selectedTab?: string }).selectedTab ?? '') : '') ||
+      tabs.querySelector('ion-tab-button.tab-selected')?.getAttribute('tab') ||
+      undefined;
+    const destination = tabOfPath(tabs, win.location.pathname);
+    if (selected && destination && selected !== destination) tabSwitchHandoff = true;
+  };
+  // DidChange / pageDid can land in the same turn as WillLeave. Clear on the next frame so the
+  // coalesced sync still observes handoffInstant=true.
+  const endTabSwitchHandoff = () => {
+    win.requestAnimationFrame(() => {
+      if (stopped || !tabSwitchHandoff) return;
+      tabSwitchHandoff = false;
+      schedule();
+    });
   };
   const motion: EventListener = (event) => {
     const target = event.target as HTMLElement;
@@ -357,10 +393,7 @@ export const createRuntime = async (
     tabSwitchHandoff = true;
     schedule();
   });
-  on(doc, 'ionTabsDidChange', () => {
-    tabSwitchHandoff = false;
-    schedule();
-  });
+  on(doc, 'ionTabsDidChange', endTabSwitchHandoff);
   for (const name of overlayNames) {
     on(doc, `ion${name}WillPresent`, (event) => {
       presented.add(event.target as HTMLElement);
@@ -508,10 +541,6 @@ export const createRuntime = async (
     doc.head.append(style);
     observer.observe(doc.documentElement, observation);
     setNativeUIShellIntegration(doc, {
-      tabSwitch(active) {
-        tabSwitchHandoff = active;
-        schedule();
-      },
       async search(binding, active, focus) {
         if (!getNativeSearchBindings(doc).includes(binding) || !search.projected(binding)) return false;
         if (!active) {
