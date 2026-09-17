@@ -42,7 +42,7 @@ export class AlbumPage implements ViewWillEnter {
   readonly document = inject(DOCUMENT);
   readonly el = inject(ElementRef);
   searchableFun: TabBarSearchableFunction | undefined;
-  private attachedFooter?: HTMLElement;
+  #attachedFooter?: HTMLElement;
 
   ionViewWillEnter() {
     // Register before the page transition paints so searchable projection can
@@ -50,8 +50,8 @@ export class AlbumPage implements ViewWillEnter {
     const tabBar = this.document.querySelector<HTMLElement>('ion-tab-bar')!;
     const fab = this.el.nativeElement.querySelector('ion-fab-button') as HTMLElement;
     const footer = this.el.nativeElement.querySelector('ion-footer') as HTMLElement;
-    if (this.searchableFun && this.attachedFooter === footer) return;
-    this.attachedFooter = footer;
+    if (this.searchableFun && this.#attachedFooter === footer) return;
+    this.#attachedFooter = footer;
     this.searchableFun = attachTabBarSearchable(tabBar, fab, footer);
   }
 
