@@ -293,6 +293,27 @@ final class ShellSnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testTabTitleLayoutWarmupRestoresSelection() throws {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 24, height: 24)).image { context in
+            UIColor.black.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 24, height: 24))
+        }.pngData()!.base64EncodedString()
+        let items = [
+            item(["id": "first", "label": "Index", "selected": true, "icon": image, "iconWidth": 24.0, "iconHeight": 24.0]),
+            item(["id": "second", "label": "Docs", "icon": image, "iconWidth": 24.0, "iconHeight": 24.0]),
+            item(["id": "third", "label": "Library", "icon": image, "iconWidth": 24.0, "iconHeight": 24.0]),
+        ]
+        let node = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "width": 280.0, "height": 62.0, "items": items])]).controls.first)
+        let bar = UITabBar()
+        ShellTabBar.update(bar, node: node, rendering: ShellRendering())
+        XCTAssertTrue(ShellTabBar.fit(bar, node: node, bounds: CGRect(x: 20, y: 700, width: 280, height: 62)))
+        XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, "first")
+        // A second fit without content changes must not leave a pending warmup.
+        XCTAssertTrue(ShellTabBar.fit(bar, node: node, bounds: CGRect(x: 20, y: 700, width: 280, height: 62)))
+        XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, "first")
+    }
+
+    @MainActor
     func testTabPendingSelectionIgnoresStaleDomEcho() throws {
         let first = item(["id": "first", "selected": true])
         let second = item(["id": "second"])
