@@ -3,26 +3,22 @@ import { createAppConfig, type IonicAnimationOptions } from './app/app.config';
 import { AppComponent } from './app/app.component';
 import { enableNativeUIShell } from '../../src/native';
 
-const isE2ETesting = typeof window !== 'undefined' && (window as any).IONIC_E2E_TESTING === true;
-
+/** Adaptive CSS selects styles; page transition always uses iOS 27 — see docs/ios-adaptive.md. */
 async function loadIOSAnimations(): Promise<IonicAnimationOptions> {
   if (typeof CSS === 'undefined') return {};
-  // E2E pins iOS 27 animations to match the screenshot baseline stylesheet.
-  const theme =
-    isE2ETesting || CSS.supports('selector(:heading)')
-      ? await import('@rdlabo/ionic-theme-ios27')
-      : CSS.supports('text-wrap: pretty')
-        ? await import('@rdlabo/ionic-theme-ios26')
-        : undefined;
-  if (!theme) return {};
+  if (!CSS.supports('selector(:open)') && !CSS.supports('text-wrap: pretty')) return {};
+
+  const { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } = await import('@rdlabo/ionic-theme-ios27');
+
   return {
-    navAnimation: theme.iosTransitionAnimation,
-    popoverEnter: theme.popoverEnterAnimation,
-    popoverLeave: theme.popoverLeaveAnimation,
+    navAnimation: iosTransitionAnimation,
+    popoverEnter: popoverEnterAnimation,
+    popoverLeave: popoverLeaveAnimation,
   };
 }
 
 async function main() {
+  // Demo forces mode: 'ios' (including Playwright), so do not gate on isPlatform('ios').
   const animations = await loadIOSAnimations();
   await bootstrapApplication(AppComponent, createAppConfig(animations));
   void enableNativeUIShell().then((handle) => Object.assign(window, { nativeUIShell: handle }));

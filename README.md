@@ -33,7 +33,7 @@ On Capacitor iOS, the optional, experimental [Native UI Shell](https://docs.rdla
 
 ### Follow the user's device
 
-Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [adaptive setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) uses browser feature checks to select the corresponding theme styles and animations; it does not read the iOS version. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
+Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [adaptive setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
 
 ## Installation
 
@@ -193,7 +193,7 @@ createApp(App)
 
 **Full documentation:** [Ionic Theme iOS27](https://docs.rdlabo.dev/projects/ionic-theme-ios27)
 
-- [Adaptive iOS themes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) — select iOS 26 or iOS 27 styles and animations by browser capabilities.
+- [Adaptive iOS themes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/ios-adaptive) — select iOS 26 or iOS 27 styles by browser capabilities; keep the iOS 27 page transition when both packages are installed.
 - [Using ion-item-group](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/using-ion-item-group) — required markup for inset lists.
 - [Special markup and classes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/special-markup) — opt-in markup and utility classes used by the theme.
 - [ESLint](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/eslint) — check list structure with ESLint rules.
