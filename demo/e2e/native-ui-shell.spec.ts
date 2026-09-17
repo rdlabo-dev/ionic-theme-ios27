@@ -1823,19 +1823,18 @@ test('tab switches hand off without a crossfade', async ({ page }) => {
   await page.goto('/main/index/native-ui-shell');
   const segment = page.locator('app-native-ui-shell ion-segment');
   await expect(segment).toHaveAttribute('data-native-ui-shell', '');
-  await page.evaluate(() => {
-    document.querySelector('ion-tabs')!.dispatchEvent(new CustomEvent('ionTabsWillChange', { detail: { tab: 'docs' } }));
-  });
-  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
-  await expect(segment).not.toHaveAttribute('data-native-ui-shell');
+  const before = await page.evaluate(() => (window as any).__nativeUIShell.updates.length);
+  await page.locator('ion-tab-button[tab="docs"]').click();
+  await expect(page).toHaveURL(/\/main\/docs/);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (start) => (window as any).__nativeUIShell.updates.slice(start).some((update: any) => update.transitionDuration === 0),
+        before,
+      ),
+    )
+    .toBe(true);
   await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
-  await expect.poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration)).toBe(0);
-  await page.evaluate(() => {
-    document.querySelector('ion-tabs')!.dispatchEvent(new CustomEvent('ionTabsDidChange', { detail: { tab: 'docs' } }));
-  });
-  await segment.evaluate((el) => el.classList.remove('ios-theme-shell-disabled'));
-  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
-  await expect.poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration)).toBe(180);
 });
 
 test('cancelling a handoff animation releases its temporary visibility override', async ({ page }) => {

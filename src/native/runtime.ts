@@ -58,7 +58,7 @@ export const createRuntime = async (
   let dirty = false;
   let pending = false;
   let stopped = false;
-  /** True between ionTabsWillChange and ionTabsDidChange — no native/Web crossfade. */
+  /** True while a tab switch handoff should skip crossfade (WC events or notifyNativeUIShellTabSwitch). */
   let tabSwitchHandoff = false;
   /** Captured at the start of each sync so an in-flight update keeps a stable duration. */
   let handoffInstant = false;
@@ -353,6 +353,7 @@ export const createRuntime = async (
   for (const name of [LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE]) on(doc, name, pageWill);
   for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
   on(doc, 'ionTabsWillChange', () => {
+    // Vanilla ion-tabs dispatches DOM events; @ionic/angular uses EventEmitters instead.
     tabSwitchHandoff = true;
     schedule();
   });
@@ -507,6 +508,10 @@ export const createRuntime = async (
     doc.head.append(style);
     observer.observe(doc.documentElement, observation);
     setNativeUIShellIntegration(doc, {
+      tabSwitch(active) {
+        tabSwitchHandoff = active;
+        schedule();
+      },
       async search(binding, active, focus) {
         if (!getNativeSearchBindings(doc).includes(binding) || !search.projected(binding)) return false;
         if (!active) {
