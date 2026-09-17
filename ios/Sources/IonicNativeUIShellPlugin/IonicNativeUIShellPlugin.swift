@@ -20,6 +20,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var revision = 0
     private var sequence = 0
     private var keyboardVisible = false
+    private var pendingTabSelections: [String: ShellTabBar.PendingSelection] = [:]
     private var restoreTopEdge: (() -> Void)?
     private var observers: [NSObjectProtocol] = []
 
@@ -129,6 +130,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         }
         if let control = controls.removeValue(forKey: id) { ShellCrossfade.retire(control, duration: duration) }
         fingerprints.removeValue(forKey: id)
+        pendingTabSelections.removeValue(forKey: id)
     }
 
     private func removeControls(duration: TimeInterval = 0) {
@@ -136,6 +138,14 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         host?.removeFromSuperview()
         host = nil
         rendering.clear()
+        pendingTabSelections.removeAll()
+    }
+
+    private func syncTabBar(_ tabBar: UITabBar, id: String, node: ShellControl) {
+        var pending = pendingTabSelections[id]
+        ShellTabBar.update(tabBar, node: node, rendering: rendering, pendingSelection: &pending)
+        if let pending { pendingTabSelections[id] = pending }
+        else { pendingTabSelections.removeValue(forKey: id) }
     }
 
     @objc func update(_ call: CAPPluginCall) {
@@ -236,7 +246,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         } else if let segment = self.controls[id] as? ShellSegment, node.kind == ShellSegment.kind {
                             segment.update(node, scale: scale, rendering: self.rendering)
                         } else if let tabBar = self.controls[id] as? UITabBar, node.kind == ShellTabBar.kind {
-                            ShellTabBar.update(tabBar, node: node, rendering: self.rendering)
+                            self.syncTabBar(tabBar, id: id, node: node)
                         } else {
                             guard let control = ShellComponents.make(node, scale: scale, rendering: self.rendering, tabDelegate: self,
                                 activate: { [weak self] id in self?.activate(id) }) else { reject(); continue }
@@ -245,6 +255,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             host.addSubview(control)
                         }
                         self.fingerprints[id] = node
+                    } else if let tabBar = self.controls[id] as? UITabBar, self.pendingTabSelections[id] != nil {
+                        // Resolve an in-flight native tap even when other fingerprint fields are unchanged.
+                        self.syncTabBar(tabBar, id: id, node: node)
                     }
                     guard let control = self.controls[id] else { reject(); continue }
                     if let tabBar = control as? UITabBar {
@@ -284,8 +297,11 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     }
 
     public func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-        guard item.isEnabled, let id = item.accessibilityIdentifier else { return }
-        activate(id)
+        guard item.isEnabled, let itemId = item.accessibilityIdentifier else { return }
+        if let controlId = controls.first(where: { $0.value === tabBar })?.key {
+            pendingTabSelections[controlId] = .start(itemId)
+        }
+        activate(itemId)
     }
 
     private func activate(_ id: String) {

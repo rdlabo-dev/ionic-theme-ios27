@@ -292,4 +292,50 @@ final class ShellSnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testTabPendingSelectionIgnoresStaleDomEcho() throws {
+        let first = item(["id": "first", "selected": true])
+        let second = item(["id": "second"])
+        let bar = UITabBar()
+        let initial = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "items": [first, second]])]).controls.first)
+        ShellTabBar.update(bar, node: initial, rendering: ShellRendering())
+        XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, "first")
+
+        var pending: ShellTabBar.PendingSelection? = .start("second")
+        // Stale Web echo still reports the previous tab.
+        ShellTabBar.update(bar, node: initial, rendering: ShellRendering(), pendingSelection: &pending)
+        XCTAssertEqual(pending?.id, "second")
+        XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, "second")
+
+        let echoed = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "items": [
+            item(["id": "first"]), item(["id": "second", "selected": true]),
+        ]])]).controls.first)
+        ShellTabBar.update(bar, node: echoed, rendering: ShellRendering(), pendingSelection: &pending)
+        XCTAssertNil(pending)
+        XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, "second")
+    }
+
+    @MainActor
+    func testTabPendingSelectionFallsBackWhenDomRejects() throws {
+        let first = item(["id": "first", "selected": true])
+        let second = item(["id": "second"])
+        let bar = UITabBar()
+        let node = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "items": [first, second]])]).controls.first)
+        ShellTabBar.update(bar, node: node, rendering: ShellRendering())
+        bar.selectedItem = bar.items?.first { $0.accessibilityIdentifier == "second" }
+
+        var pending: ShellTabBar.PendingSelection? = ShellTabBar.PendingSelection(id: "second", until: CFAbsoluteTimeGetCurrent() - 1)
+        ShellTabBar.update(bar, node: node, rendering: ShellRendering(), pendingSelection: &pending)
+        XCTAssertNil(pending)
+        XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, "first")
+
+        pending = .start("second")
+        let disabled = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "items": [
+            item(["id": "first", "selected": true]), item(["id": "second", "disabled": true]),
+        ]])]).controls.first)
+        bar.selectedItem = bar.items?.first { $0.accessibilityIdentifier == "second" }
+        ShellTabBar.update(bar, node: disabled, rendering: ShellRendering(), pendingSelection: &pending)
+        XCTAssertNil(pending)
+        XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, "first")
+    }
 }
