@@ -76,10 +76,11 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     private var valueVersion = -1
     private var lastLayout = ""
     private var layoutItems: [ShellItemContent] = []
-    private var lockedWebFrame: CGRect? // frozen while search is active
+    private var lockedWebFrame: CGRect? // frozen while search is active (width changes re-lock)
     private var session: Session = .idle
     private var focusWork: DispatchWorkItem?
     private var pendingSelection: ShellTabBar.PendingSelection? // optimistic ordinary tab
+    private var pendingExpiryWork: DispatchWorkItem?
     var ownsKeyboard: Bool { search.searchBar.searchTextField.isFirstResponder }
     var ownsKeyboardChrome: Bool { session == .focused || ownsKeyboard }
     var activate: ((String) -> Void)?
@@ -98,7 +99,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         // Must not use self as idleBar.delegate — UITabBarController asserts item↔VC pairing.
         idleBar.delegate = idleBarDelegate
         idleBarDelegate.select = { [weak self] id in
-            self?.pendingSelection = .start(id)
+            self?.armPendingSelection(id)
             self?.activate?(id)
         }
         idleBar.isHidden = true
@@ -124,7 +125,10 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         inputDelegate.clear = { [weak self] in self?.emit(.clear) }
     }
 
-    deinit { focusWork?.cancel() }
+    deinit {
+        focusWork?.cancel()
+        pendingExpiryWork?.cancel()
+    }
 
     private func wantedSession(active: Bool, focused: Bool) -> Session {
         if !active { return .idle }
@@ -167,9 +171,44 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         DispatchQueue.main.async(execute: work)
     }
 
+    private func armPendingSelection(_ id: String) {
+        pendingSelection = .start(id)
+        schedulePendingExpiry()
+    }
+
+    private func clearPendingSelection() {
+        pendingExpiryWork?.cancel()
+        pendingExpiryWork = nil
+        pendingSelection = nil
+    }
+
+    private func schedulePendingExpiry() {
+        pendingExpiryWork?.cancel()
+        pendingExpiryWork = nil
+        guard let pending = pendingSelection else { return }
+        let delay = max(0, pending.until - CFAbsoluteTimeGetCurrent()) + 0.02
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingExpiryWork = nil
+            guard let pending = self.pendingSelection, CFAbsoluteTimeGetCurrent() >= pending.until else { return }
+            self.pendingSelection = nil
+            // No later apply: revert idle chrome + controller selection to the last DOM selected id.
+            if let item = self.idleBar.items?.first(where: { $0.accessibilityIdentifier == self.selectedID }) {
+                self.idleBar.selectedItem = item
+            }
+            if let selected = self.ordinary[self.selectedID], self.selectedTab !== selected {
+                self.selectedTab = selected
+            }
+        }
+        pendingExpiryWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
     private func resolveOrdinarySelection(_ items: [ShellItem], fallback: UITab?) {
         let domSelected = ordinary[selectedID] ?? fallback
         guard let pending = pendingSelection else {
+            pendingExpiryWork?.cancel()
+            pendingExpiryWork = nil
             if selectedTab !== domSelected { selectedTab = domSelected }
             return
         }
@@ -177,10 +216,10 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         let expired = CFAbsoluteTimeGetCurrent() >= pending.until
         let unavailable = pendingTab == nil || (items.first { $0.id == pending.id }?.content.disabled ?? true)
         if unavailable || expired {
-            pendingSelection = nil
+            clearPendingSelection()
             selectedTab = domSelected
         } else if selectedID == pending.id {
-            pendingSelection = nil
+            clearPendingSelection()
             if selectedTab !== domSelected { selectedTab = domSelected }
         } else if selectedTab !== pendingTab {
             selectedTab = pendingTab
@@ -198,7 +237,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     func detach() {
         closing = true
         lockedWebFrame = nil
-        pendingSelection = nil
+        clearPendingSelection()
         applySession(.idle, selectingSearchTab: false)
         willMove(toParent: nil)
         idleBar.removeFromSuperview()
@@ -302,11 +341,15 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             } else {
                 reveal()
             }
-            if lockedWebFrame == nil {
-                lockedWebFrame = surface.bounds.isEmpty ? webFrame : surface.frame
+            let nextLock = surface.bounds.isEmpty ? webFrame : surface.frame
+            if let locked = lockedWebFrame, abs(locked.width - webFrame.width) > 0.5 {
+                // Rotation / size-class change: adopt the new width while still ignoring keyboard shrink.
+                lockedWebFrame = webFrame
+            } else if lockedWebFrame == nil {
+                lockedWebFrame = nextLock
             }
             if let lockedWebFrame, surface.frame != lockedWebFrame { surface.frame = lockedWebFrame }
-            pendingSelection = nil
+            clearPendingSelection()
             applySession(wanted, selectingSearchTab: !wasActive)
             return true
         }
@@ -365,7 +408,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
         guard let configuration else { return false }
         if tab === searchTab {
-            pendingSelection = nil
+            clearPendingSelection()
             activate?(configuration.trigger.id)
             return true
         }
@@ -374,7 +417,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             else { activate?(tab.identifier) }
             return false
         }
-        pendingSelection = .start(tab.identifier)
+        armPendingSelection(tab.identifier)
         if selectedTab !== tab { selectedTab = tab }
         activate?(tab.identifier)
         return true

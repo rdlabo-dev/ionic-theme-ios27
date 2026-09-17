@@ -445,6 +445,60 @@ final class ShellSnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testSearchRelocksProjectionWidthAfterRotation() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
+        let controller = ShellSearchController()
+        let rendering = ShellRendering()
+        let portrait = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let landscape = CGRect(x: 0, y: 0, width: 844, height: 390)
+        let keyboardShrunk = CGRect(x: 0, y: 0, width: 844, height: 200)
+        func node(active: Bool) throws -> ShellControl {
+            let search: JSObject = ["id": "search", "field": item(), "trigger": item(["id": "trigger"]),
+                "closeId": "close", "active": active, "available": true, "focused": false,
+                "value": "", "placeholder": "Search", "disabled": false, "editSequence": 0, "valueVersion": 0]
+            return try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "search": search,
+                "items": [item(["id": "first", "selected": true]), item(["id": "second"])]])]).controls.first)
+        }
+        let bar = CGRect(x: 18, y: 730, width: 280, height: 62)
+        let trigger = CGRect(x: 320, y: 730, width: 56, height: 56)
+        _ = controller.apply(try node(active: false), webFrame: portrait, barFrame: bar, triggerFrame: trigger, rendering: rendering)
+        controller.surface.frame = portrait
+        XCTAssertTrue(controller.apply(try node(active: true), webFrame: portrait, barFrame: bar, triggerFrame: trigger, rendering: rendering))
+        XCTAssertEqual(controller.surface.frame, portrait)
+        // Rotation must adopt the new width instead of keeping the portrait lock.
+        XCTAssertTrue(controller.apply(try node(active: true), webFrame: landscape, barFrame: bar, triggerFrame: trigger, rendering: rendering))
+        XCTAssertEqual(controller.surface.frame, landscape)
+        // Keyboard shrink at the same width must still be ignored.
+        XCTAssertTrue(controller.apply(try node(active: true), webFrame: keyboardShrunk, barFrame: bar, triggerFrame: trigger, rendering: rendering))
+        XCTAssertEqual(controller.surface.frame, landscape)
+    }
+
+    @MainActor
+    func testSearchPendingSelectionExpiresWithoutLaterApply() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
+        let controller = ShellSearchController()
+        let rendering = ShellRendering()
+        let resting = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let bar = CGRect(x: 18, y: 730, width: 280, height: 62)
+        let trigger = CGRect(x: 320, y: 730, width: 56, height: 56)
+        let search: JSObject = ["id": "search", "field": item(), "trigger": item(["id": "trigger"]),
+            "closeId": "close", "active": false, "available": true, "focused": false,
+            "value": "", "placeholder": "Search", "disabled": false, "editSequence": 0, "valueVersion": 0]
+        let node = try XCTUnwrap(decode([control(["kind": "ion-tab-bar", "search": search,
+            "items": [item(["id": "first", "selected": true]), item(["id": "second"])]])]).controls.first)
+        _ = controller.apply(node, webFrame: resting, barFrame: bar, triggerFrame: trigger, rendering: rendering)
+        let second = try XCTUnwrap(controller.tabs.first { $0.identifier == "second" })
+        XCTAssertTrue(controller.tabBarController(controller, shouldSelectTab: second))
+        XCTAssertEqual(controller.selectedTab?.identifier, "second")
+        let expectation = expectation(description: "pending selection expires back to DOM")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
+            XCTAssertEqual(controller.selectedTab?.identifier, "first")
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2)
+    }
+
+    @MainActor
     func testSearchEmitsInputAfterRestingToActive() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
         let controller = ShellSearchController()

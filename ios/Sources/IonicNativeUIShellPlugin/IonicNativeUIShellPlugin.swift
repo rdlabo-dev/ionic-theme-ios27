@@ -21,6 +21,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var sequence = 0
     private var keyboardVisible = false
     private var pendingTabSelections: [String: ShellTabBar.PendingSelection] = [:]
+    private var pendingTabExpiryWorks: [String: DispatchWorkItem] = [:]
     private var restoreTopEdge: (() -> Void)?
     private var observers: [NSObjectProtocol] = []
 
@@ -138,6 +139,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         if let control = controls.removeValue(forKey: id) { ShellCrossfade.retire(control, duration: duration) }
         fingerprints.removeValue(forKey: id)
         pendingTabSelections.removeValue(forKey: id)
+        pendingTabExpiryWorks.removeValue(forKey: id)?.cancel()
     }
 
     private func removeControls(duration: TimeInterval = 0) {
@@ -146,13 +148,35 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         host = nil
         rendering.clear()
         pendingTabSelections.removeAll()
+        pendingTabExpiryWorks.values.forEach { $0.cancel() }
+        pendingTabExpiryWorks.removeAll()
     }
 
     private func syncTabBar(_ tabBar: UITabBar, id: String, node: ShellControl) {
         var pending = pendingTabSelections[id]
         ShellTabBar.update(tabBar, node: node, rendering: rendering, pendingSelection: &pending)
-        if let pending { pendingTabSelections[id] = pending }
-        else { pendingTabSelections.removeValue(forKey: id) }
+        if let pending {
+            pendingTabSelections[id] = pending
+        } else {
+            pendingTabSelections.removeValue(forKey: id)
+            pendingTabExpiryWorks.removeValue(forKey: id)?.cancel()
+        }
+    }
+
+    private func schedulePendingTabExpiry(_ id: String, until: CFAbsoluteTime) {
+        pendingTabExpiryWorks[id]?.cancel()
+        let delay = max(0, until - CFAbsoluteTimeGetCurrent()) + 0.02
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingTabExpiryWorks.removeValue(forKey: id)
+            guard let pending = self.pendingTabSelections[id],
+                  CFAbsoluteTimeGetCurrent() >= pending.until,
+                  let tabBar = self.controls[id] as? UITabBar,
+                  let node = self.fingerprints[id] else { return }
+            self.syncTabBar(tabBar, id: id, node: node)
+        }
+        pendingTabExpiryWorks[id] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     @objc func update(_ call: CAPPluginCall) {
@@ -297,6 +321,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                             self.controls.removeValue(forKey: id)?.removeFromSuperview()
                             self.fingerprints.removeValue(forKey: id)
                             self.pendingTabSelections[id] = nil
+                            self.pendingTabExpiryWorks.removeValue(forKey: id)?.cancel()
                         }
                     } else {
                         self.removeControl(id)
@@ -323,7 +348,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     public func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
         guard item.isEnabled, let itemId = item.accessibilityIdentifier else { return }
         if let controlId = controls.first(where: { $0.value === tabBar })?.key {
-            pendingTabSelections[controlId] = .start(itemId)
+            let pending = ShellTabBar.PendingSelection.start(itemId)
+            pendingTabSelections[controlId] = pending
+            schedulePendingTabExpiry(controlId, until: pending.until)
         }
         activate(itemId)
     }

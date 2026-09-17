@@ -26,6 +26,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
   const states = new Map<NativeSearchBinding, SearchState>();
   let keyboardVisible = false;
   let heldKeyboardResize: string | null = null;
+  let keyboardResizeGeneration = 0;
   type KeyboardPlugin = {
     setResizeMode?: (options: { mode: string }) => Promise<void>;
     getResizeMode?: () => Promise<{ mode?: string }>;
@@ -42,24 +43,32 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
     const keyboard = keyboardPlugin();
     if (!keyboard?.setResizeMode || heldKeyboardResize !== null) return;
     const setResizeMode = keyboard.setResizeMode.bind(keyboard);
+    const generation = ++keyboardResizeGeneration;
     heldKeyboardResize = 'native';
     void (async () => {
+      let restoreMode = 'native';
       try {
         const current = await keyboard.getResizeMode?.();
-        if (typeof current?.mode === 'string') heldKeyboardResize = current.mode;
+        if (typeof current?.mode === 'string') restoreMode = current.mode;
       } catch {
         /* keep default restore target */
       }
+      if (generation !== keyboardResizeGeneration) return;
+      heldKeyboardResize = restoreMode;
       try {
         await setResizeMode({ mode: 'none' });
       } catch {
-        heldKeyboardResize = null;
+        if (generation === keyboardResizeGeneration) heldKeyboardResize = null;
+        return;
       }
+      // Leave raced ahead of setResizeMode(none) — undo the stale none apply.
+      if (generation !== keyboardResizeGeneration) void setResizeMode({ mode: restoreMode }).catch(() => undefined);
     })();
   };
   const hasActiveProjection = () => [...states.keys()].some((binding) => binding.active && projected(binding));
   const releaseKeyboardResize = () => {
     if (hasActiveProjection()) return;
+    keyboardResizeGeneration++;
     const mode = heldKeyboardResize;
     heldKeyboardResize = null;
     if (!mode) return;
@@ -210,23 +219,26 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           // First registration during a transition: fall through and measure available:false.
         }
         if (binding.active && existing && isCurrent(existing) && existing.last && !pageUnavailable) {
-          candidate.control.search = {
-            ...existing.last,
-            active: true,
-            available: true,
-            focused: binding.focused,
-            value: existing.bar.value ?? '',
-            placeholder: existing.bar.placeholder ?? '',
-            disabled: existing.bar.disabled,
-            editSequence: existing.editSequence,
-            valueVersion: existing.valueVersion,
-          };
-          existing.last = candidate.control.search;
-          candidate.sources = [binding.tabBar, binding.trigger.closest<HTMLElement>('ion-fab') ?? binding.trigger, binding.footer];
-          candidate.actions.set(existing.last.trigger.id, binding.trigger);
           const back = binding.footer.querySelector<HTMLIonButtonElement>('ion-buttons[slot=start] ion-button');
-          if (back) candidate.actions.set(existing.last.closeId, back);
-          continue;
+          // Close must stay eligible; otherwise fall through and demote instead of caching active.
+          if (back && !back.disabled && !back.closest(excluded)) {
+            candidate.control.search = {
+              ...existing.last,
+              active: true,
+              available: true,
+              focused: binding.focused,
+              value: existing.bar.value ?? '',
+              placeholder: existing.bar.placeholder ?? '',
+              disabled: existing.bar.disabled,
+              editSequence: existing.editSequence,
+              valueVersion: existing.valueVersion,
+            };
+            existing.last = candidate.control.search;
+            candidate.sources = [binding.tabBar, binding.trigger.closest<HTMLElement>('ion-fab') ?? binding.trigger, binding.footer];
+            candidate.actions.set(existing.last.trigger.id, binding.trigger);
+            candidate.actions.set(existing.last.closeId, back);
+            continue;
+          }
         }
         if (!visible(binding.trigger) && !pageUnavailable) {
           retainInactive(candidate, existing);
@@ -358,14 +370,13 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
     },
     /** Enter / focus / leave. `focused` is ignored when leaving. */
     setStatus(binding: NativeSearchBinding, active: boolean, focused = false) {
-      const state = states.get(binding);
       if (!active) {
         this.retire(binding);
         return;
       }
       binding.active = true;
+      // Projection intent only. Ionic focus/blur events still wait for the native phase.
       binding.focused = focused;
-      if (state) state.focused = focused;
       holdKeyboardResize();
     },
     release(element: HTMLElement) {
@@ -375,9 +386,8 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
       states.forEach((state) => {
         if (ids.includes(id(state.binding.tabBar))) {
           state.rejectedLayout = state.layout;
-          // Keep the last searchable config so the next paint retains ShellSearchController
-          // (available:false) instead of demoting to UITabBar and flashing Web chrome.
-          if (state.last) state.last = { ...state.last, active: false, available: false, focused: false };
+          // UIKit removed the search surface — do not reuse its cache; project ordinary tabs.
+          state.last = undefined;
         }
       });
     },
