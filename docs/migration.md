@@ -21,25 +21,25 @@ npm install @rdlabo/ionic-theme-ios27
 Replace unconditional iOS 26 imports in your global Sass stylesheet with two mutually exclusive branches. This example uses class-based dark mode:
 
 ```diff
-+@use 'sass:meta';
++ @use 'sass:meta';
 +
--@use '@rdlabo/ionic-theme-ios26/src/styles/default-variables.scss';
--@use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26.scss';
--@use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class.scss';
--@use '@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect.scss';
-+@supports (overflow-anchor: auto) {
+- @use '@rdlabo/ionic-theme-ios26/src/styles/default-variables.scss';
+- @use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26.scss';
+- @use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class.scss';
+- @use '@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect.scss';
++ @supports (overflow-anchor: auto) {
 +  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/default-variables');
 +  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27');
 +  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class');
 +  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect');
-+}
++ }
 +
-+@supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
++ @supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
 +  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/default-variables');
 +  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
 +  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');
 +  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect');
-+}
++ }
 ```
 
 Keep Ionic's matching dark palette. For system or always-dark mode, replace both `-dark-class` imports with the matching variant. If you use `md-ion-list-inset`, load the corresponding package's stylesheet inside each branch. Browsers without either feature retain Ionic's default styling.
@@ -49,10 +49,10 @@ Keep Ionic's matching dark palette. For system or always-dark mode, replace both
 Replace the iOS 26 animation import and gate the iOS 27 animations on the same browser features. Resolve the options before Ionic initializes:
 
 ```diff
--import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios26';
-+import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
+- import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios26';
++ import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
 +
-+function loadIOSAnimations() {
++ function loadIOSAnimations() {
 +  if (typeof CSS === 'undefined') return {};
 +  if (!CSS.supports('overflow-anchor: auto') && !CSS.supports('text-wrap: pretty')) return {};
 +
@@ -61,7 +61,7 @@ Replace the iOS 26 animation import and gate the iOS 27 animations on the same b
 +    popoverEnter: popoverEnterAnimation,
 +    popoverLeave: popoverLeaveAnimation,
 +  };
-+}
++ }
 
   provideIonicAngular({
 -  navAnimation: isPlatform('ios') ? iosTransitionAnimation : undefined,
@@ -83,8 +83,8 @@ Rename theme variables and opt-out classes used by your app. For example:
 +  --ios-theme-content-box-shadow-rgb: 0, 0, 0;
   }
 
--<ion-button class="ios26-disabled">Standard Ionic button</ion-button>
-+<ion-button class="ios-theme-disabled">Standard Ionic button</ion-button>
+- <ion-button class="ios26-disabled">Standard Ionic button</ion-button>
++ <ion-button class="ios-theme-disabled">Standard Ionic button</ion-button>
 ```
 
 The old names remain as deprecated fallbacks. Check the resulting screens in light and dark modes on the browsers you support.
@@ -94,14 +94,14 @@ The old names remain as deprecated fallbacks. Check the resulting screens in lig
 To switch entirely to iOS 27, remove the iOS 26 package and replace its stylesheet and animation imports. The stylesheet changes are:
 
 ```diff
--@use '@rdlabo/ionic-theme-ios26/src/styles/default-variables.scss';
--@use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26.scss';
--@use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class.scss';
--@use '@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect.scss';
-+@use '@rdlabo/ionic-theme-ios27/src/styles/default-variables.scss';
-+@use '@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27.scss';
-+@use '@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class.scss';
-+@use '@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect.scss';
+- @use '@rdlabo/ionic-theme-ios26/src/styles/default-variables.scss';
+- @use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26.scss';
+- @use '@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class.scss';
+- @use '@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect.scss';
++ @use '@rdlabo/ionic-theme-ios27/src/styles/default-variables.scss';
++ @use '@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27.scss';
++ @use '@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class.scss';
++ @use '@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect.scss';
 ```
 
 Change the animation import from `@rdlabo/ionic-theme-ios26` to `@rdlabo/ionic-theme-ios27`; the existing `isPlatform('ios')` configuration can stay. See the README's [iOS 27-only setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27#use-only-the-ios-27-theme). Unconditional imports apply the new styles on every browser using Ionic iOS mode.
