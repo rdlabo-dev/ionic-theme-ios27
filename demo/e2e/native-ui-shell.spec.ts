@@ -1829,17 +1829,13 @@ test('tab switches hand off without a crossfade', async ({ page }) => {
   await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
   await expect(segment).not.toHaveAttribute('data-native-ui-shell');
   await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
-  await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration))
-    .toBe(0);
+  await expect.poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration)).toBe(0);
   await page.evaluate(() => {
     document.querySelector('ion-tabs')!.dispatchEvent(new CustomEvent('ionTabsDidChange', { detail: { tab: 'docs' } }));
   });
   await segment.evaluate((el) => el.classList.remove('ios-theme-shell-disabled'));
   await expect(segment).toHaveAttribute('data-native-ui-shell', '');
-  await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration))
-    .toBe(180);
+  await expect.poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration)).toBe(180);
 });
 
 test('cancelling a handoff animation releases its temporary visibility override', async ({ page }) => {
