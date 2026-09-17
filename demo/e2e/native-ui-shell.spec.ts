@@ -1829,7 +1829,12 @@ test('tab switches hand off without a crossfade', async ({ page }) => {
   await expect
     .poll(() =>
       page.evaluate(
-        (start) => (window as any).__nativeUIShell.updates.slice(start).some((update: any) => update.transitionDuration === 0),
+        (start) =>
+          (window as any).__nativeUIShell.updates
+            .slice(start)
+            .some(
+              (update: any) => update.transitionDuration === 0 && !update.controls.some((control: any) => control.kind === 'ion-segment'),
+            ),
         before,
       ),
     )

@@ -60,6 +60,10 @@ export const createRuntime = async (
   let stopped = false;
   /** True while a tab-switch handoff should skip crossfade. */
   let tabSwitchHandoff = false;
+  /** Keep instant updates until this time — DidLeave often precedes the retire sync. */
+  let handoffUntil = 0;
+  /** Tab switch armed while a sync was already in flight; extend instant past that sync. */
+  let handoffAcrossPending = false;
   /** Captured at the start of each sync so an in-flight update keeps a stable duration. */
   let handoffInstant = false;
   let frame = 0;
@@ -201,7 +205,7 @@ export const createRuntime = async (
     frame = 0;
     dirty = false;
     pending = true;
-    handoffInstant = tabSwitchHandoff;
+    handoffInstant = tabSwitchHandoff || handoffAcrossPending || win.performance.now() < handoffUntil;
     try {
       const size = `${win.innerWidth}:${win.innerHeight}`;
       // WebKit can resize before Ionic's fixed DOM positions catch up.
@@ -299,6 +303,11 @@ export const createRuntime = async (
       pendingActivations = [];
       // A refresh received before the ack must also invalidate that ack's rejects.
       if (forceRefresh) rejected = new WeakMap();
+      // A tab switch mid-update (or a dirty follow-up) must keep instant through the retire sync.
+      if (!stopped && (handoffAcrossPending || (handoffInstant && dirty))) {
+        handoffUntil = Math.max(handoffUntil, win.performance.now() + 400);
+      }
+      handoffAcrossPending = false;
       pending = false;
       if (dirty && !stopped) schedule();
       else finishWaiters();
@@ -351,6 +360,13 @@ export const createRuntime = async (
     }
     return best?.tab;
   };
+  const armTabSwitchHandoff = () => {
+    tabSwitchHandoff = true;
+    // Retiring outgoing controls often lands in a later async sync than WillLeave/DidChange.
+    handoffUntil = Math.max(handoffUntil, win.performance.now() + 400);
+    // The in-flight sync already captured handoffInstant=false; hold instant for the next one.
+    if (pending) handoffAcrossPending = true;
+  };
   const beginTabSwitchHandoffIfNeeded = (page: HTMLElement) => {
     const tabs = page.closest('ion-tabs');
     if (!tabs) return;
@@ -360,10 +376,10 @@ export const createRuntime = async (
       tabs.querySelector('ion-tab-button.tab-selected')?.getAttribute('tab') ||
       undefined;
     const destination = tabOfPath(tabs, win.location.pathname);
-    if (selected && destination && selected !== destination) tabSwitchHandoff = true;
+    if (selected && destination && selected !== destination) armTabSwitchHandoff();
   };
-  // DidChange / pageDid can land in the same turn as WillLeave. Clear on the next frame so the
-  // coalesced sync still observes handoffInstant=true.
+  // DidChange / pageDid can land in the same turn as WillLeave. Clear the sticky flag on the
+  // next frame; handoffUntil / handoffAcrossPending still cover the async retire sync.
   const endTabSwitchHandoff = () => {
     win.requestAnimationFrame(() => {
       if (stopped || !tabSwitchHandoff) return;
@@ -390,7 +406,7 @@ export const createRuntime = async (
   for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
   on(doc, 'ionTabsWillChange', () => {
     // Vanilla ion-tabs dispatches DOM events; @ionic/angular uses EventEmitters instead.
-    tabSwitchHandoff = true;
+    armTabSwitchHandoff();
     schedule();
   });
   on(doc, 'ionTabsDidChange', endTabSwitchHandoff);
