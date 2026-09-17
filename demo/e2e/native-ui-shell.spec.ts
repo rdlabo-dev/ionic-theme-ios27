@@ -1402,6 +1402,7 @@ test('a cached search registration does not block a second page sharing the tab 
       '<ion-content>Second search page</ion-content><ion-fab vertical=bottom horizontal=end slot=fixed><ion-fab-button><ion-icon name=search></ion-icon></ion-fab-button></ion-fab><ion-footer translucent><ion-toolbar><ion-buttons slot=start><ion-button fill=default><ion-icon slot=icon-only></ion-icon></ion-button></ion-buttons><ion-searchbar></ion-searchbar></ion-toolbar></ion-footer>';
     element.setAttribute('data-second', '');
     element.dispatchEvent(new CustomEvent('ionViewWillEnter'));
+    element.dispatchEvent(new CustomEvent('ionViewDidEnter'));
   });
   const second = page.locator('app-album-page[data-second] ion-footer');
   await expect(first).not.toHaveAttribute('data-native-ui-shell');
