@@ -59,7 +59,12 @@ export class ActionSheetPage implements OnInit {
 
   async present(type: (typeof actionSheetTypes)[number]) {
     const applyConfig = ((type) => {
-      if (type === 'button-only') {
+      if (type === 'preferred') {
+        return {
+          ...actionSheetUtil(),
+          buttons: actionSheetUtil().buttons.map((button) => (button.text === 'Share' ? { ...button, role: 'preferred' } : button)),
+        };
+      } else if (type === 'button-only') {
         return {
           ...actionSheetUtil(),
           header: undefined,
