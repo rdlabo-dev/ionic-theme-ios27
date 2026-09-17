@@ -58,6 +58,10 @@ export const createRuntime = async (
   let dirty = false;
   let pending = false;
   let stopped = false;
+  /** True between ionTabsWillChange and ionTabsDidChange — no native/Web crossfade. */
+  let tabSwitchHandoff = false;
+  /** Captured at the start of each sync so an in-flight update keeps a stable duration. */
+  let handoffInstant = false;
   let frame = 0;
   let updates = 0;
   let reason: string | undefined;
@@ -91,7 +95,7 @@ export const createRuntime = async (
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    if (!stopped) crossfade.play(element, false);
+    if (!stopped) crossfade.play(element, false, handoffInstant);
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -197,6 +201,7 @@ export const createRuntime = async (
     frame = 0;
     dirty = false;
     pending = true;
+    handoffInstant = tabSwitchHandoff;
     try {
       const size = `${win.innerWidth}:${win.innerHeight}`;
       // WebKit can resize before Ionic's fixed DOM positions catch up.
@@ -231,7 +236,7 @@ export const createRuntime = async (
       const data = { viewportWidth: win.innerWidth, controls: candidates.map((candidate) => candidate.control) };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
-      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration() };
+      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
       updates++;
@@ -272,7 +277,7 @@ export const createRuntime = async (
       for (const element of accepted.flatMap(candidateSources)) {
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(element, true);
+          crossfade.play(element, true, handoffInstant);
           element.setAttribute(marker, '');
           element.setAttribute('aria-hidden', 'true');
           element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
@@ -347,6 +352,14 @@ export const createRuntime = async (
   for (const name of Object.values(CSS_MOTION_EVENTS)) on(doc, name, motion);
   for (const name of [LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE]) on(doc, name, pageWill);
   for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
+  on(doc, 'ionTabsWillChange', () => {
+    tabSwitchHandoff = true;
+    schedule();
+  });
+  on(doc, 'ionTabsDidChange', () => {
+    tabSwitchHandoff = false;
+    schedule();
+  });
   for (const name of overlayNames) {
     on(doc, `ion${name}WillPresent`, (event) => {
       presented.add(event.target as HTMLElement);
@@ -368,7 +381,6 @@ export const createRuntime = async (
   for (const name of [
     'ionChange',
     'ionSelect',
-    'ionTabsDidChange',
     'ionImgDidLoad',
     CSS_MOTION_EVENTS.transitionEnd,
     CSS_MOTION_EVENTS.animationEnd,

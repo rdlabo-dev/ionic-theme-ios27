@@ -15,14 +15,15 @@ export const createCrossfade = (win: Window) => {
   };
   reduced.addEventListener('change', cancelAll);
   return {
-    duration: () => (reduced.matches ? 0 : 180),
-    play(element: HTMLElement, toNative: boolean) {
+    duration: (instant = false) => (reduced.matches || instant ? 0 : 180),
+    play(element: HTMLElement, toNative: boolean, instant = false) {
       const previous = active.get(element);
       const current = Number(win.getComputedStyle(element).opacity);
       previous?.cancel();
       active.delete(element);
       const opacity = Number(win.getComputedStyle(element).opacity);
-      if (reduced.matches || !element.isConnected) {
+      // Tab switches skip the opacity handoff so a retiring native snapshot cannot linger.
+      if (reduced.matches || instant || !element.isConnected) {
         element.removeAttribute(fadeMarker);
         return;
       }
