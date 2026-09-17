@@ -4,7 +4,7 @@ title: Adaptive iOS themes
 
 # Adaptive iOS themes
 
-Use CSS feature queries to choose a theme while keeping Ionic's default iOS styles on older browsers. The newer theme branch uses `:open` support; see the [MDN `:open` documentation](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Selectors/:open).
+Use CSS feature queries to choose a theme while keeping Ionic's default iOS styles on older browsers. The newer theme branch uses `overflow-anchor` support; see the [MDN `overflow-anchor` documentation](https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-anchor).
 
 These checks detect browser capabilities, not the operating system version. Other browsers may support the same features. Keep Ionic mode and platform-specific animation configuration consistent with your application.
 
@@ -15,7 +15,7 @@ In your global Sass stylesheet, use `meta.load-css` inside the feature query. Un
 ```scss
 @use 'sass:meta';
 
-@supports selector(:open) {
+@supports (overflow-anchor: auto) {
   @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/default-variables');
   @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27');
   @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class');
@@ -38,14 +38,14 @@ Use this global Sass configuration instead of unconditional theme imports:
 ```scss
 @use 'sass:meta';
 
-@supports selector(:open) {
+@supports (overflow-anchor: auto) {
   @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/default-variables');
   @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27');
   @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class');
   @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect');
 }
 
-@supports (text-wrap: pretty) and (not selector(:open)) {
+@supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
   @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/default-variables');
   @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
   @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');
@@ -53,7 +53,7 @@ Use this global Sass configuration instead of unconditional theme imports:
 }
 ```
 
-The branches are mutually exclusive. Browsers without either feature retain Ionic's default styling. The `text-wrap: pretty` check preserves the earlier theme's capability-based fallback when `:open` is unavailable.
+The branches are mutually exclusive. Browsers without either feature retain Ionic's default styling. The `text-wrap: pretty` check preserves the earlier theme's capability-based fallback when `overflow-anchor` is unavailable.
 
 Both examples use class-based dark mode. Load Ionic's matching dark palette in your application; for system or always-dark mode, replace the `-dark-class` imports with the matching variant. If you also use `md-ion-list-inset`, load the corresponding package's stylesheet inside each branch.
 
@@ -68,7 +68,7 @@ async function loadIOSAnimations() {
   }
 
   // Styles are adaptive; apply iOS theme animations when either generation matches.
-  if (!CSS.supports('selector(:open)') && !CSS.supports('text-wrap: pretty')) {
+  if (!CSS.supports('overflow-anchor: auto') && !CSS.supports('text-wrap: pretty')) {
     return {};
   }
 

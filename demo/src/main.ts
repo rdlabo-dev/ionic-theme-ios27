@@ -6,7 +6,7 @@ import { enableNativeUIShell } from '../../src/native';
 /** Adaptive CSS selects styles; page transition always uses iOS 27 — see docs/ios-adaptive.md. */
 async function loadIOSAnimations(): Promise<IonicAnimationOptions> {
   if (typeof CSS === 'undefined') return {};
-  if (!CSS.supports('selector(:open)') && !CSS.supports('text-wrap: pretty')) return {};
+  if (!CSS.supports('overflow-anchor: auto') && !CSS.supports('text-wrap: pretty')) return {};
 
   const { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } = await import('@rdlabo/ionic-theme-ios27');
 
