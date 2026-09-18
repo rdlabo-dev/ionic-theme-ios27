@@ -30,7 +30,7 @@ On Capacitor iOS, the optional, experimental [Native UI Shell](https://docs.rdla
 
 ### Follow the user's device
 
-Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [default setup](#get-started) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
+Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [default setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27#get-started) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
 
 ## Get started
 
@@ -153,13 +153,13 @@ Load Ionic's matching dark palette too. To use MD3's page transition in Material
 - [ESLint](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/eslint) — check list structure with ESLint rules.
 - [Features](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/features) — CSS variables, Liquid Glass, selective imports, and dark mode.
 - [Native UI Shell (Experimental)](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) — project supported Ionic controls, text, and icons into UIKit.
-- [Animation](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/experimental-animation) — tab, segment, and searchable effects.
+- [Animation](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/animation) — tab, segment, and searchable effects.
 - [Migration from iOS 26](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) — upgrade an existing app, including stylesheet, class, and CSS variable changes.
 - [iOS 26 migration history](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration) — earlier major-version changes for the previous package.
 
 <!-- rdlabo-docs-omit -->
 
-**iOS 26 theme:** See the [`ios26` branch](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios26) and [iOS 26 documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios26).
+**iOS 26 theme:** See the [iOS 26 documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios26).
 
 ## Development & Testing
 
