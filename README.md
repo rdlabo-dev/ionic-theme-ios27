@@ -60,6 +60,16 @@ In your global Sass stylesheet (for example, `src/styles.scss`), load the styles
 }
 ```
 
+If compilation reports `Can't find stylesheet to import.` for a `meta.load-css()` call, make `node_modules` available to Sass. In Angular, add this under the app's build `options` in `angular.json`:
+
+```json
+"stylePreprocessorOptions": {
+  "includePaths": ["node_modules"]
+}
+```
+
+Alternatively, use a relative path from the Sass file containing `meta.load-css()` to the installed package, such as `../node_modules/@rdlabo/ionic-theme-ios27/src/styles/default-variables` from `src/styles.scss`. Adjust the `../` prefix for your file's location, and apply the same change to each theme import.
+
 These checks select styles by browser features, not by iOS version. Browsers without either feature retain Ionic's default iOS appearance. The example uses class-based dark mode: also load [Ionic's matching dark palette](https://ionicframework.com/docs/theming/dark-mode). For system or always-dark mode, replace both `-dark-class` imports with the matching variant. The `md-remove-ios-class-effect` styles prevent iOS-specific classes from affecting Material Design mode.
 
 ### Configure animations
