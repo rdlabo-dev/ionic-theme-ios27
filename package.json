@@ -56,7 +56,7 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#a3cbfd0c905c603bd90fb7c71b0b76031e8da7b9"
+    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#e82be4389d9209750229f5fee990046b5b1217da"
   },
   "bundleDependencies": [
     "@rdlabo/ionic-theme-utils"
