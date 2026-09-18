@@ -1,4 +1,4 @@
-@use 'pkg:@rdlabo/ionic-theme-utils/styles/structured-list';
+@use '../structured-list';
 
 @mixin ion-list {
   ion-list.ios:not(.ios-theme-disabled, .ios26-disabled) {

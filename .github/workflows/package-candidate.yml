@@ -84,6 +84,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/npm-candidate"
           npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/npm-candidate"
 
+      - name: Verify packed Sass without a package importer
+        if: github.event_name == 'push' && github.ref_name == 'main' || github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-candidate/unpacked"
+          tar -xzf "$RUNNER_TEMP"/npm-candidate/*.tgz -C "$RUNNER_TEMP/npm-candidate/unpacked"
+          npx --no-install sass "$RUNNER_TEMP/npm-candidate/unpacked/package/src/styles/ionic-theme-ios27.scss" "$RUNNER_TEMP/npm-candidate/consumer.css" --no-source-map
+
       - name: Upload immutable package artifact
         uses: actions/upload-artifact@v7
         with:

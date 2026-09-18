@@ -28,7 +28,8 @@
   ],
   "scripts": {
     "build": "npm run docgen && npm run build:css && npm run build:ts",
-    "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map --pkg-importer=node",
+    "prebuild:css": "rdlabo-copy-structured-list src/styles/utils/structured-list.scss",
+    "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map",
     "build:ts": "tsc",
     "docgen": "docgen --project tsconfig.docgen.json --api NativeUIShellHandle --output-readme docs/native-ui-shell.md",
     "build:demo": "npm run build && cd demo && npm install && npm run build -- --configuration=production",
@@ -55,7 +56,7 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#66eb2fccca10646ebfccdfb3b6c2f3b4c9b00bf6"
+    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#a3cbfd0c905c603bd90fb7c71b0b76031e8da7b9"
   },
   "bundleDependencies": [
     "@rdlabo/ionic-theme-utils"
