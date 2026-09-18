@@ -1,7 +1,7 @@
 {
   "name": "@rdlabo/ionic-theme-ios27",
   "private": false,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "iOS27 Theme for Ionic Framework",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
