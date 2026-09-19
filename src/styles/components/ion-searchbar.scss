@@ -17,7 +17,8 @@ ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(.searchbar-class
   --border-radius: 22px;
   --icon-color: var(--ion-text-color, #000);
   --placeholder-opacity: 0.55;
-  @include glass.light-shadow('--box-shadow');
+  // Keep the UIKit shadow inside Ionic toolbar's available field inset.
+  @include glass.light-shadow('--box-shadow', 0 2px 4px);
   min-height: 56px;
   padding: 6px 8px;
 

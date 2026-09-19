@@ -56,26 +56,37 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled).toolbar-searchbar {
   *[slot='end'] {
     align-self: center;
   }
-  &:has(ion-buttons[slot='start']) {
+  ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    .searchbar-input-container {
+      margin-block: 0;
+      margin-inline: 4px;
+    }
+  }
+  &:has(> ion-buttons[slot='start']) {
     ion-buttons[slot='start'] {
       margin-inline-end: 6px;
     }
     ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       .searchbar-input-container {
         margin-block: 0;
-        margin-inline: 6px 12px;
+        margin-inline: 0 4px;
       }
     }
   }
-  &:has(ion-buttons[slot='end']) {
+  &:has(> ion-buttons[slot='end']) {
     ion-buttons[slot='end'] {
       margin-inline-start: 6px;
     }
     ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       .searchbar-input-container {
         margin-block: 0;
-        margin-inline: 12px 6px;
+        margin-inline: 4px 0;
       }
+    }
+  }
+  &:has(> ion-buttons[slot='start']):has(> ion-buttons[slot='end']) {
+    ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled) .searchbar-input-container {
+      margin-inline: 0;
     }
   }
 }
