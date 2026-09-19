@@ -21,6 +21,18 @@ ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled).footer-translucent {
   }
 }
 
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-header.ios:not(.ios-theme-disabled, .ios26-disabled):not(.header-translucent),
+.ion-page:has(> ion-content.ios.content-fullscreen) > ion-footer.ios:not(.ios-theme-disabled, .ios26-disabled):not(.footer-translucent) {
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    --background: transparent;
+    --opacity: 1;
+
+    &::part(background) {
+      --opacity: 0;
+    }
+  }
+}
+
 ion-header.ios:not(.ios-theme-disabled, .ios26-disabled).header-collapse-main ion-toolbar.in-toolbar ion-title {
   transition: all 0.5s ease-in-out;
 }
