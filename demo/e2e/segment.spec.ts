@@ -16,23 +16,13 @@ test('toolbar resting geometry follows native sizing', async ({ page }) => {
 });
 
 for (const color of ['primary', 'secondary']) {
-  test(`${color} selection and moving glass inherit the Ionic palette`, async ({ page }) => {
+  test(`${color} keeps Ionic segment colors independent from its toolbar`, async ({ page }) => {
     const segment = page.locator(`app-segment ion-segment[color="${color}"]`);
     const button = segment.locator('ion-segment-button').first();
     await button.scrollIntoViewIfNeeded();
-    const palette = await segment.evaluate((el) => {
-      const style = getComputedStyle(el);
-      const probe = document.createElement('span');
-      el.append(probe);
-      probe.style.color = style.getPropertyValue('--ion-color-base');
-      const base = getComputedStyle(probe).color;
-      probe.style.color = style.getPropertyValue('--ion-color-contrast');
-      const contrast = getComputedStyle(probe).color;
-      probe.remove();
-      return { base, contrast };
-    });
-    await expect(button.locator('[part="indicator-background"]')).toHaveCSS('background-color', palette.base);
-    await expect(button.locator('[part="native"]')).toHaveCSS('color', palette.contrast);
+    const indicatorColor = 'rgb(255, 255, 255)';
+    await expect(button.locator('[part="indicator-background"]')).toHaveCSS('background-color', indicatorColor);
+    await expect(button.locator('[part="native"]')).toHaveCSS('color', 'rgb(0, 0, 0)');
     const box = (await button.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
@@ -52,7 +42,7 @@ for (const color of ['primary', 'secondary']) {
       context.fillStyle = getComputedStyle(el).backgroundColor;
       context.fillRect(0, 0, 1, 1);
       return Array.from(context.getImageData(0, 0, 1, 1).data).every((value, index) => Math.abs(value - base[index]) <= 1);
-    }, palette.base);
+    }, indicatorColor);
     expect(matches).toBe(true);
     await page.mouse.up();
     await segment.evaluate((el) =>
@@ -66,7 +56,7 @@ for (const color of ['primary', 'secondary']) {
     await expect(lens).toBeHidden();
     await expect(segment.locator('ion-segment-button').last().locator('[part="indicator-background"]')).toHaveCSS(
       'background-color',
-      palette.base,
+      indicatorColor,
     );
     const checked = segment.locator('ion-segment-button').last();
     await checked.evaluate((el) => el.style.setProperty('--color-checked', 'rgb(12, 34, 56)'));
