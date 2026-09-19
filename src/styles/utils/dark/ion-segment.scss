@@ -36,7 +36,7 @@
   :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled)) {
     --background: rgba(118, 118, 128, 0.24);
   }
-  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled, .ion-color) ion-segment-button:not(.ion-color, .in-segment-color)) {
+  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
     --indicator-color: #5a5a5f;
   }
 }

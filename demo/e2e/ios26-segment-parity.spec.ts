@@ -127,5 +127,8 @@ test.describe('iOS26 ion-segment candidate', () => {
     const button = segment.locator('ion-segment-button').first();
     await expect(button.locator('[part="indicator-background"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     await expect(button.locator('[part="native"]')).toHaveCSS('color', 'rgb(0, 0, 0)');
+
+    await page.evaluate(() => document.documentElement.classList.add('ion-palette-dark'));
+    await expect(button.locator('[part="indicator-background"]')).toHaveCSS('background-color', 'rgb(90, 90, 95)');
   });
 });
