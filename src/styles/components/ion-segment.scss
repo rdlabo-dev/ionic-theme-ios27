@@ -1,4 +1,5 @@
 @use '../utils/api';
+@use '../utils/glass';
 
 ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --border-radius: 16px;
@@ -11,6 +12,24 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
   border-radius: var(--border-radius);
+
+  // Use the tab bar material without changing the segment's layout or size.
+  &.segment-style-glass {
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.53);
+    box-sizing: border-box;
+    position: relative;
+    z-index: 0;
+    background: var(--background);
+    backdrop-filter: blur(6px) saturate(180%) brightness(1.05);
+    @include glass.light-rim;
+
+    ion-segment-button {
+      --indicator-color: rgba(
+        var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb, var(--ios27-button-color-selected-default-rgb))),
+        0.095
+      );
+    }
+  }
 
   // UIKit uses a larger control in navigation bars, but not in content.
   &.in-toolbar:not(.segment-expand) {
