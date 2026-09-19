@@ -1819,6 +1819,30 @@ test('reduced motion hands off without a crossfade', async ({ page }) => {
   await expect(segment).toHaveCSS('opacity', '1');
 });
 
+test('tab switches hand off without a crossfade', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  const before = await page.evaluate(() => (window as any).__nativeUIShell.updates.length);
+  await page.locator('ion-tab-button[tab="docs"]').click();
+  await expect(page).toHaveURL(/\/main\/docs/);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (start) =>
+          (window as any).__nativeUIShell.updates
+            .slice(start)
+            .some(
+              (update: any) => update.transitionDuration === 0 && !update.controls.some((control: any) => control.kind === 'ion-segment'),
+            ),
+        before,
+      ),
+    )
+    .toBe(true);
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+});
+
 test('cancelling a handoff animation releases its temporary visibility override', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');

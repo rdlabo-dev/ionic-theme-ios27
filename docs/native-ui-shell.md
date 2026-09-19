@@ -118,6 +118,8 @@ Custom host animation or transition declarations on the FAB, list or button keep
 
 The connection in `src/transition/ios.transition.ts` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events.
 
+Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Stack pushes and pops keep the normal 180ms handoff.
+
 Standard Ionic overlays suspend native projection until dismissal. Unsupported searchable-tab configurations use the existing Web animation and share this ownership with Web glass gestures. CSS motion of supported containing surfaces also causes temporary Web rendering.
 
 During retirement, the source is restored and allowed to paint before its native cover is removed. During acquisition, the source is hidden only after a successful, current native response. Delayed responses are revalidated per control: existing eligible controls retain their native cover while content updates catch up. Only removed or ineligible sources return to Web; newly acquired sources require an exact acknowledgement. Ordinary page mutations never call the global clear operation. UIKit tab instances and items are retained, and equal frames/selections are not reapplied. Duplicate/stale activations are discarded. WebKit and UIKit still render separately: the implementation avoids an intentional blank frame, but does not provide an OS-level atomic compositing guarantee. Validate custom transitions and overlays on the app's supported simulators before rollout; unknown overlay systems are outside the automatic integration contract.
@@ -171,10 +173,10 @@ The generated reference below documents the handle returned by `enableNativeUISh
 
 <docgen-index>
 
-* [`getStatus()`](#getstatus)
-* [`suspend()`](#suspend)
-* [`destroy()`](#destroy)
-* [Interfaces](#interfaces)
+- [`getStatus()`](#getstatus)
+- [`suspend()`](#suspend)
+- [`destroy()`](#destroy)
+- [Interfaces](#interfaces)
 
 </docgen-index>
 
