@@ -55,6 +55,17 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled).toolbar-searchbar {
   *[slot='end'] {
     align-self: center;
   }
+  ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    .searchbar-input-container {
+      margin-block: 0;
+      margin-inline: 4px;
+    }
+    &:is(.searchbar-should-show-cancel, :has(.searchbar-cancel-button:active):not(.searchbar-disabled)) {
+      .searchbar-input-container {
+        margin-inline-end: 11px;
+      }
+    }
+  }
   &:has(ion-buttons[slot='start']) {
     ion-buttons[slot='start'] {
       margin-inline-end: 6px;
