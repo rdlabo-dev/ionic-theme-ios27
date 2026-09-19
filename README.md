@@ -141,18 +141,62 @@ The last import uses class-based dark mode; choose the `-dark-system` or `-dark-
 
 ### Use with the MD3 theme
 
-For the iOS 27-only setup above, install `@rdlabo/ionic-theme-md3` to style both Ionic modes. Both themes require `@ionic/core` 8.8.1 or later. In a global Sass stylesheet, load the iOS 27 styles before MD3:
+Install all three themes to use iOS 27 on supported Safari versions, fall back to iOS 26 on the preceding Safari generation, and use MD3 whenever Ionic runs in Material Design mode. All three themes require `@ionic/core` 8.8.1 or later:
 
-```scss
-@use '@rdlabo/ionic-theme-ios27/src/styles/default-variables.scss' as ios27-vars;
-@use '@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27.scss';
-@use '@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class.scss';
-@use '@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect.scss';
-@use '@rdlabo/ionic-theme-md3/dist/css/default-variables.css' as md3-vars;
-@use '@rdlabo/ionic-theme-md3/dist/css/ionic-theme-md3.css';
+```bash
+npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27 @rdlabo/ionic-theme-md3
 ```
 
-Load Ionic's matching dark palette too. To use MD3's page transition in Material Design mode, set `navAnimation` to `isPlatform('ios') ? iosTransitionAnimation : mdTransitionAnimation`, importing the latter from `@rdlabo/ionic-theme-md3`.
+Keep the two iOS themes behind the same browser feature checks used by the default setup, then load MD3 unconditionally. Using `meta.load-css()` throughout also keeps the MD3 styles after the conditional iOS styles in the generated CSS:
+
+```scss
+@use 'sass:meta';
+
+@supports (overflow-anchor: auto) {
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/default-variables');
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27');
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class');
+  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect');
+}
+
+@supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/default-variables');
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');
+  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect');
+}
+
+@include meta.load-css('@rdlabo/ionic-theme-md3/dist/css/default-variables.css');
+@include meta.load-css('@rdlabo/ionic-theme-md3/dist/css/ionic-theme-md3.css');
+```
+
+The iOS styles apply only to Ionic's `ios` mode, while MD3 applies to `md` mode. The `md-remove-ios-class-effect` stylesheet in each iOS branch prevents iOS-only utility classes from leaking into MD mode. MD3 already includes its inset-list styles, so do not load either iOS package's optional `md-ion-list-inset` stylesheet in this configuration.
+
+Load Ionic's matching dark palette too. The example uses class-based dark mode; for system or always-dark mode, select the matching variant for Ionic and both iOS themes.
+
+Keep the iOS 27 transition for both iOS theme generations and select the MD3 transition in Material Design mode. Extend the animation setup above as follows:
+
+```ts
+import { isPlatform, provideIonicAngular } from '@ionic/angular/standalone'; // Ionic 8
+import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
+import { mdTransitionAnimation } from '@rdlabo/ionic-theme-md3';
+
+function loadAnimations() {
+  if (!isPlatform('ios')) return { navAnimation: mdTransitionAnimation };
+  if (typeof CSS === 'undefined') return {};
+  if (!CSS.supports('overflow-anchor: auto') && !CSS.supports('text-wrap: pretty')) return {};
+
+  return {
+    navAnimation: iosTransitionAnimation,
+    popoverEnter: popoverEnterAnimation,
+    popoverLeave: popoverLeaveAnimation,
+  };
+}
+
+provideIonicAngular(loadAnimations());
+```
+
+For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/angular`. React and Vue can pass the same returned options to `setupIonicReact` or `IonicVue`. If Sass cannot resolve a package in `meta.load-css()`, use the `stylePreprocessorOptions.includePaths` or relative-path setup described in Get started.
 
 ## Documentation
 
