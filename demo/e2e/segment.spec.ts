@@ -61,6 +61,18 @@ for (const color of ['primary', 'secondary']) {
     const checked = segment.locator('ion-segment-button').last();
     await checked.evaluate((el) => el.style.setProperty('--color-checked', 'rgb(12, 34, 56)'));
     await expect(checked.locator('[part="native"]')).toHaveCSS('color', 'rgb(12, 34, 56)');
+
+    await page.evaluate(() => document.documentElement.classList.add('ion-palette-dark'));
+    await expect
+      .poll(() =>
+        button.locator('[part="indicator-background"]').evaluate((el) => {
+          const context = document.createElement('canvas').getContext('2d')!;
+          context.fillStyle = getComputedStyle(el).backgroundColor;
+          context.fillRect(0, 0, 1, 1);
+          return Array.from(context.getImageData(0, 0, 1, 1).data);
+        }),
+      )
+      .toEqual([90, 91, 96, 255]);
   });
 }
 
