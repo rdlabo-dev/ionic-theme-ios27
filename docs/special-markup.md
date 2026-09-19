@@ -96,6 +96,15 @@ This is an introductory group. Place regular list items in a separate `ion-item-
 
 ## Full-width segments
 
+Add `.segment-style-glass` to give a segment the same glass surface and selected indicator treatment as the tab bar. The class preserves the segment's existing dimensions and text colors, supports scrollable segments, and respects Ionic's public `--background` property.
+
+```html
+<ion-segment class="segment-style-glass" value="available">
+  <ion-segment-button value="available">Available</ion-segment-button>
+  <ion-segment-button value="away">Away</ion-segment-button>
+</ion-segment>
+```
+
 Add `.segment-expand` when segment buttons should divide the available width evenly. The class also changes the Liquid Glass effect sizing when `registerSegmentEffect` is used.
 
 ```html preview

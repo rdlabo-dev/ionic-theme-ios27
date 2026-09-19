@@ -1,5 +1,3 @@
-@use '../api';
-
 @mixin ion-segment {
   ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     ion-segment-button.segment-button-disabled {
@@ -26,17 +24,13 @@
       }
     }
     &.segment-style-glass {
+      --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.3);
+      background: var(--background);
       box-shadow: inset 0 0 0 0.5px rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.6);
 
       ion-segment-button {
         --indicator-color: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.145);
       }
-    }
-    &.segment-style-glass::before {
-      @include api.glass-background($blur: 20px, $saturate: 180%, $include-background: false);
-      border-color: rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.6);
-      background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.3);
-      box-shadow: none;
     }
   }
   :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled)) {
