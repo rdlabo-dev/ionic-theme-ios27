@@ -1,4 +1,5 @@
 @use '../api';
+@use '../glass';
 
 @mixin ion-segment {
   ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
@@ -7,6 +8,27 @@
     }
     .ios27-segment-edge {
       @include api.glass-lens-dark;
+    }
+    &.segment-style-glass {
+      @include glass.dark-shadow;
+
+      ion-segment-button {
+        --indicator-color: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb, 0, 0, 0)), 0.72);
+      }
+    }
+    &.segment-style-glass::before {
+      @include glass.dark-rim;
+      background-color: color-mix(
+        in srgb,
+        color-mix(
+            in srgb,
+            rgb(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb))) 92%,
+            rgb(var(--ion-text-color-rgb, 255, 255, 255))
+          )
+          40%,
+        transparent
+      );
+      backdrop-filter: blur(6px) saturate(150%) brightness(1.23);
     }
   }
   :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled)) {
