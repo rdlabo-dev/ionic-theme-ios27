@@ -255,11 +255,17 @@ final class NativeUIShellTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
         let routes = ["accordion", "action-sheet", "alert", "breadcrumbs", "button", "card", "checkbox", "chip", "date-and-time-pickers", "floating-action-button", "floating-action-button-fixed", "inputs", "item-list", "modal", "native-ui-shell", "popover", "progress-indicators", "radio", "range", "reorder", "searchbar", "segment", "select", "tabs", "toast", "toggle", "toolbar"]
+        // tabs.page.ts deliberately hides the shared tab bar on these routes.
+        let hidesTabs: Set<String> = ["toolbar"]
         for route in routes {
             openPage(app, name: route)
             let back = app.buttons["back"].firstMatch
             XCTAssertTrue(back.waitForExistence(timeout: 10), "Missing back button on " + route + "\n" + app.debugDescription)
-            XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10), "Missing UIKit tabs on " + route)
+            if hidesTabs.contains(route) {
+                XCTAssertTrue(app.tabBars.firstMatch.waitForNonExistence(timeout: 5), "Tab bar should stay hidden on " + route)
+            } else {
+                XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10), "Missing UIKit tabs on " + route)
+            }
             capture("page-" + route)
             back.tap()
             XCTAssertTrue(app.webViews.switches["Dark Mode"].waitForExistence(timeout: 10), "Failed to return from " + route)

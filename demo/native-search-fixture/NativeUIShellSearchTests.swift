@@ -1,6 +1,9 @@
 import XCTest
 final class NativeUIShellSearchTests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false; XCUIDevice.shared.orientation = .portrait }
+    private func searchField(_ app: XCUIApplication) -> XCUIElement {
+        app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'")).firstMatch
+    }
     private func openSearch(_ app: XCUIApplication) -> XCUIElement {
         app.launch()
         let library = app.tabBars.buttons["Library"]
@@ -10,9 +13,40 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 15), app.debugDescription)
         XCTAssertTrue(probe(app, contains: "Probe native").waitForExistence(timeout: 5), app.debugDescription)
         search.tap()
-        let field = app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'")).firstMatch
+        let field = searchField(app)
         XCTAssertTrue(field.waitForExistence(timeout: 10), app.debugDescription)
         return field
+    }
+    // Focus through the fixture's Web button so focus and presentation
+    // activation arrive in a single snapshot instead of a tap that races the
+    // field's remount; then re-expand if the transition collapsed the search.
+    private func focusSearch(_ app: XCUIApplication) {
+        let focusButton = app.webViews.buttons["Focus search"]
+        for _ in 0..<4 {
+            let field = searchField(app)
+            if !(field.exists && field.isHittable) {
+                let search = app.tabBars.buttons["Search"]
+                if search.isHittable { search.tap() }
+                guard field.waitForExistence(timeout: 10) else { continue }
+            }
+            guard focusButton.waitForExistence(timeout: 5) else { continue }
+            focusButton.tap()
+            guard app.keyboards.firstMatch.waitForExistence(timeout: 5) else { continue }
+            var stable = 0
+            let confirm = Date().addingTimeInterval(3)
+            while Date() < confirm {
+                if searchField(app).isHittable && app.keyboards.firstMatch.exists {
+                    stable += 1
+                    if stable >= 10 { return }
+                } else { stable = 0 }
+                usleep(100_000)
+            }
+        }
+        XCTFail("Search field focus never stabilized: \(app.debugDescription)")
+    }
+    private func typeInSearch(_ app: XCUIApplication, _ text: String) {
+        focusSearch(app)
+        searchField(app).typeText(text)
     }
     private func probe(_ app: XCUIApplication, contains: String) -> XCUIElement {
         app.webViews.buttons.matching(NSPredicate(format: "label CONTAINS %@", contains)).firstMatch
@@ -48,9 +82,14 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertFalse(app.keyboards.firstMatch.exists)
         probe(app, contains: "Probe native").tap()
         XCTAssertTrue(probe(app, contains: "clicks:1").waitForExistence(timeout: 5))
-        field.tap(); field.typeText("glass")
+        typeInSearch(app, "glass")
         XCTAssertTrue(probe(app, contains: "value:glass").waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue(probe(app, contains: "focus:1").waitForExistence(timeout: 5))
+        // The focus helper can legitimately refocus the field while the
+        // presentation remount settles, so only require at least one focus.
+        let focused = NSPredicate { _, _ in
+            self.probe(app, contains: "focus:").label.range(of: "focus:[1-9]", options: .regularExpression) != nil
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: focused, object: app)], timeout: 5), .completed, app.debugDescription)
         capture("native-search-editing")
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.tabBars.buttons["Library"].waitForExistence(timeout: 10), app.debugDescription)
@@ -61,8 +100,7 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10)); XCTAssertEqual(field.value as? String, "glass")
         app.webViews.buttons["External value"].tap()
         XCTAssertTrue(NSPredicate(format: "value == 'external'").evaluate(with: field), app.debugDescription)
-        app.webViews.buttons["Focus search"].tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        focusSearch(app)
         field.buttons.firstMatch.tap()
         XCTAssertTrue(probe(app, contains: "clear:1").waitForExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(probe(app, contains: "value: viewport:").waitForExistence(timeout: 5))
@@ -80,7 +118,7 @@ final class NativeUIShellSearchTests: XCTestCase {
     func testSearchRotationAndRetirement() throws {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         let field = openSearch(app)
-        field.tap(); field.typeText("retained")
+        typeInSearch(app, "retained")
         app.webViews.buttons["Toggle search theme"].tap()
         XCTAssertTrue(probe(app, contains: "Probe web value:retained").waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
@@ -105,9 +143,18 @@ final class NativeUIShellSearchTests: XCTestCase {
     func testJapaneseComposition() throws {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         let field = openSearch(app)
-        field.tap()
+        focusSearch(app)
         print("JAPANESE KEYBOARD \(app.debugDescription)")
         let kana = app.keyboards.keys["あ"].firstMatch
+        if !kana.waitForExistence(timeout: 5) {
+            // A freshly created simulator can start on the QWERTY layout; cycle
+            // the globe key until the Kana keyboard becomes active.
+            let next = app.buttons["Next keyboard"].firstMatch
+            for _ in 0..<5 where !kana.exists && next.exists {
+                next.tap()
+                usleep(400_000)
+            }
+        }
         XCTAssertTrue(kana.waitForExistence(timeout: 5), app.debugDescription)
         let visibleKana = NSPredicate { _, _ in kana.exists && kana.isHittable && app.frame.contains(kana.frame) }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: visibleKana, object: app)], timeout: 5), .completed, app.debugDescription)
@@ -191,7 +238,7 @@ final class NativeUIShellSearchTests: XCTestCase {
     func testSearchBackgroundRetirement() throws {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         let field = openSearch(app)
-        field.tap(); field.typeText("background")
+        typeInSearch(app, "background")
         XCTAssertTrue(probe(app, contains: "value:background").waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
         app.activate()
