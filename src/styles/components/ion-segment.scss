@@ -15,10 +15,11 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   // Use the tab bar material without changing the segment's layout or size.
   &.segment-style-glass {
-    --background: transparent;
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.53);
     position: relative;
     z-index: 0;
-    background: transparent;
+    background: var(--background);
+    backdrop-filter: blur(6px) saturate(180%) brightness(1.05);
     @include glass.light-shadow;
 
     ion-segment-button {
@@ -26,19 +27,6 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
         var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb, var(--ios27-button-color-selected-default-rgb))),
         0.095
       );
-    }
-
-    &::before {
-      @include api.glass-control-background($include-background: false, $shadow: none);
-      content: '';
-      position: absolute;
-      z-index: -1;
-      inset: 0;
-      box-sizing: border-box;
-      border-radius: inherit;
-      background-color: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.53);
-      backdrop-filter: blur(6px) saturate(180%) brightness(1.05);
-      pointer-events: none;
     }
   }
 
