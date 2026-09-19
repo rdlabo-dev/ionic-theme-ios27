@@ -11,6 +11,22 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
   border-radius: var(--border-radius);
 
+  // Use the tab bar material without changing the segment's layout or size.
+  &.segment-style-glass {
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+    position: relative;
+    z-index: 0;
+    background: var(--background);
+    backdrop-filter: blur(20px) saturate(180%);
+    box-shadow:
+      inset 0 0 0 0.5px rgba(var(--ios-theme-glass-border-color-rgb, var(--ios26-glass-border-color-rgb)), 0.8),
+      0 2px 26px rgba(var(--ios-theme-glass-box-shadow-color-rgb, var(--ios26-glass-box-shadow-color-rgb)), 0.55);
+
+    ion-segment-button {
+      --indicator-color: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb)), 0.077);
+    }
+  }
+
   // UIKit uses a larger control in navigation bars, but not in content.
   // iOS 26.5 ShellSegment host 320×48 is stable — no forced root scale; lens alone deforms.
   &.in-toolbar:not(.segment-expand) {
