@@ -16,11 +16,12 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
   // Use the tab bar material without changing the segment's layout or size.
   &.segment-style-glass {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.53);
+    box-sizing: border-box;
     position: relative;
     z-index: 0;
     background: var(--background);
     backdrop-filter: blur(6px) saturate(180%) brightness(1.05);
-    @include glass.light-shadow;
+    @include glass.light-rim;
 
     ion-segment-button {
       --indicator-color: rgba(
