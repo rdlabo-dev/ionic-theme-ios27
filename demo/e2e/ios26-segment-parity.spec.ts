@@ -123,7 +123,7 @@ test.describe('iOS26 ion-segment candidate', () => {
   });
 
   test('segment color remains independent from a colored toolbar', async ({ page }) => {
-    const segment = page.getByRole('tablist', { name: 'Colored segment in light toolbar' });
+    const segment = page.getByRole('tablist', { name: 'Colored segment in light toolbar', exact: true });
     const button = segment.locator('ion-segment-button').first();
     await expect(button.locator('[part="indicator-background"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
     await expect(button.locator('[part="native"]')).toHaveCSS('color', 'rgb(0, 0, 0)');
@@ -180,5 +180,47 @@ test.describe('iOS26 ion-segment candidate', () => {
       await lens.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
       await expect(lens).toBeHidden();
     }
+  });
+
+  test('colored toolbar indicator defaults remain publicly customizable', async ({ page }) => {
+    const toolbar = page.locator('app-segment ion-toolbar[color="light"]').filter({
+      has: page.getByRole('tablist', { name: 'Uncolored segment in light toolbar' }),
+    });
+    const segment = page.getByRole('tablist', { name: 'Uncolored segment in light toolbar' });
+    const checked = segment.locator('ion-segment-button.segment-button-checked');
+    const indicator = checked.locator('[part="indicator-background"]');
+    const lens = segment.locator('.ios26-segment-lens');
+    const expectPressedLensColor = async (expected: string) => {
+      const box = (await checked.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await expect(lens).toBeVisible();
+      const matches = await lens.evaluate((el, expectedColor) => {
+        el.getAnimations().forEach((animation) => {
+          animation.pause();
+          animation.currentTime = 0;
+        });
+        const context = document.createElement('canvas').getContext('2d')!;
+        context.fillStyle = expectedColor;
+        context.fillRect(0, 0, 1, 1);
+        const expectedPixel = Array.from(context.getImageData(0, 0, 1, 1).data);
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = getComputedStyle(el).backgroundColor;
+        context.fillRect(0, 0, 1, 1);
+        return Array.from(context.getImageData(0, 0, 1, 1).data).every((value, index) => Math.abs(value - expectedPixel[index]) <= 1);
+      }, expected);
+      expect(matches).toBe(true);
+      await page.mouse.up();
+      await lens.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
+      await expect(lens).toBeHidden();
+    };
+
+    await toolbar.evaluate((el) => el.style.setProperty('--ion-toolbar-segment-indicator-color', 'rgb(210, 30, 40)'));
+    await expect(indicator).toHaveCSS('background-color', 'rgb(210, 30, 40)');
+    await expectPressedLensColor('rgb(210, 30, 40)');
+
+    await page.addStyleTag({ content: 'ion-segment-button { --indicator-color: rgb(12, 34, 56); }' });
+    await expect(indicator).toHaveCSS('background-color', 'rgb(12, 34, 56)');
+    await expectPressedLensColor('rgb(12, 34, 56)');
   });
 });
