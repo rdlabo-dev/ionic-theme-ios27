@@ -93,12 +93,6 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
 
-  &.in-toolbar-color:not(.in-segment-color) {
-    ion-segment-button:not(.segment-button-checked)::part(native) {
-      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 1);
-    }
-  }
-
   // The indicator grows independently; the label has no additional scale.
   &:not(.ios27-enable-gesture, .segment-disabled):is(.segment-activated, :has(ion-segment-button:is(:active, .ion-activated))) {
     ion-segment-button.segment-button-checked:not(.segment-button-disabled)::part(indicator-background) {
@@ -200,8 +194,4 @@ ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
   --indicator-color: var(--ion-background-color, #fff);
-}
-:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled).ion-color ion-segment-button.in-segment-color) {
-  --indicator-color: var(--ion-color-base);
-  --color-checked: var(--ion-color-contrast);
 }

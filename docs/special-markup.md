@@ -101,7 +101,7 @@ Add `.segment-style-glass` to give a segment the same glass surface and selected
 </ion-segment>
 ```
 
-For colored segments, use Ionic's `color` property (for example, `color="primary"` or `color="secondary"`). The selected surface uses the palette's base color and the selected label uses its contrast color. The optional moving glass inherits the same surface color; custom Ionic palettes work without additional registration.
+For colored segments, use Ionic's `color` property (for example, `color="primary"` or `color="secondary"`). Ionic uses the palette's base color for the softly tinted track while keeping the selected surface and labels neutral. A surrounding colored toolbar only supplies colors when the segment has no color of its own. The optional moving glass inherits the selected surface color, and custom Ionic palettes work without additional registration.
 
 Add `.segment-expand` when segment buttons should divide the available width evenly. The class also changes the Liquid Glass effect sizing when `registerSegmentEffect` is used.
 
