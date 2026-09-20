@@ -87,14 +87,8 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     background: var(--indicator-color);
   }
 
-  ion-segment-button.in-toolbar-color:not(.in-segment-color) {
-    // Match Ionic's colored-toolbar contract: the indicator uses the toolbar
-    // contrast while the checked label continues to use the toolbar base.
-    --indicator-color: var(--ion-color-contrast);
-
-    &::part(indicator-background) {
-      background: var(--indicator-color);
-    }
+  ion-segment-button.in-toolbar-color:not(.in-segment-color)::part(indicator-background) {
+    background: var(--indicator-color);
   }
 
   &.ion-color ion-segment-button.in-segment-color {
@@ -204,4 +198,9 @@ ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
   --indicator-color: var(--ion-background-color, #fff);
+}
+:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button.in-toolbar-color:not(.in-segment-color)) {
+  // Match Ionic's colored-toolbar contract while preserving its public
+  // toolbar and segment-button customization properties.
+  --indicator-color: var(--ion-toolbar-segment-indicator-color, var(--ion-color-contrast));
 }
