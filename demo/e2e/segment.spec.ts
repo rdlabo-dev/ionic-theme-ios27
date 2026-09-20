@@ -15,6 +15,101 @@ test('toolbar resting geometry follows native sizing', async ({ page }) => {
   expect((await button.boundingBox())!.height).toBeCloseTo(44, 0);
 });
 
+for (const color of ['primary', 'light']) {
+  test(`${color} toolbar keeps Ionic's segment contrast contract`, async ({ page }) => {
+    const segment = page.locator(`app-segment ion-toolbar[color="${color}"] ion-segment:not([color])`);
+    const checked = segment.locator('ion-segment-button.segment-button-checked');
+    const unchecked = segment.locator('ion-segment-button:not(.segment-button-checked)');
+
+    await checked.scrollIntoViewIfNeeded();
+    for (const dark of [false, true]) {
+      await page.evaluate((enabled) => document.documentElement.classList.toggle('ion-palette-dark', enabled), dark);
+      const palette = await segment.evaluate((el) => {
+        const style = getComputedStyle(el);
+        const probe = document.createElement('span');
+        el.append(probe);
+        const resolve = (property: string) => {
+          probe.style.color = style.getPropertyValue(property);
+          return getComputedStyle(probe).color;
+        };
+        const value = { base: resolve('--ion-color-base'), contrast: resolve('--ion-color-contrast') };
+        probe.remove();
+        return value;
+      });
+
+      await expect(checked.locator('[part="indicator-background"]')).toHaveCSS('background-color', palette.contrast);
+      await expect(checked.locator('[part="native"]')).toHaveCSS('color', palette.base);
+      await expect(unchecked.locator('[part="native"]')).toHaveCSS('color', palette.contrast);
+
+      const box = (await checked.boundingBox())!;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      const lens = segment.locator('.ios27-segment-lens');
+      await expect(lens).toBeVisible();
+      const lensMatches = await lens.evaluate((el, expected) => {
+        el.getAnimations().forEach((animation) => {
+          animation.pause();
+          animation.currentTime = 0;
+        });
+        const context = document.createElement('canvas').getContext('2d')!;
+        context.fillStyle = expected;
+        context.fillRect(0, 0, 1, 1);
+        const expectedPixel = Array.from(context.getImageData(0, 0, 1, 1).data);
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = getComputedStyle(el).backgroundColor;
+        context.fillRect(0, 0, 1, 1);
+        return Array.from(context.getImageData(0, 0, 1, 1).data).every((value, index) => Math.abs(value - expectedPixel[index]) <= 1);
+      }, palette.contrast);
+      expect(lensMatches).toBe(true);
+      await page.mouse.up();
+      await lens.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
+      await expect(lens).toBeHidden();
+    }
+  });
+}
+
+test('colored toolbar indicator defaults remain publicly customizable', async ({ page }) => {
+  const toolbar = page.locator('app-segment ion-toolbar[color="light"]').filter({
+    has: page.locator('ion-segment:not([color])'),
+  });
+  const segment = toolbar.locator('ion-segment:not([color])');
+  const checked = segment.locator('ion-segment-button.segment-button-checked');
+  const indicator = checked.locator('[part="indicator-background"]');
+  const lens = segment.locator('.ios27-segment-lens');
+  const expectPressedLensColor = async (expected: string) => {
+    const box = (await checked.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await expect(lens).toBeVisible();
+    const matches = await lens.evaluate((el, expectedColor) => {
+      el.getAnimations().forEach((animation) => {
+        animation.pause();
+        animation.currentTime = 0;
+      });
+      const context = document.createElement('canvas').getContext('2d')!;
+      context.fillStyle = expectedColor;
+      context.fillRect(0, 0, 1, 1);
+      const expectedPixel = Array.from(context.getImageData(0, 0, 1, 1).data);
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = getComputedStyle(el).backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      return Array.from(context.getImageData(0, 0, 1, 1).data).every((value, index) => Math.abs(value - expectedPixel[index]) <= 1);
+    }, expected);
+    expect(matches).toBe(true);
+    await page.mouse.up();
+    await lens.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
+    await expect(lens).toBeHidden();
+  };
+
+  await toolbar.evaluate((el) => el.style.setProperty('--ion-toolbar-segment-indicator-color', 'rgb(210, 30, 40)'));
+  await expect(indicator).toHaveCSS('background-color', 'rgb(210, 30, 40)');
+  await expectPressedLensColor('rgb(210, 30, 40)');
+
+  await page.addStyleTag({ content: 'ion-segment-button { --indicator-color: rgb(12, 34, 56); }' });
+  await expect(indicator).toHaveCSS('background-color', 'rgb(12, 34, 56)');
+  await expectPressedLensColor('rgb(12, 34, 56)');
+});
+
 for (const color of ['primary', 'secondary']) {
   test(`${color} keeps Ionic segment colors independent from its toolbar`, async ({ page }) => {
     const segment = page.locator(`app-segment ion-segment[color="${color}"]`);
