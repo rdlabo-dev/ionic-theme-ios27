@@ -121,4 +121,14 @@ test.describe('iOS26 ion-segment candidate', () => {
     await expect(tab.locator('[part="indicator-background"]')).toHaveCSS('background-color', 'rgb(210, 30, 40)');
     await expect(tab.locator('[part="indicator-background"]')).toHaveCSS('border-radius', '8px');
   });
+
+  test('segment color remains independent from a colored toolbar', async ({ page }) => {
+    const segment = page.getByRole('tablist', { name: 'Colored segment in light toolbar' });
+    const button = segment.locator('ion-segment-button').first();
+    await expect(button.locator('[part="indicator-background"]')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(button.locator('[part="native"]')).toHaveCSS('color', 'rgb(0, 0, 0)');
+
+    await page.evaluate(() => document.documentElement.classList.add('ion-palette-dark'));
+    await expect(button.locator('[part="indicator-background"]')).toHaveCSS('background-color', 'rgb(90, 90, 95)');
+  });
 });
