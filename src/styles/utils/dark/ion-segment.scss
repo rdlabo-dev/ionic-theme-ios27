@@ -39,4 +39,7 @@
   :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
     --indicator-color: #5a5a5f;
   }
+  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button.in-toolbar-color:not(.in-segment-color)) {
+    --indicator-color: var(--ion-toolbar-segment-indicator-color, var(--ion-color-contrast));
+  }
 }
