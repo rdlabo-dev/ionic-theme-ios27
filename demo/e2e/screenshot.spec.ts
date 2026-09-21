@@ -83,10 +83,10 @@ const preparePhysicalSideSafeArea = async (page: Page, direction: 'ltr' | 'rtl')
       fab.mode = 'ios';
       fab.dir = direction;
       fab.horizontal = logicalSide;
-      fab.vertical = 'bottom';
+      fab.vertical = 'center';
       fab.slot = 'fixed';
-      fab.style.setProperty('--ios-theme-menu-width', '0px');
-      fab.style.setProperty('--ios26-menu-width', '0px');
+      fab.style.setProperty('--ios-theme-menu-width', 'var(--ios-theme-safe-area-inline-start)');
+      fab.style.setProperty('--ios26-menu-width', 'var(--ios-theme-safe-area-inline-start)');
       fab.innerHTML = `<ion-fab-button mode="ios" aria-label="${physicalSide} action">${physicalSide === 'left' ? 'L' : 'R'}</ion-fab-button>`;
       content.append(fab);
     }
