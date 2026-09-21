@@ -1,4 +1,5 @@
 @use '../api';
+@use '../glass';
 
 @mixin ion-segment {
   ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
@@ -8,11 +9,33 @@
     .ios27-segment-edge {
       @include api.glass-lens-dark;
     }
+    &.segment-style-glass {
+      --background: color-mix(
+        in srgb,
+        color-mix(
+            in srgb,
+            rgb(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb))) 92%,
+            rgb(var(--ion-text-color-rgb, 255, 255, 255))
+          )
+          40%,
+        transparent
+      );
+      background: var(--background);
+      backdrop-filter: blur(6px) saturate(150%) brightness(1.23);
+      @include glass.dark-rim;
+
+      ion-segment-button {
+        --indicator-color: rgba(var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb, 0, 0, 0)), 0.72);
+      }
+    }
   }
   :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled)) {
     --background: rgba(var(--ion-color-medium-rgb, 152, 154, 162), 0.19);
   }
-  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled, .ion-color) ion-segment-button:not(.ion-color, .in-segment-color)) {
+  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
     --indicator-color: color-mix(in srgb, rgb(var(--ion-color-medium-rgb, 152, 154, 162)) 59%, var(--ion-background-color, #000));
+  }
+  :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button.in-toolbar-color:not(.in-segment-color)) {
+    --indicator-color: var(--ion-toolbar-segment-indicator-color, var(--ion-color-contrast));
   }
 }

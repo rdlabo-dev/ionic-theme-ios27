@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.use({ viewport: { width: 402, height: 874 }, hasTouch: true });
 
-test('dark selection preserves custom tab and segment colors', async ({ page }) => {
+test('dark selection preserves custom colors and neutral segment surfaces', async ({ page }) => {
   await page.goto('/main/index/segment');
   await expect(page.locator('ion-tab-bar')).toHaveClass(/ios27-enable-gesture/);
   await expect(page.locator('ion-tab-bar ion-tab-button').first()).toHaveClass(/tab-selected/);
@@ -16,7 +16,7 @@ test('dark selection preserves custom tab and segment colors', async ({ page }) 
       <ion-segment class="ios in-toolbar"><ion-segment-button class="ios" value="default">Default</ion-segment-button></ion-segment>
       <ion-segment class="ios"><ion-segment-button class="ios" value="content">Content</ion-segment-button></ion-segment>
       <ion-segment class="ios in-toolbar"><ion-segment-button class="ios" value="custom" style="--indicator-color: rgb(12, 34, 56)">Custom</ion-segment-button></ion-segment>
-      <ion-segment class="ios in-toolbar ion-color"><ion-segment-button class="ios" value="colored">Colored</ion-segment-button></ion-segment>`;
+      <ion-segment class="ios in-toolbar" color="primary"><ion-segment-button class="ios" value="colored">Colored</ion-segment-button></ion-segment>`;
     document.body.append(fixture);
   });
   await expect(page.locator('#selection-fixture [part="indicator-background"]')).toHaveCount(4);
@@ -32,7 +32,7 @@ test('dark selection preserves custom tab and segment colors', async ({ page }) 
   expect(colors.tab).toBe('rgba(12, 34, 56, 0.72)');
   expect(colors.segments[0]).toBe(colors.segments[1]);
   expect(colors.segments[2]).toBe('rgb(12, 34, 56)');
-  expect(colors.segments[3]).not.toBe(colors.segments[0]);
+  expect(colors.segments[3]).toBe(colors.segments[0]);
   await expect(page.locator('body > ion-tab-button.ion-cloned-element [part="native"]')).toHaveCSS('background-image', 'none');
   for (const lens of [
     page.locator('body > ion-tab-button.ion-cloned-element [part="native"]'),

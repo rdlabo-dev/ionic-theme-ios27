@@ -244,6 +244,17 @@ On iOS, [`Components`](../ios/Sources/IonicNativeUIShellPlugin/Components) owns 
 
 ## Demo and verification
 
-See the [demo and verification guide](../demo/native-ui-shell.md) for browser tests, Simulator tests and an independent SPM consumer built from the npm package.
+The demo includes a `native-ui-shell` page for exercising fixed controls. From the repository root, build the library and run the browser tests:
+
+```sh
+npm ci
+npm run build
+cd demo
+npm ci
+npx --no-install playwright install chromium
+npx --no-install playwright test e2e/native-ui-shell.spec.ts e2e/native-ui-shell-edge.spec.ts
+```
+
+For native interaction and placement tests, use Xcode 26 or later, XcodeGen and a booted iOS 26+ Simulator. From the repository root, run `sh scripts/verify-native-ui-shell.sh SIMULATOR_UDID`. This also builds an independent Swift Package Manager consumer from the npm package. Run `sh scripts/verify-native-search.sh SIMULATOR_UDID` for searchable-tab integration, or add `edge` to that command for placement, navigation and keyboard edge cases. The scripts print the location of their local test artifacts.
 
 Search controllers retain their UIKit-managed transition and are excluded from the ordinary control acquisition crossfade.

@@ -1,6 +1,6 @@
 # Native UI Shell demo and verification
 
-The demo enables `enableNativeUIShell()` once at startup and includes a `native-ui-shell` page for exercising fixed controls. See the [Native UI Shell guide](../docs/native-ui-shell.md) for setup and supported markup.
+The demo enables `enableNativeUIShell()` once at startup and includes a `native-ui-shell` page for exercising fixed controls. See the [Native UI Shell guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) for setup and supported markup.
 
 ## Local verification
 

@@ -1,7 +1,7 @@
 {
   "name": "@rdlabo/ionic-theme-ios27",
   "private": false,
-  "version": "0.2.1",
+  "version": "1.0.4",
   "description": "iOS27 Theme for Ionic Framework",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -28,7 +28,8 @@
   ],
   "scripts": {
     "build": "npm run docgen && npm run build:css && npm run build:ts",
-    "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map --pkg-importer=node",
+    "prebuild:css": "rdlabo-copy-structured-list src/styles/utils/structured-list.scss",
+    "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map",
     "build:ts": "tsc",
     "docgen": "docgen --project tsconfig.docgen.json --api NativeUIShellHandle --output-readme docs/native-ui-shell.md",
     "build:demo": "npm run build && cd demo && npm install && npm run build -- --configuration=production",
@@ -55,7 +56,7 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#66eb2fccca10646ebfccdfb3b6c2f3b4c9b00bf6"
+    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#e82be4389d9209750229f5fee990046b5b1217da"
   },
   "bundleDependencies": [
     "@rdlabo/ionic-theme-utils"

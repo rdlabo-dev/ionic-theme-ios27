@@ -38,8 +38,9 @@
 
 @use 'sass:meta';
 
-// Capability-based theme selection (not OS version). See docs/ios-adaptive.md.
-@supports selector(:heading) {
+// Adaptive iOS themes: capability checks, not OS version. See README.md.
+// `overflow-anchor: auto` selects the newer theme; `text-wrap: pretty` without it keeps iOS 26.
+@supports (overflow-anchor: auto) {
   @include meta.load-css('../../src/styles/default-variables');
   @include meta.load-css('../../src/styles/ionic-theme-ios27');
   @include meta.load-css('../../src/styles/ionic-theme-ios27-dark-class');
@@ -47,7 +48,7 @@
   @include meta.load-css('../../src/styles/md-remove-ios-class-effect');
 }
 
-@supports (text-wrap: pretty) and (not selector(:heading)) {
+@supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
   @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/default-variables');
   @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
   @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');

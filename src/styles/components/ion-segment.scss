@@ -1,4 +1,5 @@
 @use '../utils/api';
+@use '../utils/glass';
 
 ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --border-radius: 16px;
@@ -11,6 +12,24 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
   border-radius: var(--border-radius);
+
+  // Use the tab bar material without changing the segment's layout or size.
+  &.segment-style-glass {
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.53);
+    box-sizing: border-box;
+    position: relative;
+    z-index: 0;
+    background: var(--background);
+    backdrop-filter: blur(6px) saturate(180%) brightness(1.05);
+    @include glass.light-rim;
+
+    ion-segment-button {
+      --indicator-color: rgba(
+        var(--ios-theme-button-color-selected-rgb, var(--ios26-button-color-selected-rgb, var(--ios27-button-color-selected-default-rgb))),
+        0.095
+      );
+    }
+  }
 
   // UIKit uses a larger control in navigation bars, but not in content.
   &.in-toolbar:not(.segment-expand) {
@@ -63,20 +82,18 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
 
-  ion-segment-button:is(.in-toolbar-color, .in-segment-color)::part(indicator-background) {
-    // Ionic sets a direct background for color contexts, bypassing --indicator-color.
+  ion-segment-button.in-segment-color::part(indicator-background) {
+    // Ionic sets a direct background for segment color contexts, bypassing --indicator-color.
+    background: var(--indicator-color);
+  }
+
+  ion-segment-button.in-toolbar-color:not(.in-segment-color)::part(indicator-background) {
     background: var(--indicator-color);
   }
 
   &.ion-color ion-segment-button.in-segment-color {
     &.segment-button-checked::part(native) {
       color: var(--color-checked);
-    }
-  }
-
-  &.in-toolbar-color:not(.in-segment-color) {
-    ion-segment-button:not(.segment-button-checked)::part(native) {
-      color: rgba(var(--ion-text-color-rgb, 0, 0, 0), 1);
     }
   }
 
@@ -182,7 +199,8 @@ ion-segment-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 :where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button) {
   --indicator-color: var(--ion-background-color, #fff);
 }
-:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled).ion-color ion-segment-button.in-segment-color) {
-  --indicator-color: var(--ion-color-base);
-  --color-checked: var(--ion-color-contrast);
+:where(ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) ion-segment-button.in-toolbar-color:not(.in-segment-color)) {
+  // Match Ionic's colored-toolbar contract while preserving its public
+  // toolbar and segment-button customization properties.
+  --indicator-color: var(--ion-toolbar-segment-indicator-color, var(--ion-color-contrast));
 }

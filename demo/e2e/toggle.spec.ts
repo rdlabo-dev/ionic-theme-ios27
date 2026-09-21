@@ -211,15 +211,18 @@ test('checked toggle uses its Ionic palette color', async ({ page }) => {
 test('native handle still moves when lens CSS is unavailable', async ({ page }) => {
   const removed = await page.evaluate(() => {
     let count = 0;
-    for (const sheet of Array.from(document.styleSheets)) {
-      for (let i = sheet.cssRules.length - 1; i >= 0; i--) {
-        const rule = sheet.cssRules[i];
+    const removeLensRules = (parent: CSSStyleSheet | CSSGroupingRule) => {
+      for (let i = parent.cssRules.length - 1; i >= 0; i--) {
+        const rule = parent.cssRules[i];
         if (rule instanceof CSSSupportsRule && rule.conditionText.includes('sin(') && rule.conditionText.includes('color-mix')) {
-          sheet.deleteRule(i);
+          parent.deleteRule(i);
           count++;
+        } else if (rule instanceof CSSGroupingRule) {
+          removeLensRules(rule);
         }
       }
-    }
+    };
+    for (const sheet of Array.from(document.styleSheets)) removeLensRules(sheet);
     return count;
   });
   expect(removed).toBeGreaterThan(0);
