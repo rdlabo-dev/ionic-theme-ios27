@@ -234,8 +234,12 @@ export const createRuntime = async (
       if (removed.length) {
         // Restore the source and let WebKit paint before removing its native cover.
         removed.forEach(restore);
-        await painted();
-        if (stopped || dirty) return;
+        // The outgoing tab is no longer visible, so waiting two frames only leaves its
+        // native snapshot over the destination. Stack transitions still need the paint.
+        if (!handoffInstant) {
+          await painted();
+          if (stopped || dirty) return;
+        }
       }
       const data = { viewportWidth: win.innerWidth, controls: candidates.map((candidate) => candidate.control) };
       const serialized = JSON.stringify(data);
