@@ -65,6 +65,12 @@ The foldable values are web-layout simulation inputs. They are independent from 
 
 When the app contains `ion-tabs`, foldable mode moves its iOS tab bar into the physical right-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different foldable position. The stable rail is icon-only, matching a four-tab SwiftUI `TabView` on iPhone Duo. While the user presses and drags across the rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The tab bar remains in the web layer and receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; foldable mode does not convert tabs into a menu.
 
+When the app contains `ion-tabs`, the same class changes its tab bar to a vertical bar centered in the physical right-side reserved region and aligned to the bottom safe area. No tab placement class is required, and the Ionic `slot` value does not select a different foldable position. The tab bar remains in the web layer so it can receive pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; foldable mode does not convert tabs into a menu.
+
+When `enableNativeUIShell()` is initialized at application startup, foldable mode uses the same document-level projection lifecycle for fixed-toolbar navigation and actions. The active `ion-back-button` and `ion-button` or `ion-menu-button` controls that contain an icon remain the sources of truth, are hidden while owned, and are represented by interactive Web clones in the physical right-side system rail. Buttons in the same `ion-buttons` group share a vertical rail group. An icon-and-text button is shown as its icon while retaining its accessible label; a text-only button stays in the original toolbar. Menus, modals, and popovers retain their own toolbar layout.
+
+These Web projections also work when no `ion-tabs` exists and when native projection is unavailable. Disabling foldable mode or leaving the page removes the clones and restores their sources. Override `--ios-theme-foldable-back-button-top` when the simulated system controls use a different vertical layout.
+
 ## Two-line inset list items
 
 Place an unslotted `ion-label` immediately alongside an unslotted `ion-note` to render a two-line item. When using the iOS-style inset-list background, wrap the items in `ion-item-group`; keep `ion-list-header` outside the group.

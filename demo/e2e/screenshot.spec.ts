@@ -93,6 +93,31 @@ const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl', width
   }, direction);
 };
 
+const prepareFoldableBackButton = async (page: Page, direction: 'ltr' | 'rtl') => {
+  await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index/button', { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator('ion-app').evaluate((app, dir) => {
+    app.dir = dir;
+    app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
+    app.classList.add('ios-theme-enable-foldable');
+  }, direction);
+  await expect(page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection')).toBeVisible();
+};
+
+const prepareFoldableToolbar = async (page: Page) => {
+  await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index/native-ui-shell', { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator('ion-app').evaluate((app) => {
+    app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
+    app.classList.add('ios-theme-enable-foldable');
+  });
+  await expect(page.locator('ion-app > ion-buttons.ios-theme-foldable-toolbar-projection')).not.toHaveCount(0);
+};
+
 test.describe('Screenshot Tests - All Routes', () => {
   for (const route of routes) {
     test(`should match screenshot for ${route.name}`, async ({ page }) => {
@@ -142,4 +167,18 @@ test.describe('Screenshot Tests - Foldable Layout', () => {
       await expect(page).toHaveScreenshot(`foldable-split-pane-${direction}.png`, { animations: 'disabled' });
     });
   }
+});
+
+test.describe('Screenshot Tests - Foldable Back Button', () => {
+  for (const direction of ['ltr', 'rtl'] as const) {
+    test(`should project the active back button into the physical system rail in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareFoldableBackButton(page, direction);
+      await expect(page).toHaveScreenshot(`foldable-back-button-${direction}.png`, { animations: 'disabled' });
+    });
+  }
+
+  test('should project icon actions while keeping text actions in the toolbar', async ({ page }) => {
+    await prepareFoldableToolbar(page);
+    await expect(page).toHaveScreenshot('foldable-toolbar-actions.png', { animations: 'disabled' });
+  });
 });

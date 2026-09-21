@@ -125,6 +125,12 @@ export const createRuntime = async (
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
     const candidate = readCandidate(element, id);
+    if (
+      candidate &&
+      ['ion-back-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind) &&
+      element.closest(':is(ion-app, body).ios-theme-enable-foldable')
+    )
+      return undefined;
     return candidate && controlEnabled(candidate) ? candidate : undefined;
   };
   const flush = async () => {

@@ -436,3 +436,53 @@ ion-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   @include theme-button($is-back-button: true);
 }
+
+:is(ion-app, body).ios-theme-enable-foldable.ios-theme-foldable-toolbar-ready {
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-back-button.ios[data-native-ui-shell]:not(.ios-theme-disabled, .ios26-disabled, .ios-theme-foldable-back-button-projection) {
+    display: none;
+  }
+
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-buttons.ios
+    > :is(ion-button, ion-menu-button).ios[data-native-ui-shell]:not(
+      .ios-theme-disabled,
+      .ios26-disabled,
+      .ios-theme-foldable-toolbar-action
+    ) {
+    display: none;
+  }
+
+  > ion-back-button.ios.ios-theme-foldable-back-button-projection {
+    position: fixed;
+    z-index: 1001;
+    top: var(--ios-theme-foldable-back-button-top, 220px);
+    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 54px) / 2));
+    display: block;
+    width: 54px;
+    height: 54px;
+    margin: 0;
+  }
+
+  > ion-buttons.ios.ios-theme-foldable-toolbar-projection {
+    position: fixed;
+    z-index: 1001;
+    top: calc(var(--ios-theme-foldable-back-button-top, 220px) + var(--ios-theme-foldable-toolbar-offset, 0px));
+    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 62px) / 2));
+    display: flex;
+    flex-direction: column;
+    width: 62px;
+    min-width: 62px;
+    height: auto;
+    margin: 0;
+
+    > :is(ion-button, ion-menu-button).ios.ios-theme-foldable-toolbar-action {
+      display: block;
+      width: 54px;
+      min-width: 54px;
+      height: 54px;
+      min-height: 54px;
+      margin: 0 4px;
+    }
+  }
+}

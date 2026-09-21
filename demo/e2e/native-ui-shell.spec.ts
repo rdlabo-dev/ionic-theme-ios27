@@ -345,6 +345,29 @@ test('foldable tabs stay in the web layer instead of using horizontal native pro
   await expect(bar).toHaveClass(/ios27-enable-gesture/);
 });
 
+test('foldable back navigation hands ownership between native and Web projection', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const app = page.locator('ion-app');
+  const source = page.locator('app-native-ui-shell ion-back-button');
+  const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+
+  await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await expect(projection).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as any).__nativeUIShell.updates.at(-1).controls.some((control: any) => control.kind === 'ion-back-button'),
+      ),
+    )
+    .toBe(false);
+
+  await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
+  await expect(projection).toHaveCount(0);
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+});
+
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');

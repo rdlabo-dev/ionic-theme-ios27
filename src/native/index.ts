@@ -3,6 +3,7 @@ import { setConfig } from '../transition/ios.transition';
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellPlugin, WebViewMetrics } from './definitions';
 import { bindMetricsLifecycle } from './lifecycle';
 import { createRuntime } from './runtime';
+import { createFoldableWebProjection } from './foldable-web';
 export type {
   NativeUIShellComponent,
   NativeUIShellControls,
@@ -40,23 +41,56 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         })
       : Promise.resolve(web('Disabled'));
   }
-  if (typeof document === 'undefined' || Capacitor.getPlatform() !== 'ios') return Promise.resolve(web('Requires Capacitor iOS'));
+  if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
   return (active ??= (async () => {
+    const foldableWeb = createFoldableWebProjection(document, options);
+    if (Capacitor.getPlatform() !== 'ios') return resetOnDestroy(withReason(foldableWeb, 'Requires Capacitor iOS'));
+    let runtime: NativeUIShellHandle | undefined;
     try {
       await configureNativeTransition().catch(() => undefined);
       if (!(await plugin.configure()).supported) {
-        active = undefined;
-        return web('Requires iOS 26 or later');
+        return resetOnDestroy(withReason(foldableWeb, 'Requires iOS 26 or later'));
       }
-      const runtime = await createRuntime(document, plugin, options);
-      return await bindMetricsLifecycle(
+      runtime = await createRuntime(document, plugin, options);
+      runtime = await bindMetricsLifecycle(
         runtime,
         () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
         () => (active = undefined),
       );
+      return resetOnDestroy(combine(runtime, foldableWeb));
     } catch (error) {
-      active = undefined;
-      return web(error instanceof Error ? error.message : String(error));
+      await runtime?.destroy();
+      return resetOnDestroy(withReason(foldableWeb, error instanceof Error ? error.message : String(error)));
     }
   })());
 };
+
+const combine = (native: NativeUIShellHandle, foldableWeb: NativeUIShellHandle): NativeUIShellHandle => ({
+  getStatus: () => {
+    const nativeStatus = native.getStatus();
+    const webStatus = foldableWeb.getStatus();
+    return { ...nativeStatus, projected: nativeStatus.projected + webStatus.projected };
+  },
+  async suspend() {
+    const [nativeLease, webLease] = await Promise.all([native.suspend(), foldableWeb.suspend()]);
+    return { resume: async () => void (await Promise.all([nativeLease.resume(), webLease.resume()])) };
+  },
+  async destroy() {
+    await Promise.all([native.destroy(), foldableWeb.destroy()]);
+  },
+});
+
+const resetOnDestroy = (handle: NativeUIShellHandle): NativeUIShellHandle => ({
+  getStatus: handle.getStatus,
+  suspend: handle.suspend,
+  async destroy() {
+    await handle.destroy();
+    active = undefined;
+  },
+});
+
+const withReason = (handle: NativeUIShellHandle, reason: string): NativeUIShellHandle => ({
+  getStatus: () => ({ ...handle.getStatus(), reason }),
+  suspend: () => handle.suspend(),
+  destroy: () => handle.destroy(),
+});
