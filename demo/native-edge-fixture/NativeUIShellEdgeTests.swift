@@ -143,8 +143,12 @@ final class NativeUIShellEdgeTests: XCTestCase {
                         XCTAssertEqual(content.maxY, source.maxY, accuracy: 1)
                         XCTAssertEqual(content.height, source.height, accuracy: 0.5)
                         XCTAssertEqual(content.width, source.width, accuracy: 0.5)
+                        // iOS 27's UITabBar mirrors the DOM's lens-style item
+                        // frames; iOS 26 divides the platter evenly on its own,
+                        // so per-item geometry is only asserted on iOS 27+.
+                        let itemsMatchDOM = ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
                         let items = data["items"] as? [[String: Any]] ?? []
-                        for (button, item) in zip(buttons, items) {
+                        for (button, item) in zip(buttons, items) where itemsMatchDOM {
                             let lens = rect(item["lens"])
                             XCTAssertEqual(button.frame.minX, lens.minX, accuracy: 0.5)
                             XCTAssertEqual(button.frame.minY, lens.minY, accuracy: 0.5)
