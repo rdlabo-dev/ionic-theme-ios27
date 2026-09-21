@@ -232,7 +232,7 @@ final class NativeUIShellEdgeTests: XCTestCase {
         }
         app.webViews.buttons["Edge typography"].tap(); settled()
         checkAnchor()
-        let search = app.tabBars.buttons["Search"]
+        let search = app.buttons["Search"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.tap(); settled()
         let field = app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'")).firstMatch

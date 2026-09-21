@@ -17,7 +17,7 @@
   </section>
 </ion-content>
 <ion-fab vertical="bottom" horizontal="end" slot="fixed">
-  <ion-fab-button (click)="present($event)">
+  <ion-fab-button aria-label="Search" (click)="present($event)">
     <ion-icon name="search"></ion-icon>
   </ion-fab-button>
 </ion-fab>
@@ -26,6 +26,6 @@
     <ion-buttons slot="start">
       <ion-button fill="default" (click)="dismiss($event)"><ion-icon slot="icon-only"></ion-icon></ion-button>
     </ion-buttons>
-    <ion-searchbar></ion-searchbar>
+    <ion-searchbar aria-label="Search"></ion-searchbar>
   </ion-toolbar>
 </ion-footer>

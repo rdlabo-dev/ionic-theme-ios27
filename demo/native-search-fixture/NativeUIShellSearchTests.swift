@@ -1,12 +1,13 @@
 import XCTest
 final class NativeUIShellSearchTests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false; XCUIDevice.shared.orientation = .portrait }
+    private func searchButton(_ app: XCUIApplication) -> XCUIElement { app.buttons["Search"].firstMatch }
     private func openSearch(_ app: XCUIApplication) -> XCUIElement {
         app.launch()
         let library = app.tabBars.buttons["Library"]
         XCTAssertTrue(library.waitForExistence(timeout: 30), app.debugDescription)
         library.tap()
-        let search = app.tabBars.buttons["Search"]
+        let search = searchButton(app)
         XCTAssertTrue(search.waitForExistence(timeout: 15), app.debugDescription)
         XCTAssertTrue(probe(app, contains: "Probe native").waitForExistence(timeout: 5), app.debugDescription)
         search.tap()
@@ -28,12 +29,12 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertTrue(probe(app, contains: "Probe native").waitForExistence(timeout: 10))
         app.webViews.buttons["Watch search"].tap()
         for _ in 0..<3 {
-            app.tabBars.buttons["Search"].tap()
+            searchButton(app).tap()
             let field = app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'")).firstMatch
             XCTAssertTrue(field.waitForExistence(timeout: 10), app.debugDescription)
             XCTAssertTrue(field.isHittable)
             app.tabBars.buttons["Library"].tap()
-            XCTAssertTrue(app.tabBars.buttons["Search"].waitForExistence(timeout: 10), app.debugDescription)
+            XCTAssertTrue(searchButton(app).waitForExistence(timeout: 10), app.debugDescription)
         }
         app.webViews.buttons["Stop watch"].tap()
         let result = probe(app, contains: "watch:done")
@@ -55,7 +56,7 @@ final class NativeUIShellSearchTests: XCTestCase {
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.tabBars.buttons["Library"].waitForExistence(timeout: 10), app.debugDescription)
         app.tabBars.buttons["Library"].tap()
-        let search = app.tabBars.buttons["Search"]
+        let search = searchButton(app)
         XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
         search.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 10)); XCTAssertEqual(field.value as? String, "glass")
@@ -85,7 +86,7 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertTrue(probe(app, contains: "Probe web value:retained").waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         app.webViews.buttons["Toggle search theme"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Search"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(searchButton(app).waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertFalse(field.exists)
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(probe(app, contains: "viewport:landscape").waitForExistence(timeout: 10))
@@ -98,8 +99,8 @@ final class NativeUIShellSearchTests: XCTestCase {
         }
         capture("native-search-landscape")
         XCUIDevice.shared.orientation = .portrait
-        XCTAssertTrue(app.tabBars.buttons["Search"].waitForExistence(timeout: 10), app.debugDescription)
-        app.tabBars.buttons["Search"].tap()
+        XCTAssertTrue(searchButton(app).waitForExistence(timeout: 10), app.debugDescription)
+        searchButton(app).tap()
         XCTAssertTrue(field.waitForExistence(timeout: 10)); XCTAssertEqual(field.value as? String, "retained")
     }
     func testJapaneseComposition() throws {
@@ -119,7 +120,7 @@ final class NativeUIShellSearchTests: XCTestCase {
         app.buttons["Close"].firstMatch.tap()
         XCTAssertTrue(app.tabBars.buttons["Library"].waitForExistence(timeout: 10), app.debugDescription)
         app.tabBars.buttons["Library"].tap()
-        app.tabBars.buttons["Search"].tap()
+        searchButton(app).tap()
         XCTAssertEqual(field.value as? String, "あ")
         capture("native-search-japanese-restored")
     }
@@ -128,7 +129,7 @@ final class NativeUIShellSearchTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         _ = openSearch(app)
         app.tabBars.buttons["Library"].tap()
-        let search = app.tabBars.buttons["Search"]
+        let search = searchButton(app)
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         app.webViews.buttons["Move FAB"].tap()
         XCTAssertTrue(probe(app, contains: "Probe web").waitForExistence(timeout: 10), app.debugDescription)
@@ -173,7 +174,7 @@ final class NativeUIShellSearchTests: XCTestCase {
                 XCTAssertTrue(status.waitForExistence(timeout: 10))
                 let settled = NSPredicate { _, _ in status.label.contains("settled:true") }
                 XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: status)], timeout: 5), .completed)
-                let search = app.tabBars.buttons["Search"]
+                let search = searchButton(app)
                 if status.label.contains("Probe native") {
                     XCTAssertTrue(search.waitForExistence(timeout: 5), app.debugDescription)
                     let origin = Double(status.label.components(separatedBy: "origin:")[1].components(separatedBy: " ")[0])!
@@ -195,11 +196,11 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertTrue(probe(app, contains: "value:background").waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
         app.activate()
-        XCTAssertTrue(app.tabBars.buttons["Search"].waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(searchButton(app).waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(field.waitForNonExistence(timeout: 5), app.debugDescription)
         XCTAssertTrue(probe(app, contains: "value:background").waitForExistence(timeout: 5), app.debugDescription)
         capture("search-background-restored")
-        app.tabBars.buttons["Search"].tap()
+        searchButton(app).tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         let retained = NSPredicate(format: "value == %@", "background")
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: retained, object: field)], timeout: 5), .completed, app.debugDescription)
@@ -224,13 +225,13 @@ final class NativeUIShellSearchTests: XCTestCase {
         app.buttons["back"].firstMatch.tap()
         XCTAssertTrue(app.tabBars.buttons["Library"].waitForExistence(timeout: 10))
         app.tabBars.buttons["Library"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Search"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Search"].tap()
+        XCTAssertTrue(searchButton(app).waitForExistence(timeout: 10))
+        searchButton(app).tap()
         let field = app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'")).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         capture("header-search-expanded")
         app.tabBars.buttons["Library"].tap()
-        XCTAssertTrue(app.tabBars.buttons["Search"].waitForExistence(timeout: 10))
+        XCTAssertTrue(searchButton(app).waitForExistence(timeout: 10))
         app.tabBars.buttons["Index"].tap()
         openFab()
         XCTAssertEqual(app.buttons["back"].firstMatch.frame.minY, originalY, accuracy: 1)
