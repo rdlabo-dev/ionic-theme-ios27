@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 for (const direction of ['ltr', 'rtl'] as const) {
-  test(`start menu consumes the ${direction === 'ltr' ? 'left' : 'right'} physical safe area in ${direction}`, async ({ page }) => {
+  test(`menus consume bilateral physical safe areas in ${direction}`, async ({ page }) => {
     await page.goto('/main/index', { waitUntil: 'networkidle' });
     const menu = page.locator('ion-menu');
 
@@ -24,10 +24,15 @@ for (const direction of ['ltr', 'rtl'] as const) {
       const contentStyle = getComputedStyle(element.querySelector('ion-content')!);
 
       const modal = document.createElement('ion-modal');
+      modal.mode = 'ios';
+      modal.style.setProperty('--ion-safe-area-right', '12px');
       const modalContent = document.createElement('ion-content');
-      modalContent.style.setProperty('--ion-safe-area-right', '12px');
+      modalContent.mode = 'ios';
       modal.append(modalContent);
       app.append(modal);
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+      if (!modalContent.classList.contains('ios')) throw new Error('Expected an iOS ion-content fixture');
       return {
         offsets,
         safeAreaLeft: contentStyle.getPropertyValue('--ion-safe-area-left').trim(),
