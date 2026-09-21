@@ -438,6 +438,7 @@ test('shell opt-out cannot be bypassed by searchable tab integration', async ({ 
   const footer = page.locator('app-album-page ion-footer');
   const tabs = page.locator('ion-tab-bar');
   const search = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  await expect.poll(async () => (await search())?.trigger.accessibilityLabel).toBe('Search');
   for (const target of [
     footer,
     footer.locator('ion-toolbar'),

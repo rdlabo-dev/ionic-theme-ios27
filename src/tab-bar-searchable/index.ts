@@ -48,7 +48,7 @@ export {
  *     </ion-button>
  *     </ion-buttons>
  *     <!-- User set `ionChange` or other events. -->
- *     <ion-searchbar (ionChange)="example($event)"></ion-searchbar>
+ *     <ion-searchbar aria-label="Search" (ionChange)="example($event)"></ion-searchbar>
  *   </ion-toolbar>
  *  </ion-footer>
  **/

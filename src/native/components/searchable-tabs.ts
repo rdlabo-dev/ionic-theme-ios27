@@ -310,6 +310,9 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         }
         field.label = '';
         field.accessibilityLabel = bar.getAttribute('aria-label') ?? input.getAttribute('aria-label') ?? 'Search';
+        // Icon-only search FABs often rely on the searchbar for their accessible
+        // name. Carry that semantic name into the independent resting trigger.
+        if (!trigger.accessibilityLabel) trigger.accessibilityLabel = field.accessibilityLabel;
         state.layout = JSON.stringify([
           innerWidth,
           innerHeight,
