@@ -636,10 +636,30 @@ test('pointer cancellation clears the visual state', async ({ page }) => {
 
 test('rapid reselection settles to the final Ionic value', async ({ page }) => {
   const segment = page.locator('app-segment ion-segment').first();
+  await segment.evaluate((el) => {
+    const lens = el.querySelector<HTMLElement>('.ios27-segment-lens')!;
+    const animate = lens.animate.bind(lens);
+    lens.animate = ((frames: Keyframe[] | PropertyIndexedKeyframes, options?: number | KeyframeAnimationOptions) => {
+      const first = Array.isArray(frames) ? frames[0] : undefined;
+      if (first?.width) {
+        const actual = new DOMMatrixReadOnly(lens.style.transform);
+        const expected = new DOMMatrixReadOnly(String(first.transform));
+        if (
+          actual.e !== expected.e ||
+          actual.f !== expected.f ||
+          parseFloat(lens.style.width) !== parseFloat(String(first.width)) ||
+          parseFloat(lens.style.height) !== parseFloat(String(first.height))
+        )
+          el.dataset['unprimedLens'] = 'true';
+      }
+      return animate(frames, options);
+    }) as typeof lens.animate;
+  });
   for (const index of [1, 0, 1, 0, 1]) {
     await segment.locator('ion-segment-button').nth(index).tap();
     await page.waitForTimeout(60);
   }
+  await expect(segment).not.toHaveAttribute('data-unprimed-lens', 'true');
   await expect(segment).not.toHaveClass(/ios27-animated/);
   await expect(segment.locator('.ios27-segment-lens')).toBeHidden();
   expect(await segment.evaluate((el) => (el as HTMLIonSegmentElement).value)).toBe('segment');
