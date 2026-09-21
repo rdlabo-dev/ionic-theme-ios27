@@ -1,0 +1,72 @@
+name: Native Simulator Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * 0' # Monday 03:00 JST
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  suite:
+    timeout-minutes: 75
+    runs-on: xcode-27
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: ui-shell
+            script: scripts/verify-native-ui-shell.sh
+            scenario: ''
+            kana: ''
+          - suite: search
+            script: scripts/verify-native-search.sh
+            scenario: search
+            kana: kana
+          - suite: edge
+            script: scripts/verify-native-search.sh
+            scenario: edge
+            kana: ''
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Record runner metadata
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - run: npm ci
+      - run: npm ci
+        working-directory: demo
+
+      - name: Fetch pinned simulator setup
+        run: |
+          sha=$(jq -r '.packages["node_modules/@rdlabo/ionic-theme-utils"].resolved' package-lock.json | sed 's/.*#//')
+          curl -fsSL "https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-utils/$sha/scripts/ci-simulator.sh" -o "$RUNNER_TEMP/ci-simulator.sh"
+
+      - name: Create and boot simulator
+        run: sh "$RUNNER_TEMP/ci-simulator.sh" "iPhone 17" "iOS 27.0" ${{ matrix.kana }}
+
+      - name: Run ${{ matrix.suite }} suite
+        run: sh ${{ matrix.script }} "$SIM_UDID" ${{ matrix.scenario }}
+        env:
+          VERIFY_ARTIFACTS_DIR: ${{ runner.temp }}/native-${{ matrix.suite }}
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: native-${{ matrix.suite }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/native-${{ matrix.suite }}
+          if-no-files-found: warn
+          retention-days: 7

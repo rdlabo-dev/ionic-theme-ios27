@@ -6,7 +6,12 @@ set -eu
 
 simulator=${1:?Usage: sh scripts/verify-native-ui-shell.sh SIMULATOR_UDID}
 repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-artifacts=$(mktemp -d /tmp/ionic-native-ui-shell-verification.XXXXXX)
+if [ "${VERIFY_ARTIFACTS_DIR:-}" ]; then
+  artifacts=$VERIFY_ARTIFACTS_DIR
+  mkdir -p "$artifacts"
+else
+  artifacts=$(mktemp -d /tmp/ionic-native-ui-shell-verification.XXXXXX)
+fi
 printf 'Native UI Shell verification artifacts: %s\n' "$artifacts"
 
 cd "$repo"
