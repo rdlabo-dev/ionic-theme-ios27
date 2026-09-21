@@ -123,6 +123,17 @@ export const registerSegmentEffect = (targetElement: HTMLElement): registeredEff
     animation?.cancel();
     handoff.forEach((effect) => effect.cancel());
     handoff = [];
+    // WebKit can paint the newly unhidden element once at its underlying
+    // top-left position before the replacement WAAPI effect is sampled.
+    // Prime that underlying style so interrupted/reversed selections always
+    // hand off from the first frame instead of briefly flashing at (0, 0).
+    const first = frames[0];
+    if (first) {
+      lens.style.transform = String(first['transform']);
+      lens.style.width = String(first['width']);
+      lens.style.height = String(first['height']);
+      lens.style.backgroundColor = String(first['backgroundColor']);
+    }
     segment.classList.add('ios26-animated');
     lens.hidden = false;
     const running = lens.animate(frames, { duration, easing: 'linear', fill: 'forwards' });

@@ -22,12 +22,33 @@ test.describe('iOS26 ion-segment candidate', () => {
   test('tap changes value exactly once per direction', async ({ page }) => {
     const segment = page.locator('app-segment ion-header ion-segment').first();
     await trackIonChange(segment);
+    await segment.evaluate((el) => {
+      const lens = el.querySelector<HTMLElement>('.ios26-segment-lens')!;
+      const animate = lens.animate.bind(lens);
+      lens.animate = ((frames: Keyframe[] | PropertyIndexedKeyframes, options?: number | KeyframeAnimationOptions) => {
+        const first = Array.isArray(frames) ? frames[0] : undefined;
+        if (first?.width) {
+          const actual = new DOMMatrixReadOnly(lens.style.transform);
+          const expected = new DOMMatrixReadOnly(String(first.transform));
+          const differs = (a: number, b: number) => Math.abs(a - b) >= 0.001;
+          if (
+            differs(actual.e, expected.e) ||
+            differs(actual.f, expected.f) ||
+            differs(parseFloat(lens.style.width), parseFloat(String(first.width))) ||
+            differs(parseFloat(lens.style.height), parseFloat(String(first.height)))
+          )
+            el.dataset['unprimedLens'] = 'true';
+        }
+        return animate(frames, options);
+      }) as typeof lens.animate;
+    });
     await segment.locator('ion-segment-button[value="segment"]').tap();
     await expect.poll(async () => segment.evaluate((el) => (el as HTMLIonSegmentElement).value)).toBe('segment');
     await expect(segment).toHaveAttribute('data-changes', '1');
     await segment.locator('ion-segment-button[value="default"]').tap();
     await expect.poll(async () => segment.evaluate((el) => (el as HTMLIonSegmentElement).value)).toBe('default');
     await expect(segment).toHaveAttribute('data-changes', '2');
+    await expect(segment).not.toHaveAttribute('data-unprimed-lens', 'true');
   });
 
   test('dragging keeps Ionic selection events', async ({ page }) => {
