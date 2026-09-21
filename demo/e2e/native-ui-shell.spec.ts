@@ -528,6 +528,9 @@ test('modal suspension, tab hiding and destroy restore ownership', async ({ page
   await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
   await page.getByRole('button', { name: 'Open modal', exact: true }).click();
   await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1)))
+    .toMatchObject({ controls: [], transitionDuration: 0 });
   await page.getByRole('button', { name: 'Close modal', exact: true }).click();
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   await tabs.evaluate((element) => (element.style.display = 'none'));
@@ -1817,6 +1820,30 @@ test('reduced motion hands off without a crossfade', async ({ page }) => {
   await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
   await expect(segment).not.toHaveAttribute('data-native-ui-shell');
   await expect(segment).toHaveCSS('opacity', '1');
+});
+
+test('tab switches hand off without a crossfade', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  const before = await page.evaluate(() => (window as any).__nativeUIShell.updates.length);
+  await activate(page, 'Docs');
+  await expect(page).toHaveURL(/\/main\/docs/);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (start) =>
+          (window as any).__nativeUIShell.updates
+            .slice(start)
+            .some(
+              (update: any) => update.transitionDuration === 0 && !update.controls.some((control: any) => control.kind === 'ion-segment'),
+            ),
+        before,
+      ),
+    )
+    .toBe(true);
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
 });
 
 test('cancelling a handoff animation releases its temporary visibility override', async ({ page }) => {

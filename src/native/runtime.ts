@@ -58,6 +58,16 @@ export const createRuntime = async (
   let dirty = false;
   let pending = false;
   let stopped = false;
+  /** True while a tab-switch handoff should skip crossfade. */
+  let tabSwitchHandoff = false;
+  /** Keep instant updates until this time — DidLeave often precedes the retire sync. */
+  let handoffUntil = 0;
+  /** Tab switch armed while a sync was already in flight; extend instant past that sync. */
+  let handoffAcrossPending = false;
+  /** Captured at the start of each sync so an in-flight update keeps a stable duration. */
+  let handoffInstant = false;
+  /** Retire native controls immediately as a modal starts covering the page. */
+  let modalPresentHandoff = false;
   let frame = 0;
   let updates = 0;
   let reason: string | undefined;
@@ -91,7 +101,7 @@ export const createRuntime = async (
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    if (!stopped) crossfade.play(element, false);
+    if (!stopped) crossfade.play(element, false, handoffInstant);
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -197,6 +207,8 @@ export const createRuntime = async (
     frame = 0;
     dirty = false;
     pending = true;
+    handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalPresentHandoff || win.performance.now() < handoffUntil;
+    modalPresentHandoff = false;
     try {
       const size = `${win.innerWidth}:${win.innerHeight}`;
       // WebKit can resize before Ionic's fixed DOM positions catch up.
@@ -225,13 +237,17 @@ export const createRuntime = async (
       if (removed.length) {
         // Restore the source and let WebKit paint before removing its native cover.
         removed.forEach(restore);
-        await painted();
-        if (stopped || dirty) return;
+        // The outgoing tab is no longer visible, so waiting two frames only leaves its
+        // native snapshot over the destination. Stack transitions still need the paint.
+        if (!handoffInstant) {
+          await painted();
+          if (stopped || dirty) return;
+        }
       }
       const data = { viewportWidth: win.innerWidth, controls: candidates.map((candidate) => candidate.control) };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
-      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration() };
+      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
       updates++;
@@ -272,7 +288,7 @@ export const createRuntime = async (
       for (const element of accepted.flatMap(candidateSources)) {
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(element, true);
+          crossfade.play(element, true, handoffInstant);
           element.setAttribute(marker, '');
           element.setAttribute('aria-hidden', 'true');
           element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
@@ -294,6 +310,11 @@ export const createRuntime = async (
       pendingActivations = [];
       // A refresh received before the ack must also invalidate that ack's rejects.
       if (forceRefresh) rejected = new WeakMap();
+      // A tab switch mid-update (or a dirty follow-up) must keep instant through the retire sync.
+      if (!stopped && (handoffAcrossPending || (handoffInstant && dirty))) {
+        handoffUntil = Math.max(handoffUntil, win.performance.now() + 400);
+      }
+      handoffAcrossPending = false;
       pending = false;
       if (dirty && !stopped) schedule();
       else finishWaiters();
@@ -323,12 +344,55 @@ export const createRuntime = async (
     getNativeSearchBindings(doc)
       .filter((binding) => page.contains(binding.footer))
       .forEach((binding) => search.retire(binding));
+    // Angular updates the URL before willLeave, but keeps ion-tab-bar.selectedTab on the
+    // leaving tab until DidChange. A mismatch means this leave is a tab switch, not a stack push.
+    if (event.type === LIFECYCLE_WILL_LEAVE) beginTabSwitchHandoffIfNeeded(page);
     pages.add(page);
     schedule();
   };
   const pageDid: EventListener = (event) => {
     pages.delete(event.target as HTMLElement);
     schedule();
+    if (tabSwitchHandoff && pages.size === 0) endTabSwitchHandoff();
+  };
+  const tabOfPath = (tabs: Element, pathname: string) => {
+    let best: { tab: string; length: number } | undefined;
+    for (const button of Array.from(tabs.querySelectorAll('ion-tab-button'))) {
+      const tab = button.getAttribute('tab');
+      const href = button.getAttribute('href')?.split(/[?#]/)[0];
+      if (!tab || !href) continue;
+      if (pathname === href || pathname.startsWith(`${href}/`)) {
+        if (!best || href.length > best.length) best = { tab, length: href.length };
+      }
+    }
+    return best?.tab;
+  };
+  const armTabSwitchHandoff = () => {
+    tabSwitchHandoff = true;
+    // Retiring outgoing controls often lands in a later async sync than WillLeave/DidChange.
+    handoffUntil = Math.max(handoffUntil, win.performance.now() + 400);
+    // The in-flight sync already captured handoffInstant=false; hold instant for the next one.
+    if (pending) handoffAcrossPending = true;
+  };
+  const beginTabSwitchHandoffIfNeeded = (page: HTMLElement) => {
+    const tabs = page.closest('ion-tabs');
+    if (!tabs) return;
+    const bar = tabs.querySelector('ion-tab-bar');
+    const selected =
+      (bar && 'selectedTab' in bar ? String((bar as HTMLElement & { selectedTab?: string }).selectedTab ?? '') : '') ||
+      tabs.querySelector('ion-tab-button.tab-selected')?.getAttribute('tab') ||
+      undefined;
+    const destination = tabOfPath(tabs, win.location.pathname);
+    if (selected && destination && selected !== destination) armTabSwitchHandoff();
+  };
+  // DidChange / pageDid can land in the same turn as WillLeave. Clear the sticky flag on the
+  // next frame; handoffUntil / handoffAcrossPending still cover the async retire sync.
+  const endTabSwitchHandoff = () => {
+    win.requestAnimationFrame(() => {
+      if (stopped || !tabSwitchHandoff) return;
+      tabSwitchHandoff = false;
+      schedule();
+    });
   };
   const motion: EventListener = (event) => {
     const target = event.target as HTMLElement;
@@ -347,9 +411,21 @@ export const createRuntime = async (
   for (const name of Object.values(CSS_MOTION_EVENTS)) on(doc, name, motion);
   for (const name of [LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE]) on(doc, name, pageWill);
   for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
+  on(doc, 'ionTabsWillChange', () => {
+    // Vanilla ion-tabs dispatches DOM events; @ionic/angular uses EventEmitters instead.
+    armTabSwitchHandoff();
+    schedule();
+  });
+  on(doc, 'ionTabsDidChange', endTabSwitchHandoff);
   for (const name of overlayNames) {
     on(doc, `ion${name}WillPresent`, (event) => {
       presented.add(event.target as HTMLElement);
+      if (name === 'Modal') {
+        modalPresentHandoff = true;
+        // WillPresent may arrive while another bridge update is awaiting its ack.
+        // Make that retirement instant too instead of racing the modal animation.
+        if (pending) handoffInstant = true;
+      }
       schedule();
     });
     on(doc, `ion${name}DidDismiss`, (event) => {
@@ -368,7 +444,6 @@ export const createRuntime = async (
   for (const name of [
     'ionChange',
     'ionSelect',
-    'ionTabsDidChange',
     'ionImgDidLoad',
     CSS_MOTION_EVENTS.transitionEnd,
     CSS_MOTION_EVENTS.animationEnd,
