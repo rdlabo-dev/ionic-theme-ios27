@@ -4,7 +4,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
 ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:has(ion-menu.menu-pane-visible) {
   .split-pane-main {
-    ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+    ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(.ios-theme-enable-foldable *)) {
       width: calc(
         100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - 60px -
           12px - var(--ios-theme-menu-width, var(--ios26-menu-width))
@@ -43,7 +43,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
       ion-footer ion-toolbar {
         --padding-start: var(--ios-theme-menu-width, var(--ios26-menu-width));
       }
-      ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+      ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(.ios-theme-enable-foldable *)) {
         &[slot='bottom'] {
           inset-inline-start: calc(16px + var(--ion-safe-area-left, 0px) + var(--ios-theme-menu-width, var(--ios26-menu-width)));
           &:dir(rtl) {

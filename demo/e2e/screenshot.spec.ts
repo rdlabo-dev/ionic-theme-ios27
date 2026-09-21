@@ -60,9 +60,9 @@ const prepareScreenShot = async (page: Page, routeName: string) => {
   }
 };
 
-const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl') => {
+const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl', width = 700) => {
   await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
-  await page.setViewportSize({ width: 700, height: 900 });
+  await page.setViewportSize({ width, height: 900 });
   await page.goto('/main/index', { waitUntil: 'networkidle' });
   await page.waitForSelector('ion-content[role="main"]');
   await page.evaluate(() => document.fonts.ready);
@@ -134,6 +134,12 @@ test.describe('Screenshot Tests - Foldable Layout', () => {
     test(`should keep the app foreground clear of foldable system UI in ${direction.toUpperCase()}`, async ({ page }) => {
       await prepareFoldableLayout(page, direction);
       await expect(page).toHaveScreenshot(`foldable-layout-${direction}.png`, { animations: 'disabled' });
+    });
+
+    test(`should keep foldable tabs in the system rail beside a visible split pane in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareFoldableLayout(page, direction, 1024);
+      await expect(page.locator('ion-split-pane')).toHaveClass(/split-pane-visible/);
+      await expect(page).toHaveScreenshot(`foldable-split-pane-${direction}.png`, { animations: 'disabled' });
     });
   }
 });
