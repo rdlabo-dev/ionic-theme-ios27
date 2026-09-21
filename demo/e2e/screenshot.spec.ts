@@ -46,11 +46,11 @@ const routes = [
   { path: '/main/index/reorder', name: 'reorder' },
   { path: '/main/index/tabs', name: 'tabs' },
   { path: '/main/index/toolbar', name: 'toolbar' },
-].sort(() => Math.random() - 0.5);
+];
 
 const prepareScreenShot = async (page: Page, routeName: string) => {
-  await page.waitForTimeout(1000);
   await page.waitForSelector('ion-content[role="main"]', { timeout: 10000 });
+  await page.evaluate(() => document.fonts.ready);
   if (!routeName.includes(':')) {
     const scrollHeight = await page.locator('ion-content[role="main"]').evaluate(async (el: any) => {
       const scrollEl = await el.getScrollElement();
@@ -58,6 +58,39 @@ const prepareScreenShot = async (page: Page, routeName: string) => {
     });
     await page.setViewportSize({ width: 1200, height: scrollHeight });
   }
+};
+
+const preparePhysicalSideSafeArea = async (page: Page, direction: 'ltr' | 'rtl') => {
+  await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index', { waitUntil: 'networkidle' });
+  await page.waitForSelector('ion-content[role="main"]');
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate((direction) => {
+    const app = document.querySelector('ion-app')!;
+    app.dir = direction;
+    app.style.setProperty('--ion-theme-safe-area-left', '76px');
+    app.style.setProperty('--ion-theme-safe-area-right', '84px');
+    app.style.setProperty('--ion-safe-area-left', '76px');
+    app.style.setProperty('--ion-safe-area-right', '84px');
+    app.classList.add('ionic-theme-enable-safe-area');
+
+    const content = document.querySelector<HTMLIonContentElement>('ion-content[role="main"]')!;
+    const logicalLeft = direction === 'ltr' ? 'start' : 'end';
+    for (const physicalSide of ['left', 'right'] as const) {
+      const logicalSide = physicalSide === 'left' ? logicalLeft : logicalLeft === 'start' ? 'end' : 'start';
+      const fab = document.createElement('ion-fab');
+      fab.mode = 'ios';
+      fab.dir = direction;
+      fab.horizontal = logicalSide;
+      fab.vertical = 'bottom';
+      fab.slot = 'fixed';
+      fab.style.setProperty('--ios-theme-menu-width', '0px');
+      fab.style.setProperty('--ios26-menu-width', '0px');
+      fab.innerHTML = `<ion-fab-button mode="ios" aria-label="${physicalSide} action">${physicalSide === 'left' ? 'L' : 'R'}</ion-fab-button>`;
+      content.append(fab);
+    }
+  }, direction);
 };
 
 test.describe('Screenshot Tests - All Routes', () => {
@@ -92,6 +125,15 @@ test.describe('Screenshot Tests - Dark Mode', () => {
         animations: route.name === 'modal:sheet' ? 'allow' : 'disabled',
         mask: [page.locator('ion-spinner')],
       });
+    });
+  }
+});
+
+test.describe('Screenshot Tests - Physical Side Safe Area', () => {
+  for (const direction of ['ltr', 'rtl'] as const) {
+    test(`should preserve bilateral page foreground geometry in ${direction.toUpperCase()}`, async ({ page }) => {
+      await preparePhysicalSideSafeArea(page, direction);
+      await expect(page).toHaveScreenshot(`physical-side-safe-area-${direction}.png`, { animations: 'disabled' });
     });
   }
 });
