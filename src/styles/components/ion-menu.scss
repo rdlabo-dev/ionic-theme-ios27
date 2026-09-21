@@ -132,3 +132,22 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
     }
   }
 }
+
+// A menu on the reserved physical side must end before the system rail. Its
+// own ion-content remains unchanged. The host consumes the matching Ionic
+// safe-area variable because its complete surface has already moved inward.
+:is(ion-app, body).ionic-theme-enable-safe-area {
+  ion-menu.ios.menu-side-end:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
+  ion-menu.ios.menu-side-start:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
+    --ion-safe-area-right: 0px;
+    right: var(--ion-theme-safe-area-right, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+    left: auto;
+  }
+
+  ion-menu.ios.menu-side-start:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
+  ion-menu.ios.menu-side-end:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
+    --ion-safe-area-left: 0px;
+    left: var(--ion-theme-safe-area-left, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+    right: auto;
+  }
+}

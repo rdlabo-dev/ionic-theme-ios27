@@ -47,6 +47,22 @@ Add one of `tab-bar-position-start`, `tab-bar-position-center`, or `tab-bar-posi
 
 These classes do not reposition a separate `ion-fab`; leave room for it when choosing the bar's position.
 
+## Physical side safe areas
+
+When a device reserves a physical side region outside the application's foreground, add `.ionic-theme-enable-safe-area` to the active `ion-app` and supply the corresponding theme variable. Use `body` only when the application has no `ion-app` root:
+
+```html
+<ion-app class="ionic-theme-enable-safe-area" style="--ion-theme-safe-area-right: 84px">...</ion-app>
+```
+
+The class enables the alternate safe-area interpretation for both physical sides. `--ion-theme-safe-area-left` and `--ion-theme-safe-area-right` independently determine the reserved width on each side, so changing sides does not require changing the class.
+
+This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when it is placed on the reserved physical side. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
+
+`ion-menu`, `ion-modal`, and `ion-popover` are handled as separate surfaces: their internal foreground components do not receive the main-page conversion and retain Ionic's standard safe-area handling. A menu presented from the reserved physical side is positioned before that region; a menu from the opposite side is unchanged. The physical side remains the same in RTL, while Ionic's `side="start"` and `side="end"` values remain logical.
+
+When a theme variable is unset, each consumer falls back to the platform safe-area environment value. The variable can instead be populated with concrete native metrics.
+
 ## Two-line inset list items
 
 Place an unslotted `ion-label` immediately alongside an unslotted `ion-note` to render a two-line item. When using the iOS-style inset-list background, wrap the items in `ion-item-group`; keep `ion-list-header` outside the group.

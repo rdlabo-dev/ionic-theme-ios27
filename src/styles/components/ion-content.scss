@@ -22,3 +22,23 @@
 ion-content.ios:not(.ios-theme-disabled, .ios26-disabled).content-fullscreen:not(:has(.ion-content-scroll-host)) {
   --padding-bottom: calc(60px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom)));
 }
+
+// A physical side rail changes foreground geometry, not the page background.
+// Reset Ionic's matching inset so descendants do not apply it a second time.
+:is(ion-app, body).ionic-theme-enable-safe-area
+  ion-content.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
+  --ion-safe-area-left: 0px;
+  --ion-safe-area-right: 0px;
+  --ios-theme-safe-area-inline-start: var(--ion-theme-safe-area-left, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  --ios-theme-safe-area-inline-end: var(--ion-theme-safe-area-right, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+
+  &::part(scroll) {
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-safe-area-inline-start));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-safe-area-inline-end));
+  }
+
+  &:dir(rtl) {
+    --ios-theme-safe-area-inline-start: var(--ion-theme-safe-area-right, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+    --ios-theme-safe-area-inline-end: var(--ion-theme-safe-area-left, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  }
+}
