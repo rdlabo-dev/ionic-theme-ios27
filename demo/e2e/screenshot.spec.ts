@@ -69,8 +69,8 @@ const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl') => {
   await page.evaluate((direction) => {
     const app = document.querySelector('ion-app')!;
     app.dir = direction;
-    app.style.setProperty('--ion-theme-safe-area-left', '76px');
-    app.style.setProperty('--ion-theme-safe-area-right', '84px');
+    app.style.setProperty('--ios-theme-foldable-safe-area-left', '76px');
+    app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
     app.style.setProperty('--ion-safe-area-left', '76px');
     app.style.setProperty('--ion-safe-area-right', '84px');
     app.classList.add('ios-theme-enable-foldable');
@@ -85,8 +85,8 @@ const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl') => {
       fab.horizontal = logicalSide;
       fab.vertical = 'center';
       fab.slot = 'fixed';
-      fab.style.setProperty('--ios-theme-menu-width', 'var(--ios-theme-safe-area-inline-start)');
-      fab.style.setProperty('--ios26-menu-width', 'var(--ios-theme-safe-area-inline-start)');
+      fab.style.setProperty('--ios-theme-menu-width', '0px');
+      fab.style.setProperty('--ios26-menu-width', '0px');
       fab.innerHTML = `<ion-fab-button mode="ios" aria-label="${physicalSide} action">${physicalSide === 'left' ? 'L' : 'R'}</ion-fab-button>`;
       content.append(fab);
     }

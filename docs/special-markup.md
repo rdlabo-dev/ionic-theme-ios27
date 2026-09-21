@@ -49,19 +49,19 @@ These classes do not reposition a separate `ion-fab`; leave room for it when cho
 
 ## Foldable layouts
 
-When a foldable device places system UI beside the application's foreground, add `.ios-theme-enable-foldable` to the active `ion-app` and supply the corresponding theme variable. Use `body` only when the application has no `ion-app` root:
+To simulate the iPhone Duo layout on the web, add `.ios-theme-enable-foldable` to the active `ion-app`. Use `body` only when the application has no `ion-app` root:
 
 ```html
-<ion-app class="ios-theme-enable-foldable" style="--ion-theme-safe-area-right: 84px">...</ion-app>
+<ion-app class="ios-theme-enable-foldable">...</ion-app>
 ```
 
-The class enables the alternate foreground interpretation of the safe area. `--ion-theme-safe-area-left` and `--ion-theme-safe-area-right` independently determine the foreground inset on each side, so changing sides does not require changing the class.
+The class reserves `80px` on the physical right by default, matching the system navigation region measured in the iPhone Duo Simulator. The physical left defaults to `0px`. Override `--ios-theme-foldable-safe-area-left` or `--ios-theme-foldable-safe-area-right` when simulating a different foldable layout.
 
 This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when it is placed beside the system UI. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
 
 `ion-menu`, `ion-modal`, and `ion-popover` are handled as separate surfaces: their internal foreground components do not receive the main-page conversion and retain Ionic's standard safe-area handling. A menu presented beside the system UI is positioned after the corresponding inset; a menu from the opposite side is unchanged. Left and right remain physical coordinates in RTL, while Ionic's `side="start"` and `side="end"` values remain logical.
 
-When a theme variable is unset, each consumer falls back to the platform safe-area environment value. The variable can instead be populated with concrete native metrics.
+The foldable values are web-layout simulation inputs. They are independent from Ionic's normal iPhone safe-area variables and do not change ordinary iPhone layouts unless the opt-in class is present.
 
 ## Two-line inset list items
 

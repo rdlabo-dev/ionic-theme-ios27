@@ -9,8 +9,12 @@ for (const direction of ['ltr', 'rtl'] as const) {
       const app = document.querySelector('ion-app')!;
       app.dir = direction;
       app.classList.add('ios-theme-enable-foldable');
-      app.style.setProperty('--ion-theme-safe-area-left', '76px');
-      app.style.setProperty('--ion-theme-safe-area-right', '84px');
+      element.side = direction === 'ltr' ? 'end' : 'start';
+      await new Promise(requestAnimationFrame);
+      const defaultBounds = element.getBoundingClientRect();
+      const defaultRightOffset = innerWidth - defaultBounds.right;
+      app.style.setProperty('--ios-theme-foldable-safe-area-left', '76px');
+      app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
       app.style.setProperty('--ion-safe-area-left', '76px');
       app.style.setProperty('--ion-safe-area-right', '84px');
       const offsets = [];
@@ -34,6 +38,7 @@ for (const direction of ['ltr', 'rtl'] as const) {
       await new Promise(requestAnimationFrame);
       if (!modalContent.classList.contains('ios')) throw new Error('Expected an iOS ion-content fixture');
       return {
+        defaultRightOffset,
         offsets,
         safeAreaLeft: contentStyle.getPropertyValue('--ion-safe-area-left').trim(),
         safeAreaRight: contentStyle.getPropertyValue('--ion-safe-area-right').trim(),
@@ -41,6 +46,7 @@ for (const direction of ['ltr', 'rtl'] as const) {
       };
     }, direction);
 
+    expect(result.defaultRightOffset).toBe(80);
     expect(result.offsets).toEqual(
       direction === 'ltr'
         ? [
