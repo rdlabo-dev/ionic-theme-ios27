@@ -133,7 +133,7 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 }
 
-// A menu on the reserved physical side must end before the system rail. Its
+// A menu beside foldable system UI must end before the reserved region. Its
 // own ion-content remains unchanged. The host consumes the matching Ionic
 // safe-area variable because its complete surface has already moved inward.
 :is(ion-app, body).ionic-theme-enable-safe-area {

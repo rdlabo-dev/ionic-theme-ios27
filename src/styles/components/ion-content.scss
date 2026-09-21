@@ -23,7 +23,7 @@ ion-content.ios:not(.ios-theme-disabled, .ios26-disabled).content-fullscreen:not
   --padding-bottom: calc(60px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom)));
 }
 
-// A physical side rail changes foreground geometry, not the page background.
+// Foldable system UI changes foreground geometry, not the page background.
 // Reset Ionic's matching inset so descendants do not apply it a second time.
 :is(ion-app, body).ionic-theme-enable-safe-area
   ion-content.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {

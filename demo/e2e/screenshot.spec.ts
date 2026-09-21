@@ -60,7 +60,7 @@ const prepareScreenShot = async (page: Page, routeName: string) => {
   }
 };
 
-const preparePhysicalSideSafeArea = async (page: Page, direction: 'ltr' | 'rtl') => {
+const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl') => {
   await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto('/main/index', { waitUntil: 'networkidle' });
@@ -129,11 +129,11 @@ test.describe('Screenshot Tests - Dark Mode', () => {
   }
 });
 
-test.describe('Screenshot Tests - Physical Side Safe Area', () => {
+test.describe('Screenshot Tests - Foldable Layout', () => {
   for (const direction of ['ltr', 'rtl'] as const) {
-    test(`should preserve bilateral page foreground geometry in ${direction.toUpperCase()}`, async ({ page }) => {
-      await preparePhysicalSideSafeArea(page, direction);
-      await expect(page).toHaveScreenshot(`physical-side-safe-area-${direction}.png`, { animations: 'disabled' });
+    test(`should keep the app foreground clear of foldable system UI in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareFoldableLayout(page, direction);
+      await expect(page).toHaveScreenshot(`foldable-layout-${direction}.png`, { animations: 'disabled' });
     });
   }
 });

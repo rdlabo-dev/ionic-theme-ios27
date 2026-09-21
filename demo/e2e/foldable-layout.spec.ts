@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 for (const direction of ['ltr', 'rtl'] as const) {
-  test(`menus consume bilateral physical safe areas in ${direction}`, async ({ page }) => {
+  test(`menus respect foldable safe-area insets in ${direction}`, async ({ page }) => {
     await page.goto('/main/index', { waitUntil: 'networkidle' });
     const menu = page.locator('ion-menu');
 
