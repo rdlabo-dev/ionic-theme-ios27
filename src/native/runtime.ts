@@ -66,6 +66,8 @@ export const createRuntime = async (
   let handoffAcrossPending = false;
   /** Captured at the start of each sync so an in-flight update keeps a stable duration. */
   let handoffInstant = false;
+  /** Retire native controls immediately as a modal starts covering the page. */
+  let modalPresentHandoff = false;
   let frame = 0;
   let updates = 0;
   let reason: string | undefined;
@@ -205,7 +207,8 @@ export const createRuntime = async (
     frame = 0;
     dirty = false;
     pending = true;
-    handoffInstant = tabSwitchHandoff || handoffAcrossPending || win.performance.now() < handoffUntil;
+    handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalPresentHandoff || win.performance.now() < handoffUntil;
+    modalPresentHandoff = false;
     try {
       const size = `${win.innerWidth}:${win.innerHeight}`;
       // WebKit can resize before Ionic's fixed DOM positions catch up.
@@ -417,6 +420,12 @@ export const createRuntime = async (
   for (const name of overlayNames) {
     on(doc, `ion${name}WillPresent`, (event) => {
       presented.add(event.target as HTMLElement);
+      if (name === 'Modal') {
+        modalPresentHandoff = true;
+        // WillPresent may arrive while another bridge update is awaiting its ack.
+        // Make that retirement instant too instead of racing the modal animation.
+        if (pending) handoffInstant = true;
+      }
       schedule();
     });
     on(doc, `ion${name}DidDismiss`, (event) => {

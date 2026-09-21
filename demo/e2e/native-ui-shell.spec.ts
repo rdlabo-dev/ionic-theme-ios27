@@ -528,6 +528,9 @@ test('modal suspension, tab hiding and destroy restore ownership', async ({ page
   await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
   await page.getByRole('button', { name: 'Open modal', exact: true }).click();
   await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1)))
+    .toMatchObject({ controls: [], transitionDuration: 0 });
   await page.getByRole('button', { name: 'Close modal', exact: true }).click();
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   await tabs.evaluate((element) => (element.style.display = 'none'));
