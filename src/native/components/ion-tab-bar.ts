@@ -7,6 +7,8 @@ export const tracksMotion = true;
 
 export const read = (element: HTMLElement, id: Identify): Candidate | undefined => {
   if (element.closest('ion-content')) return;
+  if (element.closest('ion-tabs')?.matches('.ionic-theme-adaptive-tabs:is(.ionic-theme-tabs-side-left, .ionic-theme-tabs-side-right)'))
+    return;
   const children = Array.from(element.querySelectorAll<HTMLElement>(':scope > ion-tab-button:not(.ion-cloned-element)'));
   if (!children.length) return;
   // Only equal items with Ionic's default layout map to UIKit's adaptive tabs.

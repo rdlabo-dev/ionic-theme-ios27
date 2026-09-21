@@ -163,6 +163,108 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 }
 
+// Opt-in layout for displays that reserve a vertical region beside the app.
+// Placement is deliberately explicit: the application owns the decision to
+// use a vertical tab bar, while the theme owns its geometry inside the safe-area inset.
+ion-tabs.ionic-theme-adaptive-tabs:is(.ionic-theme-tabs-side-left, .ionic-theme-tabs-side-right)
+  > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-side-tab-bar-width: 62px;
+  --ios-theme-side-tab-bar-gap: 8px;
+  --ios-theme-side-safe-area: var(--ion-theme-safe-area-right, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+
+  contain: layout style;
+  display: flex;
+  flex-direction: column;
+  width: 54px;
+  min-width: 54px;
+  max-width: 54px;
+  height: fit-content;
+  min-height: 0;
+  left: auto;
+  right: max(4px, calc((var(--ios-theme-side-safe-area) - var(--ios-theme-side-tab-bar-width)) / 2));
+  margin: 0;
+
+  &[slot='top'] {
+    top: calc(var(--ion-safe-area-top, 0px) + var(--ios-theme-side-tab-bar-gap));
+    bottom: auto;
+  }
+
+  &[slot='bottom'] {
+    top: auto;
+    bottom: calc(var(--ion-safe-area-bottom, 0px) + var(--ios-theme-side-tab-bar-gap));
+  }
+
+  > ion-tab-button:not(.ion-cloned-element) {
+    display: block;
+    flex: none;
+    width: 54px;
+    min-width: 54px;
+    height: 54px;
+    min-height: 54px;
+
+    &::part(native) {
+      justify-content: center;
+    }
+
+    ion-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    ion-icon {
+      margin: 0;
+    }
+  }
+
+  > ion-tab-button:not(.ion-cloned-element) ~ ion-tab-button:not(.ion-cloned-element) {
+    margin-block-start: 0;
+    margin-inline-start: 0;
+  }
+
+  // iPhone Duo expands the compact rail labels while the user drags across
+  // the tab bar. Keep the resting rail icon-first, then reveal every label so
+  // the destination under the pointer remains identifiable during selection.
+  &:has(> ion-tab-button:is(.ion-activated, :active)) > ion-tab-button:not(.ion-cloned-element) {
+    &::part(native) {
+      flex-direction: column;
+      padding-block: 4px;
+    }
+
+    ion-label {
+      position: static;
+      width: auto;
+      height: auto;
+      max-width: 50px;
+      padding: 0;
+      margin: 1px 0 0;
+      overflow: hidden;
+      clip: auto;
+      font-size: 0.5rem;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    ion-icon {
+      margin: 0;
+      font-size: 22px;
+    }
+  }
+}
+
+ion-tabs.ionic-theme-adaptive-tabs.ionic-theme-tabs-side-left > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-side-safe-area: var(--ion-theme-safe-area-left, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
+  left: max(4px, calc((var(--ios-theme-side-safe-area) - var(--ios-theme-side-tab-bar-width)) / 2));
+  right: auto;
+}
+
 ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   transform-origin: center 65%;
   font-size: 0.59rem;

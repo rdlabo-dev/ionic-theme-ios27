@@ -324,6 +324,32 @@ test('unsupported search morph releases and restores a native fixed-slot FAB int
   await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
 });
 
+test('side tabs stay in the web layer instead of using horizontal native projection', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index');
+  const tabs = page.locator('ion-tabs');
+  const bar = page.locator('ion-tab-bar');
+  await expect(bar).toHaveAttribute('data-native-ui-shell', '');
+
+  await tabs.evaluate((element) => element.classList.remove('ionic-theme-adaptive-tabs'));
+  await tabs.evaluate((element) => element.classList.add('ionic-theme-tabs-side-right'));
+  await expect(bar).toHaveAttribute('data-native-ui-shell', '');
+  await expect(bar).toHaveClass(/ios27-enable-gesture/);
+
+  await tabs.evaluate((element) => element.classList.add('ionic-theme-adaptive-tabs'));
+  await expect(bar).not.toHaveAttribute('data-native-ui-shell');
+  await expect(bar).not.toHaveClass(/ios27-enable-gesture/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.some((control: any) => control.kind === 'ion-tab-bar')),
+    )
+    .toBe(false);
+
+  await tabs.evaluate((element) => element.classList.remove('ionic-theme-tabs-side-right'));
+  await expect(bar).toHaveAttribute('data-native-ui-shell', '');
+  await expect(bar).toHaveClass(/ios27-enable-gesture/);
+});
+
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
