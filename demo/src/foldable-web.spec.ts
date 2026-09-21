@@ -5,7 +5,7 @@ const mountEligibleBackButton = () => {
   document.body.innerHTML = `
     <ion-app class="ios-theme-enable-foldable">
       <main class="ion-page">
-        <ion-header><ion-toolbar><ion-back-button class="ios"></ion-back-button></ion-toolbar></ion-header>
+        <ion-header><ion-toolbar class="ios"><ion-back-button class="ios"></ion-back-button></ion-toolbar></ion-header>
       </main>
     </ion-app>`;
   const button = document.querySelector('ion-back-button') as HTMLElement;
