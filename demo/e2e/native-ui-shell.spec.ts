@@ -1824,7 +1824,7 @@ test('tab switches hand off without a crossfade', async ({ page }) => {
   const segment = page.locator('app-native-ui-shell ion-segment');
   await expect(segment).toHaveAttribute('data-native-ui-shell', '');
   const before = await page.evaluate(() => (window as any).__nativeUIShell.updates.length);
-  await page.locator('ion-tab-button[tab="docs"]').click();
+  await activate(page, 'Docs');
   await expect(page).toHaveURL(/\/main\/docs/);
   await expect
     .poll(() =>
