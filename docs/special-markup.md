@@ -49,10 +49,10 @@ These classes do not reposition a separate `ion-fab`; leave room for it when cho
 
 ## Foldable layouts
 
-When a foldable device places system UI beside the application's foreground, add `.ionic-theme-enable-safe-area` to the active `ion-app` and supply the corresponding theme variable. Use `body` only when the application has no `ion-app` root:
+When a foldable device places system UI beside the application's foreground, add `.ios-theme-enable-foldable` to the active `ion-app` and supply the corresponding theme variable. Use `body` only when the application has no `ion-app` root:
 
 ```html
-<ion-app class="ionic-theme-enable-safe-area" style="--ion-theme-safe-area-right: 84px">...</ion-app>
+<ion-app class="ios-theme-enable-foldable" style="--ion-theme-safe-area-right: 84px">...</ion-app>
 ```
 
 The class enables the alternate foreground interpretation of the safe area. `--ion-theme-safe-area-left` and `--ion-theme-safe-area-right` independently determine the foreground inset on each side, so changing sides does not require changing the class.

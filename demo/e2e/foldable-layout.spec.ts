@@ -8,7 +8,7 @@ for (const direction of ['ltr', 'rtl'] as const) {
     const result = await menu.evaluate(async (element: HTMLIonMenuElement, direction) => {
       const app = document.querySelector('ion-app')!;
       app.dir = direction;
-      app.classList.add('ionic-theme-enable-safe-area');
+      app.classList.add('ios-theme-enable-foldable');
       app.style.setProperty('--ion-theme-safe-area-left', '76px');
       app.style.setProperty('--ion-theme-safe-area-right', '84px');
       app.style.setProperty('--ion-safe-area-left', '76px');

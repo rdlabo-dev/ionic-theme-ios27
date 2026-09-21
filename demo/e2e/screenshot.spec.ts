@@ -73,7 +73,7 @@ const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl') => {
     app.style.setProperty('--ion-theme-safe-area-right', '84px');
     app.style.setProperty('--ion-safe-area-left', '76px');
     app.style.setProperty('--ion-safe-area-right', '84px');
-    app.classList.add('ionic-theme-enable-safe-area');
+    app.classList.add('ios-theme-enable-foldable');
 
     const content = document.querySelector<HTMLIonContentElement>('ion-content[role="main"]')!;
     const logicalLeft = direction === 'ltr' ? 'start' : 'end';
