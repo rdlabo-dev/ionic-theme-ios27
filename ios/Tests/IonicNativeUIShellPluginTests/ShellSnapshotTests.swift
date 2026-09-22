@@ -41,12 +41,16 @@ final class ShellSnapshotTests: XCTestCase {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI adaptive tabs") }
         func tabs(_ selected: String, includeRight: Bool = true) throws -> [ShellControl] {
             var items = [item(["id": "left", "selected": selected == "left"])]
-            if includeRight { items.append(item(["id": "right", "selected": selected == "right"])) }
+            if includeRight {
+                items.append(item(["id": "right", "selected": selected == "right",
+                    "badge": ["value": "3", "color": "rgb(255, 0, 0)", "textColor": "rgb(255, 255, 255)"]]))
+            }
             return try decode([control(["kind": "ion-tab-bar", "items": items])]).controls
         }
         let model = ShellFoldableRailModel()
         let rendering = ShellRendering()
         model.apply(try tabs("left"), rendering: rendering, now: 100)
+        XCTAssertEqual(model.tabs.last?.badge?.value, "3")
         model.select("right", now: 100, ttl: 10)
         model.apply(try tabs("left"), rendering: rendering, now: 101)
         XCTAssertEqual(model.selection, "right", "a stale Web echo must not undo the optimistic selection")

@@ -31,7 +31,10 @@ const foldableRailTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons'
 
 export const isFoldableRailCandidate = (element: HTMLElement): boolean =>
   foldableRailTags.has(element.localName) &&
-  (!element.matches('ion-button') || !element.parentElement?.matches('ion-buttons') || isDisabledButtonGroupChild(element)) &&
+  (!element.matches('ion-button') ||
+    !element.parentElement?.matches('ion-buttons') ||
+    element.parentElement.children.length === 1 ||
+    isDisabledButtonGroupChild(element)) &&
   !element.closest('ion-menu, ion-modal, ion-popover') &&
   !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
 

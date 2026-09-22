@@ -223,9 +223,10 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             var fabs: [(ShellFab, ShellControl)] = []
             var searches: [(ShellSearchController, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
-            if foldable.isEmpty {
+            if foldable.isEmpty || self.keyboardVisible {
                 self.foldableRail?.detach()
                 self.foldableRail = nil
+                if self.keyboardVisible { rejectedControls.append(contentsOf: foldable.map(\.id)) }
             } else if let owner = self.bridge?.viewController {
                 let rail = self.foldableRail ?? ShellFoldableRailController(activate: { [weak self] id in self?.activate(id) })
                 self.foldableRail = rail

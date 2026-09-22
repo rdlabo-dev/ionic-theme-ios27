@@ -378,6 +378,25 @@ test('foldable back navigation requests native rail placement', async ({ page })
     )
     .toBe(true);
 
+  await page
+    .locator('app-native-ui-shell ion-buttons[slot=end] ion-button')
+    .filter({ hasText: 'Cancel' })
+    .evaluate((element) => element.remove());
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as any).__nativeUIShell.updates
+          .at(-1)
+          .controls.some(
+            (control: any) =>
+              control.kind === 'ion-button' &&
+              control.placement === 'foldable-rail' &&
+              control.items.some((item: any) => item.accessibilityLabel === 'Save'),
+          ),
+      ),
+    )
+    .toBe(true);
+
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(projection).toHaveCount(0);
   await expect(source).toHaveAttribute('data-native-ui-shell', '');

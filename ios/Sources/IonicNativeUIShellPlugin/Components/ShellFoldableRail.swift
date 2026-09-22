@@ -16,6 +16,7 @@ final class ShellFoldableRailModel: ObservableObject {
         let label: String
         let accessibilityLabel: String
         let image: UIImage?
+        let badge: ShellBadge?
         let disabled: Bool
         var selected: Bool
     }
@@ -39,7 +40,7 @@ final class ShellFoldableRailModel: ObservableObject {
         func item(_ source: ShellItem) -> Item {
             Item(id: source.id, label: source.content.label,
                  accessibilityLabel: source.content.accessibilityLabel,
-                 image: rendering.image(source.content), disabled: source.content.disabled,
+                 image: rendering.image(source.content), badge: source.content.badge, disabled: source.content.disabled,
                  selected: source.content.selected)
         }
         back = controls.first(where: { $0.kind == .backButton })?.items.first.map(item)
@@ -95,6 +96,16 @@ private struct ShellFoldableLabel: View {
 }
 
 @available(iOS 26.0, *)
+private struct ShellFoldableBadge: ViewModifier {
+    let badge: ShellBadge?
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if let badge { content.badge(badge.value) }
+        else { content }
+    }
+}
+
+@available(iOS 26.0, *)
 private struct ShellFoldableRailView: View {
     @ObservedObject var model: ShellFoldableRailModel
 
@@ -111,6 +122,7 @@ private struct ShellFoldableRailView: View {
                                 .allowsHitTesting(false)
                                 .tag(item.id)
                                 .tabItem { ShellFoldableLabel(item: item) }
+                                .modifier(ShellFoldableBadge(badge: item.badge))
                                 .disabled(item.disabled)
                                 .accessibilityLabel(item.accessibilityLabel)
                                 .accessibilityIdentifier(item.id)
