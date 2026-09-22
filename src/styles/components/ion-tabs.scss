@@ -166,7 +166,9 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 // iPhone Duo reserves the physical right edge for system navigation. In the
 // web simulation, keep tabs in that same rail so the application remains
 // usable without introducing a second navigation component.
-:is(ion-app, body).ios-theme-enable-foldable ion-tabs > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+:is(ion-app, body).ios-theme-enable-foldable
+  ion-tabs:not(:where(ion-menu *, ion-modal *, ion-popover *))
+  > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --ios-theme-side-tab-bar-width: 62px;
   --ios-theme-side-tab-bar-gap: 8px;
   --ios-theme-side-safe-area: var(--ios-theme-foldable-safe-area-right-resolved);

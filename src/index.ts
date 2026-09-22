@@ -18,7 +18,8 @@ export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffe
   let effect: registeredEffect | undefined;
   const update = () => {
     effect?.destroy();
-    const isVertical = foldableRoot.classList.contains('ios-theme-enable-foldable');
+    const isVertical =
+      foldableRoot.classList.contains('ios-theme-enable-foldable') && !targetElement.closest('ion-menu, ion-modal, ion-popover');
     effect =
       reducedMotion.matches || isVertical
         ? undefined

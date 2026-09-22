@@ -26,4 +26,19 @@ test('foldable mode moves tabs into the right rail and reveals labels while drag
 
   await expect(page).toHaveScreenshot('foldable-tab-drag-labels.png', { animations: 'disabled' });
   await page.mouse.up();
+
+  const overlayDirection = await page.evaluate(async () => {
+    const menu = document.querySelector('ion-menu')!;
+    const tabs = document.createElement('ion-tabs');
+    const overlayBar = document.createElement('ion-tab-bar');
+    overlayBar.mode = 'ios';
+    tabs.append(overlayBar);
+    menu.append(tabs);
+    await customElements.whenDefined('ion-tab-bar');
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const direction = getComputedStyle(overlayBar).flexDirection;
+    tabs.remove();
+    return direction;
+  });
+  expect(overlayDirection).toBe('row');
 });
