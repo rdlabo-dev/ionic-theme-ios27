@@ -22,6 +22,27 @@ const web = (reason: string): NativeUIShellHandle => ({
   destroy: async () => {},
 });
 
+const combine = (native: NativeUIShellHandle, fallback: NativeUIShellHandle): NativeUIShellHandle => ({
+  getStatus() {
+    const nativeStatus = native.getStatus();
+    const fallbackStatus = fallback.getStatus();
+    return {
+      ...nativeStatus,
+      state:
+        nativeStatus.state === 'stopped' && fallbackStatus.state === 'stopped' ? 'stopped' : nativeStatus.projected > 0 ? 'native' : 'web',
+      projected: nativeStatus.projected + fallbackStatus.projected,
+      updates: nativeStatus.updates + fallbackStatus.updates,
+    };
+  },
+  async suspend() {
+    const [nativeLease, fallbackLease] = await Promise.all([native.suspend(), fallback.suspend()]);
+    return { resume: async () => void (await Promise.all([nativeLease.resume(), fallbackLease.resume()])) };
+  },
+  async destroy() {
+    await Promise.all([native.destroy(), fallback.destroy()]);
+  },
+});
+
 /** Reads the current native WebView geometry and applies it to page transitions. */
 export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
   const metrics = typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' ? await plugin.getWebViewMetrics() : { radius: 0 };
@@ -48,10 +69,12 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     let runtime: NativeUIShellHandle | undefined;
     try {
       await configureNativeTransition().catch(() => undefined);
-      if (!(await plugin.configure()).supported) {
+      const capabilities = await plugin.configure();
+      if (!capabilities.supported) {
         return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires iOS 26 or later'));
       }
-      runtime = await createRuntime(document, plugin, options);
+      runtime = await createRuntime(document, plugin, options, capabilities.foldableRail === true);
+      if (capabilities.foldableRail !== true) runtime = combine(runtime, createFoldableWebProjection(document, options));
       runtime = await bindMetricsLifecycle(
         runtime,
         () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),

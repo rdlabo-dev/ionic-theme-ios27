@@ -133,7 +133,7 @@ export interface WebViewMetrics {
 }
 
 export interface NativeUIShellPlugin {
-  configure(): Promise<{ supported: boolean }>;
+  configure(): Promise<{ supported: boolean; foldableRail?: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;

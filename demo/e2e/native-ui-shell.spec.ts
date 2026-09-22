@@ -6,64 +6,67 @@ import * as overlayTypes from '../src/app/overlay-types';
 
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
-const mockNative = async (page: Page, fail = false) => {
-  await page.addInitScript((fail) => {
-    const state = {
-      updates: [] as any[],
-      sequence: 0,
-      delay: 0,
-      hang: false,
-      rejectInactiveSearch: false,
-      rejectAllSearch: false,
-      activate: (_event: any) => {},
-      search: (_event: any) => {},
-      metrics: (_event: any) => {},
-    };
-    Object.assign(window, {
-      __nativeUIShell: state,
-      CapacitorCustomPlatform: { name: 'ios' },
-      Capacitor: {
-        PluginHeaders: [
-          {
-            name: 'IonicNativeUIShell',
-            methods: [
-              { name: 'configure', rtype: 'promise' },
-              { name: 'getWebViewMetrics', rtype: 'promise' },
-              { name: 'update', rtype: 'promise' },
-              { name: 'clear', rtype: 'promise' },
-              { name: 'addListener' },
-              { name: 'removeListener' },
-            ],
+const mockNative = async (page: Page, fail = false, foldableRail = true) => {
+  await page.addInitScript(
+    ({ fail, foldableRail }) => {
+      const state = {
+        updates: [] as any[],
+        sequence: 0,
+        delay: 0,
+        hang: false,
+        rejectInactiveSearch: false,
+        rejectAllSearch: false,
+        activate: (_event: any) => {},
+        search: (_event: any) => {},
+        metrics: (_event: any) => {},
+      };
+      Object.assign(window, {
+        __nativeUIShell: state,
+        CapacitorCustomPlatform: { name: 'ios' },
+        Capacitor: {
+          PluginHeaders: [
+            {
+              name: 'IonicNativeUIShell',
+              methods: [
+                { name: 'configure', rtype: 'promise' },
+                { name: 'getWebViewMetrics', rtype: 'promise' },
+                { name: 'update', rtype: 'promise' },
+                { name: 'clear', rtype: 'promise' },
+                { name: 'addListener' },
+                { name: 'removeListener' },
+              ],
+            },
+          ],
+          nativePromise: async (_plugin: string, method: string, options: any) => {
+            if (method === 'configure') return { supported: true, foldableRail };
+            if (method === 'getWebViewMetrics') return { radius: 0 };
+            state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
+            if (state.hang && method === 'update') await new Promise(() => {});
+            if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
+            if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
+            return {
+              revision: options.revision,
+              rejectedSearches:
+                state.rejectInactiveSearch || state.rejectAllSearch
+                  ? options.controls
+                      ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
+                      .map((control: any) => control.id)
+                  : [],
+            };
           },
-        ],
-        nativePromise: async (_plugin: string, method: string, options: any) => {
-          if (method === 'configure') return { supported: true };
-          if (method === 'getWebViewMetrics') return { radius: 0 };
-          state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
-          if (state.hang && method === 'update') await new Promise(() => {});
-          if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
-          if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
-          return {
-            revision: options.revision,
-            rejectedSearches:
-              state.rejectInactiveSearch || state.rejectAllSearch
-                ? options.controls
-                    ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
-                    .map((control: any) => control.id)
-                : [],
-          };
+          nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
+            if (method === 'addListener') {
+              if (options.eventName === 'search') state.search = callback;
+              else if (options.eventName === 'activate') state.activate = callback;
+              else if (options.eventName === 'webViewMetricsChange') state.metrics = callback;
+            }
+            return 'shell-listener';
+          },
         },
-        nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
-          if (method === 'addListener') {
-            if (options.eventName === 'search') state.search = callback;
-            else if (options.eventName === 'activate') state.activate = callback;
-            else if (options.eventName === 'webViewMetricsChange') state.metrics = callback;
-          }
-          return 'shell-listener';
-        },
-      },
-    });
-  }, fail);
+      });
+    },
+    { fail, foldableRail },
+  );
 };
 
 const activate = (page: Page, label: string, duplicate = false) =>
@@ -402,6 +405,29 @@ test('foldable back navigation requests native rail placement', async ({ page })
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
+test('foldable controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
+  await mockNative(page, false, false);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+
+  const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
+  await expect(projection).toBeVisible();
+  await expect(page.locator('ion-tab-bar')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as any).__nativeUIShell.updates.every((snapshot: any) =>
+          snapshot.controls.every((control: any) => control.placement !== 'foldable-rail'),
+        ),
+      ),
+    )
+    .toBe(true);
+
+  await projection.click();
+  await expect(page).toHaveURL(/\/main\/index$/);
+});
+
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
@@ -425,18 +451,30 @@ test('ancestor display, element opt-out aliases and non-glass fills restore Web'
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const button = page.locator('app-native-ui-shell ion-button[type=submit]');
+  const toolbar = button.locator('xpath=ancestor::ion-toolbar[1]');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   await page.getByRole('button', { name: 'Parent hidden: false', exact: true }).click();
   await expect(button).not.toHaveAttribute('data-native-ui-shell');
   await page.getByRole('button', { name: 'Parent hidden: true', exact: true }).click();
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   for (const name of ['ios-theme-disabled', 'ios26-disabled', 'ionic-theme-disabled']) {
+    await toolbar.evaluate((element, name) => element.classList.add(name), name);
+    await expect(button).not.toHaveAttribute('data-native-ui-shell');
+    await toolbar.evaluate((element, name) => element.classList.remove(name), name);
+    await expect(button).toHaveAttribute('data-native-ui-shell', '');
+  }
+  for (const name of ['ios-theme-disabled', 'ios26-disabled', 'ionic-theme-disabled']) {
     await button.evaluate((element, name) => element.classList.add(name), name);
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await button.evaluate((element, name) => element.classList.remove(name), name);
     await expect(button).toHaveAttribute('data-native-ui-shell', '');
   }
-  for (const fill of ['solid', 'outline']) {
+  await page
+    .locator('app-native-ui-shell ion-buttons[slot=end] ion-button')
+    .filter({ hasText: 'Cancel' })
+    .evaluate((element) => element.remove());
+  await expect(button).toHaveAttribute('data-native-ui-shell', '');
+  for (const fill of ['clear', 'solid', 'outline']) {
     await page.getByRole('button', { name: `fill: ${fill}`, exact: true }).click();
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await expect(button.locator('button')).toHaveCSS('visibility', 'visible');

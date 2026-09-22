@@ -31,6 +31,7 @@ export const createRuntime = async (
   doc: Document,
   plugin: NativeUIShellPlugin,
   options: NativeUIShellOptions = {},
+  nativeFoldableRail = true,
 ): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
@@ -125,7 +126,10 @@ export const createRuntime = async (
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
     const candidate = readCandidate(element, id);
-    if (candidate && isFoldableRailCandidate(element)) candidate.control.placement = 'foldable-rail';
+    if (candidate && isFoldableRailCandidate(element)) {
+      if (!nativeFoldableRail) return undefined;
+      candidate.control.placement = 'foldable-rail';
+    }
     return candidate && controlEnabled(candidate) ? candidate : undefined;
   };
   const flush = async () => {

@@ -109,6 +109,11 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             self?.removeControls()
             self?.revision = 0
             if #available(iOS 26.0, *) {
+                self?.bridge?.webView?.layoutIfNeeded()
+                // A foldable rail exists only when the system reserves enough of
+                // the physical right edge to host its adaptive controls. Ordinary
+                // iPhone/iPad safe areas must keep using the Web projection.
+                let foldableRail = (self?.bridge?.webView?.safeAreaInsets.right ?? 0) >= 70
                 // Ionic already paints the header edge; a second native effect can
                 // add a dark scrim when the OS and Web themes differ.
                 if let effect = self?.bridge?.webView?.scrollView.topEdgeEffect {
@@ -116,7 +121,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     effect.isHidden = true
                     self?.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
                 }
-                call.resolve(["supported": true])
+                call.resolve(["supported": true, "foldableRail": foldableRail])
             }
             else { call.resolve(["supported": false]) }
         }

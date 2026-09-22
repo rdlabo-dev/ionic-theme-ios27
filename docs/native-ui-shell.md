@@ -169,7 +169,7 @@ The native material and control appearance follow the running iOS version; an iO
 
 ## Foldable controls
 
-On supported iOS versions, adding `.ios-theme-enable-foldable` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
+On supported iOS versions, adding `.ios-theme-enable-foldable` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar only when iOS reports a physical right-side safe area large enough for that rail. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
 
 The SwiftUI surface is clipped and hit-tested to the system rail. Web content remains visible and interactive outside that physical region. The runtime optimistically updates tab selection before forwarding the action to the original `ion-tab-button`, using the same event and stale-revision protection as the other native controls. Menus, modals, and popovers remain independent surfaces and are not moved into the main-page rail.
 
