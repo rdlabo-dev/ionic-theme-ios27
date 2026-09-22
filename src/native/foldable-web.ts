@@ -87,6 +87,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     const highestPage = Math.max(...candidates.map(pageOrder));
     return candidates.filter((candidate) => pageOrder(candidate) === highestPage);
   };
+  const isCurrentToolbarAction = (source: HTMLElement) => findToolbarGroups().some((group) => toolbarActions(group).includes(source));
   const restore = () => {
     backProjection?.remove();
     backProjection = undefined;
@@ -202,7 +203,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
           (event) => {
             event.preventDefault();
             event.stopImmediatePropagation();
-            if (source.isConnected) source.click();
+            if (isCurrentToolbarAction(source)) source.click();
           },
           { capture: true },
         );
