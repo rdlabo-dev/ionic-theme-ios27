@@ -6,7 +6,16 @@ export const marker = 'data-native-ui-shell';
 export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
 export const excluded =
   '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-page-hidden, .ion-page-invisible, .ion-cloned-element, [hidden], [inert]';
+const disabledButtonGroup = 'ion-buttons:is(.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled)';
 const shellDisabledSelector = '.ios-theme-shell-disabled';
+
+export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
+  element.matches('ion-button.ios') && element.parentElement?.matches(disabledButtonGroup) === true;
+
+export const isExcluded = (element: HTMLElement): boolean => {
+  const owner = element.closest<HTMLElement>(excluded);
+  return !!owner && !(element.parentElement === owner && isDisabledButtonGroupChild(element));
+};
 
 // A shared native surface must not cover an opted-out descendant either.
 export const isShellDisabled = (element: Element): boolean =>
@@ -23,7 +32,7 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
 };
 
 export const visible = (element: HTMLElement): boolean => {
-  if (!element.isConnected || element.closest(excluded) || isShellDisabled(element)) return false;
+  if (!element.isConnected || isExcluded(element) || isShellDisabled(element)) return false;
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
     if (style.display === 'none' || style.visibility !== 'visible' || (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker)))

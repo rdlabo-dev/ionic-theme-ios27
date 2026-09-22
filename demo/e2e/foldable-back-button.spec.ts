@@ -98,3 +98,18 @@ test('foldable toolbar projects icon actions and preserves text-only actions', a
   await textAction.evaluate((element) => element.remove());
   await expect(sourceGroup).toBeHidden();
 });
+
+test('theme-disabled ion-buttons project their icon actions as independent controls', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index/native-ui-shell');
+  const app = page.locator('ion-app');
+  const sourceGroup = page.locator('[data-glass-group]');
+  await sourceGroup.evaluate((element) => element.classList.add('ionic-theme-disabled'));
+  await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await expect(
+    page.locator(
+      'ion-app > ion-button.ios-theme-foldable-toolbar-projection:has(ion-icon:is([name="logo-github"], [name="refresh-circle"]))',
+    ),
+  ).toHaveCount(2);
+  await expect(sourceGroup).toBeHidden();
+});

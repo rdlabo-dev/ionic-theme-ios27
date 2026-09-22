@@ -765,6 +765,27 @@ test('clear ion-buttons share one glass surface and keep independent actions', a
   await expect(github.locator('button')).toHaveCSS('visibility', 'visible');
 });
 
+test('theme-disabled ion-buttons project eligible buttons independently', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('[data-glass-group]').evaluate((group) => {
+    group.classList.add('ionic-theme-disabled');
+    group.querySelectorAll<HTMLIonButtonElement>('ion-button').forEach((button) => (button.fill = 'default'));
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+        const isDemoAction = (control: any) => control.items.some((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel));
+        return {
+          buttons: controls.filter((control: any) => control.kind === 'ion-button' && isDemoAction(control)).length,
+          groups: controls.filter((control: any) => control.kind === 'ion-buttons' && isDemoAction(control)).length,
+        };
+      }),
+    )
+    .toEqual({ buttons: 2, groups: 0 });
+});
+
 test('all demo pages keep projection consistent through consecutive navigation', async ({ page }) => {
   test.setTimeout(240000);
   await page.setViewportSize({ width: 440, height: 956 });

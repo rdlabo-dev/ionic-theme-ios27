@@ -495,6 +495,16 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
     border-radius: 50%;
   }
 
+  > ion-button.ios.ios-theme-foldable-toolbar-projection {
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+    --border-radius: 50%;
+    @include glass.light-shadow('--box-shadow');
+
+    &::part(native) {
+      @include api.glass-control-background($include-background: false, $shadow: var(--box-shadow));
+    }
+  }
+
   > ion-buttons.ios.ios-theme-foldable-toolbar-projection {
     display: flex;
     flex-direction: column;

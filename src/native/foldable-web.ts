@@ -1,5 +1,5 @@
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
-import { excluded, isShellDisabled, marker, unprojected } from './shared/dom';
+import { isExcluded, isShellDisabled, marker, unprojected } from './shared/dom';
 
 const backProjectionClass = 'ios-theme-foldable-back-button-projection';
 const toolbarProjectionClass = 'ios-theme-foldable-toolbar-projection';
@@ -11,6 +11,11 @@ interface ToolbarProjection {
   source: HTMLIonButtonsElement;
   projection: HTMLElement;
   actions: { source: HTMLElement; projection: HTMLElement; previousAriaHidden: string | null }[];
+}
+
+interface ToolbarSource {
+  group: HTMLIonButtonsElement;
+  actions: HTMLElement[];
 }
 
 export const createFoldableWebProjection = (doc: Document, options: NativeUIShellOptions): NativeUIShellHandle => {
@@ -55,7 +60,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       !!edge?.matches('ion-header, ion-footer') &&
       !element.closest('ion-content') &&
       !edge.hasAttribute('collapse') &&
-      !element.closest(excluded) &&
+      !isExcluded(element) &&
       !isShellDisabled(element) &&
       !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden, .ion-page-invisible')
     );
@@ -63,7 +68,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     inEligibleToolbar(element) && unprojected(projectedSources(), () => isRendered(element));
   const isToolbarAction = (element: HTMLElement) => {
-    if (!element.matches('ion-button.ios, ion-menu-button.ios') || element.closest(excluded) || isShellDisabled(element)) return false;
+    if (!element.matches('ion-button.ios, ion-menu-button.ios') || isExcluded(element) || isShellDisabled(element)) return false;
     if (element.matches('ion-menu-button')) return true;
     return !!element.querySelector('ion-icon, svg');
   };
@@ -81,15 +86,19 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     })[0];
   };
   const findToolbarGroups = () => {
-    const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons.ios:not(.${toolbarProjectionClass})`)).filter(
-      (group) =>
-        inEligibleToolbar(group) &&
-        unprojected(projectedSources(), () => isRendered(group) && toolbarActions(group).some((action) => isRendered(action))),
+    const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons.ios:not(.${toolbarProjectionClass})`)).flatMap(
+      (group): ToolbarSource[] => {
+        const actions = toolbarActions(group).filter((action) => unprojected(projectedSources(), () => isRendered(action)));
+        if (!actions.length) return [];
+        if (group.matches('.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled'))
+          return actions.filter(inEligibleToolbar).map((action) => ({ group, actions: [action] }));
+        return inEligibleToolbar(group) && unprojected(projectedSources(), () => isRendered(group)) ? [{ group, actions }] : [];
+      },
     );
-    const highestPage = Math.max(...candidates.map(pageOrder));
-    return candidates.filter((candidate) => pageOrder(candidate) === highestPage);
+    const highestPage = Math.max(...candidates.map(({ group }) => pageOrder(group)));
+    return candidates.filter(({ group }) => pageOrder(group) === highestPage);
   };
-  const isCurrentToolbarAction = (source: HTMLElement) => findToolbarGroups().some((group) => toolbarActions(group).includes(source));
+  const isCurrentToolbarAction = (source: HTMLElement) => findToolbarGroups().some(({ actions }) => actions.includes(source));
   const restore = () => {
     backProjection?.remove();
     backProjection = undefined;
@@ -146,12 +155,11 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       target.replaceChildren(...(clonedIcon ? [clonedIcon] : []));
     }
   };
-  const sameSources = (back: HTMLIonBackButtonElement | undefined, groups: HTMLIonButtonsElement[]) =>
+  const sameSources = (back: HTMLIonBackButtonElement | undefined, groups: ToolbarSource[]) =>
     back === backSource &&
     groups.length === toolbarProjections.length &&
-    groups.every((group, index) => {
+    groups.every(({ group, actions }, index) => {
       const current = toolbarProjections[index];
-      const actions = toolbarActions(group);
       return (
         group === current.source &&
         actions.length === current.actions.length &&
@@ -170,7 +178,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       topOffset += actions.length * toolbarControlSize + toolbarControlGap;
     }
   };
-  const project = (nextBack: HTMLIonBackButtonElement | undefined, groups: HTMLIonButtonsElement[]) => {
+  const project = (nextBack: HTMLIonBackButtonElement | undefined, groups: ToolbarSource[]) => {
     root = foldableRoot()!;
     let topOffset = 0;
     if (nextBack) {
@@ -193,8 +201,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       nextBack.dispatchEvent(new CustomEvent('nativeUIShellChange'));
       topOffset = toolbarControlSize + toolbarControlGap;
     }
-    for (const group of groups) {
-      const sources = toolbarActions(group);
+    for (const { group, actions: sources } of groups) {
       const projection = (sources.length === 1 ? sources[0] : group).cloneNode(false) as HTMLElement;
       if (sources.length === 1) syncAction(projection, sources[0]);
       else copyAttributes(projection, group);
@@ -226,7 +233,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     if (nextBack || toolbarProjections.length) root.classList.add(readyClass);
     sourceObserver = new MutationObserver(schedule);
     if (nextBack?.shadowRoot) sourceObserver.observe(nextBack.shadowRoot, { subtree: true, childList: true, attributes: true });
-    for (const group of groups) sourceObserver.observe(group, { subtree: true, childList: true, attributes: true });
+    for (const { group } of groups) sourceObserver.observe(group, { subtree: true, childList: true, attributes: true });
   };
   const performUpdate = () => {
     frame = 0;
