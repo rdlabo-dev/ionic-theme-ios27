@@ -169,18 +169,20 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 :is(ion-app, body).ios-theme-enable-foldable
   ion-tabs:not(:where(ion-menu *, ion-modal *, ion-popover *))
   > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --ios-theme-side-tab-bar-width: 62px;
+  --ios-theme-side-tab-bar-width: 50px;
   --ios-theme-side-tab-bar-gap: 8px;
   --ios-theme-side-safe-area: var(--ios-theme-foldable-safe-area-right-resolved);
 
   contain: layout style;
   display: flex;
   flex-direction: column;
-  width: 54px;
-  min-width: 54px;
-  max-width: 54px;
+  width: 46px;
+  min-width: 46px;
+  max-width: 46px;
   height: fit-content;
   min-height: 0;
+  padding: 2px;
+  border-radius: 25px;
   left: auto;
   right: max(4px, calc((var(--ios-theme-side-safe-area) - var(--ios-theme-side-tab-bar-width)) / 2));
   margin: 0;
@@ -191,10 +193,11 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   > ion-tab-button:not(.ion-cloned-element) {
     display: block;
     flex: none;
-    width: 54px;
-    min-width: 54px;
-    height: 54px;
-    min-height: 54px;
+    width: 46px;
+    min-width: 46px;
+    height: 52px;
+    min-height: 52px;
+    border-radius: 23px;
 
     &::part(native) {
       justify-content: center;
@@ -214,6 +217,7 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
     ion-icon {
       margin: 0;
+      font-size: 28px;
     }
   }
 
@@ -222,9 +226,8 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline-start: 0;
   }
 
-  // iPhone Duo identifies the selected destination at rest, then expands all
-  // labels while the user drags across the rail.
-  > ion-tab-button.tab-selected:not(.ion-cloned-element),
+  // iPhone Duo expands labels while the user drags across the rail. The
+  // stable four-tab layout remains icon-only, matching SwiftUI's TabView.
   &:has(> ion-tab-button:is(.ion-activated, :active)) > ion-tab-button:not(.ion-cloned-element) {
     &::part(native) {
       flex-direction: column;
@@ -235,7 +238,7 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       position: static;
       width: auto;
       height: auto;
-      max-width: 50px;
+      max-width: 44px;
       padding: 0;
       margin: 1px 0 0;
       overflow: hidden;

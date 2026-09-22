@@ -63,7 +63,7 @@ This keeps routers and component backgrounds full-viewport. `ion-content` moves 
 
 The foldable values are web-layout simulation inputs. They are independent from Ionic's normal iPhone safe-area variables and do not change ordinary iPhone layouts unless the opt-in class is present.
 
-When the app contains `ion-tabs`, foldable mode moves its iOS tab bar into the physical right-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different foldable position. At rest, the selected tab displays its icon and label while unselected tabs remain icon-only. While the user presses and drags across the rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The tab bar remains in the web layer and receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; foldable mode does not convert tabs into a menu.
+When the app contains `ion-tabs`, foldable mode moves its iOS tab bar into the physical right-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different foldable position. The stable rail is icon-only, matching a four-tab SwiftUI `TabView` on iPhone Duo. While the user presses and drags across the rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The tab bar remains in the web layer and receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; foldable mode does not convert tabs into a menu.
 
 ## Two-line inset list items
 

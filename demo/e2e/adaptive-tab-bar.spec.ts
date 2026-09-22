@@ -15,8 +15,8 @@ test('foldable mode moves tabs into the right rail and reveals labels while drag
   const buttons = bar.locator('ion-tab-button');
   const barBox = (await bar.boundingBox())!;
   expect(barBox.x).toBeGreaterThan(620);
-  expect(barBox.width).toBeCloseTo(62, 0);
-  await expect(buttons.first().locator('ion-label')).toHaveCSS('position', 'static');
+  expect(barBox.width).toBeCloseTo(50, 0);
+  await expect(buttons.first().locator('ion-label')).toHaveCSS('position', 'absolute');
   await expect(buttons.nth(1).locator('ion-label')).toHaveCSS('position', 'absolute');
 
   const selectedBox = (await buttons.first().boundingBox())!;
