@@ -222,9 +222,9 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline-start: 0;
   }
 
-  // iPhone Duo expands the compact rail labels while the user drags across
-  // the tab bar. Keep the resting rail icon-first, then reveal every label so
-  // the destination under the pointer remains identifiable during selection.
+  // iPhone Duo identifies the selected destination at rest, then expands all
+  // labels while the user drags across the rail.
+  > ion-tab-button.tab-selected:not(.ion-cloned-element),
   &:has(> ion-tab-button:is(.ion-activated, :active)) > ion-tab-button:not(.ion-cloned-element) {
     &::part(native) {
       flex-direction: column;
