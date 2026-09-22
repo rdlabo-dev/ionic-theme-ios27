@@ -88,9 +88,13 @@ test('foldable toolbar projects icon actions and preserves text-only actions', a
   const iconSource = sourceGroup.locator('ion-button[aria-label="Save"]');
   const iconProjection = page.locator('ion-app > ion-button.ios-theme-foldable-toolbar-projection[aria-label="Save"]');
 
+  await expect(sourceGroup).toBeVisible();
   await expect(textAction).toBeVisible();
   await expect(iconSource).toBeHidden();
   await expect(iconProjection).toBeVisible();
   await iconProjection.click();
   await expect(page.locator('[data-save-count]')).toHaveText('1');
+
+  await textAction.evaluate((element) => element.remove());
+  await expect(sourceGroup).toBeHidden();
 });

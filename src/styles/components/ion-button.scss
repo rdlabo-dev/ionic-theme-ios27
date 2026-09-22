@@ -453,6 +453,13 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
     display: none;
   }
 
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-buttons.ios:has(> :is(ion-back-button, ion-button, ion-menu-button)[data-native-ui-shell]):not(
+      :has(> :is(ion-back-button, ion-button, ion-menu-button):not([data-native-ui-shell]))
+    ) {
+    display: none;
+  }
+
   > ion-back-button.ios.ios-theme-foldable-back-button-projection {
     position: fixed;
     z-index: 1001;
