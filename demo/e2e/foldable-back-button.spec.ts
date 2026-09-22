@@ -86,7 +86,7 @@ test('foldable toolbar projects icon actions and preserves text-only actions', a
   const sourceGroup = page.locator('app-native-ui-shell ion-header ion-buttons[slot="end"]').first();
   const textAction = sourceGroup.getByText('Cancel', { exact: true });
   const iconSource = sourceGroup.locator('ion-button[aria-label="Save"]');
-  const iconProjection = page.locator('ion-app > ion-buttons.ios-theme-foldable-toolbar-projection ion-button[aria-label="Save"]');
+  const iconProjection = page.locator('ion-app > ion-button.ios-theme-foldable-toolbar-projection[aria-label="Save"]');
 
   await expect(textAction).toBeVisible();
   await expect(iconSource).toBeHidden();

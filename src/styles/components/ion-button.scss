@@ -457,32 +457,43 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
     position: fixed;
     z-index: 1001;
     top: var(--ios-theme-foldable-toolbar-top, 220px);
-    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 68px) / 2));
+    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 46px) / 2));
     display: block;
-    width: 68px;
-    height: 68px;
+    width: 46px;
+    height: 46px;
     margin: 0;
   }
 
-  > ion-buttons.ios.ios-theme-foldable-toolbar-projection {
+  > .ios.ios-theme-foldable-toolbar-projection {
     position: fixed;
     z-index: 1001;
     top: calc(var(--ios-theme-foldable-toolbar-top, 220px) + var(--ios-theme-foldable-toolbar-offset, 0px));
-    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 68px) / 2));
+    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 46px) / 2));
+    width: 46px;
+    min-width: 46px;
+    height: 46px;
+    min-height: 46px;
+    margin: 0;
+  }
+
+  > ion-menu-button.ios.ios-theme-foldable-toolbar-projection {
+    @include api.glass-control-background;
+    border-radius: 50%;
+  }
+
+  > ion-buttons.ios.ios-theme-foldable-toolbar-projection {
     display: flex;
     flex-direction: column;
-    width: 68px;
-    min-width: 68px;
     height: auto;
-    margin: 0;
+    min-height: 0;
 
     > :is(ion-button, ion-menu-button).ios.ios-theme-foldable-toolbar-action {
       display: block;
-      width: 60px;
-      min-width: 60px;
-      height: 68px;
-      min-height: 68px;
-      margin: 0 4px;
+      width: 42px;
+      min-width: 42px;
+      height: 46px;
+      min-height: 46px;
+      margin: 0 2px;
 
       &::part(native) {
         margin-inline: auto;

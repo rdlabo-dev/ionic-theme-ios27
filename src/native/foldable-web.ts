@@ -4,12 +4,12 @@ import { excluded, isShellDisabled, marker, unprojected } from './shared/dom';
 const backProjectionClass = 'ios-theme-foldable-back-button-projection';
 const toolbarProjectionClass = 'ios-theme-foldable-toolbar-projection';
 const readyClass = 'ios-theme-foldable-toolbar-ready';
-const toolbarControlSize = 68;
-const toolbarControlGap = 16;
+const toolbarControlSize = 46;
+const toolbarControlGap = 10;
 
 interface ToolbarProjection {
   source: HTMLIonButtonsElement;
-  projection: HTMLIonButtonsElement;
+  projection: HTMLElement;
   actions: { source: HTMLElement; projection: HTMLElement; previousAriaHidden: string | null }[];
 }
 
@@ -162,10 +162,11 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     if (backSource && backProjection) syncBack(backProjection, backSource);
     let topOffset = backSource ? toolbarControlSize + toolbarControlGap : 0;
     for (const { projection, source, actions } of toolbarProjections) {
-      copyAttributes(projection, source);
+      if (actions.length === 1 && !projection.matches('ion-buttons')) syncAction(projection, actions[0].source);
+      else copyAttributes(projection, source);
       projection.classList.add(toolbarProjectionClass, 'ion-cloned-element');
       projection.style.setProperty('--ios-theme-foldable-toolbar-offset', `${topOffset}px`);
-      actions.forEach(({ source: action, projection: clone }) => syncAction(clone, action));
+      if (projection.matches('ion-buttons')) actions.forEach(({ source: action, projection: clone }) => syncAction(clone, action));
       topOffset += actions.length * toolbarControlSize + toolbarControlGap;
     }
   };
@@ -193,13 +194,15 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       topOffset = toolbarControlSize + toolbarControlGap;
     }
     for (const group of groups) {
-      const projection = group.cloneNode(false) as HTMLIonButtonsElement;
-      copyAttributes(projection, group);
+      const sources = toolbarActions(group);
+      const projection = (sources.length === 1 ? sources[0] : group).cloneNode(false) as HTMLElement;
+      if (sources.length === 1) syncAction(projection, sources[0]);
+      else copyAttributes(projection, group);
       projection.classList.add(toolbarProjectionClass, 'ion-cloned-element');
       projection.style.setProperty('--ios-theme-foldable-toolbar-offset', `${topOffset}px`);
-      const actions = toolbarActions(group).map((source) => {
-        const clone = source.cloneNode(false) as HTMLElement;
-        syncAction(clone, source);
+      const actions = sources.map((source) => {
+        const clone = sources.length === 1 ? projection : (source.cloneNode(false) as HTMLElement);
+        if (sources.length > 1) syncAction(clone, source);
         clone.addEventListener(
           'click',
           (event) => {
@@ -209,7 +212,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
           },
           { capture: true },
         );
-        projection.append(clone);
+        if (sources.length > 1) projection.append(clone);
         const previousAriaHidden = source.getAttribute('aria-hidden');
         source.setAttribute(marker, '');
         source.setAttribute('aria-hidden', 'true');
