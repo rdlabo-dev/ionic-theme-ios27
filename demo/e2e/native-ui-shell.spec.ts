@@ -324,7 +324,7 @@ test('unsupported search morph releases and restores a native fixed-slot FAB int
   await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
 });
 
-test('foldable tabs stay in the web layer instead of using horizontal native projection', async ({ page }) => {
+test('foldable tabs request native adaptive rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index');
   const app = page.locator('ion-app');
@@ -332,20 +332,23 @@ test('foldable tabs stay in the web layer instead of using horizontal native pro
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
 
   await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
-  await expect(bar).not.toHaveAttribute('data-native-ui-shell');
-  await expect(bar).not.toHaveClass(/ios27-enable-gesture/);
+  await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect
     .poll(() =>
-      page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.some((control: any) => control.kind === 'ion-tab-bar')),
+      page.evaluate(() =>
+        (window as any).__nativeUIShell.updates
+          .at(-1)
+          .controls.some((control: any) => control.kind === 'ion-tab-bar' && control.placement === 'foldable-rail'),
+      ),
     )
-    .toBe(false);
+    .toBe(true);
 
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(bar).toHaveClass(/ios27-enable-gesture/);
 });
 
-test('foldable back navigation hands ownership between native and Web projection', async ({ page }) => {
+test('foldable back navigation requests native rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const app = page.locator('ion-app');
@@ -354,14 +357,26 @@ test('foldable back navigation hands ownership between native and Web projection
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 
   await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
-  await expect(projection).toHaveCount(1);
+  await expect(projection).toHaveCount(0);
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
   await expect
     .poll(() =>
-      page.evaluate(() =>
-        (window as any).__nativeUIShell.updates.at(-1).controls.some((control: any) => control.kind === 'ion-back-button'),
+      page.evaluate(
+        () =>
+          (window as any).__nativeUIShell.updates
+            .at(-1)
+            .controls.some((control: any) => control.kind === 'ion-back-button' && control.placement === 'foldable-rail') &&
+          (window as any).__nativeUIShell.updates
+            .at(-1)
+            .controls.some(
+              (control: any) =>
+                control.kind === 'ion-buttons' &&
+                control.placement === 'foldable-rail' &&
+                control.items.some((item: any) => item.label === 'Cancel'),
+            ),
       ),
     )
-    .toBe(false);
+    .toBe(true);
 
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(projection).toHaveCount(0);

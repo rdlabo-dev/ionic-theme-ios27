@@ -10,7 +10,7 @@ import type {
   NativeUIShellPlugin,
   NativeUIShellStatus,
 } from './definitions';
-import { readCandidate, selector, shadowSelector, motionSelector } from './components';
+import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
 import { marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
@@ -125,12 +125,7 @@ export const createRuntime = async (
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
     const candidate = readCandidate(element, id);
-    if (
-      candidate &&
-      ['ion-back-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind) &&
-      element.closest(':is(ion-app, body).ios-theme-enable-foldable')
-    )
-      return undefined;
+    if (candidate && isFoldableRailCandidate(element)) candidate.control.placement = 'foldable-rail';
     return candidate && controlEnabled(candidate) ? candidate : undefined;
   };
   const flush = async () => {

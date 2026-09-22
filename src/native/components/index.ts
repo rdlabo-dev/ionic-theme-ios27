@@ -27,13 +27,22 @@ export const motionSelector = [
   ...components.filter((component) => 'tracksMotion' in component && component.tracksMotion).map((component) => component.tag),
 ].join(', ');
 
+const foldableRailTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons', 'ion-menu-button', 'ion-tab-bar']);
+
+export const isFoldableRailCandidate = (element: HTMLElement): boolean =>
+  foldableRailTags.has(element.localName) &&
+  (!element.matches('ion-button') || !element.parentElement?.matches('ion-buttons') || isDisabledButtonGroupChild(element)) &&
+  !element.closest('ion-menu, ion-modal, ion-popover') &&
+  !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
+
 export const readCandidate = (element: HTMLElement, id: Identify): Candidate | undefined => {
   if (!element.classList.contains('ios') || !visible(element) || element.closest('ion-modal, ion-popover')) return;
   const style = getComputedStyle(element);
   if (
     !isDisabledButtonGroupChild(element) &&
     !style.getPropertyValue('--ios-theme-glass-background-rgb').trim() &&
-    !style.getPropertyValue('--ios26-glass-background-rgb').trim()
+    !style.getPropertyValue('--ios26-glass-background-rgb').trim() &&
+    !isFoldableRailCandidate(element)
   )
     return;
   if (element.contains(element.ownerDocument.activeElement)) return;

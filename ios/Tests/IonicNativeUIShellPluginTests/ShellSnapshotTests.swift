@@ -37,6 +37,31 @@ final class ShellSnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor func testFoldableTabOptimismWaitsForWebAndRollsBackWhenStale() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI adaptive tabs") }
+        func tabs(_ selected: String, includeRight: Bool = true) throws -> [ShellControl] {
+            var items = [item(["id": "left", "selected": selected == "left"])]
+            if includeRight { items.append(item(["id": "right", "selected": selected == "right"])) }
+            return try decode([control(["kind": "ion-tab-bar", "items": items])]).controls
+        }
+        let model = ShellFoldableRailModel()
+        let rendering = ShellRendering()
+        model.apply(try tabs("left"), rendering: rendering, now: 100)
+        model.select("right", now: 100, ttl: 10)
+        model.apply(try tabs("left"), rendering: rendering, now: 101)
+        XCTAssertEqual(model.selection, "right", "a stale Web echo must not undo the optimistic selection")
+        model.apply(try tabs("right"), rendering: rendering, now: 102)
+        XCTAssertEqual(model.selection, "right", "the matching Web echo confirms the selection")
+
+        model.apply(try tabs("left"), rendering: rendering, now: 200)
+        model.select("right", now: 200, ttl: 10)
+        model.apply(try tabs("left"), rendering: rendering, now: 211)
+        XCTAssertEqual(model.selection, "left", "an expired selection rolls back to Web state")
+        model.select("right", now: 220, ttl: 10)
+        model.apply(try tabs("left", includeRight: false), rendering: rendering, now: 221)
+        XCTAssertEqual(model.selection, "left", "a removed target rolls back immediately")
+    }
+
     @MainActor func testSegmentSelectionEchoPreservesNativeViewsAndActionsUseUpdatedItems() throws {
         guard #available(iOS 26.0, *) else { return }
         func node(_ items: [JSObject]) throws -> ShellControl {

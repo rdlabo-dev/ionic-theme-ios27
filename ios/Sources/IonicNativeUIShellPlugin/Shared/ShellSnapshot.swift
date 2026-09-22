@@ -31,8 +31,10 @@ struct ShellFrame: Decodable, Equatable {
 }
 
 struct ShellControl: Decodable, Equatable {
+    enum Placement: String, Decodable { case foldableRail = "foldable-rail" }
     let id: String
     let kind: ShellComponent
+    let placement: Placement?
     let frame: ShellFrame
     let items: [ShellItem]
     let dark: Bool
@@ -40,12 +42,13 @@ struct ShellControl: Decodable, Equatable {
     let tabBarAnchor: ShellTabBar.Anchor?
     let search: ShellSearch?
 
-    private enum CodingKeys: String, CodingKey { case id, kind, items, dark, rtl, tabBarAnchor, search }
+    private enum CodingKeys: String, CodingKey { case id, kind, placement, items, dark, rtl, tabBarAnchor, search }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
         kind = try values.decode(ShellComponent.self, forKey: .kind)
+        placement = try values.decodeIfPresent(Placement.self, forKey: .placement)
         frame = try ShellFrame(from: decoder)
         items = try values.decode([ShellItem].self, forKey: .items)
         dark = try values.decode(Bool.self, forKey: .dark)

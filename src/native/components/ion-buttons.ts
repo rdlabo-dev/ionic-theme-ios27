@@ -10,12 +10,15 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
   if (!inFixedToolbar(element)) return;
   const children = Array.from(element.children) as HTMLElement[];
   if (children.length === 1) return menuButton.read(element, id);
+  const foldable =
+    !element.closest('ion-menu, ion-modal, ion-popover') && !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
   if (
     !children.length ||
     children.some(
       (child) =>
         !child.matches(`${menuButton.tag}.ios`) &&
-        (!child.matches('ion-button.ios.button-clear') || (child as HTMLIonButtonElement).fill !== 'clear'),
+        (!child.matches(`ion-button.ios${foldable ? '' : '.button-clear'}`) ||
+          !(foldable ? ['default', 'clear'] : ['clear']).includes((child as HTMLIonButtonElement).fill ?? 'default')),
     )
   )
     return;

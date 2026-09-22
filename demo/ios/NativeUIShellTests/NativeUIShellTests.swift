@@ -249,6 +249,39 @@ final class NativeUIShellTests: XCTestCase {
         capture("native-tab-settings")
     }
 
+    func testNativeFoldableRail() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["Foldable Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        toggle.tap()
+
+        let index = app.buttons["Index"]
+        let library = app.buttons["Library"]
+        XCTAssertTrue(index.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(library.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(app.buttons["menu"].waitForExistence(timeout: 10), app.debugDescription)
+        capture("native-foldable-index")
+
+        library.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Library"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(library.isSelected)
+
+        index.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+        openPage(app, name: "native-ui-shell")
+        let save = nativeButton(app, label: "Save")
+        XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
+        save.tap()
+        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-foldable-toolbar")
+
+        let back = nativeButton(app, label: "back")
+        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+        back.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+    }
+
     func testNativeShellPageAuditAndRepeatedNavigation() throws {
         executionTimeAllowance = 900
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")

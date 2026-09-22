@@ -83,6 +83,8 @@ export interface ShellItem extends Frame {
 export interface ShellControl extends Frame {
   id: string;
   kind: NativeUIShellComponent;
+  /** Lets the native host own adaptive placement instead of mirroring the DOM frame. */
+  placement?: 'foldable-rail';
   items: ShellItem[];
   dark: boolean;
   rtl: boolean;

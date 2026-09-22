@@ -33,10 +33,14 @@
 <ion-content [fullscreen]="true">
   <section class="controls">
     <form #formRef (submit)="save($event)">
-      <p>Save count: <strong data-save-count>{{ saves() }}</strong></p>
+      <p>
+        Save count: <strong data-save-count>{{ saves() }}</strong>
+      </p>
     </form>
     <p>Experimental: On supported iOS versions, fixed glass controls are rendered natively.</p>
-    <p>Selection: <strong data-selection>{{ selected() }}</strong> / Change count: <strong data-changes>{{ changes() }}</strong></p>
+    <p>
+      Selection: <strong data-selection>{{ selected() }}</strong> / Change count: <strong data-changes>{{ changes() }}</strong>
+    </p>
     <button type="button" (click)="selected.set('one')">Select One programmatically</button>
     <button type="button" (click)="modalOpen.set(true)">Open modal</button>
     <p>Scroll the background to compare transparency and refraction in the top-right button.</p>
@@ -44,13 +48,13 @@
     <button type="button" (click)="hidden.set(!hidden())">Parent hidden: {{ hidden() }}</button>
     <button type="button" (click)="themeDisabled.set(!themeDisabled())">Theme disabled: {{ themeDisabled() }}</button>
     @for (value of fills; track value) {
-    <button type="button" (click)="fill.set(value)">fill: {{ value }}</button>
+      <button type="button" (click)="fill.set(value)">fill: {{ value }}</button>
     }
   </section>
   @for (band of bands; track band) {
-  <div class="band" [class.alternate]="band % 2 === 0">
-    <span>{{ band }} — GLASS / Glass / 123456789</span>
-  </div>
+    <div class="band" [class.alternate]="band % 2 === 0">
+      <span>{{ band }} — GLASS / Glass / 123456789</span>
+    </div>
   }
 </ion-content>
 <ion-modal [isOpen]="modalOpen()" (didDismiss)="modalOpen.set(false)">

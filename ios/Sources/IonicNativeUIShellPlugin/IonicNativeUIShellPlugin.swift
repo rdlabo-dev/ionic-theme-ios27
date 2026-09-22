@@ -13,6 +13,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
     ]
     private var host: ShellHost?
+    private var foldableRail: ShellFoldableRailControlling?
     private var controls: [String: UIView] = [:]
     private var searchControllers: [String: UIViewController] = [:]
     private var fingerprints: [String: ShellControl] = [:]
@@ -40,7 +41,10 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         self.keyboardVisible = !overlap.isNull && overlap.width > 0 && overlap.height > 0
                     }
                 }
-                if !keyboard { self.host?.isHidden = true }
+                if !keyboard {
+                    self.host?.isHidden = true
+                    self.foldableRail?.view.isHidden = true
+                }
                 var searchOwnsKeyboard = false
                 if #available(iOS 26.0, *) {
                     self.searchControllers.values.forEach {
@@ -146,6 +150,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         Array(controls.keys).forEach { removeControl($0, duration: duration) }
         host?.removeFromSuperview()
         host = nil
+        foldableRail?.detach()
+        foldableRail = nil
         rendering.clear()
         pendingTabSelections.removeAll()
         pendingTabExpiryWorks.values.forEach { $0.cancel() }
@@ -194,10 +200,11 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             let duration = ShellCrossfade.duration(snapshot.transitionDuration)
             let existing = Set(self.controls.keys)
-            let snapshots = snapshot.controls
+            let foldable = snapshot.controls.filter { $0.placement == .foldableRail }
+            let snapshots = snapshot.controls.filter { $0.placement != .foldableRail }
             let width = snapshot.viewportWidth
             self.revision = next
-            if snapshots.isEmpty {
+            if snapshots.isEmpty && foldable.isEmpty {
                 self.removeControls(duration: duration)
                 call.resolve(["revision": next]); return
             }
@@ -216,6 +223,18 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             var fabs: [(ShellFab, ShellControl)] = []
             var searches: [(ShellSearchController, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
+            if foldable.isEmpty {
+                self.foldableRail?.detach()
+                self.foldableRail = nil
+            } else if let owner = self.bridge?.viewController {
+                let rail = self.foldableRail ?? ShellFoldableRailController(activate: { [weak self] id in self?.activate(id) })
+                self.foldableRail = rail
+                rail.attach(to: owner, in: owner.view)
+                rail.apply(foldable, rendering: self.rendering)
+                rail.view.isHidden = false
+            } else {
+                rejectedControls.append(contentsOf: foldable.map(\.id))
+            }
             UIView.performWithoutAnimation {
                 if host.superview !== parent { parent.addSubview(host) }
                 for node in snapshots {

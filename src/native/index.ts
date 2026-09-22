@@ -43,13 +43,13 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
   }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
   return (active ??= (async () => {
-    const foldableWeb = createFoldableWebProjection(document, options);
-    if (Capacitor.getPlatform() !== 'ios') return resetOnDestroy(withReason(foldableWeb, 'Requires Capacitor iOS'));
+    if (Capacitor.getPlatform() !== 'ios')
+      return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires Capacitor iOS'));
     let runtime: NativeUIShellHandle | undefined;
     try {
       await configureNativeTransition().catch(() => undefined);
       if (!(await plugin.configure()).supported) {
-        return resetOnDestroy(withReason(foldableWeb, 'Requires iOS 26 or later'));
+        return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires iOS 26 or later'));
       }
       runtime = await createRuntime(document, plugin, options);
       runtime = await bindMetricsLifecycle(
@@ -57,28 +57,15 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
         () => (active = undefined),
       );
-      return resetOnDestroy(combine(runtime, foldableWeb));
+      return resetOnDestroy(runtime);
     } catch (error) {
       await runtime?.destroy();
-      return resetOnDestroy(withReason(foldableWeb, error instanceof Error ? error.message : String(error)));
+      return resetOnDestroy(
+        withReason(createFoldableWebProjection(document, options), error instanceof Error ? error.message : String(error)),
+      );
     }
   })());
 };
-
-const combine = (native: NativeUIShellHandle, foldableWeb: NativeUIShellHandle): NativeUIShellHandle => ({
-  getStatus: () => {
-    const nativeStatus = native.getStatus();
-    const webStatus = foldableWeb.getStatus();
-    return { ...nativeStatus, projected: nativeStatus.projected + webStatus.projected };
-  },
-  async suspend() {
-    const [nativeLease, webLease] = await Promise.all([native.suspend(), foldableWeb.suspend()]);
-    return { resume: async () => void (await Promise.all([nativeLease.resume(), webLease.resume()])) };
-  },
-  async destroy() {
-    await Promise.all([native.destroy(), foldableWeb.destroy()]);
-  },
-});
 
 const resetOnDestroy = (handle: NativeUIShellHandle): NativeUIShellHandle => ({
   getStatus: handle.getStatus,

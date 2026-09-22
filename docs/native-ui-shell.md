@@ -6,7 +6,7 @@ title: Native UI Shell (Experimental)
 
 Native UI Shell is experimental. Its API and supported controls may change.
 
-Native UI Shell gives an Ionic app native navigation and action controls around its Web content. The optional Capacitor iOS plugin renders supported fixed Ionic controls with UIKit and the system's Liquid Glass material. Page content, scrolling, application state and routing remain in Ionic's WebView.
+Native UI Shell gives an Ionic app native navigation and action controls around its Web content. The optional Capacitor iOS plugin renders supported fixed Ionic controls with UIKit or SwiftUI and the system's Liquid Glass material. Page content, scrolling, application state and routing remain in Ionic's WebView.
 
 ## Background
 
@@ -166,6 +166,14 @@ try {
 Suspensions are nestable and `resume()` is idempotent. Native projection resumes only after every active suspension has been released, using the current DOM rather than a stale snapshot.
 
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
+
+## Foldable controls
+
+On supported iOS versions, adding `.ios-theme-enable-foldable` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
+
+The SwiftUI surface is clipped and hit-tested to the system rail. Web content remains visible and interactive outside that physical region. The runtime optimistically updates tab selection before forwarding the action to the original `ion-tab-button`, using the same event and stale-revision protection as the other native controls. Menus, modals, and popovers remain independent surfaces and are not moved into the main-page rail.
+
+The foldable exception accepts standard `fill="default"` and `fill="clear"` fixed-toolbar buttons because SwiftUI determines their compact representation. Solid, outline, custom-color, scrolling, and explicitly opted-out controls remain on the Web. On Web, Android, older iOS, or when native projection is unavailable during setup, the existing foldable Web projection remains the fallback.
 
 ## Native UI Shell API
 
