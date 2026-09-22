@@ -260,7 +260,10 @@ final class NativeUIShellTests: XCTestCase {
         let library = app.buttons["Library"]
         XCTAssertTrue(index.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(library.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue(app.buttons["menu"].waitForExistence(timeout: 10), app.debugDescription)
+        assertOnFoldableRail(index, in: app)
+        let menu = nativeButton(app, label: "menu")
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), app.debugDescription)
+        assertOnFoldableRail(menu, in: app)
         capture("native-foldable-index")
 
         library.tap()
@@ -281,6 +284,11 @@ final class NativeUIShellTests: XCTestCase {
         assertOnFoldableRail(back, in: app)
         back.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+
+        let restoredMenu = nativeButton(app, label: "menu")
+        XCTAssertTrue(restoredMenu.waitForExistence(timeout: 10), app.debugDescription)
+        restoredMenu.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Docs"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
     }
 
     private func assertOnFoldableRail(_ element: XCUIElement, in app: XCUIApplication,

@@ -12,6 +12,17 @@ const shellDisabledSelector = '.ios-theme-shell-disabled';
 export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
   element.matches('ion-button.ios') && element.parentElement?.matches(disabledButtonGroup) === true;
 
+const foldableRailTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons', 'ion-menu-button', 'ion-tab-bar']);
+
+export const isFoldableRailSource = (element: HTMLElement): boolean =>
+  foldableRailTags.has(element.localName) &&
+  (!element.matches('ion-button') ||
+    !element.parentElement?.matches('ion-buttons') ||
+    element.parentElement.children.length === 1 ||
+    isDisabledButtonGroupChild(element)) &&
+  !element.closest('ion-menu, ion-modal, ion-popover') &&
+  !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
+
 export const isExcluded = (element: HTMLElement): boolean => {
   const owner = element.closest<HTMLElement>(excluded);
   return !!owner && !(element.parentElement === owner && isDisabledButtonGroupChild(element));
@@ -31,7 +42,7 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
   }
 };
 
-export const visible = (element: HTMLElement): boolean => {
+export const visible = (element: HTMLElement, allowOutsideViewport = false): boolean => {
   if (!element.isConnected || isExcluded(element) || isShellDisabled(element)) return false;
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
@@ -48,7 +59,9 @@ export const visible = (element: HTMLElement): boolean => {
   }
   const rect = element.getBoundingClientRect();
   return (
-    rect.width > 0 && rect.height > 0 && rect.left >= -1 && rect.top >= -1 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1
+    rect.width > 0 &&
+    rect.height > 0 &&
+    (allowOutsideViewport || (rect.left >= -1 && rect.top >= -1 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1))
   );
 };
 
@@ -70,10 +83,11 @@ export const text = (element: Element): string => {
 
 export const inFixedToolbar = (element: Element): boolean => {
   const edge = element.closest('ion-toolbar')?.parentElement;
+  const foldable = !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
   return (
     !!edge?.matches('ion-header, ion-footer') &&
     !element.closest('ion-content') &&
     !edge.hasAttribute('collapse') &&
-    !edge.matches('.header-collapse-main, .header-collapse-condense')
+    (foldable || !edge.matches('.header-collapse-main, .header-collapse-condense'))
   );
 };

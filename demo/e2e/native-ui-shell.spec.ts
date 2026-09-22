@@ -341,10 +341,12 @@ test('foldable tabs request native adaptive rail placement', async ({ page }) =>
       page.evaluate(() =>
         (window as any).__nativeUIShell.updates
           .at(-1)
-          .controls.some((control: any) => control.kind === 'ion-tab-bar' && control.placement === 'foldable-rail'),
+          .controls.filter((control: any) => control.placement === 'foldable-rail')
+          .map((control: any) => control.kind)
+          .sort(),
       ),
     )
-    .toBe(true);
+    .toEqual(['ion-buttons', 'ion-tab-bar']);
 
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
