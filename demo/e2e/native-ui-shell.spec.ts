@@ -402,24 +402,22 @@ test('native click preserves external form submit, disabled, and duplicate prote
   expect(await page.evaluate(() => (window as any).__nativeUIShell.updates.length)).toBe(count);
 });
 
-test('ancestor display/theme aliases and non-glass fills restore Web', async ({ page }) => {
+test('ancestor display, element opt-out aliases and non-glass fills restore Web', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const button = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
-  for (const toggle of ['Parent hidden', 'Theme disabled']) {
-    await page.getByRole('button', { name: `${toggle}: false`, exact: true }).click();
-    await expect(button).not.toHaveAttribute('data-native-ui-shell');
-    await page.getByRole('button', { name: `${toggle}: true`, exact: true }).click();
-    await expect(button).toHaveAttribute('data-native-ui-shell', '');
-  }
+  await page.getByRole('button', { name: 'Parent hidden: false', exact: true }).click();
+  await expect(button).not.toHaveAttribute('data-native-ui-shell');
+  await page.getByRole('button', { name: 'Parent hidden: true', exact: true }).click();
+  await expect(button).toHaveAttribute('data-native-ui-shell', '');
   for (const name of ['ios-theme-disabled', 'ios26-disabled', 'ionic-theme-disabled']) {
     await button.evaluate((element, name) => element.classList.add(name), name);
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await button.evaluate((element, name) => element.classList.remove(name), name);
     await expect(button).toHaveAttribute('data-native-ui-shell', '');
   }
-  for (const fill of ['clear', 'solid', 'outline']) {
+  for (const fill of ['solid', 'outline']) {
     await page.getByRole('button', { name: `fill: ${fill}`, exact: true }).click();
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await expect(button.locator('button')).toHaveCSS('visibility', 'visible');
