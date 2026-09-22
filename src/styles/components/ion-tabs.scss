@@ -163,14 +163,13 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 }
 
-// Opt-in layout for displays that reserve a vertical region beside the app.
-// Placement is deliberately explicit: the application owns the decision to
-// use a vertical tab bar, while the theme owns its geometry inside the safe-area inset.
-ion-tabs.ionic-theme-adaptive-tabs:is(.ionic-theme-tabs-side-left, .ionic-theme-tabs-side-right)
-  > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+// iPhone Duo reserves the physical right edge for system navigation. In the
+// web simulation, keep tabs in that same rail so the application remains
+// usable without introducing a second navigation component.
+:is(ion-app, body).ios-theme-enable-foldable ion-tabs > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --ios-theme-side-tab-bar-width: 62px;
   --ios-theme-side-tab-bar-gap: 8px;
-  --ios-theme-side-safe-area: var(--ion-theme-safe-area-right, var(--safe-area-inset-right, env(safe-area-inset-right, 0px)));
+  --ios-theme-side-safe-area: var(--ios-theme-foldable-safe-area-right-resolved);
 
   contain: layout style;
   display: flex;
@@ -184,15 +183,8 @@ ion-tabs.ionic-theme-adaptive-tabs:is(.ionic-theme-tabs-side-left, .ionic-theme-
   right: max(4px, calc((var(--ios-theme-side-safe-area) - var(--ios-theme-side-tab-bar-width)) / 2));
   margin: 0;
 
-  &[slot='top'] {
-    top: calc(var(--ion-safe-area-top, 0px) + var(--ios-theme-side-tab-bar-gap));
-    bottom: auto;
-  }
-
-  &[slot='bottom'] {
-    top: auto;
-    bottom: calc(var(--ion-safe-area-bottom, 0px) + var(--ios-theme-side-tab-bar-gap));
-  }
+  top: auto;
+  bottom: calc(var(--ion-safe-area-bottom, 0px) + var(--ios-theme-side-tab-bar-gap));
 
   > ion-tab-button:not(.ion-cloned-element) {
     display: block;
@@ -257,12 +249,6 @@ ion-tabs.ionic-theme-adaptive-tabs:is(.ionic-theme-tabs-side-left, .ionic-theme-
       font-size: 22px;
     }
   }
-}
-
-ion-tabs.ionic-theme-adaptive-tabs.ionic-theme-tabs-side-left > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  --ios-theme-side-safe-area: var(--ion-theme-safe-area-left, var(--safe-area-inset-left, env(safe-area-inset-left, 0px)));
-  left: max(4px, calc((var(--ios-theme-side-safe-area) - var(--ios-theme-side-tab-bar-width)) / 2));
-  right: auto;
 }
 
 ion-tab-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
