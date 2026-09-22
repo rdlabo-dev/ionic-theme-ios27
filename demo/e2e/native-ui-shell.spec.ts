@@ -414,7 +414,7 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
         const demoActions = (control: any) =>
           control.items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
         return {
@@ -425,6 +425,35 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
     )
     .toEqual({ groups: 1, individuals: 0 });
 
+  await actionGroup.evaluate((element) => {
+    const cancel = document.createElement('ion-button') as HTMLIonButtonElement;
+    cancel.classList.add('ios');
+    cancel.fill = 'clear';
+    cancel.textContent = 'Cancel mixed action';
+    element.prepend(cancel);
+  });
+  const mixedCancel = actionGroup.locator('ion-button').filter({ hasText: 'Cancel mixed action' });
+  const mixedIcons = actionGroup.locator('ion-button').filter({ has: page.locator('ion-icon') });
+  await expect(actionGroup).not.toHaveAttribute('data-native-ui-shell');
+  await expect(mixedIcons).toHaveCount(2);
+  await expect(mixedIcons.nth(0)).toHaveAttribute('data-native-ui-shell', '');
+  await expect(mixedIcons.nth(1)).toHaveAttribute('data-native-ui-shell', '');
+  await expect(mixedCancel).not.toHaveAttribute('data-native-ui-shell');
+  await expect(mixedCancel).toBeVisible();
+  await expect.poll(() => mixedCancel.evaluate((element) => getComputedStyle(element).visibility)).toBe('visible');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
+        const demoActions = (control: any) =>
+          control.items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
+        return {
+          groups: controls.filter((control: any) => control.kind === 'ion-buttons' && demoActions(control) === 2).length,
+          individuals: controls.filter((control: any) => control.kind === 'ion-button' && demoActions(control) > 0).length,
+        };
+      }),
+    )
+    .toEqual({ groups: 1, individuals: 0 });
   const nativeSaveDisabled = () =>
     page.evaluate(
       () =>
@@ -441,11 +470,19 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
         .filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel))
         .map((item: any) => item.disabled),
     );
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
+  await activate(page, 'menu');
+  await expect(menu).toHaveClass(/show-menu/);
+  await expect.poll(nativeActionsDisabled).toEqual([true, true]);
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
+  await expect.poll(nativeActionsDisabled).toEqual([false, false]);
+  await expect.poll(() => mixedCancel.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+  await mixedCancel.evaluate((element) => element.remove());
+  await expect(actionGroup).toHaveAttribute('data-native-ui-shell', '');
   await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
   await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
   await expect.poll(nativeSaveDisabled).toBe(true);
   await expect.poll(nativeActionsDisabled).toEqual([true, true]);
-  await activate(page, 'menu');
   await expect(menu).toHaveClass(/show-menu/);
   await expect
     .poll(() => menu.evaluate((element) => element.shadowRoot?.querySelector('[part~="container"]')?.getBoundingClientRect().left))
@@ -918,7 +955,7 @@ test('theme-disabled ion-buttons project eligible buttons independently', async 
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
         const isDemoAction = (control: any) => control.items.some((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel));
         return {
           buttons: controls.filter((control: any) => control.kind === 'ion-button' && isDemoAction(control)).length,

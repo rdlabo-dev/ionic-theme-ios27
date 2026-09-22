@@ -222,6 +222,27 @@ private struct ShellFoldableLegacyToolbar: ViewModifier {
 
 @available(iOS 26.0, *)
 final class ShellFoldableRailController: ShellFoldableRailControlling {
+    private final class TransparentHostingController<Content: View>: UIHostingController<Content> {
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            makeFullSizeSurfacesTransparent(in: view)
+        }
+
+        private func makeFullSizeSurfacesTransparent(in surface: UIView) {
+            guard !(surface is UIVisualEffectView) else { return }
+            let frame = surface.convert(surface.bounds, to: view)
+            let background = surface.backgroundColor?.resolvedColor(with: surface.traitCollection)
+            let systemBackground = UIColor.systemBackground.resolvedColor(with: surface.traitCollection)
+            // SwiftUI's hosting containers add opaque system backgrounds behind their bars. Remove only those
+            // host-sized base surfaces; preserve smaller controls, materials, and application-defined backgrounds.
+            if frame.insetBy(dx: -1, dy: -1).contains(view.bounds), background == systemBackground {
+                surface.backgroundColor = .clear
+                surface.isOpaque = false
+            }
+            surface.subviews.forEach(makeFullSizeSurfacesTransparent)
+        }
+    }
+
     private final class RailContainer: UIView {
         private let railMask = CAShapeLayer()
 
@@ -246,7 +267,7 @@ final class ShellFoldableRailController: ShellFoldableRailControlling {
     }
 
     private let model = ShellFoldableRailModel()
-    private lazy var controller = UIHostingController(rootView: ShellFoldableRailView(model: model))
+    private lazy var controller = TransparentHostingController(rootView: ShellFoldableRailView(model: model))
     private let container = RailContainer()
     private weak var owner: UIViewController?
 

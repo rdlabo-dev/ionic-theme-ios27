@@ -38,14 +38,15 @@ export const isFoldableToolbarAction = (element: HTMLElement): boolean =>
   !isShellDisabled(element) &&
   (element.matches('ion-menu-button.ios') || (element.matches('ion-button.ios') && !!element.querySelector('ion-icon, svg')));
 
+export const foldableToolbarActions = (element: HTMLElement): HTMLElement[] =>
+  Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isFoldableToolbarAction(child));
+
 export const isFoldableToolbarGroup = (element: HTMLElement): boolean => {
-  const children = Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
   return (
     element.matches('ion-buttons.ios') &&
-    children.length > 1 &&
+    foldableToolbarActions(element).length > 1 &&
     !element.matches('.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled') &&
-    !isShellDisabled(element) &&
-    children.every(isFoldableToolbarAction)
+    !isShellDisabled(element)
   );
 };
 

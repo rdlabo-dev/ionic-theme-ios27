@@ -20,6 +20,7 @@ import { createCrossfade, fadeMarker } from './shared/crossfade';
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
 const foldableRailMarker = 'data-native-ui-shell-foldable-rail';
+const foldableRailMemberMarker = 'data-native-ui-shell-foldable-rail-member';
 
 // A failed bridge must not leave the source inaccessible indefinitely.
 const bounded = <T>(promise: Promise<T>): Promise<T> =>
@@ -40,6 +41,8 @@ export const createRuntime = async (
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
   const sources = new Map<HTMLElement, string | null>();
+  const foldableRailOwners = new Set<HTMLElement>();
+  const foldableRailMembers = new Set<HTMLElement>();
   const suspended = new Set<HTMLElement[]>();
   const pages = new Set<HTMLElement>();
   const presented = new Set<HTMLElement>();
@@ -103,13 +106,15 @@ export const createRuntime = async (
        pointer-events rule supplied by the application itself. */
     :where(.menu-content-open) :where([${foldableRailMarker}]) {
       pointer-events: auto;
+    }
+    :where(.menu-content-open) :where([${foldableRailMarker}]) > :where(:not([${foldableRailMemberMarker}])) {
+      pointer-events: none;
     }`;
 
   const restore = (element: HTMLElement) => {
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    element.removeAttribute(foldableRailMarker);
     if (!stopped) crossfade.play(element, false, handoffInstant);
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
@@ -119,7 +124,13 @@ export const createRuntime = async (
     sources.delete(element);
     element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
   };
-  const restoreAll = () => Array.from(sources.keys()).forEach(restore);
+  const restoreAll = () => {
+    Array.from(sources.keys()).forEach(restore);
+    foldableRailOwners.forEach((element) => element.removeAttribute(foldableRailMarker));
+    foldableRailOwners.clear();
+    foldableRailMembers.forEach((element) => element.removeAttribute(foldableRailMemberMarker));
+    foldableRailMembers.clear();
+  };
   const finishWaiters = () => {
     const current = waiters;
     waiters = [];
@@ -294,8 +305,13 @@ export const createRuntime = async (
       const current = dirty ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)])) : signatures;
       const currentSources = new Set(currentCandidates.flatMap(candidateSources));
       const accepted = candidates.filter((candidate) => current.get(candidate.element) === signatures.get(candidate.element));
-      const acceptedFoldableRailSources = new Set(
-        accepted.filter((candidate) => candidate.control.placement === 'foldable-rail').flatMap(candidateSources),
+      const acceptedFoldableRailOwners = new Set(
+        accepted.filter((candidate) => candidate.control.placement === 'foldable-rail').map((candidate) => candidate.element),
+      );
+      const acceptedFoldableRailMembers = new Set(
+        accepted
+          .filter((candidate) => candidate.control.placement === 'foldable-rail')
+          .flatMap((candidate) => Array.from(candidate.actions.values())),
       );
       const invalidated = candidates.length !== accepted.length;
       acceptedRevision = result.revision;
@@ -306,8 +322,25 @@ export const createRuntime = async (
       // Keep an existing cover while its content catches up. Only an ineligible
       // source needs to return to Web; new sources still require an exact ack.
       for (const element of sources.keys()) if (!currentSources.has(element)) restore(element);
+      for (const element of foldableRailOwners) {
+        if (acceptedFoldableRailOwners.has(element)) continue;
+        element.removeAttribute(foldableRailMarker);
+        foldableRailOwners.delete(element);
+      }
+      for (const element of acceptedFoldableRailOwners) {
+        element.setAttribute(foldableRailMarker, '');
+        foldableRailOwners.add(element);
+      }
+      for (const element of foldableRailMembers) {
+        if (acceptedFoldableRailMembers.has(element)) continue;
+        element.removeAttribute(foldableRailMemberMarker);
+        foldableRailMembers.delete(element);
+      }
+      for (const element of acceptedFoldableRailMembers) {
+        element.setAttribute(foldableRailMemberMarker, '');
+        foldableRailMembers.add(element);
+      }
       for (const element of accepted.flatMap(candidateSources)) {
-        element.toggleAttribute(foldableRailMarker, acceptedFoldableRailSources.has(element));
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
           crossfade.play(element, true, handoffInstant);

@@ -1,5 +1,13 @@
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
-import { activateProjectedElement, isExcluded, isFoldableToolbarAction, isShellDisabled, marker, unprojected } from './shared/dom';
+import {
+  activateProjectedElement,
+  foldableToolbarActions,
+  isExcluded,
+  isFoldableToolbarGroup,
+  isShellDisabled,
+  marker,
+  unprojected,
+} from './shared/dom';
 
 const backProjectionClass = 'ios-theme-foldable-back-button-projection';
 const toolbarProjectionClass = 'ios-theme-foldable-toolbar-projection';
@@ -67,11 +75,6 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   };
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     inEligibleToolbar(element) && unprojected(projectedSources(), () => isRendered(element));
-  const isToolbarAction = (element: HTMLElement) => {
-    return isFoldableToolbarAction(element);
-  };
-  const toolbarActions = (element: HTMLIonButtonsElement) =>
-    Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isToolbarAction(child));
   const pageOrder = (element: Element) => Array.from(doc.querySelectorAll('.ion-page')).indexOf(element.closest('.ion-page')!);
   const findBack = () => {
     const candidates = Array.from(doc.querySelectorAll<HTMLIonBackButtonElement>(`ion-back-button:not(.${backProjectionClass})`)).filter(
@@ -86,10 +89,9 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   const findToolbarGroups = () => {
     const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons.ios:not(.${toolbarProjectionClass})`)).flatMap(
       (group): ToolbarSource[] => {
-        const actions = toolbarActions(group).filter((action) => unprojected(projectedSources(), () => isRendered(action)));
+        const actions = foldableToolbarActions(group).filter((action) => unprojected(projectedSources(), () => isRendered(action)));
         if (!actions.length) return [];
-        if (group.matches('.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled'))
-          return actions.filter(inEligibleToolbar).map((action) => ({ group, actions: [action] }));
+        if (!isFoldableToolbarGroup(group)) return actions.filter(inEligibleToolbar).map((action) => ({ group, actions: [action] }));
         return inEligibleToolbar(group) && unprojected(projectedSources(), () => isRendered(group)) ? [{ group, actions }] : [];
       },
     );
