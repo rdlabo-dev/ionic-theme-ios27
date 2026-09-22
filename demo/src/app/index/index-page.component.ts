@@ -19,6 +19,13 @@ import {
   ToggleCustomEvent,
 } from '@demo/ionic';
 import { ActivatedRoute, Router } from '@angular/router';
+import { enableNativeUIShell, type NativeUIShellHandle } from '../../../../src/native';
+
+declare global {
+  interface Window {
+    nativeUIShell?: NativeUIShellHandle;
+  }
+}
 
 interface IComponent {
   name: string;
@@ -100,7 +107,9 @@ export class IndexPageComponent {
     this.#document.documentElement.classList.toggle('ion-palette-dark', event.detail.checked);
   }
 
-  changeFoldableMode(event: ToggleCustomEvent) {
+  async changeFoldableMode(event: ToggleCustomEvent) {
     this.#document.querySelector('ion-app')?.classList.toggle('ios-theme-enable-foldable', event.detail.checked);
+    await window.nativeUIShell?.destroy();
+    window.nativeUIShell = await enableNativeUIShell();
   }
 }
