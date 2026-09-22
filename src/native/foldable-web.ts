@@ -4,6 +4,8 @@ import { excluded, isShellDisabled, marker, unprojected } from './shared/dom';
 const backProjectionClass = 'ios-theme-foldable-back-button-projection';
 const toolbarProjectionClass = 'ios-theme-foldable-toolbar-projection';
 const readyClass = 'ios-theme-foldable-toolbar-ready';
+const toolbarControlSize = 68;
+const toolbarControlGap = 16;
 
 interface ToolbarProjection {
   source: HTMLIonButtonsElement;
@@ -158,13 +160,13 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     });
   const syncExisting = () => {
     if (backSource && backProjection) syncBack(backProjection, backSource);
-    let topOffset = backSource ? 62 : 0;
+    let topOffset = backSource ? toolbarControlSize + toolbarControlGap : 0;
     for (const { projection, source, actions } of toolbarProjections) {
       copyAttributes(projection, source);
       projection.classList.add(toolbarProjectionClass, 'ion-cloned-element');
       projection.style.setProperty('--ios-theme-foldable-toolbar-offset', `${topOffset}px`);
       actions.forEach(({ source: action, projection: clone }) => syncAction(clone, action));
-      topOffset += actions.length * 54 + 8;
+      topOffset += actions.length * toolbarControlSize + toolbarControlGap;
     }
   };
   const project = (nextBack: HTMLIonBackButtonElement | undefined, groups: HTMLIonButtonsElement[]) => {
@@ -188,7 +190,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       nextBack.setAttribute(marker, '');
       nextBack.setAttribute('aria-hidden', 'true');
       nextBack.dispatchEvent(new CustomEvent('nativeUIShellChange'));
-      topOffset = 62;
+      topOffset = toolbarControlSize + toolbarControlGap;
     }
     for (const group of groups) {
       const projection = group.cloneNode(false) as HTMLIonButtonsElement;
@@ -216,7 +218,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       });
       root.append(projection);
       toolbarProjections.push({ source: group, projection, actions });
-      topOffset += actions.length * 54 + 8;
+      topOffset += actions.length * toolbarControlSize + toolbarControlGap;
     }
     if (nextBack || toolbarProjections.length) root.classList.add(readyClass);
     sourceObserver = new MutationObserver(schedule);
