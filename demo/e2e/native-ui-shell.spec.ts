@@ -410,6 +410,19 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
   await expect(cancelSource).not.toHaveAttribute('data-native-ui-shell', '');
   await expect(cancelSource).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+        const demoActions = (control: any) =>
+          control.items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
+        return {
+          groups: controls.filter((control: any) => control.kind === 'ion-buttons' && demoActions(control) === 2).length,
+          individuals: controls.filter((control: any) => control.kind === 'ion-button' && demoActions(control) > 0).length,
+        };
+      }),
+    )
+    .toEqual({ groups: 1, individuals: 0 });
 
   await activate(page, 'menu');
   await expect(menu).toHaveClass(/show-menu/);

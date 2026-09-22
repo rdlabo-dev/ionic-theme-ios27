@@ -1,6 +1,6 @@
 import { createCandidate, appendItem } from '../shared/candidate';
 import type { Candidate, Identify } from '../shared/candidate';
-import { inFixedToolbar, isFoldableToolbarAction } from '../shared/dom';
+import { inFixedToolbar, isFoldableToolbarAction, isFoldableToolbarGroup } from '../shared/dom';
 import * as menuButton from './ion-menu-button';
 
 export const tag = 'ion-buttons';
@@ -12,7 +12,7 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
   if (children.length === 1) return menuButton.read(element, id);
   const foldable =
     !element.closest('ion-menu, ion-modal, ion-popover') && !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
-  if (foldable && children.some((child) => !isFoldableToolbarAction(child))) return;
+  if (foldable && !isFoldableToolbarGroup(element)) return;
   if (
     !children.length ||
     children.some(

@@ -279,6 +279,8 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         save.tap()
         XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(app.buttons.matching(identifier: "GitHub").count, 1, app.debugDescription)
+        XCTAssertEqual(app.buttons.matching(identifier: "Refresh").count, 1, app.debugDescription)
         capture("native-foldable-toolbar")
 
         let back = nativeButton(app, label: "back")
