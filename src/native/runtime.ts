@@ -11,7 +11,7 @@ import type {
   NativeUIShellStatus,
 } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
-import { marker, unprojected } from './shared/dom';
+import { isFoldableRailSource, marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
@@ -168,18 +168,19 @@ export const createRuntime = async (
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
     if (doc.hidden || overlayOpen(false)) return [];
     if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
+    const menuOpen = overlayOpen();
     const candidates = unprojected(sources.keys(), () =>
       search
         .decorate(
           Array.from(doc.querySelectorAll<HTMLElement>(selector))
-            .filter((element) => !blocked(element))
+            .filter((element) => !blocked(element) || (menuOpen && isFoldableRailSource(element)))
             .map(readEnabledCandidate)
             .filter((candidate): candidate is Candidate => !!candidate),
           blocked,
         )
         .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate)),
     );
-    return overlayOpen() ? candidates.filter((candidate) => isFoldableRailCandidate(candidate.element)) : candidates;
+    return menuOpen ? candidates.filter((candidate) => isFoldableRailCandidate(candidate.element)) : candidates;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -442,12 +443,16 @@ export const createRuntime = async (
       schedule();
     });
   }
+  const eventMenu = (event: Event) =>
+    event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.matches('ion-menu'));
   on(doc, 'ionWillOpen', (event) => {
-    presented.add(event.target as HTMLElement);
+    const menu = eventMenu(event);
+    if (menu) presented.add(menu);
     schedule();
   });
   on(doc, 'ionDidClose', (event) => {
-    presented.delete(event.target as HTMLElement);
+    const menu = eventMenu(event);
+    if (menu) presented.delete(menu);
     schedule();
   });
   for (const name of [
@@ -557,6 +562,12 @@ export const createRuntime = async (
     if (!element) return;
     const owner = Array.from(sources.keys()).find((source) => source === element || source.contains(element));
     if (!owner) return;
+    if (overlayOpen() && isFoldableRailSource(owner)) {
+      element.click();
+      lastSnapshot = '';
+      schedule();
+      return;
+    }
     const direct = !blocked(owner) && unprojected(sources.keys(), () => readEnabledCandidate(owner));
     const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
     const item = candidate?.control.items.find((item) => item.id === event.id);

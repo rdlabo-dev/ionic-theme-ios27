@@ -19,6 +19,7 @@ export const isFoldableRailSource = (element: HTMLElement): boolean =>
   (!element.matches('ion-button') ||
     !element.parentElement?.matches('ion-buttons') ||
     element.parentElement.children.length === 1 ||
+    isFoldableToolbarAction(element) ||
     isDisabledButtonGroupChild(element)) &&
   !element.closest('ion-menu, ion-modal, ion-popover') &&
   !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
@@ -31,6 +32,11 @@ export const isExcluded = (element: HTMLElement): boolean => {
 // A shared native surface must not cover an opted-out descendant either.
 export const isShellDisabled = (element: Element): boolean =>
   !!element.closest(shellDisabledSelector) || !!element.querySelector(shellDisabledSelector);
+
+export const isFoldableToolbarAction = (element: HTMLElement): boolean =>
+  !isExcluded(element) &&
+  !isShellDisabled(element) &&
+  (element.matches('ion-menu-button.ios') || (element.matches('ion-button.ios') && !!element.querySelector('ion-icon, svg')));
 
 export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): T => {
   const hidden = Array.from(elements).filter((element) => element.hasAttribute(marker));
@@ -48,8 +54,11 @@ export const visible = (element: HTMLElement, allowOutsideViewport = false): boo
     const style = getComputedStyle(current);
     if (style.display === 'none' || style.visibility !== 'visible' || (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker)))
       return false;
-    // Moving/collapsing/custom transformed surfaces stay in Web coordinates.
+    // Ordinary controls on moving/collapsing/custom transformed surfaces stay in Web coordinates.
+    // Foldable rail controls are placed independently of their Web coordinates and must remain
+    // owned while Ionic transforms the content behind an open menu.
     if (
+      !allowOutsideViewport &&
       style.transform !== 'none' &&
       !new DOMMatrixReadOnly(style.transform).isIdentity &&
       current !== element &&

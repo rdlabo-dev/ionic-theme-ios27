@@ -18,7 +18,7 @@
     </ion-segment>
   </ion-toolbar>
   <ion-toolbar>
-    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-buttons slot="start"><ion-menu-button [autoHide]="false"></ion-menu-button></ion-buttons>
     <ion-title>Actions: {{ github() }} / {{ refreshes() }}</ion-title>
     <ion-buttons slot="end" data-glass-group>
       <ion-button fill="clear" type="button" aria-label="GitHub" (click)="github.update(increment)">

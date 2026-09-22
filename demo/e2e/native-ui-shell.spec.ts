@@ -341,12 +341,10 @@ test('foldable tabs request native adaptive rail placement', async ({ page }) =>
       page.evaluate(() =>
         (window as any).__nativeUIShell.updates
           .at(-1)
-          .controls.filter((control: any) => control.placement === 'foldable-rail')
-          .map((control: any) => control.kind)
-          .sort(),
+          .controls.some((control: any) => control.kind === 'ion-tab-bar' && control.placement === 'foldable-rail'),
       ),
     )
-    .toEqual(['ion-buttons', 'ion-tab-bar']);
+    .toBe(true);
 
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
@@ -371,22 +369,12 @@ test('foldable back navigation requests native rail placement', async ({ page })
           (window as any).__nativeUIShell.updates
             .at(-1)
             .controls.some((control: any) => control.kind === 'ion-back-button' && control.placement === 'foldable-rail') &&
-          (window as any).__nativeUIShell.updates
+          !(window as any).__nativeUIShell.updates
             .at(-1)
-            .controls.some(
-              (control: any) =>
-                control.kind === 'ion-buttons' &&
-                control.placement === 'foldable-rail' &&
-                control.items.some((item: any) => item.label === 'Cancel'),
-            ),
+            .controls.some((control: any) => control.items.some((item: any) => item.label === 'Cancel')),
       ),
     )
     .toBe(true);
-
-  await page
-    .locator('app-native-ui-shell ion-buttons[slot=end] ion-button')
-    .filter({ hasText: 'Cancel' })
-    .evaluate((element) => element.remove());
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -410,27 +398,40 @@ test('foldable back navigation requests native rail placement', async ({ page })
 test('foldable rail remains native while its Ionic menu is open', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockNative(page);
-  await page.goto('/main/index');
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
   const menu = page.locator('ion-menu');
-  const menuSource = page.locator('index-page ion-buttons[slot=start]');
+  const menuSource = page.locator('app-native-ui-shell ion-menu-button').locator('..');
+  const backSource = page.locator('app-native-ui-shell ion-back-button');
+  const saveSource = page.locator('app-native-ui-shell ion-button[type=submit]');
+  const cancelSource = page.locator('app-native-ui-shell ion-button').filter({ hasText: 'Cancel' });
   const tabs = page.locator('ion-tab-bar');
-  await expect(menuSource).toHaveAttribute('data-native-ui-shell', '');
-  await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
+  for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(cancelSource).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(cancelSource).toBeVisible();
 
   await activate(page, 'menu');
   await expect(menu).toHaveClass(/show-menu/);
-  await expect(menuSource).toHaveAttribute('data-native-ui-shell', '');
-  await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
+  for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(cancelSource).toBeVisible();
+  await activate(page, 'Save');
+  await expect(page.locator('[data-save-count]')).toHaveText('1');
 });
 
 test('foldable controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await mockNative(page, false, false);
   await page.goto('/main/index/native-ui-shell');
+  await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
 
   const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
+  const menuProjection = page.locator('ion-app > ion-menu-button.ios-theme-foldable-toolbar-projection');
+  const saveProjection = page.locator('ion-app > ion-button.ios-theme-foldable-toolbar-projection[aria-label=Save]');
   await expect(projection).toBeVisible();
+  await expect(menuProjection).toBeVisible();
+  await expect(saveProjection).toBeVisible();
   await expect(page.locator('ion-tab-bar')).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBeGreaterThan(0);
   await expect
@@ -442,6 +443,15 @@ test('foldable controls stay operable on Web when the native side rail is unavai
       ),
     )
     .toBe(true);
+
+  await menuProjection.click();
+  await expect(page.locator('ion-menu')).toHaveClass(/show-menu/);
+  await expect(projection).toBeVisible();
+  await expect(menuProjection).toBeVisible();
+  await expect(saveProjection).toBeVisible();
+  await expect(page.locator('ion-tab-bar')).toBeVisible();
+  await saveProjection.click();
+  await expect(page.locator('[data-save-count]')).toHaveText('1');
 
   await projection.click();
   await expect(page).toHaveURL(/\/main\/index$/);
@@ -1160,6 +1170,7 @@ test('menu button toggles its Ionic menu and follows autoHide, disabled and spli
   await page.goto('/main/index/native-ui-shell');
   const menu = page.locator('ion-menu');
   const button = page.locator('app-native-ui-shell ion-menu-button');
+  await button.evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = true));
   const surface = button.locator('..');
   await expect(surface).toHaveAttribute('data-native-ui-shell', '');
   await expect

@@ -1,6 +1,6 @@
 import { createCandidate, appendItem } from '../shared/candidate';
 import type { Candidate, Identify } from '../shared/candidate';
-import { inFixedToolbar } from '../shared/dom';
+import { inFixedToolbar, isFoldableToolbarAction } from '../shared/dom';
 
 export const tag = 'ion-button';
 
@@ -11,6 +11,7 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
   const fill = button.fill ?? 'default';
   if (
     !inFixedToolbar(element) ||
+    (foldable && !isFoldableToolbarAction(element)) ||
     (!foldable && fill !== 'default') ||
     (foldable && !['default', 'clear'].includes(fill)) ||
     button.classList.contains('ion-color')

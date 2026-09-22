@@ -1,5 +1,5 @@
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
-import { isExcluded, isShellDisabled, marker, unprojected } from './shared/dom';
+import { isExcluded, isFoldableToolbarAction, isShellDisabled, marker, unprojected } from './shared/dom';
 
 const backProjectionClass = 'ios-theme-foldable-back-button-projection';
 const toolbarProjectionClass = 'ios-theme-foldable-toolbar-projection';
@@ -68,9 +68,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     inEligibleToolbar(element) && unprojected(projectedSources(), () => isRendered(element));
   const isToolbarAction = (element: HTMLElement) => {
-    if (!element.matches('ion-button.ios, ion-menu-button.ios') || isExcluded(element) || isShellDisabled(element)) return false;
-    if (element.matches('ion-menu-button')) return true;
-    return !!element.querySelector('ion-icon, svg');
+    return isFoldableToolbarAction(element);
   };
   const toolbarActions = (element: HTMLIonButtonsElement) =>
     Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isToolbarAction(child));
