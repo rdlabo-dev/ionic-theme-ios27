@@ -84,6 +84,10 @@ export class IndexPageComponent {
   readonly #route = inject(ActivatedRoute);
   readonly #document = inject(DOCUMENT);
 
+  get foldableModeEnabled() {
+    return this.#document.querySelector('ion-app')?.classList.contains('ios-theme-enable-foldable') ?? false;
+  }
+
   async navigateNativeUiShell() {
     await this.#router.navigate(['native-ui-shell'], { relativeTo: this.#route });
   }
@@ -94,5 +98,9 @@ export class IndexPageComponent {
 
   changeColorMode(event: ToggleCustomEvent) {
     this.#document.documentElement.classList.toggle('ion-palette-dark', event.detail.checked);
+  }
+
+  changeFoldableMode(event: ToggleCustomEvent) {
+    this.#document.querySelector('ion-app')?.classList.toggle('ios-theme-enable-foldable', event.detail.checked);
   }
 }
