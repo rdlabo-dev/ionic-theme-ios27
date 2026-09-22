@@ -406,6 +406,7 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   const backSource = page.locator('app-native-ui-shell ion-back-button');
   const saveSource = page.locator('app-native-ui-shell ion-button[type=submit]');
   const cancelSource = page.locator('app-native-ui-shell ion-button').filter({ hasText: 'Cancel' });
+  const actionGroup = page.locator('app-native-ui-shell ion-buttons[data-glass-group]');
   const tabs = page.locator('ion-tab-bar');
   for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
   await expect(cancelSource).not.toHaveAttribute('data-native-ui-shell', '');
@@ -424,8 +425,38 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
     )
     .toEqual({ groups: 1, individuals: 0 });
 
+  const nativeSaveDisabled = () =>
+    page.evaluate(
+      () =>
+        (window as any).__nativeUIShell.updates
+          .at(-1)
+          .controls.flatMap((control: any) => control.items)
+          .find((item: any) => item.accessibilityLabel === 'Save')?.disabled,
+    );
+  const nativeActionsDisabled = () =>
+    page.evaluate(() =>
+      (window as any).__nativeUIShell.updates
+        .at(-1)
+        .controls.flatMap((control: any) => control.items)
+        .filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel))
+        .map((item: any) => item.disabled),
+    );
+  await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
+  await expect.poll(nativeSaveDisabled).toBe(true);
+  await expect.poll(nativeActionsDisabled).toEqual([true, true]);
   await activate(page, 'menu');
   await expect(menu).toHaveClass(/show-menu/);
+  await expect
+    .poll(() => menu.evaluate((element) => element.shadowRoot?.querySelector('[part~="container"]')?.getBoundingClientRect().left))
+    .toBe(0);
+  await expect.poll(nativeSaveDisabled).toBe(true);
+  await expect.poll(nativeActionsDisabled).toEqual([true, true]);
+  await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
+  await expect.poll(nativeSaveDisabled).toBe(false);
+  await expect.poll(nativeActionsDisabled).toEqual([false, false]);
+  await expect.poll(() => cancelSource.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
   for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
   await expect(cancelSource).toBeVisible();
   await activate(page, 'Save');

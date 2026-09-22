@@ -11,7 +11,7 @@ import type {
   NativeUIShellStatus,
 } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
-import { isFoldableRailSource, marker, unprojected } from './shared/dom';
+import { activateProjectedElement, isFoldableRailSource, marker, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
@@ -19,6 +19,7 @@ import { createCrossfade, fadeMarker } from './shared/crossfade';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
+const foldableRailMarker = 'data-native-ui-shell-foldable-rail';
 
 // A failed bridge must not leave the source inaccessible indefinitely.
 const bounded = <T>(promise: Promise<T>): Promise<T> =>
@@ -96,12 +97,19 @@ export const createRuntime = async (
   const style = doc.createElement('style');
   const hidden = `[${marker}]:not([${fadeMarker}])`;
   style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
-    [${marker}], [${marker}] * { pointer-events: none !important; }`;
+    [${marker}], [${marker}] * { pointer-events: none !important; }
+    /* Ionic disables the covered page while a menu is open. Foldable rail
+       controls remain outside that page; zero specificity preserves any
+       pointer-events rule supplied by the application itself. */
+    :where(.menu-content-open) :where([${foldableRailMarker}]) {
+      pointer-events: auto;
+    }`;
 
   const restore = (element: HTMLElement) => {
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
+    element.removeAttribute(foldableRailMarker);
     if (!stopped) crossfade.play(element, false, handoffInstant);
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
@@ -286,6 +294,9 @@ export const createRuntime = async (
       const current = dirty ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)])) : signatures;
       const currentSources = new Set(currentCandidates.flatMap(candidateSources));
       const accepted = candidates.filter((candidate) => current.get(candidate.element) === signatures.get(candidate.element));
+      const acceptedFoldableRailSources = new Set(
+        accepted.filter((candidate) => candidate.control.placement === 'foldable-rail').flatMap(candidateSources),
+      );
       const invalidated = candidates.length !== accepted.length;
       acceptedRevision = result.revision;
       lastSnapshot = invalidated ? '' : serialized;
@@ -296,6 +307,7 @@ export const createRuntime = async (
       // source needs to return to Web; new sources still require an exact ack.
       for (const element of sources.keys()) if (!currentSources.has(element)) restore(element);
       for (const element of accepted.flatMap(candidateSources)) {
+        element.toggleAttribute(foldableRailMarker, acceptedFoldableRailSources.has(element));
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
           crossfade.play(element, true, handoffInstant);
@@ -563,7 +575,7 @@ export const createRuntime = async (
     const owner = Array.from(sources.keys()).find((source) => source === element || source.contains(element));
     if (!owner) return;
     if (overlayOpen() && isFoldableRailSource(owner)) {
-      element.click();
+      activateProjectedElement(element);
       lastSnapshot = '';
       schedule();
       return;
@@ -575,7 +587,7 @@ export const createRuntime = async (
       candidate?.control.search && [candidate.control.search.trigger.id, candidate.control.search.closeId].includes(event.id);
     if (!searchAction && (!item || item.disabled || item.visible === false)) return;
     // The original Ionic host owns form submission, routerLink and selection events.
-    element.click();
+    activateProjectedElement(element);
     lastSnapshot = ''; // Reconcile even if Ionic rejects the proposed native selection.
     schedule();
   };

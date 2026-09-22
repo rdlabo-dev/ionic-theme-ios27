@@ -114,7 +114,6 @@ private struct ShellFoldableRailView: View {
             if model.tabs.isEmpty {
                 NavigationStack {
                     Color.clear
-                        .allowsHitTesting(false)
                         .modifier(ShellFoldableToolbarAdapter(model: model))
                 }
             } else {
@@ -122,7 +121,6 @@ private struct ShellFoldableRailView: View {
                     ForEach(model.tabs) { item in
                         NavigationStack {
                             Color.clear
-                                .allowsHitTesting(false)
                                 .modifier(ShellFoldableToolbarAdapter(model: model))
                         }
                         .tag(item.id)
@@ -242,9 +240,8 @@ final class ShellFoldableRailController: ShellFoldableRailControlling {
                                                        width: railWidth, height: bounds.height)).cgPath
         }
 
-        override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-            guard point.x >= bounds.maxX - railWidth else { return nil }
-            return super.hitTest(point, with: event)
+        override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+            point.x >= bounds.maxX - railWidth && super.point(inside: point, with: event)
         }
     }
 

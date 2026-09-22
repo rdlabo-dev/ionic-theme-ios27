@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 for (const direction of ['ltr', 'rtl'] as const) {
   test(`menus respect foldable safe-area insets in ${direction}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/main/index', { waitUntil: 'networkidle' });
     const menu = page.locator('ion-menu');
 
@@ -11,8 +12,11 @@ for (const direction of ['ltr', 'rtl'] as const) {
       app.classList.add('ios-theme-enable-foldable');
       element.side = direction === 'ltr' ? 'end' : 'start';
       await new Promise(requestAnimationFrame);
-      const defaultBounds = element.getBoundingClientRect();
-      const defaultRightOffset = innerWidth - defaultBounds.right;
+      const container = element.shadowRoot!.querySelector<HTMLElement>('[part~="container"]')!;
+      await element.open(false);
+      const defaultHostBounds = element.getBoundingClientRect();
+      const defaultRightOffset = innerWidth - container.getBoundingClientRect().right;
+      await element.close(false);
       app.style.setProperty('--ios-theme-foldable-safe-area-left', '76px');
       app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
       app.style.setProperty('--ion-safe-area-left', '76px');
@@ -21,9 +25,17 @@ for (const direction of ['ltr', 'rtl'] as const) {
       for (const side of ['start', 'end'] as const) {
         element.side = side;
         await new Promise(requestAnimationFrame);
+        await element.open(false);
         const bounds = element.getBoundingClientRect();
+        const containerBounds = container.getBoundingClientRect();
         const physicalSide = side === 'start' ? (direction === 'ltr' ? 'left' : 'right') : direction === 'ltr' ? 'right' : 'left';
-        offsets.push({ side, physicalSide, offset: physicalSide === 'left' ? bounds.left : innerWidth - bounds.right });
+        offsets.push({
+          side,
+          physicalSide,
+          hostWidthPreserved: bounds.width > 0 && bounds.width === defaultHostBounds.width,
+          offset: physicalSide === 'left' ? containerBounds.left : innerWidth - containerBounds.right,
+        });
+        await element.close(false);
       }
       const contentStyle = getComputedStyle(element.querySelector('ion-content')!);
 
@@ -38,6 +50,7 @@ for (const direction of ['ltr', 'rtl'] as const) {
       await new Promise(requestAnimationFrame);
       if (!modalContent.classList.contains('ios')) throw new Error('Expected an iOS ion-content fixture');
       return {
+        defaultHostWidthPositive: defaultHostBounds.width > 0,
         defaultRightOffset,
         offsets,
         safeAreaLeft: contentStyle.getPropertyValue('--ion-safe-area-left').trim(),
@@ -46,16 +59,19 @@ for (const direction of ['ltr', 'rtl'] as const) {
       };
     }, direction);
 
-    expect(result.defaultRightOffset).toBe(80);
+    expect({ hostWidthPositive: result.defaultHostWidthPositive, containerRight: result.defaultRightOffset }).toEqual({
+      hostWidthPositive: true,
+      containerRight: 80,
+    });
     expect(result.offsets).toEqual(
       direction === 'ltr'
         ? [
-            { side: 'start', physicalSide: 'left', offset: 76 },
-            { side: 'end', physicalSide: 'right', offset: 84 },
+            { side: 'start', physicalSide: 'left', hostWidthPreserved: true, offset: 76 },
+            { side: 'end', physicalSide: 'right', hostWidthPreserved: true, offset: 84 },
           ]
         : [
-            { side: 'start', physicalSide: 'right', offset: 84 },
-            { side: 'end', physicalSide: 'left', offset: 76 },
+            { side: 'start', physicalSide: 'right', hostWidthPreserved: true, offset: 84 },
+            { side: 'end', physicalSide: 'left', hostWidthPreserved: true, offset: 76 },
           ],
     );
     expect(result.safeAreaLeft).toBe('0px');

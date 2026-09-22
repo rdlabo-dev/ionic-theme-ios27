@@ -1,5 +1,5 @@
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
-import { isExcluded, isFoldableToolbarAction, isShellDisabled, marker, unprojected } from './shared/dom';
+import { activateProjectedElement, isExcluded, isFoldableToolbarAction, isShellDisabled, marker, unprojected } from './shared/dom';
 
 const backProjectionClass = 'ios-theme-foldable-back-button-projection';
 const toolbarProjectionClass = 'ios-theme-foldable-toolbar-projection';
@@ -189,7 +189,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
         (event) => {
           event.preventDefault();
           event.stopImmediatePropagation();
-          if (backSource && backSource === findBack()) backSource.click();
+          if (backSource && backSource === findBack()) activateProjectedElement(backSource);
         },
         { capture: true },
       );
@@ -213,7 +213,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
           (event) => {
             event.preventDefault();
             event.stopImmediatePropagation();
-            if (isCurrentToolbarAction(source)) source.click();
+            if (isCurrentToolbarAction(source)) activateProjectedElement(source);
           },
           { capture: true },
         );

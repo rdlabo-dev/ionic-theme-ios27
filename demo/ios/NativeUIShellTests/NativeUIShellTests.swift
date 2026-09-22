@@ -263,17 +263,12 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(index.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(library.waitForExistence(timeout: 10), app.debugDescription)
         assertOnFoldableRail(index, in: app)
-        let menu = nativeButton(app, label: "menu")
-        XCTAssertTrue(menu.waitForExistence(timeout: 10), app.debugDescription)
-        assertOnFoldableRail(menu, in: app)
-        capture("native-foldable-index")
-
         library.tap()
-        XCTAssertTrue(app.webViews.staticTexts["Library"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue(library.isSelected)
-
+        XCTAssertTrue(app.webViews.staticTexts["Library"].firstMatch.waitForExistence(timeout: 5), "The native tab did not project its activation to Web\n" + app.debugDescription)
+        XCTAssertTrue(library.isSelected, app.debugDescription)
         index.tap()
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-foldable-index")
         openPage(app, name: "native-ui-shell")
         let save = nativeButton(app, label: "Save")
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
@@ -303,14 +298,18 @@ final class NativeUIShellTests: XCTestCase {
         let pageMenu = nativeButton(app, label: "menu")
         XCTAssertTrue(pageMenu.waitForExistence(timeout: 5), app.debugDescription)
         pageMenu.tap()
-        XCTAssertTrue(app.webViews.staticTexts["Docs"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let menuLink = app.webViews.links["Docs"]
+        XCTAssertTrue(menuLink.waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-foldable-menu-open")
         for control in [pageMenu, back, save, library] {
             XCTAssertTrue(control.waitForExistence(timeout: 5), "Every foldable rail control must remain native while the menu is open\n" + app.debugDescription)
             assertOnFoldableRail(control, in: app)
+            XCTAssertTrue(control.isEnabled, "Foldable rail controls must remain enabled while Ionic disables the covered page\n" + app.debugDescription)
         }
-        library.tap()
-        XCTAssertTrue(app.webViews.staticTexts["Library"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue(library.isSelected, app.debugDescription)
+        save.tap()
+        pageMenu.tap()
+        XCTAssertTrue(menuLink.waitForNonExistence(timeout: 5), "The projected Ionic menu button did not close its menu\n" + app.debugDescription)
+        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), "The native control stopped projecting actions while the menu was open\n" + app.debugDescription)
         capture("native-foldable-after-menu")
     }
 
