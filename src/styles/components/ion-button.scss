@@ -483,6 +483,10 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
       height: 68px;
       min-height: 68px;
       margin: 0 4px;
+
+      &::part(native) {
+        margin-inline: auto;
+      }
     }
   }
 }
