@@ -407,6 +407,23 @@ test('foldable back navigation requests native rail placement', async ({ page })
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
+test('foldable rail remains native while its Ionic menu is open', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockNative(page);
+  await page.goto('/main/index');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  const menu = page.locator('ion-menu');
+  const menuSource = page.locator('index-page ion-buttons[slot=start]');
+  const tabs = page.locator('ion-tab-bar');
+  await expect(menuSource).toHaveAttribute('data-native-ui-shell', '');
+  await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
+
+  await activate(page, 'menu');
+  await expect(menu).toHaveClass(/show-menu/);
+  await expect(menuSource).toHaveAttribute('data-native-ui-shell', '');
+  await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
+});
+
 test('foldable controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
   await mockNative(page, false, false);
   await page.goto('/main/index/native-ui-shell');

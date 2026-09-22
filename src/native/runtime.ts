@@ -146,13 +146,16 @@ export const createRuntime = async (
     Array.from(pages).some((page) => page.contains(element)) ||
     Array.from(moving.keys()).some((surface) => surface.contains(element));
   const painted = () => new Promise<void>((resolve) => win.requestAnimationFrame(() => win.requestAnimationFrame(() => resolve())));
-  const overlayOpen = () => {
+  const overlayOpen = (includeMenu = true) => {
     for (const element of presented) if (!element.isConnected) presented.delete(element);
+    const presentedOverlayOpen = Array.from(presented).some((element) => includeMenu || !element.matches('ion-menu'));
     return (
       manualSuspensions.size > 0 ||
-      presented.size > 0 ||
+      presentedOverlayOpen ||
       Array.from(doc.querySelectorAll(overlays)).some(
-        (element) => (element as Element & { presented?: boolean }).presented || element.classList.contains('show-menu'),
+        (element) =>
+          (includeMenu || !element.matches('ion-menu')) &&
+          ((element as Element & { presented?: boolean }).presented || element.classList.contains('show-menu')),
       )
     );
   };
@@ -163,9 +166,9 @@ export const createRuntime = async (
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
-    if (doc.hidden || overlayOpen()) return [];
+    if (doc.hidden || overlayOpen(false)) return [];
     if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
-    return unprojected(sources.keys(), () =>
+    const candidates = unprojected(sources.keys(), () =>
       search
         .decorate(
           Array.from(doc.querySelectorAll<HTMLElement>(selector))
@@ -176,6 +179,7 @@ export const createRuntime = async (
         )
         .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate)),
     );
+    return overlayOpen() ? candidates.filter((candidate) => isFoldableRailCandidate(candidate.element)) : candidates;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -539,7 +543,7 @@ export const createRuntime = async (
       event.revision < acceptedRevision ||
       event.revision > revision ||
       event.sequence <= lastSequence ||
-      overlayOpen()
+      overlayOpen(false)
     )
       return;
     // Native may send input before update() resolves on the JS bridge.

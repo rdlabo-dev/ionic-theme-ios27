@@ -289,6 +289,14 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(restoredMenu.waitForExistence(timeout: 10), app.debugDescription)
         restoredMenu.tap()
         XCTAssertTrue(app.webViews.staticTexts["Docs"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(restoredMenu.waitForExistence(timeout: 5), "Foldable menu must remain native while its Web menu is open\n" + app.debugDescription)
+        XCTAssertTrue(library.waitForExistence(timeout: 5), "Foldable tabs must remain native while the menu is open\n" + app.debugDescription)
+        assertOnFoldableRail(restoredMenu, in: app)
+        assertOnFoldableRail(library, in: app)
+        library.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Library"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(library.isSelected, app.debugDescription)
+        capture("native-foldable-after-menu")
     }
 
     private func assertOnFoldableRail(_ element: XCUIElement, in app: XCUIApplication,
