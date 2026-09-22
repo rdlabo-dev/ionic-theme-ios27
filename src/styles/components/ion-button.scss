@@ -474,6 +474,13 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
     height: 46px;
     min-height: 46px;
     margin: 0;
+
+    :is(ion-icon, svg) {
+      width: 22px;
+      height: 22px;
+      margin: 0;
+      font-size: 22px;
+    }
   }
 
   > ion-menu-button.ios.ios-theme-foldable-toolbar-projection {
@@ -489,11 +496,11 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
     > :is(ion-button, ion-menu-button).ios.ios-theme-foldable-toolbar-action {
       display: block;
-      width: 42px;
-      min-width: 42px;
+      width: 44px;
+      min-width: 44px;
       height: 46px;
       min-height: 46px;
-      margin: 0 2px;
+      margin: 0 1px;
 
       &::part(native) {
         margin-inline: auto;
