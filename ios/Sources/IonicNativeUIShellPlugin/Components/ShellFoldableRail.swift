@@ -110,48 +110,115 @@ private struct ShellFoldableRailView: View {
     @ObservedObject var model: ShellFoldableRailModel
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if model.tabs.isEmpty {
+        Group {
+            if model.tabs.isEmpty {
+                NavigationStack {
                     Color.clear
                         .allowsHitTesting(false)
-                } else {
-                    TabView(selection: Binding(get: { model.selection }, set: { model.select($0) })) {
-                        ForEach(model.tabs) { item in
+                        .modifier(ShellFoldableToolbarAdapter(model: model))
+                }
+            } else {
+                TabView(selection: Binding(get: { model.selection }, set: { model.select($0) })) {
+                    ForEach(model.tabs) { item in
+                        NavigationStack {
                             Color.clear
                                 .allowsHitTesting(false)
-                                .tag(item.id)
-                                .tabItem { ShellFoldableLabel(item: item) }
-                                .modifier(ShellFoldableBadge(badge: item.badge))
-                                .disabled(item.disabled)
-                                .accessibilityLabel(item.accessibilityLabel)
-                                .accessibilityIdentifier(item.id)
+                                .modifier(ShellFoldableToolbarAdapter(model: model))
                         }
-                    }
-                }
-            }
-            .toolbar {
-                if let back = model.back {
-                    ToolbarItem(placement: .navigation) {
-                        Button { model.activate(back.id) } label: { ShellFoldableLabel(item: back) }
-                            .disabled(back.disabled)
-                            .accessibilityLabel(back.accessibilityLabel)
-                            .accessibilityIdentifier(back.id)
-                    }
-                }
-                ForEach(model.groups) { group in
-                    ToolbarItemGroup(placement: .primaryAction) {
-                        ForEach(group.items) { item in
-                            Button { model.activate(item.id) } label: { ShellFoldableLabel(item: item) }
-                                .disabled(item.disabled)
-                                .accessibilityLabel(item.accessibilityLabel)
-                                .accessibilityIdentifier(item.id)
-                        }
+                        .tag(item.id)
+                        .tabItem { ShellFoldableLabel(item: item) }
+                        .modifier(ShellFoldableBadge(badge: item.badge))
+                        .disabled(item.disabled)
+                        .accessibilityLabel(item.accessibilityLabel)
+                        .accessibilityIdentifier(item.id)
                     }
                 }
             }
         }
+        .modifier(ShellFoldableCompression())
         .background(Color.clear)
+    }
+}
+
+@available(iOS 26.0, *)
+private struct ShellFoldableCompression: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 27.1, *) {
+            content.toolbarVerticalCompressionBehavior(.prefersToolbarItems)
+        } else {
+            content
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+private struct ShellFoldableToolbarAdapter: ViewModifier {
+    @ObservedObject var model: ShellFoldableRailModel
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 27.1, *) {
+            content.modifier(ShellFoldableToolbar(model: model))
+        } else {
+            content.modifier(ShellFoldableLegacyToolbar(model: model))
+        }
+    }
+}
+
+@available(iOS 27.1, *)
+private struct ShellFoldableToolbar: ViewModifier {
+    @ObservedObject var model: ShellFoldableRailModel
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            if let back = model.back {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { model.activate(back.id) } label: { ShellFoldableLabel(item: back) }
+                        .disabled(back.disabled)
+                        .accessibilityLabel(back.accessibilityLabel)
+                        .accessibilityIdentifier(back.id)
+                }
+                .axisBehavior(.verticalPreferred)
+            }
+            ForEach(model.groups) { group in
+                ToolbarItemGroup(placement: .automatic) {
+                    ForEach(group.items) { item in
+                        Button { model.activate(item.id) } label: { ShellFoldableLabel(item: item) }
+                            .disabled(item.disabled)
+                            .accessibilityLabel(item.accessibilityLabel)
+                        .accessibilityIdentifier(item.id)
+                    }
+                }
+                .axisBehavior(.verticalPreferred)
+            }
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+private struct ShellFoldableLegacyToolbar: ViewModifier {
+    @ObservedObject var model: ShellFoldableRailModel
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            if let back = model.back {
+                ToolbarItem(placement: .navigation) {
+                    Button { model.activate(back.id) } label: { ShellFoldableLabel(item: back) }
+                        .disabled(back.disabled)
+                        .accessibilityLabel(back.accessibilityLabel)
+                        .accessibilityIdentifier(back.id)
+                }
+            }
+            ForEach(model.groups) { group in
+                ToolbarItemGroup(placement: .primaryAction) {
+                    ForEach(group.items) { item in
+                        Button { model.activate(item.id) } label: { ShellFoldableLabel(item: item) }
+                            .disabled(item.disabled)
+                            .accessibilityLabel(item.accessibilityLabel)
+                            .accessibilityIdentifier(item.id)
+                    }
+                }
+            }
+        }
     }
 }
 

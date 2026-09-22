@@ -278,8 +278,16 @@ final class NativeUIShellTests: XCTestCase {
 
         let back = nativeButton(app, label: "back")
         XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+        assertOnFoldableRail(back, in: app)
         back.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    private func assertOnFoldableRail(_ element: XCUIElement, in app: XCUIApplication,
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertGreaterThan(element.frame.midX, app.frame.width * 0.8,
+                             "Expected native control on the physical right rail, got \(element.frame) in \(app.frame)",
+                             file: file, line: line)
     }
 
     func testNativeShellPageAuditAndRepeatedNavigation() throws {
