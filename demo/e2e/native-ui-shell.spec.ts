@@ -401,7 +401,7 @@ test('foldable back navigation requests native rail placement', async ({ page })
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
-test('a departed page cannot regain native toolbar ownership before Ionic hides it', async ({ page }) => {
+test('native foldable actions follow WillEnter and stay enabled during navigation', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
@@ -418,10 +418,31 @@ test('a departed page cannot regain native toolbar ownership before Ionic hides 
   await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
 
   await routedPage.evaluate((element) => {
+    element.classList.add('ion-page-invisible');
+    element.style.pointerEvents = 'none';
     element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
-    element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
   });
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).__nativeUIShell.updates
+            .findLast((update: any) =>
+              update.controls.some((control: any) => control.items.some((item: any) => item.accessibilityLabel === 'Save')),
+            )
+            .controls.flatMap((control: any) => control.items)
+            .find((item: any) => item.accessibilityLabel === 'Save').disabled,
+      ),
+    )
+    .toBe(false);
+  await activate(page, 'Save');
+  await expect(page.locator('app-native-ui-shell [data-save-count]')).toHaveText('1');
+  await routedPage.evaluate((element) => {
+    element.classList.remove('ion-page-invisible');
+    element.style.pointerEvents = '';
+    element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
+  });
 });
 
 test('foldable toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {

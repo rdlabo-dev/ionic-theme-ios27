@@ -76,7 +76,7 @@ test('a stale suspension lease cannot re-hide Web controls after shell teardown'
   await expect(page.locator('html')).not.toHaveClass(/ios-theme-native-ui-shell-prehide/);
 });
 
-test('a departed page cannot regain its Web toolbar projection before Ionic hides it', async ({ page }) => {
+test('Web toolbar projection follows foldable WillEnter and WillLeave', async ({ page }) => {
   await page.goto('/main/index/button');
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
   const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
@@ -92,10 +92,14 @@ test('a departed page cannot regain its Web toolbar projection before Ionic hide
   await expect(projection).toHaveCount(0);
 
   await routedPage.evaluate((element) => {
+    element.classList.add('ion-page-invisible');
     element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
-    element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
   });
   await expect(projection).toBeVisible();
+  await routedPage.evaluate((element) => {
+    element.classList.remove('ion-page-invisible');
+    element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
+  });
 
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
   await expect(projection).toHaveCount(0);

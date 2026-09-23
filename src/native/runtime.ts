@@ -11,7 +11,7 @@ import type {
   NativeUIShellStatus,
 } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
-import { activateProjectedElement, isFoldableRailSource, marker, rejectedClass, unprojected } from './shared/dom';
+import { activateProjectedElement, isFoldableRailSource, marker, rejectedClass, setFoldableEnteringPage, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
@@ -116,7 +116,7 @@ export const createRuntime = async (
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    if (!stopped) crossfade.play(element, false, handoffInstant);
+    if (!stopped) crossfade.play(element, false, handoffInstant || isFoldableRailSource(element));
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -170,10 +170,11 @@ export const createRuntime = async (
     return !!page && departedPages.has(page);
   };
   const blocked = (element: HTMLElement) =>
-    Array.from(suspended).some((scopes) => scopes.some((scope) => scope.contains(element))) ||
-    Array.from(pages).some((scope) => scope.contains(element)) ||
     departed(element) ||
-    Array.from(moving.keys()).some((surface) => surface.contains(element));
+    (!isFoldableRailSource(element) &&
+      (Array.from(suspended).some((scopes) => scopes.some((scope) => scope.contains(element))) ||
+        Array.from(pages).some((scope) => scope.contains(element)) ||
+        Array.from(moving.keys()).some((surface) => surface.contains(element))));
   const painted = () => new Promise<void>((resolve) => win.requestAnimationFrame(() => win.requestAnimationFrame(() => resolve())));
   const overlayOpen = (includeMenu = true) => {
     for (const element of presented) if (!element.isConnected) presented.delete(element);
@@ -278,7 +279,7 @@ export const createRuntime = async (
         removed.forEach(restore);
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
         // native snapshot over the destination. Stack transitions still need the paint.
-        if (!handoffInstant) {
+        if (!handoffInstant && removed.some((element) => !isFoldableRailSource(element))) {
           await painted();
           if (stopped || dirty) return;
         }
@@ -355,7 +356,7 @@ export const createRuntime = async (
       for (const element of accepted.flatMap(candidateSources)) {
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(element, true, handoffInstant);
+          crossfade.play(element, true, handoffInstant || isFoldableRailSource(element));
           element.setAttribute(marker, '');
           element.setAttribute('aria-hidden', 'true');
           element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
@@ -408,7 +409,13 @@ export const createRuntime = async (
     target.addEventListener(name, callback, { capture: true, signal: listeners.signal });
   const pageWill: EventListener = (event) => {
     const page = event.target as HTMLElement;
-    if (event.type === LIFECYCLE_WILL_ENTER) departedPages.delete(page);
+    if (event.type === LIFECYCLE_WILL_ENTER) {
+      departedPages.delete(page);
+      setFoldableEnteringPage(page, true);
+    } else {
+      departedPages.add(page);
+      setFoldableEnteringPage(page, false);
+    }
     getNativeSearchBindings(doc)
       .filter((binding) => page.contains(binding.footer))
       .forEach((binding) => search.retire(binding));
@@ -422,6 +429,7 @@ export const createRuntime = async (
     const page = event.target as HTMLElement;
     if (event.type === LIFECYCLE_DID_LEAVE) departedPages.add(page);
     else departedPages.delete(page);
+    setFoldableEnteringPage(page, false);
     pages.delete(page);
     schedule();
     if (tabSwitchHandoff && pages.size === 0) endTabSwitchHandoff();
@@ -677,7 +685,11 @@ export const createRuntime = async (
           suspended.delete(scopes);
           if (canceled || !scopes.some((scope) => scope.closest(':is(ion-app, body).ios-theme-enable-foldable'))) {
             scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
-            if (canceled && scopes[1]) departedPages.delete(scopes[1]); // The leaving page stays active.
+            if (canceled) {
+              departedPages.add(scopes[0]); // The entering page is abandoned before Ionic hides it.
+              setFoldableEnteringPage(scopes[0], false);
+              if (scopes[1]) departedPages.delete(scopes[1]); // The leaving page stays active.
+            }
           }
           schedule();
         };

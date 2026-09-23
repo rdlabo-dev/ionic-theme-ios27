@@ -2,12 +2,14 @@ import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } f
 import { FOLDABLE_TRANSITION_CANCELED } from '../native-integration';
 import {
   activateProjectedElement,
+  foldableEnteringPage,
   foldableToolbarActions,
   isExcluded,
   isFoldableToolbarGroup,
   isShellDisabled,
   marker,
   prehiddenClass,
+  setFoldableEnteringPage,
   unprojected,
 } from './shared/dom';
 
@@ -75,10 +77,10 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       !!edge?.matches('ion-header, ion-footer') &&
       !element.closest('ion-content') &&
       !edge.hasAttribute('collapse') &&
-      !isExcluded(element) &&
+      !isExcluded(element, foldableEnteringPage(element)) &&
       !isShellDisabled(element) &&
       (!page || !departedPages.has(page)) &&
-      !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden, .ion-page-invisible')
+      !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden')
     );
   };
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
@@ -314,9 +316,20 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   const pageLifecycle = (event: Event) => {
     const page = event.target;
     if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;
-    if (event.type === 'ionViewWillLeave' || event.type === 'ionViewDidLeave') {
+    if (event.type === FOLDABLE_TRANSITION_CANCELED) {
+      const entering = (event as CustomEvent<{ entering?: HTMLElement }>).detail?.entering;
+      if (entering) {
+        setFoldableEnteringPage(entering, false);
+        departedPages.add(entering);
+      }
+      departedPages.delete(page);
+    } else if (event.type === 'ionViewWillLeave' || event.type === 'ionViewDidLeave') {
+      setFoldableEnteringPage(page, false);
       departedPages.add(page);
-    } else departedPages.delete(page);
+    } else {
+      departedPages.delete(page);
+      setFoldableEnteringPage(page, event.type === 'ionViewWillEnter');
+    }
     if (foldableRoot()) schedule();
   };
   for (const name of ['ionViewWillEnter', 'ionViewWillLeave', 'ionViewDidEnter', 'ionViewDidLeave'])

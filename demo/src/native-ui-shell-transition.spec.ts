@@ -103,13 +103,18 @@ test('a canceled Web transition releases the still-active leaving page', () => {
   let finish!: Parameters<Animation['onFinish']>[0];
   const animation = { onFinish: (callback: typeof finish) => (finish = callback) } as unknown as Animation;
   let cancellations = 0;
-  leaving.addEventListener(FOLDABLE_TRANSITION_CANCELED, () => cancellations++);
+  let canceledEntering: HTMLElement | undefined;
+  leaving.addEventListener(FOLDABLE_TRANSITION_CANCELED, (event) => {
+    cancellations++;
+    canceledEntering = (event as CustomEvent<{ entering: HTMLElement }>).detail.entering;
+  });
 
   connectNativeUIShellTransition(animation, entering, leaving);
   finish(1, animation);
   expect(cancellations).toBe(0);
   finish(0, animation);
   expect(cancellations).toBe(1);
+  expect(canceledEntering).toBe(entering);
 });
 
 test('server rendering has no DOM side effects', async () => {

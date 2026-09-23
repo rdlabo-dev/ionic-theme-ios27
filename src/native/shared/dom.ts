@@ -10,6 +10,15 @@ export const foldableBackWebClass = 'ios-theme-foldable-back-web-owned';
 export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
 const permanentlyExcluded = '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-cloned-element, [hidden], [inert]';
 export const excluded = `${permanentlyExcluded}, .ion-page-hidden, .ion-page-invisible`;
+const enteringPages = new WeakSet<HTMLElement>();
+export const setFoldableEnteringPage = (page: HTMLElement, entering: boolean): void => {
+  if (entering) enteringPages.add(page);
+  else enteringPages.delete(page);
+};
+export const foldableEnteringPage = (element: HTMLElement): HTMLElement | undefined => {
+  const page = element.closest<HTMLElement>('.ion-page-invisible');
+  return page && enteringPages.has(page) && page.closest(':is(ion-app, body).ios-theme-enable-foldable') ? page : undefined;
+};
 const disabledButtonGroup = 'ion-buttons:is(.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled)';
 const shellDisabledSelector = '.ios-theme-shell-disabled';
 
@@ -30,7 +39,8 @@ const excludedBy = (element: HTMLElement, selector: string): boolean => {
 };
 
 export const isPermanentlyExcluded = (element: HTMLElement): boolean => excludedBy(element, permanentlyExcluded);
-export const isExcluded = (element: HTMLElement): boolean => excludedBy(element, excluded);
+export const isExcluded = (element: HTMLElement, enteringPage?: HTMLElement): boolean =>
+  excludedBy(element, `${permanentlyExcluded}, .ion-page-hidden`) || (!!element.closest('.ion-page-invisible') && !enteringPage);
 
 // A shared native surface must not cover an opted-out descendant either.
 export const isShellDisabled = (element: Element): boolean =>
@@ -56,7 +66,7 @@ export const clearFoldablePlacement = (element: HTMLElement): void => {
 export const foldableRailOwned = (element: HTMLElement): boolean => foldablePlacement.get(element) === true;
 
 export const isFoldableToolbarAction = (element: HTMLElement): boolean =>
-  element.matches('.ios') && !isExcluded(element) && !isShellDisabled(element) && foldableRailOwned(element);
+  element.matches('.ios') && foldableRailOwned(element) && !isExcluded(element, foldableEnteringPage(element)) && !isShellDisabled(element);
 
 export const foldableToolbarActions = (element: HTMLElement): HTMLElement[] =>
   Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isFoldableToolbarAction(child));
@@ -88,7 +98,8 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
 };
 
 const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boolean => {
-  if (!element.isConnected || isExcluded(element) || isShellDisabled(element)) return false;
+  const enteringPage = isFoldableRailSource(element) ? foldableEnteringPage(element) : undefined;
+  if (!element.isConnected || isExcluded(element, enteringPage) || isShellDisabled(element)) return false;
   const prehidden = element.closest<HTMLElement>(`.${prehiddenClass}`);
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
@@ -96,7 +107,7 @@ const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boole
     if (
       style.display === 'none' ||
       (!hiddenForProjection && style.visibility !== 'visible') ||
-      (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker))
+      (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker) && current !== enteringPage)
     )
       return false;
     // Ordinary controls on moving/collapsing/custom transformed surfaces stay in Web coordinates.
