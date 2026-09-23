@@ -401,6 +401,29 @@ test('foldable back navigation requests native rail placement', async ({ page })
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
+test('a departed page cannot regain native toolbar ownership before Ionic hides it', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+  const source = page.locator('app-native-ui-shell ion-back-button');
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  const routedPage = page.locator('app-native-ui-shell.ion-page');
+
+  await routedPage.evaluate((element) => {
+    element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true }));
+    element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true }));
+  });
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+  await page.waitForTimeout(150);
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+
+  await routedPage.evaluate((element) => {
+    element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
+    element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
+  });
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+});
+
 test('foldable toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');

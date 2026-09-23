@@ -1,4 +1,5 @@
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
+import { FOLDABLE_TRANSITION_CANCELED } from '../native-integration';
 import {
   activateProjectedElement,
   foldableToolbarActions,
@@ -45,6 +46,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   let frame = 0;
   let updates = 0;
   let observingFoldable = false;
+  const departedPages = new WeakSet<HTMLElement>();
   let sourceObserver: MutationObserver | undefined;
   let waiters: (() => void)[] = [];
   const listeners = new AbortController();
@@ -65,6 +67,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     const currentRoot = foldableRoot();
     const toolbar = element.closest('ion-toolbar');
     const edge = toolbar?.parentElement;
+    const page = element.closest<HTMLElement>('.ion-page');
     return (
       !!currentRoot?.contains(element) &&
       element.matches('.ios') &&
@@ -74,6 +77,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       !edge.hasAttribute('collapse') &&
       !isExcluded(element) &&
       !isShellDisabled(element) &&
+      (!page || !departedPages.has(page)) &&
       !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden, .ion-page-invisible')
     );
   };
@@ -307,7 +311,18 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       schedule();
   });
   observer.observe(doc.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
-  for (const name of ['ionViewDidEnter', 'ionViewDidLeave', 'ionModalWillPresent', 'ionModalDidDismiss'])
+  const pageLifecycle = (event: Event) => {
+    const page = event.target;
+    if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;
+    if (event.type === 'ionViewWillLeave' || event.type === 'ionViewDidLeave') {
+      departedPages.add(page);
+    } else departedPages.delete(page);
+    if (foldableRoot()) schedule();
+  };
+  for (const name of ['ionViewWillEnter', 'ionViewWillLeave', 'ionViewDidEnter', 'ionViewDidLeave'])
+    doc.addEventListener(name, pageLifecycle, { capture: true, signal: listeners.signal });
+  doc.addEventListener(FOLDABLE_TRANSITION_CANCELED, pageLifecycle, { capture: true, signal: listeners.signal });
+  for (const name of ['ionModalWillPresent', 'ionModalDidDismiss'])
     doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
   if (options.controls === undefined || options.controls.toolbar === true) schedule();
 

@@ -45,6 +45,7 @@ export const createRuntime = async (
   const foldableRailMembers = new Set<HTMLElement>();
   const suspended = new Set<HTMLElement[]>();
   const pages = new Set<HTMLElement>();
+  const departedPages = new WeakSet<HTMLElement>();
   const presented = new Set<HTMLElement>();
   const manualSuspensions = new Set<symbol>();
   const moving = new Map<HTMLElement, Set<string>>();
@@ -163,9 +164,15 @@ export const createRuntime = async (
       await fail(error);
     }
   };
+  const departed = (element: HTMLElement) => {
+    if (!element.closest(':is(ion-app, body).ios-theme-enable-foldable')) return false;
+    const page = element.closest<HTMLElement>('.ion-page');
+    return !!page && departedPages.has(page);
+  };
   const blocked = (element: HTMLElement) =>
     Array.from(suspended).some((scopes) => scopes.some((scope) => scope.contains(element))) ||
-    Array.from(pages).some((page) => page.contains(element)) ||
+    Array.from(pages).some((scope) => scope.contains(element)) ||
+    departed(element) ||
     Array.from(moving.keys()).some((surface) => surface.contains(element));
   const painted = () => new Promise<void>((resolve) => win.requestAnimationFrame(() => win.requestAnimationFrame(() => resolve())));
   const overlayOpen = (includeMenu = true) => {
@@ -195,7 +202,7 @@ export const createRuntime = async (
       search
         .decorate(
           Array.from(doc.querySelectorAll<HTMLElement>(selector))
-            .filter((element) => !blocked(element) || (menuOpen && isFoldableRailSource(element)))
+            .filter((element) => !departed(element) && (!blocked(element) || (menuOpen && isFoldableRailSource(element))))
             .map(readEnabledCandidate)
             .filter((candidate): candidate is Candidate => !!candidate),
           blocked,
@@ -401,6 +408,7 @@ export const createRuntime = async (
     target.addEventListener(name, callback, { capture: true, signal: listeners.signal });
   const pageWill: EventListener = (event) => {
     const page = event.target as HTMLElement;
+    if (event.type === LIFECYCLE_WILL_ENTER) departedPages.delete(page);
     getNativeSearchBindings(doc)
       .filter((binding) => page.contains(binding.footer))
       .forEach((binding) => search.retire(binding));
@@ -411,7 +419,10 @@ export const createRuntime = async (
     schedule();
   };
   const pageDid: EventListener = (event) => {
-    pages.delete(event.target as HTMLElement);
+    const page = event.target as HTMLElement;
+    if (event.type === LIFECYCLE_DID_LEAVE) departedPages.add(page);
+    else departedPages.delete(page);
+    pages.delete(page);
     schedule();
     if (tabSwitchHandoff && pages.size === 0) endTabSwitchHandoff();
   };
@@ -662,9 +673,12 @@ export const createRuntime = async (
         await flush();
         // Source DOM has been restored before Ionic starts moving it.
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
-        return () => {
+        return (canceled = false) => {
           suspended.delete(scopes);
-          scopes.forEach((scope) => pages.delete(scope)); // interactive cancellation has no didLeave.
+          if (canceled || !scopes.some((scope) => scope.closest(':is(ion-app, body).ios-theme-enable-foldable'))) {
+            scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
+            if (canceled && scopes[1]) departedPages.delete(scopes[1]); // The leaving page stays active.
+          }
           schedule();
         };
       },

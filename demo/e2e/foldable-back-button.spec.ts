@@ -76,6 +76,53 @@ test('a stale suspension lease cannot re-hide Web controls after shell teardown'
   await expect(page.locator('html')).not.toHaveClass(/ios-theme-native-ui-shell-prehide/);
 });
 
+test('a departed page cannot regain its Web toolbar projection before Ionic hides it', async ({ page }) => {
+  await page.goto('/main/index/button');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+  const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
+  await expect(projection).toBeVisible();
+  const routedPage = page.locator('app-button.ion-page');
+
+  await routedPage.evaluate((element) => {
+    element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true }));
+    element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true }));
+  });
+  await expect(projection).toHaveCount(0);
+  await page.waitForTimeout(150);
+  await expect(projection).toHaveCount(0);
+
+  await routedPage.evaluate((element) => {
+    element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
+    element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
+  });
+  await expect(projection).toBeVisible();
+
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
+  await expect(projection).toHaveCount(0);
+  await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
+  await expect(projection).toBeVisible();
+});
+
+test('turning foldable on during a transition honors its success or cancellation', async ({ page }) => {
+  await page.goto('/main/index/button');
+  const app = page.locator('ion-app');
+  await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
+  const routedPage = page.locator('app-button.ion-page');
+  const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
+
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
+  await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await expect(projection).toHaveCount(0);
+  await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
+  await expect(projection).toBeVisible();
+
+  await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
+  await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true })));
+  await expect(projection).toHaveCount(0);
+});
+
 test('foldable projection respects shell opt-out and iOS mode', async ({ page }) => {
   await page.goto('/main/index/button');
   const app = page.locator('ion-app');

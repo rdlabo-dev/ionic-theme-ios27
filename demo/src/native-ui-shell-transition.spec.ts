@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   connectNativeUIShellTransition,
+  FOLDABLE_TRANSITION_CANCELED,
   getNativeSearchBindings,
   registerNativeSearch,
   setNativeUIShellIntegration,
@@ -16,14 +17,18 @@ const fixture = () => {
   const pending = new Promise<void>((resolve) => {
     ready = resolve;
   });
+  let finish!: Parameters<Animation['onFinish']>[0];
   setNativeUIShellIntegration(doc, {
     suspend: async () => {
       await pending;
-      return () => calls.push('resume');
+      return (canceled = false) => calls.push(`resume:${canceled}`);
     },
   });
   const animation = {
-    onFinish: () => animation,
+    onFinish: (callback: typeof finish) => {
+      finish = callback;
+      return animation;
+    },
     play: async () => {
       calls.push('play');
     },
@@ -45,7 +50,7 @@ const fixture = () => {
     },
   } as unknown as Animation;
   connectNativeUIShellTransition(animation, page);
-  return { animation, calls, ready };
+  return { animation, calls, ready, finish: (step: 0 | 1) => finish(step, animation) };
 };
 
 test('normal transition waits for native suspension', async () => {
@@ -54,11 +59,11 @@ test('normal transition waits for native suspension', async () => {
   expect(calls).toEqual([]);
   ready();
   await played;
-  expect(calls).toEqual(['play', 'resume']);
+  expect(calls).toEqual(['play', 'resume:false']);
 });
 
 test('interactive cancellation queued during suspension keeps the last progress', async () => {
-  const { animation, calls, ready } = fixture();
+  const { animation, calls, ready, finish } = fixture();
   animation.progressStart(true);
   animation.progressStep(0.2);
   animation.progressStep(0.4);
@@ -66,8 +71,10 @@ test('interactive cancellation queued during suspension keeps the last progress'
   expect(calls).toEqual([]);
   ready();
   await expect.poll(() => calls).toEqual(['start', 'step:0.4', 'end:0']);
+  finish(0);
+  expect(calls).toEqual(['start', 'step:0.4', 'end:0', 'resume:true']);
   animation.destroy();
-  expect(calls).toEqual(['start', 'step:0.4', 'end:0', 'resume', 'destroy']);
+  expect(calls).toEqual(['start', 'step:0.4', 'end:0', 'resume:true', 'destroy']);
 });
 
 test('destroy during bridge preparation cannot start an abandoned transition', async () => {
@@ -76,7 +83,7 @@ test('destroy during bridge preparation cannot start an abandoned transition', a
   animation.destroy();
   ready();
   await played;
-  expect(calls).toEqual(['destroy', 'resume']);
+  expect(calls).toEqual(['destroy', 'resume:true']);
 });
 
 test('without native enablement the animation remains untouched', () => {
@@ -84,6 +91,25 @@ test('without native enablement the animation remains untouched', () => {
   const play = animation.play;
   connectNativeUIShellTransition(animation, { ownerDocument: {} } as HTMLElement);
   expect(animation.play).toBe(play);
+});
+
+test('a canceled Web transition releases the still-active leaving page', () => {
+  const doc = document.implementation.createHTMLDocument();
+  const app = doc.createElement('ion-app');
+  doc.body.append(app);
+  const entering = doc.createElement('main');
+  const leaving = doc.createElement('main');
+  app.append(entering, leaving);
+  let finish!: Parameters<Animation['onFinish']>[0];
+  const animation = { onFinish: (callback: typeof finish) => (finish = callback) } as unknown as Animation;
+  let cancellations = 0;
+  leaving.addEventListener(FOLDABLE_TRANSITION_CANCELED, () => cancellations++);
+
+  connectNativeUIShellTransition(animation, entering, leaving);
+  finish(1, animation);
+  expect(cancellations).toBe(0);
+  finish(0, animation);
+  expect(cancellations).toBe(1);
 });
 
 test('server rendering has no DOM side effects', async () => {
