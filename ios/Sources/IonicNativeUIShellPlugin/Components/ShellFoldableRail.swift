@@ -238,11 +238,10 @@ final class ShellFoldableRailController: ShellFoldableRailControlling {
         private func makeFullSizeSurfacesTransparent(in surface: UIView) {
             guard !(surface is UIVisualEffectView) else { return }
             let frame = surface.convert(surface.bounds, to: view)
-            let background = surface.backgroundColor?.resolvedColor(with: surface.traitCollection)
-            let systemBackground = UIColor.systemBackground.resolvedColor(with: surface.traitCollection)
-            // SwiftUI's hosting containers add opaque system backgrounds behind their bars. Remove only those
-            // host-sized base surfaces; preserve smaller controls, materials, and application-defined backgrounds.
-            if frame.insetBy(dx: -1, dy: -1).contains(view.bounds), background == systemBackground {
+            // NavigationStack may install a dimmed full-size backing surface during push/pop.
+            // This host has no application content behind its controls, so every full-size
+            // backing must stay clear while smaller controls and system materials remain intact.
+            if frame.insetBy(dx: -1, dy: -1).contains(view.bounds) {
                 surface.backgroundColor = .clear
                 surface.isOpaque = false
             }
