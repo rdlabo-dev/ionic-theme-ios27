@@ -104,6 +104,17 @@ test.describe('Animation Tests', () => {
     await expect(shade).toHaveCount(0);
   });
 
+  test('foldable page transition does not shade the control rail', async ({ page }) => {
+    await page.goto('/main/index', { waitUntil: 'networkidle' });
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+    await page.getByRole('button', { name: 'button', exact: true }).click();
+    const shade = page.locator('.ios-transition-shade');
+    await expect(shade).toBeVisible();
+    await page.evaluate(() => document.getAnimations().forEach((animation) => animation.pause()));
+    await expect(shade).toHaveCSS('clip-path', 'inset(0px 80px 0px 0px)');
+    await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
+  });
+
   test('runs and completes the iOS popover animations', async ({ page }) => {
     await page.goto('/main/index/popover', { waitUntil: 'networkidle' });
     await clearAnimationCalls(page);
