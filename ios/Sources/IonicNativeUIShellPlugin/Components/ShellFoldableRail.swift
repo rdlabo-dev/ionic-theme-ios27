@@ -121,17 +121,11 @@ private struct ShellFoldableRailView: View {
     var body: some View {
         Group {
             if model.tabs.isEmpty {
-                NavigationStack {
-                    Color.clear
-                        .modifier(ShellFoldableToolbarAdapter(model: model))
-                }
+                ShellFoldableNavigation(model: model)
             } else {
                 TabView(selection: Binding(get: { model.selection }, set: { model.select($0) })) {
                     ForEach(model.tabs) { item in
-                        NavigationStack {
-                            Color.clear
-                                .modifier(ShellFoldableToolbarAdapter(model: model))
-                        }
+                        ShellFoldableNavigation(model: model)
                         .tag(item.id)
                         .tabItem { ShellFoldableLabel(item: item) }
                         .modifier(ShellFoldableBadge(badge: item.badge))
@@ -144,6 +138,30 @@ private struct ShellFoldableRailView: View {
         }
         .modifier(ShellFoldableCompression())
         .background(Color.clear)
+    }
+}
+
+@available(iOS 26.0, *)
+private struct ShellFoldableNavigation: View {
+    @ObservedObject var model: ShellFoldableRailModel
+    @State private var path: [String] = []
+
+    var body: some View {
+        NavigationStack(path: Binding(get: { path }, set: { next in
+            if !path.isEmpty && next.isEmpty, let back = model.back {
+                model.activate(back.id)
+            }
+            path = next
+        })) {
+            Color.clear
+                .navigationDestination(for: String.self) { _ in
+                    Color.clear.modifier(ShellFoldableToolbarAdapter(model: model))
+                }
+                .modifier(ShellFoldableToolbarAdapter(model: model))
+        }
+        .onChange(of: model.back?.id, initial: true) { _, id in
+            path = id.map { [$0] } ?? []
+        }
     }
 }
 
@@ -177,12 +195,6 @@ private struct ShellFoldableToolbar: ViewModifier {
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if let back = model.back {
-                ToolbarItem(placement: .cancellationAction) {
-                    foldableButton(back, model: model)
-                }
-                .axisBehavior(.verticalPreferred)
-            }
             ForEach(model.groups.filter { $0.slot == .start }) { group in
                 ToolbarItemGroup(placement: .topBarLeading) {
                     ForEach(group.items) { item in
@@ -209,11 +221,6 @@ private struct ShellFoldableLegacyToolbar: ViewModifier {
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if let back = model.back {
-                ToolbarItem(placement: .navigation) {
-                    foldableButton(back, model: model)
-                }
-            }
             ForEach(model.groups) { group in
                 ToolbarItemGroup(placement: .primaryAction) {
                     ForEach(group.items) { item in
