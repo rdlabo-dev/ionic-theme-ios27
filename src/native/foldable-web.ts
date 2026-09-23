@@ -2,6 +2,7 @@ import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } f
 import { FOLDABLE_TRANSITION_CANCELED } from '../native-integration';
 import {
   activateProjectedElement,
+  createFoldablePageState,
   foldableEnteringPage,
   foldableToolbarActions,
   isExcluded,
@@ -10,7 +11,6 @@ import {
   marker,
   prehideOnlyMutation,
   prehiddenClass,
-  setFoldableEnteringPage,
   unprojected,
   withoutPrehide,
 } from './shared/dom';
@@ -50,7 +50,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   let frame = 0;
   let updates = 0;
   let observingFoldable = false;
-  const departedPages = new WeakSet<HTMLElement>();
+  const foldablePages = createFoldablePageState();
   let sourceObserver: MutationObserver | undefined;
   let waiters: (() => void)[] = [];
   const listeners = new AbortController();
@@ -69,7 +69,6 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     const currentRoot = foldableRoot();
     const toolbar = element.closest('ion-toolbar');
     const edge = toolbar?.parentElement;
-    const page = element.closest<HTMLElement>('.ion-page');
     return (
       !!currentRoot?.contains(element) &&
       element.matches('.ios') &&
@@ -79,7 +78,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       !edge.hasAttribute('collapse') &&
       !isExcluded(element, foldableEnteringPage(element)) &&
       !isShellDisabled(element) &&
-      (!page || !departedPages.has(page)) &&
+      !foldablePages.isDeparted(element) &&
       !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden')
     );
   };
@@ -333,18 +332,8 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;
     if (event.type === FOLDABLE_TRANSITION_CANCELED) {
       const entering = (event as CustomEvent<{ entering?: HTMLElement }>).detail?.entering;
-      if (entering) {
-        setFoldableEnteringPage(entering, false);
-        departedPages.add(entering);
-      }
-      departedPages.delete(page);
-    } else if (event.type === 'ionViewWillLeave' || event.type === 'ionViewDidLeave') {
-      setFoldableEnteringPage(page, false);
-      departedPages.add(page);
-    } else {
-      departedPages.delete(page);
-      setFoldableEnteringPage(page, event.type === 'ionViewWillEnter');
-    }
+      foldablePages.cancel(entering, page);
+    } else foldablePages.lifecycle(event);
     if (foldableRoot()) schedule();
   };
   for (const name of ['ionViewWillEnter', 'ionViewWillLeave', 'ionViewDidEnter', 'ionViewDidLeave'])

@@ -49,6 +49,30 @@ export const foldableEnteringPage = (element: HTMLElement): HTMLElement | undefi
   const page = element.closest<HTMLElement>('.ion-page-invisible');
   return page && enteringPages.has(page) && page.closest(':is(ion-app, body).ios-theme-enable-foldable') ? page : undefined;
 };
+export const createFoldablePageState = () => {
+  const departed = new WeakSet<HTMLElement>();
+  return {
+    isDeparted(element: HTMLElement): boolean {
+      const page = element.closest<HTMLElement>('.ion-page');
+      return !!page && departed.has(page) && !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
+    },
+    lifecycle(event: Event): void {
+      const page = event.target;
+      if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;
+      const entering = event.type === 'ionViewWillEnter';
+      if (entering || event.type === 'ionViewDidEnter') departed.delete(page);
+      else departed.add(page);
+      setFoldableEnteringPage(page, entering);
+    },
+    cancel(entering?: HTMLElement, leaving?: HTMLElement): void {
+      if (entering) {
+        departed.add(entering);
+        setFoldableEnteringPage(entering, false);
+      }
+      if (leaving) departed.delete(leaving);
+    },
+  };
+};
 const disabledButtonGroup = 'ion-buttons:is(.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled)';
 const shellDisabledSelector = '.ios-theme-shell-disabled';
 
