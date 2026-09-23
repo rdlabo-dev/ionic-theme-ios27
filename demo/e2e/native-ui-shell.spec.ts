@@ -423,19 +423,25 @@ test('native foldable actions follow WillEnter and stay enabled during navigatio
     element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
   });
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (window as any).__nativeUIShell.updates
-            .findLast((update: any) =>
-              update.controls.some((control: any) => control.items.some((item: any) => item.accessibilityLabel === 'Save')),
-            )
-            .controls.flatMap((control: any) => control.items)
-            .find((item: any) => item.accessibilityLabel === 'Save').disabled,
-      ),
-    )
-    .toBe(false);
+  const saveDisabled = () =>
+    page.evaluate(
+      () =>
+        (window as any).__nativeUIShell.updates
+          .findLast((update: any) =>
+            update.controls.some((control: any) => control.items.some((item: any) => item.accessibilityLabel === 'Save')),
+          )
+          .controls.flatMap((control: any) => control.items)
+          .find((item: any) => item.accessibilityLabel === 'Save').disabled,
+    );
+  await expect.poll(saveDisabled).toBe(false);
+  await page.addStyleTag({ content: '.author-no-pointer { pointer-events: none }' });
+  const save = page.locator('app-native-ui-shell ion-button[type=submit]');
+  for (const target of [save, save.locator('xpath=..'), save.locator('xpath=../..')]) {
+    await target.evaluate((element) => element.classList.add('author-no-pointer'));
+    await expect.poll(saveDisabled).toBe(true);
+    await target.evaluate((element) => element.classList.remove('author-no-pointer'));
+    await expect.poll(saveDisabled).toBe(false);
+  }
   await activate(page, 'Save');
   await expect(page.locator('app-native-ui-shell [data-save-count]')).toHaveText('1');
   await routedPage.evaluate((element) => {

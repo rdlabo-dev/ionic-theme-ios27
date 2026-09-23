@@ -11,7 +11,15 @@ import type {
   NativeUIShellStatus,
 } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
-import { activateProjectedElement, isFoldableRailSource, marker, rejectedClass, setFoldableEnteringPage, unprojected } from './shared/dom';
+import {
+  activateProjectedElement,
+  foldableEnteringPage,
+  isFoldableRailSource,
+  marker,
+  rejectedClass,
+  setFoldableEnteringPage,
+  unprojected,
+} from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
@@ -147,8 +155,25 @@ export const createRuntime = async (
   const setRejected = (element: HTMLElement, value: boolean) => {
     element.classList.toggle(rejectedClass, value);
   };
+  const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    const candidate = readCandidate(element, id);
+    const enteringPage = isFoldableRailCandidate(element) ? foldableEnteringPage(element) : undefined;
+    let candidate: Candidate | undefined;
+    if (enteringPage && getComputedStyle(enteringPage).pointerEvents === 'none') {
+      const previous = enteringPage.style.getPropertyValue('pointer-events');
+      const priority = enteringPage.style.getPropertyPriority('pointer-events');
+      const hadStyle = enteringPage.hasAttribute('style');
+      measuringPointerPages.add(enteringPage);
+      enteringPage.style.setProperty('pointer-events', 'auto', 'important');
+      try {
+        candidate = readCandidate(element, id);
+      } finally {
+        if (previous) enteringPage.style.setProperty('pointer-events', previous, priority);
+        else enteringPage.style.removeProperty('pointer-events');
+        if (!hadStyle && !enteringPage.style.length) enteringPage.removeAttribute('style');
+        win.setTimeout(() => measuringPointerPages.delete(enteringPage), 0);
+      }
+    } else candidate = readCandidate(element, id);
     if (candidate && isFoldableRailCandidate(element)) {
       if (!nativeFoldableRail) return undefined;
       candidate.control.placement = 'foldable-rail';
@@ -395,6 +420,7 @@ export const createRuntime = async (
         (record) =>
           record.attributeName !== marker &&
           record.attributeName !== fadeMarker &&
+          !(record.attributeName === 'style' && measuringPointerPages.has(record.target as HTMLElement)) &&
           !(
             record.attributeName === 'aria-hidden' &&
             sources.has(record.target as HTMLElement) &&

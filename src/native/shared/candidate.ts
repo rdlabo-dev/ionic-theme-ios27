@@ -54,12 +54,6 @@ export const appendItem = (
   const labelStyle = getComputedStyle(labelElement);
   const badge = child.querySelector<HTMLElement>('ion-badge');
   const badgeStyle = badge && visible(badge) ? getComputedStyle(badge) : undefined;
-  const foldable = isFoldableRailSource(candidate.element);
-  // Ignore inherited page-transition blocking, not a control's own pointer-events rule.
-  const pointerBlocked = (element: HTMLElement) =>
-    element.style.pointerEvents === 'none' ||
-    (getComputedStyle(element).pointerEvents === 'none' &&
-      (!foldable || !element.parentElement || getComputedStyle(element.parentElement).pointerEvents !== 'none'));
   const item: ShellItem = {
     id: id(child),
     ...frame(child.getBoundingClientRect(), candidate.element.getBoundingClientRect()),
@@ -68,8 +62,7 @@ export const appendItem = (
     disabled:
       !!(child as ItemElement).disabled ||
       !!(candidate.element as ItemElement).disabled ||
-      pointerBlocked(child) ||
-      (child !== candidate.element && pointerBlocked(candidate.element)),
+      getComputedStyle(child).pointerEvents === 'none',
     selected: !!(child as ItemElement).selected,
     fontSize: parseFloat(labelStyle.fontSize),
     fontWeight: parseInt(labelStyle.fontWeight, 10) || 400,
