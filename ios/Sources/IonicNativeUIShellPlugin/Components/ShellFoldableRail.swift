@@ -96,6 +96,14 @@ private struct ShellFoldableLabel: View {
 }
 
 @available(iOS 26.0, *)
+private func foldableButton(_ item: ShellFoldableRailModel.Item, model: ShellFoldableRailModel) -> some View {
+    Button { model.activate(item.id) } label: { ShellFoldableLabel(item: item) }
+        .disabled(item.disabled)
+        .accessibilityLabel(item.accessibilityLabel)
+        .accessibilityIdentifier(item.id)
+}
+
+@available(iOS 26.0, *)
 private struct ShellFoldableBadge: ViewModifier {
     let badge: ShellBadge?
 
@@ -170,20 +178,14 @@ private struct ShellFoldableToolbar: ViewModifier {
         content.toolbar {
             if let back = model.back {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { model.activate(back.id) } label: { ShellFoldableLabel(item: back) }
-                        .disabled(back.disabled)
-                        .accessibilityLabel(back.accessibilityLabel)
-                        .accessibilityIdentifier(back.id)
+                    foldableButton(back, model: model)
                 }
                 .axisBehavior(.verticalPreferred)
             }
             ForEach(model.groups) { group in
                 ToolbarItemGroup(placement: .automatic) {
                     ForEach(group.items) { item in
-                        Button { model.activate(item.id) } label: { ShellFoldableLabel(item: item) }
-                            .disabled(item.disabled)
-                            .accessibilityLabel(item.accessibilityLabel)
-                        .accessibilityIdentifier(item.id)
+                        foldableButton(item, model: model)
                     }
                 }
                 .axisBehavior(.verticalPreferred)
@@ -200,19 +202,13 @@ private struct ShellFoldableLegacyToolbar: ViewModifier {
         content.toolbar {
             if let back = model.back {
                 ToolbarItem(placement: .navigation) {
-                    Button { model.activate(back.id) } label: { ShellFoldableLabel(item: back) }
-                        .disabled(back.disabled)
-                        .accessibilityLabel(back.accessibilityLabel)
-                        .accessibilityIdentifier(back.id)
+                    foldableButton(back, model: model)
                 }
             }
             ForEach(model.groups) { group in
                 ToolbarItemGroup(placement: .primaryAction) {
                     ForEach(group.items) { item in
-                        Button { model.activate(item.id) } label: { ShellFoldableLabel(item: item) }
-                            .disabled(item.disabled)
-                            .accessibilityLabel(item.accessibilityLabel)
-                            .accessibilityIdentifier(item.id)
+                        foldableButton(item, model: model)
                     }
                 }
             }
