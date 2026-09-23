@@ -24,6 +24,7 @@ final class ShellFoldableRailModel: ObservableObject {
     struct Group: Identifiable {
         let id: String
         let items: [Item]
+        let slot: ShellControl.ToolbarSlot?
     }
 
     @Published var back: Item?
@@ -46,7 +47,7 @@ final class ShellFoldableRailModel: ObservableObject {
         back = controls.first(where: { $0.kind == .backButton })?.items.first.map(item)
         groups = controls.compactMap { control in
             guard [.button, .buttons, .menuButton].contains(control.kind) else { return nil }
-            return Group(id: control.id, items: control.items.map(item))
+            return Group(id: control.id, items: control.items.map(item), slot: control.toolbarSlot)
         }
         tabs = controls.first(where: { $0.kind == .tabBar })?.items.map(item) ?? []
         domSelection = tabs.first(where: \.selected)?.id ?? ""
@@ -182,8 +183,16 @@ private struct ShellFoldableToolbar: ViewModifier {
                 }
                 .axisBehavior(.verticalPreferred)
             }
-            ForEach(model.groups) { group in
-                ToolbarItemGroup(placement: .automatic) {
+            ForEach(model.groups.filter { $0.slot == .start }) { group in
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    ForEach(group.items) { item in
+                        foldableButton(item, model: model)
+                    }
+                }
+                .axisBehavior(.verticalPreferred)
+            }
+            ForEach(model.groups.filter { $0.slot != .start }) { group in
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     ForEach(group.items) { item in
                         foldableButton(item, model: model)
                     }

@@ -177,6 +177,10 @@ export const createRuntime = async (
     if (candidate && isFoldableRailCandidate(element)) {
       if (!nativeFoldableRail) return undefined;
       candidate.control.placement = 'foldable-rail';
+      if (['ion-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind)) {
+        const slot = (element.matches('ion-buttons') ? element : (element.closest('ion-buttons') ?? element)).getAttribute('slot');
+        if (slot === 'start' || slot === 'end') candidate.control.toolbarSlot = slot;
+      }
     }
     return candidate && controlEnabled(candidate) ? candidate : undefined;
   };

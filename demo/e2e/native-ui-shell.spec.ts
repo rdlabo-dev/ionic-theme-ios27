@@ -355,7 +355,7 @@ test('foldable tabs request native adaptive rail placement', async ({ page }) =>
   await expect(bar).toHaveClass(/ios27-enable-gesture/);
 });
 
-test('foldable back navigation requests native rail placement', async ({ page }) => {
+test('foldable back navigation and toolbar slots request native rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const app = page.locator('ion-app');
@@ -372,7 +372,10 @@ test('foldable back navigation requests native rail placement', async ({ page })
         () =>
           (window as any).__nativeUIShell.updates
             .at(-1)
-            .controls.some((control: any) => control.kind === 'ion-back-button' && control.placement === 'foldable-rail') &&
+            .controls.some(
+              (control: any) =>
+                control.kind === 'ion-back-button' && control.placement === 'foldable-rail' && control.toolbarSlot === undefined,
+            ) &&
           !(window as any).__nativeUIShell.updates
             .at(-1)
             .controls.some((control: any) => control.items.some((item: any) => item.label === 'Cancel')),
@@ -388,11 +391,20 @@ test('foldable back navigation requests native rail placement', async ({ page })
             (control: any) =>
               control.kind === 'ion-button' &&
               control.placement === 'foldable-rail' &&
+              control.toolbarSlot === 'end' &&
               control.items.some((item: any) => item.accessibilityLabel === 'Save'),
           ),
       ),
     )
     .toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).__nativeUIShell.updates.at(-1).controls.find((control: any) => control.kind === 'ion-menu-button')?.toolbarSlot,
+      ),
+    )
+    .toBe('start');
 
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(projection).toHaveCount(0);

@@ -85,6 +85,8 @@ export interface ShellControl extends Frame {
   kind: NativeUIShellComponent;
   /** Lets the native host own adaptive placement instead of mirroring the DOM frame. */
   placement?: 'foldable-rail';
+  /** Logical Ionic toolbar slot, preserved when projecting to the foldable rail. */
+  toolbarSlot?: 'start' | 'end';
   items: ShellItem[];
   dark: boolean;
   rtl: boolean;
