@@ -6,6 +6,7 @@ import {
   isFoldableToolbarGroup,
   isShellDisabled,
   marker,
+  prehiddenClass,
   unprojected,
 } from './shared/dom';
 
@@ -55,7 +56,10 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
   const isRendered = (element: HTMLElement) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    return element.isConnected && style.display !== 'none' && style.visibility === 'visible' && rect.width > 0 && rect.height > 0;
+    const prehidden = !!element.closest(`.${prehiddenClass}`);
+    return (
+      element.isConnected && style.display !== 'none' && (prehidden || style.visibility === 'visible') && rect.width > 0 && rect.height > 0
+    );
   };
   const inEligibleToolbar = (element: HTMLElement) => {
     const currentRoot = foldableRoot();
@@ -131,6 +135,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       if (!['class', marker].includes(attribute.name) && !original.hasAttribute(attribute.name)) target.removeAttribute(attribute.name);
     for (const attribute of Array.from(original.attributes))
       if (!['id', 'slot', marker, 'aria-hidden'].includes(attribute.name)) target.setAttribute(attribute.name, attribute.value);
+    target.classList.remove(prehiddenClass);
   };
   const syncBack = (target: HTMLIonBackButtonElement, original: HTMLIonBackButtonElement) => {
     copyAttributes(target, original);

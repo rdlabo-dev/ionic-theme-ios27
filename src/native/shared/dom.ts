@@ -3,6 +3,7 @@ import { fadeMarker } from './crossfade';
 import type { Frame } from '../definitions';
 
 export const marker = 'data-native-ui-shell';
+export const prehiddenClass = 'ios-theme-native-ui-shell-prehidden';
 export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
 export const excluded =
   '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-page-hidden, .ion-page-invisible, .ion-cloned-element, [hidden], [inert]';
@@ -36,7 +37,11 @@ export const isShellDisabled = (element: Element): boolean =>
 export const isFoldableToolbarAction = (element: HTMLElement): boolean =>
   !isExcluded(element) &&
   !isShellDisabled(element) &&
-  (element.matches('ion-menu-button.ios') || (element.matches('ion-button.ios') && !!element.querySelector('ion-icon, svg')));
+  (element.matches('ion-menu-button.ios') ||
+    (element.matches('ion-button.ios') &&
+      !!element.querySelector('ion-icon, svg') &&
+      !element.matches('.ion-color, [color]') &&
+      ['default', 'clear'].includes((element as HTMLIonButtonElement).fill ?? element.getAttribute('fill') ?? 'default')));
 
 export const foldableToolbarActions = (element: HTMLElement): HTMLElement[] =>
   Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isFoldableToolbarAction(child));
@@ -67,11 +72,17 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
   }
 };
 
-export const visible = (element: HTMLElement, allowOutsideViewport = false): boolean => {
+const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boolean => {
   if (!element.isConnected || isExcluded(element) || isShellDisabled(element)) return false;
+  const prehidden = element.closest<HTMLElement>(`.${prehiddenClass}`);
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
-    if (style.display === 'none' || style.visibility !== 'visible' || (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker)))
+    const hiddenForProjection = !!prehidden?.contains(current);
+    if (
+      style.display === 'none' ||
+      (!hiddenForProjection && style.visibility !== 'visible') ||
+      (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker))
+    )
       return false;
     // Ordinary controls on moving/collapsing/custom transformed surfaces stay in Web coordinates.
     // Foldable rail controls are placed independently of their Web coordinates and must remain
@@ -92,6 +103,8 @@ export const visible = (element: HTMLElement, allowOutsideViewport = false): boo
     (allowOutsideViewport || (rect.left >= -1 && rect.top >= -1 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1))
   );
 };
+
+export const visible = (element: HTMLElement, allowOutsideViewport = false): boolean => readVisible(element, allowOutsideViewport);
 
 export const frame = (rect: DOMRect, origin?: DOMRect): Frame => ({
   x: rect.x - (origin?.x ?? 0),

@@ -4,6 +4,7 @@ import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellPlugin, We
 import { bindMetricsLifecycle } from './lifecycle';
 import { createRuntime } from './runtime';
 import { createFoldableWebProjection } from './foldable-web';
+import { prehideFoldableToolbarSources } from './prehide';
 export type {
   NativeUIShellComponent,
   NativeUIShellControls,
@@ -63,15 +64,17 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
       : Promise.resolve(web('Disabled'));
   }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
+  const stopPrehide =
+    !active && (options.controls === undefined || options.controls.toolbar === true) ? prehideFoldableToolbarSources(document) : undefined;
   return (active ??= (async () => {
     if (Capacitor.getPlatform() !== 'ios')
-      return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires Capacitor iOS'));
+      return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires Capacitor iOS'), stopPrehide);
     let runtime: NativeUIShellHandle | undefined;
     try {
       await configureNativeTransition().catch(() => undefined);
       const capabilities = await plugin.configure();
       if (!capabilities.supported) {
-        return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires iOS 26 or later'));
+        return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires iOS 26 or later'), stopPrehide);
       }
       runtime = await createRuntime(document, plugin, options, capabilities.foldableRail === true);
       if (capabilities.foldableRail !== true) runtime = combine(runtime, createFoldableWebProjection(document, options));
@@ -80,21 +83,23 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
         () => (active = undefined),
       );
-      return resetOnDestroy(runtime);
+      return resetOnDestroy(runtime, stopPrehide);
     } catch (error) {
       await runtime?.destroy();
       return resetOnDestroy(
         withReason(createFoldableWebProjection(document, options), error instanceof Error ? error.message : String(error)),
+        stopPrehide,
       );
     }
   })());
 };
 
-const resetOnDestroy = (handle: NativeUIShellHandle): NativeUIShellHandle => ({
+const resetOnDestroy = (handle: NativeUIShellHandle, stopPrehide?: () => void): NativeUIShellHandle => ({
   getStatus: handle.getStatus,
   suspend: handle.suspend,
   async destroy() {
     await handle.destroy();
+    stopPrehide?.();
     active = undefined;
   },
 });

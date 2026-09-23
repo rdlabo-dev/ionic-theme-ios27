@@ -395,6 +395,29 @@ test('foldable back navigation requests native rail placement', async ({ page })
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
+test('foldable toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  const source = page.locator('app-native-ui-shell ion-button[type=submit]');
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(source).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+
+  const prehidden = await source.evaluate((element) => {
+    element.removeAttribute('data-native-ui-shell');
+    const style = getComputedStyle(element);
+    return { position: style.position, visibility: style.visibility };
+  });
+  expect(prehidden).toEqual({ position: 'absolute', visibility: 'hidden' });
+
+  await source.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
+  await expect(source).toHaveCSS('visibility', 'visible');
+
+  await page.evaluate(() => (window as any).nativeUIShell.destroy());
+  await expect(source).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(source).toHaveCSS('visibility', 'visible');
+});
+
 test('foldable rail remains native while its Ionic menu is open', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockNative(page);

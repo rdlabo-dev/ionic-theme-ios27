@@ -437,6 +437,11 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   @include theme-button($is-back-button: true);
 }
 
+.ios-theme-native-ui-shell-prehidden {
+  position: absolute !important;
+  visibility: hidden !important;
+}
+
 :is(ion-app, body).ios-theme-enable-foldable.ios-theme-foldable-toolbar-ready {
   ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
     ion-back-button.ios[data-native-ui-shell]:not(.ios-theme-disabled, .ios26-disabled, .ios-theme-foldable-back-button-projection) {
