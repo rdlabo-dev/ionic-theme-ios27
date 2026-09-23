@@ -8,9 +8,11 @@ import {
   isFoldableToolbarGroup,
   isShellDisabled,
   marker,
+  prehideOnlyMutation,
   prehiddenClass,
   setFoldableEnteringPage,
   unprojected,
+  withoutPrehide,
 } from './shared/dom';
 
 const backProjectionClass = 'ios-theme-foldable-back-button-projection';
@@ -57,14 +59,12 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     [backSource, ...toolbarProjections.flatMap(({ actions }) => actions.map(({ source }) => source))].filter(
       (source): source is HTMLElement => !!source,
     );
-  const isRendered = (element: HTMLElement) => {
-    const style = getComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    const prehidden = !!element.closest(`.${prehiddenClass}`);
-    return (
-      element.isConnected && style.display !== 'none' && (prehidden || style.visibility === 'visible') && rect.width > 0 && rect.height > 0
-    );
-  };
+  const isRendered = (element: HTMLElement) =>
+    withoutPrehide(element, () => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return element.isConnected && style.display !== 'none' && style.visibility === 'visible' && rect.width > 0 && rect.height > 0;
+    });
   const inEligibleToolbar = (element: HTMLElement) => {
     const currentRoot = foldableRoot();
     const toolbar = element.closest('ion-toolbar');
@@ -243,11 +243,18 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
     }
     if (nextBack || toolbarProjections.length) root.classList.add(readyClass);
     sourceObserver = new MutationObserver((records) => {
-      if (records.some((record) => record.type !== 'attributes' || ![marker, 'aria-hidden'].includes(record.attributeName ?? '')))
+      if (
+        records.some(
+          (record) =>
+            record.type !== 'attributes' || (![marker, 'aria-hidden'].includes(record.attributeName ?? '') && !prehideOnlyMutation(record)),
+        )
+      )
         schedule();
     });
-    if (nextBack?.shadowRoot) sourceObserver.observe(nextBack.shadowRoot, { subtree: true, childList: true, attributes: true });
-    for (const { group } of groups) sourceObserver.observe(group, { subtree: true, childList: true, attributes: true });
+    if (nextBack?.shadowRoot)
+      sourceObserver.observe(nextBack.shadowRoot, { subtree: true, childList: true, attributes: true, attributeOldValue: true });
+    for (const { group } of groups)
+      sourceObserver.observe(group, { subtree: true, childList: true, attributes: true, attributeOldValue: true });
   };
   const performUpdate = () => {
     frame = 0;
@@ -259,6 +266,7 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
         subtree: true,
         childList: true,
         attributes: true,
+        attributeOldValue: true,
         attributeFilter: observingFoldable ? undefined : ['class'],
       });
     }
@@ -307,12 +315,19 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
           )),
     );
     if (
-      (observingFoldable && records.some((record) => record.attributeName !== marker && !insideProjection(record.target))) ||
-      (!observingFoldable && foldableChanged)
+      (observingFoldable &&
+        records.some((record) => record.attributeName !== marker && !prehideOnlyMutation(record) && !insideProjection(record.target))) ||
+      (!observingFoldable && foldableChanged && records.some((record) => !prehideOnlyMutation(record)))
     )
       schedule();
   });
-  observer.observe(doc.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+  observer.observe(doc.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeOldValue: true,
+    attributeFilter: ['class'],
+  });
   const pageLifecycle = (event: Event) => {
     const page = event.target;
     if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;

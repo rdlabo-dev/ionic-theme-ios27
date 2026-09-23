@@ -7,6 +7,36 @@ export const prehiddenClass = 'ios-theme-native-ui-shell-prehidden';
 export const prehideRootClass = 'ios-theme-native-ui-shell-prehide';
 export const rejectedClass = 'ios-theme-native-ui-shell-rejected';
 export const foldableBackWebClass = 'ios-theme-foldable-back-web-owned';
+const prehideClasses = new Set([prehiddenClass, prehideRootClass]);
+export const prehideOnlyMutation = (record: MutationRecord): boolean => {
+  if (record.attributeName !== 'class' || record.oldValue === null) return false;
+  const withoutPrehide = (value: string) =>
+    value
+      .split(/\s+/)
+      .filter((name) => name && !prehideClasses.has(name))
+      .join(' ');
+  return withoutPrehide(record.oldValue) === withoutPrehide((record.target as Element).getAttribute('class') ?? '');
+};
+
+export const withoutPrehide = <T>(element: HTMLElement, read: () => T): T => {
+  const changed: HTMLElement[] = [];
+  for (let current: HTMLElement | null = element; current; current = current.parentElement) {
+    if (current.classList.contains(prehiddenClass)) {
+      current.classList.remove(prehiddenClass);
+      changed.push(current);
+    }
+  }
+  const root = element.ownerDocument.documentElement;
+  if (element.matches('ion-back-button') && root.classList.contains(prehideRootClass)) {
+    root.classList.remove(prehideRootClass);
+    changed.push(root);
+  }
+  try {
+    return read();
+  } finally {
+    changed.forEach((current) => current.classList.add(current === root ? prehideRootClass : prehiddenClass));
+  }
+};
 export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
 const permanentlyExcluded = '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-cloned-element, [hidden], [inert]';
 export const excluded = `${permanentlyExcluded}, .ion-page-hidden, .ion-page-invisible`;
@@ -100,13 +130,11 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
 const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boolean => {
   const enteringPage = isFoldableRailSource(element) ? foldableEnteringPage(element) : undefined;
   if (!element.isConnected || isExcluded(element, enteringPage) || isShellDisabled(element)) return false;
-  const prehidden = element.closest<HTMLElement>(`.${prehiddenClass}`);
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
-    const hiddenForProjection = !!prehidden?.contains(current);
     if (
       style.display === 'none' ||
-      (!hiddenForProjection && style.visibility !== 'visible') ||
+      style.visibility !== 'visible' ||
       (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker) && current !== enteringPage)
     )
       return false;
@@ -130,7 +158,8 @@ const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boole
   );
 };
 
-export const visible = (element: HTMLElement, allowOutsideViewport = false): boolean => readVisible(element, allowOutsideViewport);
+export const visible = (element: HTMLElement, allowOutsideViewport = false): boolean =>
+  withoutPrehide(element, () => readVisible(element, allowOutsideViewport));
 
 export const frame = (rect: DOMRect, origin?: DOMRect): Frame => ({
   x: rect.x - (origin?.x ?? 0),

@@ -446,9 +446,13 @@ test('native foldable actions follow WillEnter and stay enabled during navigatio
   await expect(page.locator('app-native-ui-shell [data-save-count]')).toHaveText('1');
   await routedPage.evaluate((element) => {
     element.classList.remove('ion-page-invisible');
-    element.style.pointerEvents = '';
     element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
   });
+  await expect.poll(saveDisabled).toBe(false);
+  await save.evaluate((element) => element.classList.add('author-no-pointer'));
+  await expect.poll(saveDisabled).toBe(true);
+  await save.evaluate((element) => element.classList.remove('author-no-pointer'));
+  await routedPage.evaluate((element) => (element.style.pointerEvents = ''));
 });
 
 test('foldable toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {
@@ -509,6 +513,25 @@ test('foldable toolbar sources are hidden before ownership and restored with the
   await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
   await expect(lateBack).not.toHaveClass(/ios-theme-foldable-back-web-owned/);
   await lateBack.evaluate((element) => element.closest('ion-header')?.remove());
+
+  const lateAction = page.locator('app-native-ui-shell ion-button[data-late-action]');
+  await page
+    .locator('app-native-ui-shell ion-toolbar')
+    .first()
+    .evaluate((toolbar) => {
+      const button = document.createElement('ion-button');
+      button.setAttribute('data-late-action', '');
+      button.setAttribute('aria-label', 'Late action');
+      button.innerHTML = '<ion-icon slot="icon-only" name="checkmark"></ion-icon>';
+      toolbar.append(button);
+    });
+  await expect(lateAction).toHaveAttribute('data-native-ui-shell', '');
+
+  await page.addStyleTag({ content: '.author-hidden { visibility: hidden !important }' });
+  await source.evaluate((element) => element.classList.add('author-hidden'));
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+  await source.evaluate((element) => element.classList.remove('author-hidden'));
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
 
   await source.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
   await expect(source).toHaveCSS('visibility', 'visible');
@@ -624,11 +647,11 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   await expect.poll(nativeSaveDisabled).toBe(true);
   await expect.poll(nativeActionsDisabled).toEqual([true, true]);
   await expect(menu).toHaveClass(/show-menu/);
+  await activate(page, 'Save');
+  await expect(page.locator('[data-save-count]')).toHaveText('0');
   await expect
     .poll(() => menu.evaluate((element) => element.shadowRoot?.querySelector('[part~="container"]')?.getBoundingClientRect().left))
     .toBe(0);
-  await expect.poll(nativeSaveDisabled).toBe(true);
-  await expect.poll(nativeActionsDisabled).toEqual([true, true]);
   await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
   await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
   await expect.poll(nativeSaveDisabled).toBe(false);
@@ -667,6 +690,12 @@ test('foldable controls stay operable on Web when the native side rail is unavai
   await expect(menuProjection).toBeVisible();
   await expect(saveProjection).toBeVisible();
   await expect(page.locator('ion-tab-bar')).toBeVisible();
+  await page.addStyleTag({ content: '.author-hidden { visibility: hidden !important }' });
+  const saveSource = page.locator('app-native-ui-shell ion-button[type=submit]');
+  await saveSource.evaluate((element) => element.classList.add('author-hidden'));
+  await expect(saveProjection).toHaveCount(0);
+  await saveSource.evaluate((element) => element.classList.remove('author-hidden'));
+  await expect(saveProjection).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBeGreaterThan(0);
   await expect
     .poll(() =>

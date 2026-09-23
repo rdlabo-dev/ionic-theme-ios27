@@ -13,9 +13,9 @@ import type {
 import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
 import {
   activateProjectedElement,
-  foldableEnteringPage,
   isFoldableRailSource,
   marker,
+  prehideOnlyMutation,
   rejectedClass,
   setFoldableEnteringPage,
   unprojected,
@@ -157,21 +157,21 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    const enteringPage = isFoldableRailCandidate(element) ? foldableEnteringPage(element) : undefined;
+    const pointerPage = isFoldableRailCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
     let candidate: Candidate | undefined;
-    if (enteringPage && getComputedStyle(enteringPage).pointerEvents === 'none') {
-      const previous = enteringPage.style.getPropertyValue('pointer-events');
-      const priority = enteringPage.style.getPropertyPriority('pointer-events');
-      const hadStyle = enteringPage.hasAttribute('style');
-      measuringPointerPages.add(enteringPage);
-      enteringPage.style.setProperty('pointer-events', 'auto', 'important');
+    if (pointerPage && getComputedStyle(pointerPage).pointerEvents === 'none') {
+      const previous = pointerPage.style.getPropertyValue('pointer-events');
+      const priority = pointerPage.style.getPropertyPriority('pointer-events');
+      const hadStyle = pointerPage.hasAttribute('style');
+      measuringPointerPages.add(pointerPage);
+      pointerPage.style.setProperty('pointer-events', 'auto', 'important');
       try {
         candidate = readCandidate(element, id);
       } finally {
-        if (previous) enteringPage.style.setProperty('pointer-events', previous, priority);
-        else enteringPage.style.removeProperty('pointer-events');
-        if (!hadStyle && !enteringPage.style.length) enteringPage.removeAttribute('style');
-        win.setTimeout(() => measuringPointerPages.delete(enteringPage), 0);
+        if (previous) pointerPage.style.setProperty('pointer-events', previous, priority);
+        else pointerPage.style.removeProperty('pointer-events');
+        if (!hadStyle && !pointerPage.style.length) pointerPage.removeAttribute('style');
+        win.setTimeout(() => measuringPointerPages.delete(pointerPage), 0);
       }
     } else candidate = readCandidate(element, id);
     if (candidate && isFoldableRailCandidate(element)) {
@@ -413,13 +413,20 @@ export const createRuntime = async (
       else finishWaiters();
     }
   };
-  const observation: MutationObserverInit = { subtree: true, childList: true, characterData: true, attributes: true };
+  const observation: MutationObserverInit = {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeOldValue: true,
+  };
   const observer = new MutationObserver((records) => {
     if (
       records.some(
         (record) =>
           record.attributeName !== marker &&
           record.attributeName !== fadeMarker &&
+          !prehideOnlyMutation(record) &&
           !(record.attributeName === 'style' && measuringPointerPages.has(record.target as HTMLElement)) &&
           !(
             record.attributeName === 'aria-hidden' &&
@@ -658,12 +665,6 @@ export const createRuntime = async (
     if (!element) return;
     const owner = Array.from(sources.keys()).find((source) => source === element || source.contains(element));
     if (!owner) return;
-    if (overlayOpen() && isFoldableRailSource(owner)) {
-      activateProjectedElement(element);
-      lastSnapshot = '';
-      schedule();
-      return;
-    }
     const direct = !blocked(owner) && unprojected(sources.keys(), () => readEnabledCandidate(owner));
     const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
     const item = candidate?.control.items.find((item) => item.id === event.id);

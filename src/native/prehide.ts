@@ -29,7 +29,6 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
   const pendingBacks = new Map<HTMLElement, { scope: HTMLElement; timer: ReturnType<typeof setTimeout> }>();
   const listeners = new AbortController();
   const root = () => doc.querySelector<HTMLElement>(':is(ion-app, body).ios-theme-enable-foldable');
-  let foldableWasEnabled = false;
   let suspended = 0;
   let stopped = false;
   const routedPage = (element: HTMLElement) => element.closest<HTMLElement>('.ion-page:not(ion-app, body)');
@@ -110,22 +109,13 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
     const foldable = root();
     if (!foldable) {
       Array.from(scopes.keys()).forEach(release);
-      foldableWasEnabled = false;
       return;
     }
     for (const scope of scopes.keys()) if (!scope.isConnected) release(scope);
     for (const [element, pending] of pendingBacks) if (element.shadowRoot || element.classList.contains('hydrated')) capture(pending.scope);
-    if (!foldableWasEnabled) {
-      foldableWasEnabled = true;
-      foldable
-        .querySelectorAll<HTMLElement>('.ion-page:not(ion-app, body, .ion-page-hidden, .ion-page-invisible)')
-        .forEach((page) => capture(page));
-    }
     // Ionic inserts the destination as invisible before WillEnter. Hide its
-    // sources in that same mutation microtask, before the first transition paint.
-    foldable.querySelectorAll<HTMLElement>('.ion-page:not(ion-app, body, .ion-page-hidden)').forEach((page) => {
-      if (!scopes.has(page)) capture(page);
-    });
+    // sources in that same mutation microtask; capture new DOM identities on active pages too.
+    foldable.querySelectorAll<HTMLElement>('.ion-page:not(ion-app, body, .ion-page-hidden)').forEach(capture);
     // Root toolbars can mount after startup; each new DOM identity is captured once.
     foldable.querySelectorAll<HTMLElement>(sourceSelector).forEach((element) => {
       if (routedPage(element) || element.closest(overlays)) return;
@@ -168,10 +158,6 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
   };
   doc.addEventListener(LIFECYCLE_WILL_ENTER, onWillEnter, { capture: true, signal: listeners.signal });
   doc.addEventListener(LIFECYCLE_DID_LEAVE, onDidLeave, { capture: true, signal: listeners.signal });
-  // The page already on screen when the shell starts has no WillEnter event.
-  root()
-    ?.querySelectorAll<HTMLElement>('.ion-page:not(ion-app, body, .ion-page-hidden, .ion-page-invisible)')
-    .forEach((page) => capture(page));
   reconcile();
   const mutationRelevant = (record: MutationRecord) => {
     if (record.type === 'childList')
