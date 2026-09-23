@@ -23,10 +23,10 @@ ion-content.ios:not(.ios-theme-disabled, .ios26-disabled).content-fullscreen:not
   --padding-bottom: calc(60px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom)));
 }
 
-// The page-transition shade belongs to Web content, not the foldable rail.
-// Keep its 10% dimming over the page while leaving the system control area untouched.
+// The foldable rail stays visible during native navigation; do not dim its
+// surrounding Web page with an additional transition shade.
 :is(ion-app, body).ios-theme-enable-foldable .ios-transition-shade {
-  clip-path: inset(0 var(--ios-theme-foldable-safe-area-right-resolved) 0 var(--ios-theme-foldable-safe-area-left-resolved));
+  display: none !important;
 }
 
 // Foldable system UI changes foreground geometry, not the page background.

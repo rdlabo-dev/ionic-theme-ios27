@@ -104,14 +104,14 @@ test.describe('Animation Tests', () => {
     await expect(shade).toHaveCount(0);
   });
 
-  test('foldable page transition does not shade the control rail', async ({ page }) => {
+  test('foldable page transition has no extra shade', async ({ page }) => {
     await page.goto('/main/index', { waitUntil: 'networkidle' });
     await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
     await page.getByRole('button', { name: 'button', exact: true }).click();
     const shade = page.locator('.ios-transition-shade');
-    await expect(shade).toBeVisible();
+    await expect(shade).toHaveCount(1);
     await page.evaluate(() => document.getAnimations().forEach((animation) => animation.pause()));
-    await expect(shade).toHaveCSS('clip-path', 'inset(0px 80px 0px 0px)');
+    await expect(shade).toBeHidden();
     await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
   });
 
