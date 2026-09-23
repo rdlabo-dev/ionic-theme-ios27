@@ -86,7 +86,7 @@ private struct ShellFoldableLabel: View {
     var body: some View {
         if let image = item.image {
             Label {
-                Text(item.label)
+                Text(item.label.isEmpty ? item.accessibilityLabel : item.label)
             } icon: {
                 Image(uiImage: image)
             }
@@ -144,23 +144,18 @@ private struct ShellFoldableRailView: View {
 @available(iOS 26.0, *)
 private struct ShellFoldableNavigation: View {
     @ObservedObject var model: ShellFoldableRailModel
-    @State private var path: [String] = []
 
     var body: some View {
-        NavigationStack(path: Binding(get: { path }, set: { next in
-            if !path.isEmpty && next.isEmpty, let back = model.back {
+        NavigationStack(path: Binding(get: { model.back.map { [$0.id] } ?? [] }, set: { next in
+            if next.isEmpty, let back = model.back {
                 model.activate(back.id)
             }
-            path = next
         })) {
             Color.clear
                 .navigationDestination(for: String.self) { _ in
                     Color.clear.modifier(ShellFoldableToolbarAdapter(model: model))
                 }
                 .modifier(ShellFoldableToolbarAdapter(model: model))
-        }
-        .onChange(of: model.back?.id, initial: true) { _, id in
-            path = id.map { [$0] } ?? []
         }
     }
 }

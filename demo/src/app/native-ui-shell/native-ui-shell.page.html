@@ -21,8 +21,8 @@
     <ion-buttons slot="start"><ion-menu-button [autoHide]="false"></ion-menu-button></ion-buttons>
     <ion-title>Actions: {{ github() }} / {{ refreshes() }}</ion-title>
     <ion-buttons slot="end" data-glass-group>
-      <ion-button fill="clear" type="button" aria-label="GitHub" (click)="github.update(increment)">
-        <ion-icon slot="icon-only" name="logo-github" aria-hidden="true"></ion-icon>
+      <ion-button fill="clear" type="button" (click)="github.update(increment)">
+        <ion-icon slot="icon-only" name="logo-github" aria-label="GitHub"></ion-icon>
       </ion-button>
       <ion-button fill="clear" type="button" aria-label="Refresh" (click)="refreshes.update(increment)">
         <ion-icon slot="icon-only" name="refresh-circle" aria-hidden="true"></ion-icon>

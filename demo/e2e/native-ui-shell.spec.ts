@@ -411,6 +411,30 @@ test('foldable back navigation and toolbar slots request native rail placement',
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
+test('native foldable toolbar returns with Index after a pushed page', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+  const hasIndexActions = () =>
+    page.evaluate(() => {
+      const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+      return controls.some(
+        (control: any) => control.placement === 'foldable-rail' && control.items.some((item: any) => item.accessibilityLabel === 'GitHub'),
+      );
+    });
+  await expect.poll(hasIndexActions).toBe(true);
+  await page.getByRole('button', { name: 'button', exact: true }).click();
+  await expect(page).toHaveURL(/\/main\/index\/button$/);
+  await page.evaluate(() => {
+    const state = (window as any).__nativeUIShell;
+    const snapshot = state.updates.at(-1);
+    const back = snapshot.controls.find((control: any) => control.kind === 'ion-back-button').items[0];
+    state.activate({ id: back.id, revision: snapshot.revision, sequence: ++state.sequence });
+  });
+  await expect(page).toHaveURL(/\/main\/index$/);
+  await expect.poll(hasIndexActions).toBe(true);
+});
+
 test('native foldable actions follow WillEnter and stay enabled during navigation', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');

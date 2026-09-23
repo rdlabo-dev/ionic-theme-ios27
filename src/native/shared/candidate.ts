@@ -58,7 +58,8 @@ export const appendItem = (
     id: id(child),
     ...frame(child.getBoundingClientRect(), candidate.element.getBoundingClientRect()),
     label,
-    accessibilityLabel: child.getAttribute('aria-label') ?? native?.getAttribute('aria-label') ?? label,
+    accessibilityLabel:
+      child.getAttribute('aria-label') ?? native?.getAttribute('aria-label') ?? icons[0]?.getAttribute('aria-label') ?? label,
     disabled:
       !!(child as ItemElement).disabled ||
       !!(candidate.element as ItemElement).disabled ||
