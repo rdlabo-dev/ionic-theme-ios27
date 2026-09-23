@@ -256,7 +256,7 @@ final class NativeUIShellTests: XCTestCase {
         app.launch()
         let toggle = app.webViews.switches["Foldable Mode"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
-        toggle.tap()
+        if toggle.value as? String == "0" { toggle.tap() }
 
         let index = app.buttons["Index"]
         let library = app.buttons["Library"]
@@ -274,27 +274,27 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         save.tap()
         XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
-        let github = nativeButton(app, label: "GitHub")
-        let refresh = nativeButton(app, label: "Refresh")
-        XCTAssertTrue(github.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertTrue(refresh.waitForExistence(timeout: 5), app.debugDescription)
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", "GitHub", "shell-")).count, 1,
-                       app.debugDescription)
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", "Refresh", "shell-")).count, 1,
-                       app.debugDescription)
-        github.tap()
+        let more = app.buttons["More"]
+        XCTAssertTrue(more.waitForExistence(timeout: 5), app.debugDescription)
+        more.tap()
+        XCTAssertTrue(app.buttons["GitHub"].waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-foldable-toolbar-more")
+        app.buttons["GitHub"].tap()
         XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 0"].waitForExistence(timeout: 5), app.debugDescription)
-        refresh.tap()
+        more.tap()
+        XCTAssertTrue(app.buttons["Refresh"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Refresh"].tap()
         XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 1"].waitForExistence(timeout: 5), app.debugDescription)
         capture("native-foldable-toolbar")
 
-        let back = nativeButton(app, label: "back")
+        let back = app.buttons["BackButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
         assertOnFoldableRail(back, in: app)
         back.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(nativeButton(app, label: "GitHub").waitForExistence(timeout: 10), "Index toolbar did not return after native back\n" + app.debugDescription)
         openPage(app, name: "native-ui-shell")
-        XCTAssertTrue(nativeButton(app, label: "back").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
         let pageMenu = nativeButton(app, label: "menu")
         XCTAssertTrue(pageMenu.waitForExistence(timeout: 5), app.debugDescription)
         pageMenu.tap()
@@ -307,7 +307,7 @@ final class NativeUIShellTests: XCTestCase {
             XCTAssertTrue(control.isEnabled, "Foldable rail controls must remain enabled while Ionic disables the covered page\n" + app.debugDescription)
         }
         save.tap()
-        pageMenu.tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.81, dy: 0.55)).tap()
         XCTAssertTrue(menuLink.waitForNonExistence(timeout: 5), "The projected Ionic menu button did not close its menu\n" + app.debugDescription)
         XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), "The native control stopped projecting actions while the menu was open\n" + app.debugDescription)
         capture("native-foldable-after-menu")

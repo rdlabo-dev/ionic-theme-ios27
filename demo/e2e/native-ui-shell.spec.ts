@@ -425,6 +425,15 @@ test('native foldable toolbar returns with Index after a pushed page', async ({ 
   await expect.poll(hasIndexActions).toBe(true);
   await page.getByRole('button', { name: 'button', exact: true }).click();
   await expect(page).toHaveURL(/\/main\/index\/button$/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = (window as any).__nativeUIShell;
+        const snapshot = state.updates.at(-1);
+        return !!snapshot.controls.find((control: any) => control.kind === 'ion-back-button')?.items[0];
+      }),
+    )
+    .toBe(true);
   await page.evaluate(() => {
     const state = (window as any).__nativeUIShell;
     const snapshot = state.updates.at(-1);
@@ -1091,6 +1100,16 @@ test('clear ion-buttons share one glass surface and keep independent actions', a
   const native = await projectedGroup();
   expect(native.items).toHaveLength(2);
   expect(native.items.map((item: any) => item.accessibilityLabel)).toEqual(['GitHub', 'Refresh']);
+  const githubName = () =>
+    page.evaluate(
+      (id) =>
+        (window as any).__nativeUIShell.updates.at(-1).controls.find((control: any) => control.id === id)?.items[0]?.accessibilityLabel,
+      native.id,
+    );
+  await github.locator('ion-icon').evaluate((icon) => icon.setAttribute('aria-hidden', 'true'));
+  await expect.poll(githubName).not.toBe('GitHub');
+  await github.locator('ion-icon').evaluate((icon) => icon.removeAttribute('aria-hidden'));
+  await expect.poll(githubName).toBe('GitHub');
   for (const item of native.items) expect(item.icon).toMatch(/^iVBOR/);
   await activate(page, 'GitHub', true);
   await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 0');
