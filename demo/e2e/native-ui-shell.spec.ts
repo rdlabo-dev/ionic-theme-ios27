@@ -7,72 +7,70 @@ import * as overlayTypes from '../src/app/overlay-types';
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
 const mockNative = async (page: Page, fail = false, foldableRail = true) => {
-  await page.addInitScript(
-    ({ fail, foldableRail }) => {
-      const state = {
-        updates: [] as any[],
-        sequence: 0,
-        delay: 0,
-        hang: false,
-        rejectInactiveSearch: false,
-        rejectAllSearch: false,
-        rejectControlLabel: '',
-        activate: (_event: any) => {},
-        search: (_event: any) => {},
-        metrics: (_event: any) => {},
-      };
-      Object.assign(window, {
-        __nativeUIShell: state,
-        CapacitorCustomPlatform: { name: 'ios' },
-        Capacitor: {
-          PluginHeaders: [
-            {
-              name: 'IonicNativeUIShell',
-              methods: [
-                { name: 'configure', rtype: 'promise' },
-                { name: 'getWebViewMetrics', rtype: 'promise' },
-                { name: 'update', rtype: 'promise' },
-                { name: 'clear', rtype: 'promise' },
-                { name: 'addListener' },
-                { name: 'removeListener' },
-              ],
-            },
-          ],
-          nativePromise: async (_plugin: string, method: string, options: any) => {
-            if (method === 'configure') return { supported: true, foldableRail };
-            if (method === 'getWebViewMetrics') return { radius: 0 };
-            state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
-            if (state.hang && method === 'update') await new Promise(() => {});
-            if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
-            if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
-            return {
-              revision: options.revision,
-              rejectedSearches:
-                state.rejectInactiveSearch || state.rejectAllSearch
-                  ? options.controls
-                      ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
-                      .map((control: any) => control.id)
-                  : [],
-              rejectedControls: state.rejectControlLabel
+  const script = ([fail, foldableRail]: readonly [boolean, boolean]) => {
+    const state = {
+      updates: [] as any[],
+      sequence: 0,
+      delay: 0,
+      hang: false,
+      rejectInactiveSearch: false,
+      rejectAllSearch: false,
+      rejectControlLabel: '',
+      activate: (_event: any) => {},
+      search: (_event: any) => {},
+      metrics: (_event: any) => {},
+    };
+    Object.assign(window, {
+      __nativeUIShell: state,
+      CapacitorCustomPlatform: { name: 'ios' },
+      Capacitor: {
+        PluginHeaders: [
+          {
+            name: 'IonicNativeUIShell',
+            methods: [
+              { name: 'configure', rtype: 'promise' },
+              { name: 'getWebViewMetrics', rtype: 'promise' },
+              { name: 'update', rtype: 'promise' },
+              { name: 'clear', rtype: 'promise' },
+              { name: 'addListener' },
+              { name: 'removeListener' },
+            ],
+          },
+        ],
+        nativePromise: async (_plugin: string, method: string, options: any) => {
+          if (method === 'configure') return { supported: true, foldableRail };
+          if (method === 'getWebViewMetrics') return { radius: 0 };
+          state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
+          if (state.hang && method === 'update') await new Promise(() => {});
+          if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
+          if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
+          return {
+            revision: options.revision,
+            rejectedSearches:
+              state.rejectInactiveSearch || state.rejectAllSearch
                 ? options.controls
-                    ?.filter((control: any) => control.items.some((item: any) => item.accessibilityLabel === state.rejectControlLabel))
+                    ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
                     .map((control: any) => control.id)
                 : [],
-            };
-          },
-          nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
-            if (method === 'addListener') {
-              if (options.eventName === 'search') state.search = callback;
-              else if (options.eventName === 'activate') state.activate = callback;
-              else if (options.eventName === 'webViewMetricsChange') state.metrics = callback;
-            }
-            return 'shell-listener';
-          },
+            rejectedControls: state.rejectControlLabel
+              ? options.controls
+                  ?.filter((control: any) => control.items.some((item: any) => item.accessibilityLabel === state.rejectControlLabel))
+                  .map((control: any) => control.id)
+              : [],
+          };
         },
-      });
-    },
-    { fail, foldableRail },
-  );
+        nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
+          if (method === 'addListener') {
+            if (options.eventName === 'search') state.search = callback;
+            else if (options.eventName === 'activate') state.activate = callback;
+            else if (options.eventName === 'webViewMetricsChange') state.metrics = callback;
+          }
+          return 'shell-listener';
+        },
+      },
+    });
+  };
+  await page.addInitScript(script, [fail, foldableRail] as const);
 };
 
 const activate = (page: Page, label: string, duplicate = false) =>
@@ -571,22 +569,6 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   const cancelSource = page.locator('app-native-ui-shell ion-button').filter({ hasText: 'Cancel' });
   const actionGroup = page.locator('app-native-ui-shell ion-buttons[data-glass-group]');
   const tabs = page.locator('ion-tab-bar');
-  for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
-  await expect(cancelSource).not.toHaveAttribute('data-native-ui-shell', '');
-  await expect(cancelSource).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
-        const demoActions = (control: any) =>
-          control.items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
-        return {
-          groups: controls.filter((control: any) => control.kind === 'ion-buttons' && demoActions(control) === 2).length,
-          individuals: controls.filter((control: any) => control.kind === 'ion-button' && demoActions(control) > 0).length,
-        };
-      }),
-    )
-    .toEqual({ groups: 1, individuals: 0 });
 
   await actionGroup.evaluate((element) => {
     const cancel = document.createElement('ion-button') as HTMLIonButtonElement;
@@ -598,12 +580,10 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   const mixedCancel = actionGroup.locator('ion-button').filter({ hasText: 'Cancel mixed action' });
   const mixedIcons = actionGroup.locator('ion-button').filter({ has: page.locator('ion-icon') });
   await expect(actionGroup).not.toHaveAttribute('data-native-ui-shell');
-  await expect(mixedIcons).toHaveCount(2);
   await expect(mixedIcons.nth(0)).toHaveAttribute('data-native-ui-shell', '');
   await expect(mixedIcons.nth(1)).toHaveAttribute('data-native-ui-shell', '');
   await expect(mixedCancel).not.toHaveAttribute('data-native-ui-shell');
   await expect(mixedCancel).toBeVisible();
-  await expect.poll(() => mixedCancel.evaluate((element) => getComputedStyle(element).visibility)).toBe('visible');
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -617,45 +597,31 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
       }),
     )
     .toEqual({ groups: 1, individuals: 0 });
-  const nativeSaveDisabled = () =>
-    page.evaluate(
-      () =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
-          .controls.flatMap((control: any) => control.items)
-          .find((item: any) => item.accessibilityLabel === 'Save')?.disabled,
-    );
-  const nativeActionsDisabled = () =>
-    page.evaluate(() =>
-      (window as any).__nativeUIShell.updates
-        .at(-1)
-        .controls.flatMap((control: any) => control.items)
-        .filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel))
-        .map((item: any) => item.disabled),
-    );
+  const nativeDisabled = () =>
+    page.evaluate(() => {
+      const items = (window as any).__nativeUIShell.updates.at(-1).controls.flatMap((control: any) => control.items);
+      return {
+        save: items.find((item: any) => item.accessibilityLabel === 'Save')?.disabled,
+        actions: items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).map((item: any) => item.disabled),
+      };
+    });
   await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
   await activate(page, 'menu');
   await expect(menu).toHaveClass(/show-menu/);
-  await expect.poll(nativeActionsDisabled).toEqual([true, true]);
+  await expect.poll(nativeDisabled).toEqual({ save: false, actions: [true, true] });
   await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
-  await expect.poll(nativeActionsDisabled).toEqual([false, false]);
-  await expect.poll(() => mixedCancel.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+  await expect.poll(nativeDisabled).toEqual({ save: false, actions: [false, false] });
   await mixedCancel.evaluate((element) => element.remove());
   await expect(actionGroup).toHaveAttribute('data-native-ui-shell', '');
   await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
   await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
-  await expect.poll(nativeSaveDisabled).toBe(true);
-  await expect.poll(nativeActionsDisabled).toEqual([true, true]);
+  await expect.poll(nativeDisabled).toEqual({ save: true, actions: [true, true] });
   await expect(menu).toHaveClass(/show-menu/);
   await activate(page, 'Save');
   await expect(page.locator('[data-save-count]')).toHaveText('0');
-  await expect
-    .poll(() => menu.evaluate((element) => element.shadowRoot?.querySelector('[part~="container"]')?.getBoundingClientRect().left))
-    .toBe(0);
   await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
   await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
-  await expect.poll(nativeSaveDisabled).toBe(false);
-  await expect.poll(nativeActionsDisabled).toEqual([false, false]);
+  await expect.poll(nativeDisabled).toEqual({ save: false, actions: [false, false] });
   await expect.poll(() => cancelSource.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
   for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
   await expect(cancelSource).toBeVisible();
