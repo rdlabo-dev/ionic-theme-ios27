@@ -442,6 +442,26 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   visibility: hidden !important;
 }
 
+// Ionic can paint a newly inserted routed page before its WillEnter snapshot.
+// Until JS assigns ownership, keep only its foldable back source off the Web
+// toolbar. Web-owned/opted-out buttons are released as soon as classified.
+html.ios-theme-native-ui-shell-prehide
+  :is(ion-app, body).ios-theme-enable-foldable
+  :is(ion-header, ion-footer):not([collapse]):not(:where(ion-content *, ion-menu *, ion-modal *, ion-popover *))
+  ion-toolbar
+  ion-back-button:not(
+    [icon],
+    [color],
+    .ios-theme-foldable-back-web-owned,
+    .ionic-theme-disabled,
+    .ios-theme-disabled,
+    .ios26-disabled,
+    .ios-theme-foldable-back-button-projection
+  ):not(:where(.ios-theme-shell-disabled *, .ionic-theme-disabled *, .ios-theme-disabled *, .ios26-disabled *)) {
+  position: absolute !important;
+  visibility: hidden !important;
+}
+
 :is(ion-app, body).ios-theme-enable-foldable.ios-theme-foldable-toolbar-ready {
   ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
     ion-back-button.ios[data-native-ui-shell]:not(.ios-theme-disabled, .ios26-disabled, .ios-theme-foldable-back-button-projection) {

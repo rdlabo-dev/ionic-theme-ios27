@@ -236,7 +236,10 @@ export const createFoldableWebProjection = (doc: Document, options: NativeUIShel
       topOffset += actions.length * toolbarControlSize + toolbarControlGap;
     }
     if (nextBack || toolbarProjections.length) root.classList.add(readyClass);
-    sourceObserver = new MutationObserver(schedule);
+    sourceObserver = new MutationObserver((records) => {
+      if (records.some((record) => record.type !== 'attributes' || ![marker, 'aria-hidden'].includes(record.attributeName ?? '')))
+        schedule();
+    });
     if (nextBack?.shadowRoot) sourceObserver.observe(nextBack.shadowRoot, { subtree: true, childList: true, attributes: true });
     for (const { group } of groups) sourceObserver.observe(group, { subtree: true, childList: true, attributes: true });
   };

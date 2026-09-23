@@ -14,6 +14,7 @@ const transitionConfig = {
   offLeftPercent: 30,
   getIonPageElement,
   connectNativeUIShellTransition,
+  shouldAnimateFixedBackButton: (navEl: HTMLElement) => !navEl.closest(':is(ion-app, body).ios-theme-enable-foldable'),
   radius: 0,
 };
 

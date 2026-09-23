@@ -16,6 +16,7 @@ const mockNative = async (page: Page, fail = false, foldableRail = true) => {
         hang: false,
         rejectInactiveSearch: false,
         rejectAllSearch: false,
+        rejectControlLabel: '',
         activate: (_event: any) => {},
         search: (_event: any) => {},
         metrics: (_event: any) => {},
@@ -52,6 +53,11 @@ const mockNative = async (page: Page, fail = false, foldableRail = true) => {
                       ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
                       .map((control: any) => control.id)
                   : [],
+              rejectedControls: state.rejectControlLabel
+                ? options.controls
+                    ?.filter((control: any) => control.items.some((item: any) => item.accessibilityLabel === state.rejectControlLabel))
+                    .map((control: any) => control.id)
+                : [],
             };
           },
           nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
@@ -410,12 +416,73 @@ test('foldable toolbar sources are hidden before ownership and restored with the
   });
   expect(prehidden).toEqual({ position: 'absolute', visibility: 'hidden' });
 
+  const earlyBack = await page.locator('app-native-ui-shell ion-back-button').evaluate((element) => {
+    element.removeAttribute('data-native-ui-shell');
+    element.classList.remove('ios-theme-native-ui-shell-prehidden');
+    const style = getComputedStyle(element);
+    return { position: style.position, visibility: style.visibility };
+  });
+  expect(earlyBack).toEqual({ position: 'absolute', visibility: 'hidden' });
+
+  const customBack = page.locator('app-native-ui-shell ion-back-button');
+  await customBack.evaluate((element: HTMLIonBackButtonElement) => (element.color = 'primary'));
+  await expect(customBack).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(customBack).toHaveCSS('visibility', 'visible');
+  const webOnlyBacks = await page.locator('app-native-ui-shell').evaluate((host) => {
+    const content = host.querySelector('ion-content')!;
+    const nested = document.createElement('ion-header');
+    nested.innerHTML = '<ion-toolbar><ion-back-button></ion-back-button></ion-toolbar>';
+    content.append(nested);
+    const condensed = document.createElement('ion-header');
+    condensed.setAttribute('collapse', 'condense');
+    condensed.innerHTML = '<ion-toolbar><ion-back-button></ion-back-button></ion-toolbar>';
+    host.append(condensed);
+    return [nested.querySelector('ion-back-button')!, condensed.querySelector('ion-back-button')!].map(
+      (back) => getComputedStyle(back).visibility,
+    );
+  });
+  expect(webOnlyBacks).toEqual(['visible', 'visible']);
+
+  const lateBackInitially = await page.locator('ion-app').evaluate((root) => {
+    const header = document.createElement('ion-header');
+    header.innerHTML = '<ion-toolbar><ion-back-button default-href="/main/index"></ion-back-button></ion-toolbar>';
+    root.append(header);
+    const back = header.querySelector('ion-back-button')!;
+    back.setAttribute('data-late-back', '');
+    return back.classList.contains('ios-theme-foldable-back-web-owned');
+  });
+  expect(lateBackInitially).toBe(false);
+  const lateBack = page.locator('ion-back-button[data-late-back]');
+  await expect(lateBack).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
+  await page.waitForTimeout(1600); // Past the unhydrated readiness timeout.
+  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
+  await expect(lateBack).not.toHaveClass(/ios-theme-foldable-back-web-owned/);
+  await lateBack.evaluate((element) => element.closest('ion-header')?.remove());
+
   await source.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
   await expect(source).toHaveCSS('visibility', 'visible');
 
   await page.evaluate(() => (window as any).nativeUIShell.destroy());
   await expect(source).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
   await expect(source).toHaveCSS('visibility', 'visible');
+});
+
+test('rejected foldable control returns to an operable Web source', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  const save = page.locator('app-native-ui-shell ion-button[type=submit]');
+  await expect(save).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => {
+    (window as any).__nativeUIShell.rejectControlLabel = 'Save';
+    window.dispatchEvent(new Event('nativeUIShellRefresh'));
+  });
+  await expect(save).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(save).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(save).toHaveCSS('visibility', 'visible');
+  await save.click();
+  await expect(page.locator('[data-save-count]')).toHaveText('1');
 });
 
 test('foldable rail remains native while its Ionic menu is open', async ({ page }) => {
@@ -521,6 +588,19 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   await expect(cancelSource).toBeVisible();
   await activate(page, 'Save');
   await expect(page.locator('[data-save-count]')).toHaveText('1');
+  // Placement is selected when this page enters, not re-evaluated from later content.
+  await cancelSource.evaluate((element) => {
+    element.setAttribute('data-morphed-cancel', '');
+    element.textContent = '';
+    const icon = document.createElement('ion-icon');
+    icon.setAttribute('slot', 'icon-only');
+    icon.setAttribute('name', 'checkmark');
+    element.append(icon);
+  });
+  const morphedCancel = page.locator('app-native-ui-shell ion-button[data-morphed-cancel]');
+  await expect(morphedCancel).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(morphedCancel).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(morphedCancel).toBeVisible();
 });
 
 test('foldable controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
@@ -557,8 +637,16 @@ test('foldable controls stay operable on Web when the native side rail is unavai
   await saveProjection.click();
   await expect(page.locator('[data-save-count]')).toHaveText('1');
 
+  await page.evaluate(() => {
+    const outlet = document.querySelector('ion-tabs ion-router-outlet')!;
+    (window as any).__foldableBackCloneMoved = false;
+    new MutationObserver(() => {
+      if (outlet.querySelector(':scope > ion-back-button.ion-cloned-element')) (window as any).__foldableBackCloneMoved = true;
+    }).observe(outlet, { childList: true });
+  });
   await projection.click();
   await expect(page).toHaveURL(/\/main\/index$/);
+  expect(await page.evaluate(() => (window as any).__foldableBackCloneMoved)).toBe(false);
 });
 
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {

@@ -4,9 +4,12 @@ import type { Frame } from '../definitions';
 
 export const marker = 'data-native-ui-shell';
 export const prehiddenClass = 'ios-theme-native-ui-shell-prehidden';
+export const prehideRootClass = 'ios-theme-native-ui-shell-prehide';
+export const rejectedClass = 'ios-theme-native-ui-shell-rejected';
+export const foldableBackWebClass = 'ios-theme-foldable-back-web-owned';
 export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
-export const excluded =
-  '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-page-hidden, .ion-page-invisible, .ion-cloned-element, [hidden], [inert]';
+const permanentlyExcluded = '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-cloned-element, [hidden], [inert]';
+export const excluded = `${permanentlyExcluded}, .ion-page-hidden, .ion-page-invisible`;
 const disabledButtonGroup = 'ion-buttons:is(.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled)';
 const shellDisabledSelector = '.ios-theme-shell-disabled';
 
@@ -17,31 +20,43 @@ const foldableRailTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons'
 
 export const isFoldableRailSource = (element: HTMLElement): boolean =>
   foldableRailTags.has(element.localName) &&
-  (!element.matches('ion-button') ||
-    !element.parentElement?.matches('ion-buttons') ||
-    element.parentElement.children.length === 1 ||
-    isFoldableToolbarAction(element) ||
-    isDisabledButtonGroupChild(element)) &&
+  (element.matches('ion-tab-bar') || foldableRailOwned(element)) &&
   !element.closest('ion-menu, ion-modal, ion-popover') &&
   !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
 
-export const isExcluded = (element: HTMLElement): boolean => {
-  const owner = element.closest<HTMLElement>(excluded);
+const excludedBy = (element: HTMLElement, selector: string): boolean => {
+  const owner = element.closest<HTMLElement>(selector);
   return !!owner && !(element.parentElement === owner && isDisabledButtonGroupChild(element));
 };
+
+export const isPermanentlyExcluded = (element: HTMLElement): boolean => excludedBy(element, permanentlyExcluded);
+export const isExcluded = (element: HTMLElement): boolean => excludedBy(element, excluded);
 
 // A shared native surface must not cover an opted-out descendant either.
 export const isShellDisabled = (element: Element): boolean =>
   !!element.closest(shellDisabledSelector) || !!element.querySelector(shellDisabledSelector);
 
+export const isFoldableToolbarActionShape = (element: HTMLElement): boolean =>
+  element.matches('ion-menu-button') ||
+  (element.matches('ion-button') &&
+    !!element.querySelector('ion-icon, svg') &&
+    !Array.from(element.childNodes).some((node) => node.nodeType === Node.TEXT_NODE && !!node.textContent?.trim()) &&
+    !element.matches('.ion-color, [color]') &&
+    ['default', 'clear'].includes((element as HTMLIonButtonElement).fill ?? element.getAttribute('fill') ?? 'default'));
+
+// Placement belongs to the DOM identity for one routed-page epoch. Changes to
+// content/disabled state affect rendering, never its chosen surface.
+const foldablePlacement = new WeakMap<HTMLElement, boolean>();
+export const setFoldablePlacement = (element: HTMLElement, rail: boolean): void => {
+  foldablePlacement.set(element, rail);
+};
+export const clearFoldablePlacement = (element: HTMLElement): void => {
+  foldablePlacement.delete(element);
+};
+export const foldableRailOwned = (element: HTMLElement): boolean => foldablePlacement.get(element) === true;
+
 export const isFoldableToolbarAction = (element: HTMLElement): boolean =>
-  !isExcluded(element) &&
-  !isShellDisabled(element) &&
-  (element.matches('ion-menu-button.ios') ||
-    (element.matches('ion-button.ios') &&
-      !!element.querySelector('ion-icon, svg') &&
-      !element.matches('.ion-color, [color]') &&
-      ['default', 'clear'].includes((element as HTMLIonButtonElement).fill ?? element.getAttribute('fill') ?? 'default')));
+  element.matches('.ios') && !isExcluded(element) && !isShellDisabled(element) && foldableRailOwned(element);
 
 export const foldableToolbarActions = (element: HTMLElement): HTMLElement[] =>
   Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isFoldableToolbarAction(child));
@@ -49,7 +64,7 @@ export const foldableToolbarActions = (element: HTMLElement): HTMLElement[] =>
 export const isFoldableToolbarGroup = (element: HTMLElement): boolean => {
   return (
     element.matches('ion-buttons.ios') &&
-    foldableToolbarActions(element).length > 1 &&
+    foldableRailOwned(element) &&
     !element.matches('.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled') &&
     !isShellDisabled(element)
   );

@@ -94,12 +94,21 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
   })());
 };
 
-const resetOnDestroy = (handle: NativeUIShellHandle, stopPrehide?: () => void): NativeUIShellHandle => ({
+const resetOnDestroy = (handle: NativeUIShellHandle, prehide?: ReturnType<typeof prehideFoldableToolbarSources>): NativeUIShellHandle => ({
   getStatus: handle.getStatus,
-  suspend: handle.suspend,
+  async suspend() {
+    const lease = await handle.suspend();
+    const resumePrehide = prehide?.suspend();
+    return {
+      async resume() {
+        await lease.resume();
+        resumePrehide?.();
+      },
+    };
+  },
   async destroy() {
     await handle.destroy();
-    stopPrehide?.();
+    prehide?.stop();
     active = undefined;
   },
 });

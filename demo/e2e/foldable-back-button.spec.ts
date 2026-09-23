@@ -60,6 +60,22 @@ test('Native UI Shell suspension synchronously restores and resumes foldable own
   await expect(projection).toBeVisible();
 });
 
+test('a stale suspension lease cannot re-hide Web controls after shell teardown', async ({ page }) => {
+  await page.goto('/main/index/button');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  const source = page.locator('app-button ion-header ion-back-button').first();
+  await expect(page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection')).toBeVisible();
+
+  await page.evaluate(async () => {
+    const shell = (window as any).nativeUIShell;
+    const lease = await shell.suspend();
+    await shell.destroy();
+    await lease.resume();
+  });
+  await expect(source).toBeVisible();
+  await expect(page.locator('html')).not.toHaveClass(/ios-theme-native-ui-shell-prehide/);
+});
+
 test('foldable projection respects shell opt-out and iOS mode', async ({ page }) => {
   await page.goto('/main/index/button');
   const app = page.locator('ion-app');

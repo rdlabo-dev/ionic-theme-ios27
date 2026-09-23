@@ -11,7 +11,7 @@ import type {
   NativeUIShellStatus,
 } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
-import { activateProjectedElement, isFoldableRailSource, marker, unprojected } from './shared/dom';
+import { activateProjectedElement, isFoldableRailSource, marker, rejectedClass, unprojected } from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
@@ -143,6 +143,9 @@ export const createRuntime = async (
   };
   const search = createSearchSupport(doc, id, schedule);
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
+  const setRejected = (element: HTMLElement, value: boolean) => {
+    element.classList.toggle(rejectedClass, value);
+  };
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
     const candidate = readCandidate(element, id);
     if (candidate && isFoldableRailCandidate(element)) {
@@ -297,6 +300,7 @@ export const createRuntime = async (
       for (const candidate of candidates) {
         if (result.rejectedControls?.includes(candidate.control.id)) {
           rejected.set(candidate.element, signatures.get(candidate.element)!);
+          setRejected(candidate.element, true);
           dirty = true;
         }
       }
@@ -305,6 +309,7 @@ export const createRuntime = async (
       const current = dirty ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)])) : signatures;
       const currentSources = new Set(currentCandidates.flatMap(candidateSources));
       const accepted = candidates.filter((candidate) => current.get(candidate.element) === signatures.get(candidate.element));
+      accepted.forEach((candidate) => setRejected(candidate.element, false));
       const acceptedFoldableRailOwners = new Set(
         accepted.filter((candidate) => candidate.control.placement === 'foldable-rail').map((candidate) => candidate.element),
       );
@@ -575,6 +580,7 @@ export const createRuntime = async (
         /* Always restore the Web, even after bridge loss. */
       }
       style.remove();
+      doc.querySelectorAll<HTMLElement>(`.${rejectedClass}`).forEach((element) => setRejected(element, false));
       icons.clear();
       pages.clear();
       presented.clear();
