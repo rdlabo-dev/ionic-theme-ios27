@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 for (const direction of ['ltr', 'rtl'] as const) {
-  test(`menus respect foldable safe-area insets in ${direction}`, async ({ page }) => {
+  test(`menus respect verticalBars safe-area insets in ${direction}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/main/index', { waitUntil: 'networkidle' });
     const menu = page.locator('ion-menu');
@@ -9,7 +9,7 @@ for (const direction of ['ltr', 'rtl'] as const) {
     const result = await menu.evaluate(async (element: HTMLIonMenuElement, direction) => {
       const app = document.querySelector('ion-app')!;
       app.dir = direction;
-      app.classList.add('ios-theme-enable-foldable');
+      app.classList.add('ios-theme-vertical-bars');
       element.side = direction === 'ltr' ? 'end' : 'start';
       await new Promise(requestAnimationFrame);
       const container = element.shadowRoot!.querySelector<HTMLElement>('[part~="container"]')!;
@@ -17,8 +17,8 @@ for (const direction of ['ltr', 'rtl'] as const) {
       const defaultHostBounds = element.getBoundingClientRect();
       const defaultRightOffset = innerWidth - container.getBoundingClientRect().right;
       await element.close(false);
-      app.style.setProperty('--ios-theme-foldable-safe-area-left', '76px');
-      app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
+      app.style.setProperty('--ios-theme-vertical-bars-safe-area-left', '76px');
+      app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');
       app.style.setProperty('--ion-safe-area-left', '76px');
       app.style.setProperty('--ion-safe-area-right', '84px');
       const offsets = [];

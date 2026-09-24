@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
-import { createFoldableWebProjection } from '../../src/native/foldable-web';
+import { createVerticalBarsWebProjection } from '../../src/native/vertical-bars-web';
 
 const mountEligibleBackButton = () => {
   document.body.innerHTML = `
-    <ion-app class="ios-theme-enable-foldable">
+    <ion-app class="ios-theme-vertical-bars">
       <main class="ion-page">
         <ion-header><ion-toolbar class="ios"><ion-back-button class="ios"></ion-back-button></ion-toolbar></ion-header>
       </main>
@@ -16,21 +16,21 @@ const mountEligibleBackButton = () => {
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-test('toolbar opt-out leaves an otherwise eligible foldable back button under application ownership', async () => {
+test('toolbar opt-out leaves an otherwise eligible verticalBars back button under application ownership', async () => {
   mountEligibleBackButton();
-  const enabled = createFoldableWebProjection(document, {});
+  const enabled = createVerticalBarsWebProjection(document, {});
   await nextFrame();
   expect(enabled.getStatus().projected).toBe(1);
-  expect(document.querySelector('.ios-theme-foldable-back-button-projection')).not.toBeNull();
+  expect(document.querySelector('.ios-theme-vertical-bars-back-button-projection')).not.toBeNull();
   await enabled.destroy();
 
   mountEligibleBackButton();
-  const handle = createFoldableWebProjection(document, { controls: { tabs: true } });
+  const handle = createVerticalBarsWebProjection(document, { controls: { tabs: true } });
   await nextFrame();
 
   expect(handle.getStatus()).toEqual({ state: 'web', projected: 0, updates: 0 });
   expect(document.querySelector('ion-back-button')?.hasAttribute('data-native-ui-shell')).toBe(false);
-  expect(document.querySelector('.ios-theme-foldable-back-button-projection')).toBeNull();
+  expect(document.querySelector('.ios-theme-vertical-bars-back-button-projection')).toBeNull();
 
   await handle.destroy();
 });

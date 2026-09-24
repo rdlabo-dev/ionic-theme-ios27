@@ -31,7 +31,7 @@ struct ShellFrame: Decodable, Equatable {
 }
 
 struct ShellControl: Decodable, Equatable {
-    enum Placement: String, Decodable { case foldableRail = "foldable-rail" }
+    enum Placement: String, Decodable { case verticalBars = "vertical-bars" }
     enum ToolbarSlot: String, Decodable { case start, end }
     let id: String
     let kind: ShellComponent
@@ -63,7 +63,7 @@ struct ShellControl: Decodable, Equatable {
     var isValid: Bool {
         ShellComponents.supported.contains(kind) && !id.isEmpty && frame.isValid && !items.isEmpty && items.count <= 30 &&
         (!ShellButton.kinds.contains(kind) || items.count == 1) &&
-        (toolbarSlot == nil || (placement == .foldableRail && [.button, .buttons, .menuButton].contains(kind))) &&
+        (toolbarSlot == nil || (placement == .verticalBars && [.button, .buttons, .menuButton].contains(kind))) &&
         Set(items.map(\.id)).count == items.count && items.allSatisfy(\.isValid) &&
         (tabBarAnchor.map { kind == .tabBar && $0.isValid } ?? true) &&
         (search.map { kind == .tabBar && $0.isValid } ?? true)

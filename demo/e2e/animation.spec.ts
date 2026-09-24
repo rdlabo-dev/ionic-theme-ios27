@@ -104,9 +104,9 @@ test.describe('Animation Tests', () => {
     await expect(shade).toHaveCount(0);
   });
 
-  test('foldable page transition keeps its shade outside the control rail', async ({ page }) => {
+  test('verticalBars page transition keeps its shade outside the control rail', async ({ page }) => {
     await page.goto('/main/index', { waitUntil: 'networkidle' });
-    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
     await page.getByRole('button', { name: 'button', exact: true }).click();
     const shade = page.locator('.ios-transition-shade');
     await expect(shade).toBeVisible();

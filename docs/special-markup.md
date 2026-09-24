@@ -47,27 +47,27 @@ Add one of `tab-bar-position-start`, `tab-bar-position-center`, or `tab-bar-posi
 
 These classes do not reposition a separate `ion-fab`; leave room for it when choosing the bar's position.
 
-## Foldable layouts
+## Support iPhone Duo
 
-To simulate the iPhone Duo layout on the web, add `.ios-theme-enable-foldable` to the active `ion-app`. Use `body` only when the application has no `ion-app` root:
+To simulate the iPhone Duo layout on the web, add `.ios-theme-vertical-bars` to the active `ion-app`. Use `body` only when the application has no `ion-app` root:
 
 ```html
-<ion-app class="ios-theme-enable-foldable">...</ion-app>
+<ion-app class="ios-theme-vertical-bars">...</ion-app>
 ```
 
-The class reserves `80px` on the physical right by default, matching the system navigation region measured in the iPhone Duo Simulator. The physical left defaults to `0px`. Override `--ios-theme-foldable-safe-area-left` or `--ios-theme-foldable-safe-area-right` when simulating a different foldable layout.
+The class reserves `80px` on the physical right by default, matching the system navigation region measured in the iPhone Duo Simulator. The physical left defaults to `0px`. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
 
 This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when it is placed beside the system UI. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
 
 `ion-menu`, `ion-modal`, and `ion-popover` are handled as separate surfaces: their internal foreground components do not receive the main-page conversion and retain Ionic's standard safe-area handling. A menu presented beside the system UI keeps Ionic's full-viewport animation host and offsets only its visible container by the corresponding inset; a menu from the opposite side is unchanged. Left and right remain physical coordinates in RTL, while Ionic's `side="start"` and `side="end"` values remain logical.
 
-The foldable values are web-layout simulation inputs. They are independent from Ionic's normal iPhone safe-area variables and do not change ordinary iPhone layouts unless the opt-in class is present.
+These values are web-layout simulation inputs. They are independent from Ionic's normal iPhone safe-area variables and do not change ordinary iPhone layouts unless the opt-in class is present.
 
-When the app contains `ion-tabs`, foldable mode moves its iOS tab bar into the physical right-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different foldable position. Without Native UI Shell, the stable Web rail is icon-only, matching a four-tab SwiftUI `TabView` on iPhone Duo. While the user presses and drags across that rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The Web tab bar receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; foldable mode does not convert tabs into a menu.
+When the app contains `ion-tabs`, this mode moves its iOS tab bar into the physical right-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different position. Without Native UI Shell, the stable Web rail is icon-only, matching a four-tab SwiftUI `TabView` on iPhone Duo. While the user presses and drags across that rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The Web tab bar receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; this mode does not convert tabs into a menu.
 
-On supported iOS versions, initializing `enableNativeUIShell()` at application startup hands eligible foldable tabs, back navigation, menu buttons, and fixed-toolbar actions to a native SwiftUI `TabView` and toolbar. The Ionic controls remain the sources of labels, icons, selected/disabled state, form submission, routing, and click handlers while SwiftUI owns adaptive placement and interaction. Fixed-toolbar actions need an icon or SVG, no direct text node, and standard `fill="default"` or `fill="clear"` to be eligible for the side rail. Text-only actions stay in the original Web toolbar. Placement is chosen when a routed page enters; changing an existing button's content does not move it between the toolbar and rail until the page leaves and re-enters. Menus, modals, and popovers retain their own toolbar layout.
+On supported iOS versions, initializing `enableNativeUIShell()` at application startup hands eligible tabs, back navigation, menu buttons, and fixed-toolbar actions to a native SwiftUI `TabView` and toolbar. The Ionic controls remain the sources of labels, icons, selected/disabled state, form submission, routing, and click handlers while SwiftUI owns adaptive placement and interaction. Fixed-toolbar actions need an icon or SVG, no direct text node, and standard `fill="default"` or `fill="clear"` to be eligible for the side rail. Text-only actions stay in the original Web toolbar. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it in the Web toolbar. Placement is chosen when a routed page enters; changing an existing button's content does not move it between the toolbar and rail until the page leaves and re-enters. Menus, modals, and popovers retain their own toolbar layout.
 
-On Web, Android, older iOS, or when native projection is unavailable during setup, the Web tab bar and fixed-toolbar clones remain the fallback. Those projections also work when no `ion-tabs` exists; text-only actions stay in the original Web toolbar. Disabling foldable mode or leaving the page removes the native ownership or Web clones and restores their sources. Override `--ios-theme-foldable-toolbar-top` when the simulated system controls use a different vertical layout.
+On Web, Android, older iOS, or when native projection is unavailable during setup, the Web tab bar and fixed-toolbar clones remain the fallback. Those projections also work when no `ion-tabs` exists; text-only actions stay in the original Web toolbar. Disabling the mode or leaving the page removes the native ownership or Web clones and restores their sources. Override `--ios-theme-vertical-bars-toolbar-top` when the simulated system controls use a different vertical layout.
 
 ## Two-line inset list items
 

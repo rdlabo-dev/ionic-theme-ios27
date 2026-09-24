@@ -167,13 +167,13 @@ Suspensions are nestable and `resume()` is idempotent. Native projection resumes
 
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
 
-## Foldable controls
+## Support iPhone Duo
 
-On supported iOS versions, adding `.ios-theme-enable-foldable` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar only when iOS reports a physical right-side safe area large enough for that rail. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
+On supported iOS versions, adding `.ios-theme-vertical-bars` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar only when iOS reports a physical right-side safe area large enough for that rail. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
 
 The SwiftUI surface is clipped and hit-tested to the system rail. Web content remains visible and interactive outside that physical region. The runtime optimistically updates tab selection before forwarding the action to the original `ion-tab-button`, using the same event and stale-revision protection as the other native controls. Menus, modals, and popovers remain independent surfaces and are not moved into the main-page rail.
 
-The foldable exception accepts standard `fill="default"` and `fill="clear"` fixed-toolbar buttons because SwiftUI determines their compact representation. Solid, outline, custom-color, scrolling, and explicitly opted-out controls remain on the Web. On Web, Android, older iOS, or when native projection is unavailable during setup, the existing foldable Web projection remains the fallback.
+This mode accepts standard `fill="default"` and `fill="clear"` fixed-toolbar buttons because SwiftUI determines their compact representation. Solid, outline, custom-color, scrolling, and explicitly opted-out controls remain on the Web. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it in the horizontal Web toolbar. On Web, Android, older iOS, or when native projection is unavailable during setup, the Web projection remains the fallback.
 
 ## Native UI Shell API
 
@@ -181,10 +181,10 @@ The generated reference below documents the handle returned by `enableNativeUISh
 
 <docgen-index>
 
-- [`getStatus()`](#getstatus)
-- [`suspend()`](#suspend)
-- [`destroy()`](#destroy)
-- [Interfaces](#interfaces)
+* [`getStatus()`](#getstatus)
+* [`suspend()`](#suspend)
+* [`destroy()`](#destroy)
+* [Interfaces](#interfaces)
 
 </docgen-index>
 
@@ -201,7 +201,8 @@ Returns the current Web/native projection state.
 
 **Returns:** <code><a href="#nativeuishellstatus">NativeUIShellStatus</a></code>
 
----
+--------------------
+
 
 ### suspend()
 
@@ -213,7 +214,8 @@ Restores projected controls to the Web until the returned lease is resumed.
 
 **Returns:** <code>Promise&lt;<a href="#nativeuishellsuspension">NativeUIShellSuspension</a>&gt;</code>
 
----
+--------------------
+
 
 ### destroy()
 
@@ -223,9 +225,11 @@ destroy() => Promise<void>
 
 Stops synchronization, restores Web controls and releases native resources.
 
----
+--------------------
+
 
 ### Interfaces
+
 
 #### NativeUIShellStatus
 
@@ -235,6 +239,7 @@ Stops synchronization, restores Web controls and releases native resources.
 | **`projected`** | <code>number</code>                         |
 | **`updates`**   | <code>number</code>                         |
 | **`reason`**    | <code>string</code>                         |
+
 
 #### NativeUIShellSuspension
 

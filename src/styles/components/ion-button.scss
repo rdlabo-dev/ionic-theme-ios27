@@ -443,28 +443,28 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 
 // Ionic can paint a newly inserted routed page before its WillEnter snapshot.
-// Until JS assigns ownership, keep only its foldable back source off the Web
+// Until JS assigns ownership, keep only its verticalBars back source off the Web
 // toolbar. Web-owned/opted-out buttons are released as soon as classified.
 html.ios-theme-native-ui-shell-prehide
-  :is(ion-app, body).ios-theme-enable-foldable
+  :is(ion-app, body).ios-theme-vertical-bars
   :is(ion-header, ion-footer):not([collapse]):not(:where(ion-content *, ion-menu *, ion-modal *, ion-popover *))
   ion-toolbar
   ion-back-button:not(
     [icon],
     [color],
-    .ios-theme-foldable-back-web-owned,
+    .ios-theme-vertical-bars-back-web-owned,
     .ionic-theme-disabled,
     .ios-theme-disabled,
     .ios26-disabled,
-    .ios-theme-foldable-back-button-projection
+    .ios-theme-vertical-bars-back-button-projection
   ):not(:where(.ios-theme-shell-disabled *, .ionic-theme-disabled *, .ios-theme-disabled *, .ios26-disabled *)) {
   position: absolute !important;
   visibility: hidden !important;
 }
 
-:is(ion-app, body).ios-theme-enable-foldable.ios-theme-foldable-toolbar-ready {
+:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready {
   ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
-    ion-back-button.ios[data-native-ui-shell]:not(.ios-theme-disabled, .ios26-disabled, .ios-theme-foldable-back-button-projection) {
+    ion-back-button.ios[data-native-ui-shell]:not(.ios-theme-disabled, .ios26-disabled, .ios-theme-vertical-bars-back-button-projection) {
     display: none;
   }
 
@@ -473,7 +473,7 @@ html.ios-theme-native-ui-shell-prehide
     > :is(ion-button, ion-menu-button).ios[data-native-ui-shell]:not(
       .ios-theme-disabled,
       .ios26-disabled,
-      .ios-theme-foldable-toolbar-action
+      .ios-theme-vertical-bars-toolbar-action
     ) {
     display: none;
   }
@@ -485,22 +485,22 @@ html.ios-theme-native-ui-shell-prehide
     display: none;
   }
 
-  > ion-back-button.ios.ios-theme-foldable-back-button-projection {
+  > ion-back-button.ios.ios-theme-vertical-bars-back-button-projection {
     position: fixed;
     z-index: 1001;
-    top: var(--ios-theme-foldable-toolbar-top, 220px);
-    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 46px) / 2));
+    top: var(--ios-theme-vertical-bars-toolbar-top, 220px);
+    right: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 46px) / 2));
     display: block;
     width: 46px;
     height: 46px;
     margin: 0;
   }
 
-  > .ios.ios-theme-foldable-toolbar-projection {
+  > .ios.ios-theme-vertical-bars-toolbar-projection {
     position: fixed;
     z-index: 1001;
-    top: calc(var(--ios-theme-foldable-toolbar-top, 220px) + var(--ios-theme-foldable-toolbar-offset, 0px));
-    right: max(4px, calc((var(--ios-theme-foldable-safe-area-right-resolved) - 46px) / 2));
+    top: calc(var(--ios-theme-vertical-bars-toolbar-top, 220px) + var(--ios-theme-vertical-bars-toolbar-offset, 0px));
+    right: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 46px) / 2));
     width: 46px;
     min-width: 46px;
     height: 46px;
@@ -515,12 +515,12 @@ html.ios-theme-native-ui-shell-prehide
     }
   }
 
-  > ion-menu-button.ios.ios-theme-foldable-toolbar-projection {
+  > ion-menu-button.ios.ios-theme-vertical-bars-toolbar-projection {
     @include api.glass-control-background;
     border-radius: 50%;
   }
 
-  > ion-button.ios.ios-theme-foldable-toolbar-projection {
+  > ion-button.ios.ios-theme-vertical-bars-toolbar-projection {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
     --border-radius: 50%;
     @include glass.light-shadow('--box-shadow');
@@ -530,13 +530,13 @@ html.ios-theme-native-ui-shell-prehide
     }
   }
 
-  > ion-buttons.ios.ios-theme-foldable-toolbar-projection {
+  > ion-buttons.ios.ios-theme-vertical-bars-toolbar-projection {
     display: flex;
     flex-direction: column;
     height: auto;
     min-height: 0;
 
-    > :is(ion-button, ion-menu-button).ios.ios-theme-foldable-toolbar-action {
+    > :is(ion-button, ion-menu-button).ios.ios-theme-vertical-bars-toolbar-action {
       display: block;
       width: 44px;
       min-width: 44px;

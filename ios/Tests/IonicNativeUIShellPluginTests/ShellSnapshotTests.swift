@@ -37,7 +37,7 @@ final class ShellSnapshotTests: XCTestCase {
         }
     }
 
-    @MainActor func testFoldableTabOptimismWaitsForWebAndRollsBackWhenStale() throws {
+    @MainActor func testVerticalBarsTabOptimismWaitsForWebAndRollsBackWhenStale() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI adaptive tabs") }
         func tabs(_ selected: String, includeRight: Bool = true) throws -> [ShellControl] {
             var items = [item(["id": "left", "selected": selected == "left"])]
@@ -47,7 +47,7 @@ final class ShellSnapshotTests: XCTestCase {
             }
             return try decode([control(["kind": "ion-tab-bar", "items": items])]).controls
         }
-        let model = ShellFoldableRailModel()
+        let model = ShellVerticalBarsModel()
         let rendering = ShellRendering()
         model.apply(try tabs("left"), rendering: rendering, now: 100)
         XCTAssertEqual(model.tabs.last?.badge?.value, "3")

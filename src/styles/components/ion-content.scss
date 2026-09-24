@@ -23,25 +23,25 @@ ion-content.ios:not(.ios-theme-disabled, .ios26-disabled).content-fullscreen:not
   --padding-bottom: calc(60px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom)));
 }
 
-// Keep the Web page's transition dimming, but never shade the foldable rail.
-:is(ion-app, body).ios-theme-enable-foldable .ios-transition-shade {
-  clip-path: inset(0 var(--ios-theme-foldable-safe-area-right-resolved) 0 var(--ios-theme-foldable-safe-area-left-resolved));
+// Keep the Web page's transition dimming, but never shade the verticalBars rail.
+:is(ion-app, body).ios-theme-vertical-bars .ios-transition-shade {
+  clip-path: inset(0 var(--ios-theme-vertical-bars-safe-area-right-resolved) 0 var(--ios-theme-vertical-bars-safe-area-left-resolved));
 }
 
-// Foldable system UI changes foreground geometry, not the page background.
+// VerticalBars system UI changes foreground geometry, not the page background.
 // Reset Ionic's matching inset so descendants do not apply it a second time.
-:is(ion-app, body).ios-theme-enable-foldable
+:is(ion-app, body).ios-theme-vertical-bars
   ion-content.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
 
   &::part(scroll) {
-    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-foldable-safe-area-left-resolved));
-    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-foldable-safe-area-right-resolved));
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
   }
 
   &:dir(rtl)::part(scroll) {
-    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-foldable-safe-area-right-resolved));
-    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-foldable-safe-area-left-resolved));
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
   }
 }

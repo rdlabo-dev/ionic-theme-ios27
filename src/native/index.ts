@@ -3,8 +3,8 @@ import { setConfig } from '../transition/ios.transition';
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellPlugin, WebViewMetrics } from './definitions';
 import { bindMetricsLifecycle } from './lifecycle';
 import { createRuntime } from './runtime';
-import { createFoldableWebProjection } from './foldable-web';
-import { prehideFoldableToolbarSources } from './prehide';
+import { createVerticalBarsWebProjection } from './vertical-bars-web';
+import { prehideVerticalBarsToolbarSources } from './prehide';
 export type {
   NativeUIShellComponent,
   NativeUIShellControls,
@@ -65,19 +65,21 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
   }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
   const stopPrehide =
-    !active && (options.controls === undefined || options.controls.toolbar === true) ? prehideFoldableToolbarSources(document) : undefined;
+    !active && (options.controls === undefined || options.controls.toolbar === true)
+      ? prehideVerticalBarsToolbarSources(document)
+      : undefined;
   return (active ??= (async () => {
     if (Capacitor.getPlatform() !== 'ios')
-      return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires Capacitor iOS'), stopPrehide);
+      return resetOnDestroy(withReason(createVerticalBarsWebProjection(document, options), 'Requires Capacitor iOS'), stopPrehide);
     let runtime: NativeUIShellHandle | undefined;
     try {
       await configureNativeTransition().catch(() => undefined);
       const capabilities = await plugin.configure();
       if (!capabilities.supported) {
-        return resetOnDestroy(withReason(createFoldableWebProjection(document, options), 'Requires iOS 26 or later'), stopPrehide);
+        return resetOnDestroy(withReason(createVerticalBarsWebProjection(document, options), 'Requires iOS 26 or later'), stopPrehide);
       }
-      runtime = await createRuntime(document, plugin, options, capabilities.foldableRail === true);
-      if (capabilities.foldableRail !== true) runtime = combine(runtime, createFoldableWebProjection(document, options));
+      runtime = await createRuntime(document, plugin, options, capabilities.verticalBars === true);
+      if (capabilities.verticalBars !== true) runtime = combine(runtime, createVerticalBarsWebProjection(document, options));
       runtime = await bindMetricsLifecycle(
         runtime,
         () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
@@ -87,14 +89,17 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     } catch (error) {
       await runtime?.destroy();
       return resetOnDestroy(
-        withReason(createFoldableWebProjection(document, options), error instanceof Error ? error.message : String(error)),
+        withReason(createVerticalBarsWebProjection(document, options), error instanceof Error ? error.message : String(error)),
         stopPrehide,
       );
     }
   })());
 };
 
-const resetOnDestroy = (handle: NativeUIShellHandle, prehide?: ReturnType<typeof prehideFoldableToolbarSources>): NativeUIShellHandle => ({
+const resetOnDestroy = (
+  handle: NativeUIShellHandle,
+  prehide?: ReturnType<typeof prehideVerticalBarsToolbarSources>,
+): NativeUIShellHandle => ({
   getStatus: handle.getStatus,
   async suspend() {
     const lease = await handle.suspend();

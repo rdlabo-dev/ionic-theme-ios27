@@ -109,19 +109,19 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 }
 
 // Keep the toolbar background full-width while moving its foreground controls
-// away from foldable system UI.
-:is(ion-app, body).ios-theme-enable-foldable
+// away from verticalBars system UI.
+:is(ion-app, body).ios-theme-vertical-bars
   ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
 
   &::part(container) {
-    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-foldable-safe-area-left-resolved));
-    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-foldable-safe-area-right-resolved));
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
   }
 
   &:dir(rtl)::part(container) {
-    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-foldable-safe-area-right-resolved));
-    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-foldable-safe-area-left-resolved));
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
   }
 }

@@ -60,7 +60,7 @@ const prepareScreenShot = async (page: Page, routeName: string) => {
   }
 };
 
-const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl', width = 700) => {
+const prepareVerticalBarsLayout = async (page: Page, direction: 'ltr' | 'rtl', width = 700) => {
   await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
   await page.setViewportSize({ width, height: 900 });
   await page.goto('/main/index', { waitUntil: 'networkidle' });
@@ -69,11 +69,11 @@ const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl', width
   await page.evaluate((direction) => {
     const app = document.querySelector('ion-app')!;
     app.dir = direction;
-    app.style.setProperty('--ios-theme-foldable-safe-area-left', '76px');
-    app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-left', '76px');
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');
     app.style.setProperty('--ion-safe-area-left', '76px');
     app.style.setProperty('--ion-safe-area-right', '84px');
-    app.classList.add('ios-theme-enable-foldable');
+    app.classList.add('ios-theme-vertical-bars');
 
     const content = document.querySelector<HTMLIonContentElement>('ion-content[role="main"]')!;
     const logicalLeft = direction === 'ltr' ? 'start' : 'end';
@@ -93,29 +93,29 @@ const prepareFoldableLayout = async (page: Page, direction: 'ltr' | 'rtl', width
   }, direction);
 };
 
-const prepareFoldableBackButton = async (page: Page, direction: 'ltr' | 'rtl') => {
+const prepareVerticalBarsBackButton = async (page: Page, direction: 'ltr' | 'rtl') => {
   await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto('/main/index/button', { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   await page.locator('ion-app').evaluate((app, dir) => {
     app.dir = dir;
-    app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
-    app.classList.add('ios-theme-enable-foldable');
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');
+    app.classList.add('ios-theme-vertical-bars');
   }, direction);
-  await expect(page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection')).toBeVisible();
+  await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
 };
 
-const prepareFoldableToolbar = async (page: Page) => {
+const prepareVerticalBarsToolbar = async (page: Page) => {
   await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto('/main/index/native-ui-shell', { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   await page.locator('ion-app').evaluate((app) => {
-    app.style.setProperty('--ios-theme-foldable-safe-area-right', '84px');
-    app.classList.add('ios-theme-enable-foldable');
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');
+    app.classList.add('ios-theme-vertical-bars');
   });
-  await expect(page.locator('ion-app > ion-buttons.ios-theme-foldable-toolbar-projection')).not.toHaveCount(0);
+  await expect(page.locator('ion-app > ion-buttons.ios-theme-vertical-bars-toolbar-projection')).not.toHaveCount(0);
 };
 
 test.describe('Screenshot Tests - All Routes', () => {
@@ -154,31 +154,31 @@ test.describe('Screenshot Tests - Dark Mode', () => {
   }
 });
 
-test.describe('Screenshot Tests - Foldable Layout', () => {
+test.describe('Screenshot Tests - VerticalBars Layout', () => {
   for (const direction of ['ltr', 'rtl'] as const) {
-    test(`should keep the app foreground clear of foldable system UI in ${direction.toUpperCase()}`, async ({ page }) => {
-      await prepareFoldableLayout(page, direction);
-      await expect(page).toHaveScreenshot(`foldable-layout-${direction}.png`, { animations: 'disabled' });
+    test(`should keep the app foreground clear of verticalBars system UI in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareVerticalBarsLayout(page, direction);
+      await expect(page).toHaveScreenshot(`vertical-bars-layout-${direction}.png`, { animations: 'disabled' });
     });
 
-    test(`should keep foldable tabs in the system rail beside a visible split pane in ${direction.toUpperCase()}`, async ({ page }) => {
-      await prepareFoldableLayout(page, direction, 1024);
+    test(`should keep verticalBars tabs in the system rail beside a visible split pane in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareVerticalBarsLayout(page, direction, 1024);
       await expect(page.locator('ion-split-pane')).toHaveClass(/split-pane-visible/);
-      await expect(page).toHaveScreenshot(`foldable-split-pane-${direction}.png`, { animations: 'disabled' });
+      await expect(page).toHaveScreenshot(`vertical-bars-split-pane-${direction}.png`, { animations: 'disabled' });
     });
   }
 });
 
-test.describe('Screenshot Tests - Foldable Back Button', () => {
+test.describe('Screenshot Tests - VerticalBars Back Button', () => {
   for (const direction of ['ltr', 'rtl'] as const) {
     test(`should project the active back button into the physical system rail in ${direction.toUpperCase()}`, async ({ page }) => {
-      await prepareFoldableBackButton(page, direction);
-      await expect(page).toHaveScreenshot(`foldable-back-button-${direction}.png`, { animations: 'disabled' });
+      await prepareVerticalBarsBackButton(page, direction);
+      await expect(page).toHaveScreenshot(`vertical-bars-back-button-${direction}.png`, { animations: 'disabled' });
     });
   }
 
   test('should project icon actions while keeping text actions in the toolbar', async ({ page }) => {
-    await prepareFoldableToolbar(page);
-    await expect(page).toHaveScreenshot('foldable-toolbar-actions.png', { animations: 'disabled' });
+    await prepareVerticalBarsToolbar(page);
+    await expect(page).toHaveScreenshot('vertical-bars-toolbar-actions.png', { animations: 'disabled' });
   });
 });

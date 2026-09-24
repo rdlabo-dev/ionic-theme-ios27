@@ -251,10 +251,10 @@ final class NativeUIShellTests: XCTestCase {
         capture("native-tab-settings")
     }
 
-    func testNativeFoldableRail() throws {
+    func testNativeVerticalBars() throws {
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
-        let toggle = app.webViews.switches["Foldable Mode"]
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
         if toggle.value as? String == "0" { toggle.tap() }
 
@@ -262,13 +262,13 @@ final class NativeUIShellTests: XCTestCase {
         let library = app.buttons["Library"]
         XCTAssertTrue(index.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(library.waitForExistence(timeout: 10), app.debugDescription)
-        assertOnFoldableRail(index, in: app)
+        assertOnVerticalBars(index, in: app)
         library.tap()
         XCTAssertTrue(app.webViews.staticTexts["Library"].firstMatch.waitForExistence(timeout: 5), "The native tab did not project its activation to Web\n" + app.debugDescription)
         XCTAssertTrue(library.isSelected, app.debugDescription)
         index.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 5), app.debugDescription)
-        capture("native-foldable-index")
+        capture("native-vertical-bars-index")
         openPage(app, name: "native-ui-shell")
         let save = nativeButton(app, label: "Save")
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
@@ -282,11 +282,11 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(refresh.waitForExistence(timeout: 5), app.debugDescription)
         refresh.tap()
         XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 1"].waitForExistence(timeout: 5), app.debugDescription)
-        capture("native-foldable-toolbar")
+        capture("native-vertical-bars-toolbar")
 
         let back = app.buttons["BackButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
-        assertOnFoldableRail(back, in: app)
+        assertOnVerticalBars(back, in: app)
         back.tap()
         XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(nativeButton(app, label: "GitHub").waitForExistence(timeout: 10), "Index toolbar did not return after native back\n" + app.debugDescription)
@@ -297,20 +297,20 @@ final class NativeUIShellTests: XCTestCase {
         pageMenu.tap()
         let menuLink = app.webViews.links["Docs"]
         XCTAssertTrue(menuLink.waitForExistence(timeout: 5), app.debugDescription)
-        capture("native-foldable-menu-open")
+        capture("native-vertical-bars-menu-open")
         for control in [pageMenu, back, save, library] {
-            XCTAssertTrue(control.waitForExistence(timeout: 5), "Every foldable rail control must remain native while the menu is open\n" + app.debugDescription)
-            assertOnFoldableRail(control, in: app)
-            XCTAssertTrue(control.isEnabled, "Foldable rail controls must remain enabled while Ionic disables the covered page\n" + app.debugDescription)
+            XCTAssertTrue(control.waitForExistence(timeout: 5), "Every verticalBars rail control must remain native while the menu is open\n" + app.debugDescription)
+            assertOnVerticalBars(control, in: app)
+            XCTAssertTrue(control.isEnabled, "VerticalBars rail controls must remain enabled while Ionic disables the covered page\n" + app.debugDescription)
         }
         save.tap()
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.81, dy: 0.55)).tap()
         XCTAssertTrue(menuLink.waitForNonExistence(timeout: 5), "The projected Ionic menu button did not close its menu\n" + app.debugDescription)
         XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), "The native control stopped projecting actions while the menu was open\n" + app.debugDescription)
-        capture("native-foldable-after-menu")
+        capture("native-vertical-bars-after-menu")
     }
 
-    private func assertOnFoldableRail(_ element: XCUIElement, in app: XCUIApplication,
+    private func assertOnVerticalBars(_ element: XCUIElement, in app: XCUIApplication,
                                       file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertGreaterThan(element.frame.midX, app.frame.width * 0.8,
                              "Expected native control on the physical right rail, got \(element.frame) in \(app.frame)",

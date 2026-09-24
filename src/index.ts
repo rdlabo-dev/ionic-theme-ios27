@@ -14,12 +14,12 @@ export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffe
   const win = targetElement.ownerDocument.defaultView;
   if (!targetElement.classList.contains('ios') || !win) return undefined;
   const reducedMotion = win.matchMedia('(prefers-reduced-motion: reduce)');
-  const foldableRoot = targetElement.closest('ion-app') ?? targetElement.ownerDocument.body;
+  const verticalBarsRoot = targetElement.closest('ion-app') ?? targetElement.ownerDocument.body;
   let effect: registeredEffect | undefined;
   const update = () => {
     effect?.destroy();
     const isVertical =
-      foldableRoot.classList.contains('ios-theme-enable-foldable') && !targetElement.closest('ion-menu, ion-modal, ion-popover');
+      verticalBarsRoot.classList.contains('ios-theme-vertical-bars') && !targetElement.closest('ion-menu, ion-modal, ion-popover');
     effect =
       reducedMotion.matches || isVertical
         ? undefined
@@ -33,7 +33,7 @@ export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffe
   update();
   reducedMotion.addEventListener('change', update);
   const placementObserver = new win.MutationObserver(update);
-  placementObserver.observe(foldableRoot, { attributes: true, attributeFilter: ['class'] });
+  placementObserver.observe(verticalBarsRoot, { attributes: true, attributeFilter: ['class'] });
   return {
     destroy: () => {
       reducedMotion.removeEventListener('change', update);

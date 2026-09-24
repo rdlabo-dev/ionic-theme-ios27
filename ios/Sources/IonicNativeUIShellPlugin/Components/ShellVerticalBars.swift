@@ -2,7 +2,7 @@ import Combine
 import SwiftUI
 import UIKit
 
-protocol ShellFoldableRailControlling: AnyObject {
+protocol ShellVerticalBarsControlling: AnyObject {
     var view: UIView { get }
     func attach(to owner: UIViewController, in parent: UIView)
     func apply(_ controls: [ShellControl], rendering: ShellRendering)
@@ -10,7 +10,7 @@ protocol ShellFoldableRailControlling: AnyObject {
 }
 
 @available(iOS 26.0, *)
-final class ShellFoldableRailModel: ObservableObject {
+final class ShellVerticalBarsModel: ObservableObject {
     struct Item: Identifiable {
         let id: String
         let label: String
@@ -82,8 +82,8 @@ final class ShellFoldableRailModel: ObservableObject {
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldableLabel: View {
-    let item: ShellFoldableRailModel.Item
+private struct ShellVerticalBarsLabel: View {
+    let item: ShellVerticalBarsModel.Item
 
     var body: some View {
         if let image = item.image {
@@ -99,15 +99,15 @@ private struct ShellFoldableLabel: View {
 }
 
 @available(iOS 26.0, *)
-private func foldableButton(_ item: ShellFoldableRailModel.Item, model: ShellFoldableRailModel) -> some View {
-    Button { model.activate(item.id) } label: { ShellFoldableLabel(item: item) }
+private func verticalBarsButton(_ item: ShellVerticalBarsModel.Item, model: ShellVerticalBarsModel) -> some View {
+    Button { model.activate(item.id) } label: { ShellVerticalBarsLabel(item: item) }
         .disabled(item.disabled)
         .accessibilityLabel(item.accessibilityLabel)
         .accessibilityIdentifier(item.id)
 }
 
 @available(iOS 26.0, *)
-private func foldableBackButton(_ item: ShellFoldableRailModel.Item, model: ShellFoldableRailModel) -> some View {
+private func verticalBarsBackButton(_ item: ShellVerticalBarsModel.Item, model: ShellVerticalBarsModel) -> some View {
     Button { model.activate(item.id) } label: { Image(systemName: "chevron.backward") }
         .disabled(item.disabled)
         .accessibilityLabel(item.accessibilityLabel)
@@ -115,7 +115,7 @@ private func foldableBackButton(_ item: ShellFoldableRailModel.Item, model: Shel
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldableBadge: ViewModifier {
+private struct ShellVerticalBarsBadge: ViewModifier {
     let badge: ShellBadge?
 
     @ViewBuilder func body(content: Content) -> some View {
@@ -125,20 +125,20 @@ private struct ShellFoldableBadge: ViewModifier {
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldableRailView: View {
-    @ObservedObject var model: ShellFoldableRailModel
+private struct ShellVerticalBarsView: View {
+    @ObservedObject var model: ShellVerticalBarsModel
 
     var body: some View {
         Group {
             if model.tabs.isEmpty {
-                ShellFoldablePage(model: model)
+                ShellVerticalBarsPage(model: model)
             } else {
                 TabView(selection: Binding(get: { model.selection }, set: { model.select($0) })) {
                     ForEach(model.tabs) { item in
-                        ShellFoldablePage(model: model)
+                        ShellVerticalBarsPage(model: model)
                         .tag(item.id)
-                        .tabItem { ShellFoldableLabel(item: item) }
-                        .modifier(ShellFoldableBadge(badge: item.badge))
+                        .tabItem { ShellVerticalBarsLabel(item: item) }
+                        .modifier(ShellVerticalBarsBadge(badge: item.badge))
                         .disabled(item.disabled)
                         .accessibilityLabel(item.accessibilityLabel)
                         .accessibilityIdentifier(item.id)
@@ -146,24 +146,24 @@ private struct ShellFoldableRailView: View {
                 }
             }
         }
-        .modifier(ShellFoldableCompression())
+        .modifier(ShellVerticalBarsCompression())
         .background(Color.clear)
     }
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldablePage: View {
-    @ObservedObject var model: ShellFoldableRailModel
+private struct ShellVerticalBarsPage: View {
+    @ObservedObject var model: ShellVerticalBarsModel
 
     var body: some View {
         NavigationStack {
-            Color.clear.modifier(ShellFoldableToolbarAdapter(model: model))
+            Color.clear.modifier(ShellVerticalBarsToolbarAdapter(model: model))
         }
     }
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldableCompression: ViewModifier {
+private struct ShellVerticalBarsCompression: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 27.1, *) {
             content.toolbarVerticalCompressionBehavior(.prefersToolbarItems)
@@ -174,34 +174,34 @@ private struct ShellFoldableCompression: ViewModifier {
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldableToolbarAdapter: ViewModifier {
-    @ObservedObject var model: ShellFoldableRailModel
+private struct ShellVerticalBarsToolbarAdapter: ViewModifier {
+    @ObservedObject var model: ShellVerticalBarsModel
 
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 27.1, *) {
-            content.modifier(ShellFoldableToolbar(model: model))
+            content.modifier(ShellVerticalBarsToolbar(model: model))
         } else {
-            content.modifier(ShellFoldableLegacyToolbar(model: model))
+            content.modifier(ShellVerticalBarsLegacyToolbar(model: model))
         }
     }
 }
 
 @available(iOS 27.1, *)
-private struct ShellFoldableToolbar: ViewModifier {
-    @ObservedObject var model: ShellFoldableRailModel
+private struct ShellVerticalBarsToolbar: ViewModifier {
+    @ObservedObject var model: ShellVerticalBarsModel
 
     func body(content: Content) -> some View {
         content.toolbar {
             if let back = model.back {
                 ToolbarItem(placement: .navigation) {
-                    foldableBackButton(back, model: model)
+                    verticalBarsBackButton(back, model: model)
                 }
                 .axisBehavior(.verticalPreferred)
             }
             ForEach(model.groups.filter { $0.slot == .start }) { group in
                 ToolbarItemGroup(placement: .topBarLeading) {
                     ForEach(group.items) { item in
-                        foldableButton(item, model: model)
+                        verticalBarsButton(item, model: model)
                     }
                 }
                 .axisBehavior(.verticalPreferred)
@@ -209,7 +209,7 @@ private struct ShellFoldableToolbar: ViewModifier {
             ForEach(model.groups.filter { $0.slot != .start }) { group in
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     ForEach(group.items) { item in
-                        foldableButton(item, model: model)
+                        verticalBarsButton(item, model: model)
                     }
                 }
                 .axisBehavior(.verticalPreferred)
@@ -219,20 +219,20 @@ private struct ShellFoldableToolbar: ViewModifier {
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldableLegacyToolbar: ViewModifier {
-    @ObservedObject var model: ShellFoldableRailModel
+private struct ShellVerticalBarsLegacyToolbar: ViewModifier {
+    @ObservedObject var model: ShellVerticalBarsModel
 
     func body(content: Content) -> some View {
         content.toolbar {
             if let back = model.back {
                 ToolbarItem(placement: .navigation) {
-                    foldableBackButton(back, model: model)
+                    verticalBarsBackButton(back, model: model)
                 }
             }
             ForEach(model.groups) { group in
                 ToolbarItemGroup(placement: .primaryAction) {
                     ForEach(group.items) { item in
-                        foldableButton(item, model: model)
+                        verticalBarsButton(item, model: model)
                     }
                 }
             }
@@ -241,7 +241,7 @@ private struct ShellFoldableLegacyToolbar: ViewModifier {
 }
 
 @available(iOS 26.0, *)
-final class ShellFoldableRailController: ShellFoldableRailControlling {
+final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     private final class TransparentHostingController<Content: View>: UIHostingController<Content> {
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
@@ -288,8 +288,8 @@ final class ShellFoldableRailController: ShellFoldableRailControlling {
         }
     }
 
-    private let model = ShellFoldableRailModel()
-    private lazy var controller = TransparentHostingController(rootView: ShellFoldableRailView(model: model))
+    private let model = ShellVerticalBarsModel()
+    private lazy var controller = TransparentHostingController(rootView: ShellVerticalBarsView(model: model))
     private let container = RailContainer()
     private weak var owner: UIViewController?
 

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   connectNativeUIShellTransition,
-  FOLDABLE_TRANSITION_CANCELED,
+  VERTICAL_BARS_TRANSITION_CANCELED,
   getNativeSearchBindings,
   registerNativeSearch,
   setNativeUIShellIntegration,
@@ -104,7 +104,7 @@ test('a canceled Web transition releases the still-active leaving page', () => {
   const animation = { onFinish: (callback: typeof finish) => (finish = callback) } as unknown as Animation;
   let cancellations = 0;
   let canceledEntering: HTMLElement | undefined;
-  leaving.addEventListener(FOLDABLE_TRANSITION_CANCELED, (event) => {
+  leaving.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, (event) => {
     cancellations++;
     canceledEntering = (event as CustomEvent<{ entering: HTMLElement }>).detail.entering;
   });

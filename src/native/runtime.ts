@@ -1,6 +1,6 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
-import { FOLDABLE_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
+import { VERTICAL_BARS_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
 import type {
   ShellActivation,
@@ -10,11 +10,11 @@ import type {
   NativeUIShellPlugin,
   NativeUIShellStatus,
 } from './definitions';
-import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
+import { readCandidate, selector, shadowSelector, motionSelector, isVerticalBarsCandidate } from './components';
 import {
   activateProjectedElement,
-  createFoldablePageState,
-  isFoldableRailSource,
+  createVerticalBarsPageState,
+  isVerticalBarsSource,
   marker,
   prehideOnlyMutation,
   rejectedClass,
@@ -27,8 +27,8 @@ import { createCrossfade, fadeMarker } from './shared/crossfade';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
-const foldableRailMarker = 'data-native-ui-shell-foldable-rail';
-const foldableRailMemberMarker = 'data-native-ui-shell-foldable-rail-member';
+const verticalBarsMarker = 'data-native-ui-shell-vertical-bars';
+const verticalBarsMemberMarker = 'data-native-ui-shell-vertical-bars-member';
 
 // A failed bridge must not leave the source inaccessible indefinitely.
 const bounded = <T>(promise: Promise<T>): Promise<T> =>
@@ -41,7 +41,7 @@ export const createRuntime = async (
   doc: Document,
   plugin: NativeUIShellPlugin,
   options: NativeUIShellOptions = {},
-  nativeFoldableRail = true,
+  nativeVerticalBars = true,
 ): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
@@ -49,11 +49,11 @@ export const createRuntime = async (
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
   const sources = new Map<HTMLElement, string | null>();
-  const foldableRailOwners = new Set<HTMLElement>();
-  const foldableRailMembers = new Set<HTMLElement>();
+  const verticalBarsOwners = new Set<HTMLElement>();
+  const verticalBarsMembers = new Set<HTMLElement>();
   const suspended = new Set<HTMLElement[]>();
   const pages = new Set<HTMLElement>();
-  const foldablePages = createFoldablePageState();
+  const verticalBarsPages = createVerticalBarsPageState();
   const presented = new Set<HTMLElement>();
   const manualSuspensions = new Set<symbol>();
   const moving = new Map<HTMLElement, Set<string>>();
@@ -110,13 +110,13 @@ export const createRuntime = async (
   const hidden = `[${marker}]:not([${fadeMarker}])`;
   style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
     [${marker}], [${marker}] * { pointer-events: none !important; }
-    /* Ionic disables the covered page while a menu is open. Foldable rail
+    /* Ionic disables the covered page while a menu is open. VerticalBars rail
        controls remain outside that page; zero specificity preserves any
        pointer-events rule supplied by the application itself. */
-    :where(.menu-content-open) :where([${foldableRailMarker}]) {
+    :where(.menu-content-open) :where([${verticalBarsMarker}]) {
       pointer-events: auto;
     }
-    :where(.menu-content-open) :where([${foldableRailMarker}]) > :where(:not([${foldableRailMemberMarker}])) {
+    :where(.menu-content-open) :where([${verticalBarsMarker}]) > :where(:not([${verticalBarsMemberMarker}])) {
       pointer-events: none;
     }`;
 
@@ -124,7 +124,7 @@ export const createRuntime = async (
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    if (!stopped) crossfade.play(element, false, handoffInstant || isFoldableRailSource(element));
+    if (!stopped) crossfade.play(element, false, handoffInstant || isVerticalBarsSource(element));
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -135,10 +135,10 @@ export const createRuntime = async (
   };
   const restoreAll = () => {
     Array.from(sources.keys()).forEach(restore);
-    foldableRailOwners.forEach((element) => element.removeAttribute(foldableRailMarker));
-    foldableRailOwners.clear();
-    foldableRailMembers.forEach((element) => element.removeAttribute(foldableRailMemberMarker));
-    foldableRailMembers.clear();
+    verticalBarsOwners.forEach((element) => element.removeAttribute(verticalBarsMarker));
+    verticalBarsOwners.clear();
+    verticalBarsMembers.forEach((element) => element.removeAttribute(verticalBarsMemberMarker));
+    verticalBarsMembers.clear();
   };
   const finishWaiters = () => {
     const current = waiters;
@@ -157,7 +157,7 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    const pointerPage = isFoldableRailCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
+    const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
     let candidate: Candidate | undefined;
     if (pointerPage && getComputedStyle(pointerPage).pointerEvents === 'none') {
       const previous = pointerPage.style.getPropertyValue('pointer-events');
@@ -174,9 +174,9 @@ export const createRuntime = async (
         win.setTimeout(() => measuringPointerPages.delete(pointerPage), 0);
       }
     } else candidate = readCandidate(element, id);
-    if (candidate && isFoldableRailCandidate(element)) {
-      if (!nativeFoldableRail) return undefined;
-      candidate.control.placement = 'foldable-rail';
+    if (candidate && isVerticalBarsCandidate(element)) {
+      if (!nativeVerticalBars) return undefined;
+      candidate.control.placement = 'vertical-bars';
       if (['ion-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind)) {
         const slot = (element.matches('ion-buttons') ? element : (element.closest('ion-buttons') ?? element)).getAttribute('slot');
         if (slot === 'start' || slot === 'end') candidate.control.toolbarSlot = slot;
@@ -194,8 +194,8 @@ export const createRuntime = async (
     }
   };
   const blocked = (element: HTMLElement) =>
-    foldablePages.isDeparted(element) ||
-    (!isFoldableRailSource(element) &&
+    verticalBarsPages.isDeparted(element) ||
+    (!isVerticalBarsSource(element) &&
       (Array.from(suspended).some((scopes) => scopes.some((scope) => scope.contains(element))) ||
         Array.from(pages).some((scope) => scope.contains(element)) ||
         Array.from(moving.keys()).some((surface) => surface.contains(element))));
@@ -227,14 +227,16 @@ export const createRuntime = async (
       search
         .decorate(
           Array.from(doc.querySelectorAll<HTMLElement>(selector))
-            .filter((element) => !foldablePages.isDeparted(element) && (!blocked(element) || (menuOpen && isFoldableRailSource(element))))
+            .filter(
+              (element) => !verticalBarsPages.isDeparted(element) && (!blocked(element) || (menuOpen && isVerticalBarsSource(element))),
+            )
             .map(readEnabledCandidate)
             .filter((candidate): candidate is Candidate => !!candidate),
           blocked,
         )
         .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate)),
     );
-    return menuOpen ? candidates.filter((candidate) => isFoldableRailCandidate(candidate.element)) : candidates;
+    return menuOpen ? candidates.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : candidates;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -303,7 +305,7 @@ export const createRuntime = async (
         removed.forEach(restore);
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
         // native snapshot over the destination. Stack transitions still need the paint.
-        if (!handoffInstant && removed.some((element) => !isFoldableRailSource(element))) {
+        if (!handoffInstant && removed.some((element) => !isVerticalBarsSource(element))) {
           await painted();
           if (stopped || dirty) return;
         }
@@ -342,12 +344,12 @@ export const createRuntime = async (
       const currentSources = new Set(currentCandidates.flatMap(candidateSources));
       const accepted = candidates.filter((candidate) => current.get(candidate.element) === signatures.get(candidate.element));
       accepted.forEach((candidate) => setRejected(candidate.element, false));
-      const acceptedFoldableRailOwners = new Set(
-        accepted.filter((candidate) => candidate.control.placement === 'foldable-rail').map((candidate) => candidate.element),
+      const acceptedVerticalBarsOwners = new Set(
+        accepted.filter((candidate) => candidate.control.placement === 'vertical-bars').map((candidate) => candidate.element),
       );
-      const acceptedFoldableRailMembers = new Set(
+      const acceptedVerticalBarsMembers = new Set(
         accepted
-          .filter((candidate) => candidate.control.placement === 'foldable-rail')
+          .filter((candidate) => candidate.control.placement === 'vertical-bars')
           .flatMap((candidate) => Array.from(candidate.actions.values())),
       );
       const invalidated = candidates.length !== accepted.length;
@@ -359,28 +361,28 @@ export const createRuntime = async (
       // Keep an existing cover while its content catches up. Only an ineligible
       // source needs to return to Web; new sources still require an exact ack.
       for (const element of sources.keys()) if (!currentSources.has(element)) restore(element);
-      for (const element of foldableRailOwners) {
-        if (acceptedFoldableRailOwners.has(element)) continue;
-        element.removeAttribute(foldableRailMarker);
-        foldableRailOwners.delete(element);
+      for (const element of verticalBarsOwners) {
+        if (acceptedVerticalBarsOwners.has(element)) continue;
+        element.removeAttribute(verticalBarsMarker);
+        verticalBarsOwners.delete(element);
       }
-      for (const element of acceptedFoldableRailOwners) {
-        element.setAttribute(foldableRailMarker, '');
-        foldableRailOwners.add(element);
+      for (const element of acceptedVerticalBarsOwners) {
+        element.setAttribute(verticalBarsMarker, '');
+        verticalBarsOwners.add(element);
       }
-      for (const element of foldableRailMembers) {
-        if (acceptedFoldableRailMembers.has(element)) continue;
-        element.removeAttribute(foldableRailMemberMarker);
-        foldableRailMembers.delete(element);
+      for (const element of verticalBarsMembers) {
+        if (acceptedVerticalBarsMembers.has(element)) continue;
+        element.removeAttribute(verticalBarsMemberMarker);
+        verticalBarsMembers.delete(element);
       }
-      for (const element of acceptedFoldableRailMembers) {
-        element.setAttribute(foldableRailMemberMarker, '');
-        foldableRailMembers.add(element);
+      for (const element of acceptedVerticalBarsMembers) {
+        element.setAttribute(verticalBarsMemberMarker, '');
+        verticalBarsMembers.add(element);
       }
       for (const element of accepted.flatMap(candidateSources)) {
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(element, true, handoffInstant || isFoldableRailSource(element));
+          crossfade.play(element, true, handoffInstant || isVerticalBarsSource(element));
           element.setAttribute(marker, '');
           element.setAttribute('aria-hidden', 'true');
           element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
@@ -441,7 +443,7 @@ export const createRuntime = async (
     target.addEventListener(name, callback, { capture: true, signal: listeners.signal });
   const pageWill: EventListener = (event) => {
     const page = event.target as HTMLElement;
-    foldablePages.lifecycle(event);
+    verticalBarsPages.lifecycle(event);
     getNativeSearchBindings(doc)
       .filter((binding) => page.contains(binding.footer))
       .forEach((binding) => search.retire(binding));
@@ -453,7 +455,7 @@ export const createRuntime = async (
   };
   const pageDid: EventListener = (event) => {
     const page = event.target as HTMLElement;
-    foldablePages.lifecycle(event);
+    verticalBarsPages.lifecycle(event);
     pages.delete(page);
     schedule();
     if (tabSwitchHandoff && pages.size === 0) endTabSwitchHandoff();
@@ -514,10 +516,10 @@ export const createRuntime = async (
   for (const name of Object.values(CSS_MOTION_EVENTS)) on(doc, name, motion);
   for (const name of [LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE]) on(doc, name, pageWill);
   for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
-  on(doc, FOLDABLE_TRANSITION_CANCELED, (event) => {
+  on(doc, VERTICAL_BARS_TRANSITION_CANCELED, (event) => {
     const leaving = event.target as HTMLElement;
     const entering = (event as CustomEvent<{ entering?: HTMLElement }>).detail?.entering;
-    foldablePages.cancel(entering, leaving);
+    verticalBarsPages.cancel(entering, leaving);
     pages.delete(leaving);
     if (entering) pages.delete(entering);
     schedule();
@@ -709,10 +711,10 @@ export const createRuntime = async (
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
         return (canceled = false) => {
           suspended.delete(scopes);
-          if (canceled || !scopes.some((scope) => scope.closest(':is(ion-app, body).ios-theme-enable-foldable'))) {
+          if (canceled || !scopes.some((scope) => scope.closest(':is(ion-app, body).ios-theme-vertical-bars'))) {
             scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
             if (canceled) {
-              foldablePages.cancel(scopes[0], scopes[1]); // The entering page is abandoned; the leaving page stays active.
+              verticalBarsPages.cancel(scopes[0], scopes[1]); // The entering page is abandoned; the leaving page stays active.
             }
           }
           schedule();

@@ -32,7 +32,7 @@ export const requestNativeSearch = async (binding: NativeSearchBinding, active: 
   (await runtimes.get(binding.tabBar.ownerDocument)?.search?.(binding, active, focus)) ?? false;
 
 const runtimes = new WeakMap<Document, NativeUIShellIntegration>();
-export const FOLDABLE_TRANSITION_CANCELED = 'iosThemeFoldableTransitionCanceled';
+export const VERTICAL_BARS_TRANSITION_CANCELED = 'iosThemeVerticalBarsTransitionCanceled';
 
 export const setNativeUIShellIntegration = (doc: Document, runtime?: NativeUIShellIntegration) => {
   if (runtime) runtimes.set(doc, runtime);
@@ -48,7 +48,7 @@ export const suspendNativeUIShell = async (scopes: HTMLElement[]): Promise<(canc
 export const connectNativeUIShellTransition = (animation: Animation, entering: HTMLElement, leaving?: HTMLElement) => {
   if (leaving)
     animation.onFinish((step) => {
-      if (step === 0) leaving.dispatchEvent(new CustomEvent(FOLDABLE_TRANSITION_CANCELED, { bubbles: true, detail: { entering } }));
+      if (step === 0) leaving.dispatchEvent(new CustomEvent(VERTICAL_BARS_TRANSITION_CANCELED, { bubbles: true, detail: { entering } }));
     });
   if (!runtimes.has(entering.ownerDocument)) return;
   const scopes = leaving ? [entering, leaving] : [entering];

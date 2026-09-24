@@ -1,15 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-const enableFoldable = async (page: import('@playwright/test').Page) => {
-  const toggle = page.getByText('Foldable Mode').locator('..').locator('ion-toggle');
+const enableVerticalBars = async (page: import('@playwright/test').Page) => {
+  const toggle = page.getByText('iPhone Duo Mode').locator('..').locator('ion-toggle');
   await toggle.click();
-  await expect(page.locator('ion-app')).toHaveClass(/ios-theme-enable-foldable/);
+  await expect(page.locator('ion-app')).toHaveClass(/ios-theme-vertical-bars/);
 };
 
-test('foldable mode moves tabs into the right rail and reveals labels while dragging', async ({ page }) => {
+test('verticalBars mode moves tabs into the right rail and reveals labels while dragging', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto('/main/index');
-  await enableFoldable(page);
+  await enableVerticalBars(page);
 
   const bar = page.locator('#tab-bar-bottom');
   const buttons = bar.locator('ion-tab-button');
@@ -26,7 +26,7 @@ test('foldable mode moves tabs into the right rail and reveals labels while drag
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 4 });
   await expect.poll(() => buttons.first().evaluate((element) => element.matches(':active'))).toBe(true);
 
-  await expect(page).toHaveScreenshot('foldable-tab-drag-labels.png', { animations: 'disabled' });
+  await expect(page).toHaveScreenshot('vertical-bars-tab-drag-labels.png', { animations: 'disabled' });
   await page.mouse.up();
 
   const overlayDirection = await page.evaluate(async () => {

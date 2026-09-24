@@ -6,7 +6,7 @@ export const marker = 'data-native-ui-shell';
 export const prehiddenClass = 'ios-theme-native-ui-shell-prehidden';
 export const prehideRootClass = 'ios-theme-native-ui-shell-prehide';
 export const rejectedClass = 'ios-theme-native-ui-shell-rejected';
-export const foldableBackWebClass = 'ios-theme-foldable-back-web-owned';
+export const verticalBarsBackWebClass = 'ios-theme-vertical-bars-back-web-owned';
 const prehideClasses = new Set([prehiddenClass, prehideRootClass]);
 export const prehideOnlyMutation = (record: MutationRecord): boolean => {
   if (record.attributeName !== 'class' || record.oldValue === null) return false;
@@ -41,20 +41,20 @@ export const isDark = (style: CSSStyleDeclaration): boolean => style.getProperty
 const permanentlyExcluded = '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-cloned-element, [hidden], [inert]';
 export const excluded = `${permanentlyExcluded}, .ion-page-hidden, .ion-page-invisible`;
 const enteringPages = new WeakSet<HTMLElement>();
-export const setFoldableEnteringPage = (page: HTMLElement, entering: boolean): void => {
+export const setVerticalBarsEnteringPage = (page: HTMLElement, entering: boolean): void => {
   if (entering) enteringPages.add(page);
   else enteringPages.delete(page);
 };
-export const foldableEnteringPage = (element: HTMLElement): HTMLElement | undefined => {
+export const verticalBarsEnteringPage = (element: HTMLElement): HTMLElement | undefined => {
   const page = element.closest<HTMLElement>('.ion-page-invisible');
-  return page && enteringPages.has(page) && page.closest(':is(ion-app, body).ios-theme-enable-foldable') ? page : undefined;
+  return page && enteringPages.has(page) && page.closest(':is(ion-app, body).ios-theme-vertical-bars') ? page : undefined;
 };
-export const createFoldablePageState = () => {
+export const createVerticalBarsPageState = () => {
   const departed = new WeakSet<HTMLElement>();
   return {
     isDeparted(element: HTMLElement): boolean {
       const page = element.closest<HTMLElement>('.ion-page');
-      return !!page && departed.has(page) && !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
+      return !!page && departed.has(page) && !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
     },
     lifecycle(event: Event): void {
       const page = event.target;
@@ -62,12 +62,12 @@ export const createFoldablePageState = () => {
       const entering = event.type === 'ionViewWillEnter';
       if (entering || event.type === 'ionViewDidEnter') departed.delete(page);
       else if (event.type === 'ionViewWillLeave' || event.type === 'ionViewDidLeave') departed.add(page);
-      setFoldableEnteringPage(page, entering);
+      setVerticalBarsEnteringPage(page, entering);
     },
     cancel(entering?: HTMLElement, leaving?: HTMLElement): void {
       if (entering) {
         departed.add(entering);
-        setFoldableEnteringPage(entering, false);
+        setVerticalBarsEnteringPage(entering, false);
       }
       if (leaving) departed.delete(leaving);
     },
@@ -79,13 +79,13 @@ const shellDisabledSelector = '.ios-theme-shell-disabled';
 export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
   element.matches('ion-button.ios') && element.parentElement?.matches(disabledButtonGroup) === true;
 
-const foldableRailTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons', 'ion-menu-button', 'ion-tab-bar']);
+const verticalBarsTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons', 'ion-menu-button', 'ion-tab-bar']);
 
-export const isFoldableRailSource = (element: HTMLElement): boolean =>
-  foldableRailTags.has(element.localName) &&
-  (element.matches('ion-tab-bar') || foldableRailOwned(element)) &&
+export const isVerticalBarsSource = (element: HTMLElement): boolean =>
+  verticalBarsTags.has(element.localName) &&
+  (element.matches('ion-tab-bar') || verticalBarsOwned(element)) &&
   !element.closest('ion-menu, ion-modal, ion-popover') &&
-  !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
+  !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
 
 const excludedBy = (element: HTMLElement, selector: string): boolean => {
   const owner = element.closest<HTMLElement>(selector);
@@ -100,7 +100,7 @@ export const isExcluded = (element: HTMLElement, enteringPage?: HTMLElement): bo
 export const isShellDisabled = (element: Element): boolean =>
   !!element.closest(shellDisabledSelector) || !!element.querySelector(shellDisabledSelector);
 
-export const isFoldableToolbarActionShape = (element: HTMLElement): boolean =>
+export const isVerticalBarsToolbarActionShape = (element: HTMLElement): boolean =>
   element.matches('ion-menu-button') ||
   (element.matches('ion-button') &&
     !!element.querySelector('ion-icon, svg') &&
@@ -110,25 +110,28 @@ export const isFoldableToolbarActionShape = (element: HTMLElement): boolean =>
 
 // Placement belongs to the DOM identity for one routed-page epoch. Changes to
 // content/disabled state affect rendering, never its chosen surface.
-const foldablePlacement = new WeakMap<HTMLElement, boolean>();
-export const setFoldablePlacement = (element: HTMLElement, rail: boolean): void => {
-  foldablePlacement.set(element, rail);
+const verticalBarsPlacement = new WeakMap<HTMLElement, boolean>();
+export const setVerticalBarsPlacement = (element: HTMLElement, rail: boolean): void => {
+  verticalBarsPlacement.set(element, rail);
 };
-export const clearFoldablePlacement = (element: HTMLElement): void => {
-  foldablePlacement.delete(element);
+export const clearVerticalBarsPlacement = (element: HTMLElement): void => {
+  verticalBarsPlacement.delete(element);
 };
-export const foldableRailOwned = (element: HTMLElement): boolean => foldablePlacement.get(element) === true;
+export const verticalBarsOwned = (element: HTMLElement): boolean => verticalBarsPlacement.get(element) === true;
 
-export const isFoldableToolbarAction = (element: HTMLElement): boolean =>
-  element.matches('.ios') && foldableRailOwned(element) && !isExcluded(element, foldableEnteringPage(element)) && !isShellDisabled(element);
+export const isVerticalBarsToolbarAction = (element: HTMLElement): boolean =>
+  element.matches('.ios') &&
+  verticalBarsOwned(element) &&
+  !isExcluded(element, verticalBarsEnteringPage(element)) &&
+  !isShellDisabled(element);
 
-export const foldableToolbarActions = (element: HTMLElement): HTMLElement[] =>
-  Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isFoldableToolbarAction(child));
+export const verticalBarsToolbarActions = (element: HTMLElement): HTMLElement[] =>
+  Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isVerticalBarsToolbarAction(child));
 
-export const isFoldableToolbarGroup = (element: HTMLElement): boolean => {
+export const isVerticalBarsToolbarGroup = (element: HTMLElement): boolean => {
   return (
     element.matches('ion-buttons.ios') &&
-    foldableRailOwned(element) &&
+    verticalBarsOwned(element) &&
     !element.matches('.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled') &&
     !isShellDisabled(element)
   );
@@ -152,7 +155,7 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
 };
 
 const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boolean => {
-  const enteringPage = isFoldableRailSource(element) ? foldableEnteringPage(element) : undefined;
+  const enteringPage = isVerticalBarsSource(element) ? verticalBarsEnteringPage(element) : undefined;
   if (!element.isConnected || isExcluded(element, enteringPage) || isShellDisabled(element)) return false;
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
@@ -163,7 +166,7 @@ const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boole
     )
       return false;
     // Ordinary controls on moving/collapsing/custom transformed surfaces stay in Web coordinates.
-    // Foldable rail controls are placed independently of their Web coordinates and must remain
+    // VerticalBars rail controls are placed independently of their Web coordinates and must remain
     // owned while Ionic transforms the content behind an open menu.
     if (
       !allowOutsideViewport &&
@@ -203,11 +206,11 @@ export const text = (element: Element): string => {
 
 export const inFixedToolbar = (element: Element): boolean => {
   const edge = element.closest('ion-toolbar')?.parentElement;
-  const foldable = !!element.closest(':is(ion-app, body).ios-theme-enable-foldable');
+  const verticalBars = !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
   return (
     !!edge?.matches('ion-header, ion-footer') &&
     !element.closest('ion-content') &&
     !edge.hasAttribute('collapse') &&
-    (foldable || !edge.matches('.header-collapse-main, .header-collapse-condense'))
+    (verticalBars || !edge.matches('.header-collapse-main, .header-collapse-condense'))
   );
 };

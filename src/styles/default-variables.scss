@@ -40,7 +40,7 @@
 
 // iPhone Duo web simulation: the iOS 27.1 Simulator is 951pt wide while
 // its application window is 871pt wide, leaving an 80pt navigation region.
-:is(ion-app, body).ios-theme-enable-foldable {
-  --ios-theme-foldable-safe-area-left-resolved: var(--ios-theme-foldable-safe-area-left, 0px);
-  --ios-theme-foldable-safe-area-right-resolved: var(--ios-theme-foldable-safe-area-right, 80px);
+:is(ion-app, body).ios-theme-vertical-bars {
+  --ios-theme-vertical-bars-safe-area-left-resolved: var(--ios-theme-vertical-bars-safe-area-left, 0px);
+  --ios-theme-vertical-bars-safe-area-right-resolved: var(--ios-theme-vertical-bars-safe-area-right, 80px);
 }

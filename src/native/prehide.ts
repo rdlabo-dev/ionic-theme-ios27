@@ -1,16 +1,16 @@
 import { LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER } from '@ionic/core';
 import {
-  clearFoldablePlacement,
-  foldableBackWebClass,
-  foldableRailOwned,
+  clearVerticalBarsPlacement,
+  verticalBarsBackWebClass,
+  verticalBarsOwned,
   inFixedToolbar,
-  isFoldableToolbarActionShape,
+  isVerticalBarsToolbarActionShape,
   isPermanentlyExcluded,
   isShellDisabled,
   prehiddenClass,
   prehideRootClass,
   rejectedClass,
-  setFoldablePlacement,
+  setVerticalBarsPlacement,
 } from './shared/dom';
 
 const overlays = 'ion-menu, ion-modal, ion-popover';
@@ -20,15 +20,19 @@ const backSupported = (element: HTMLElement): boolean => {
   return back.icon === undefined && back.color === undefined && !!back.shadowRoot;
 };
 const eligible = (element: HTMLElement): boolean =>
-  inFixedToolbar(element) && !isPermanentlyExcluded(element) && !isShellDisabled(element) && !element.closest(overlays);
+  inFixedToolbar(element) &&
+  !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only') &&
+  !isPermanentlyExcluded(element) &&
+  !isShellDisabled(element) &&
+  !element.closest(overlays);
 
 /** Capture toolbar placement once per routed-page epoch, before Ionic paints its transition. */
-export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => () => void; stop: () => void } => {
+export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () => () => void; stop: () => void } => {
   doc.documentElement.classList.add(prehideRootClass);
   const scopes = new Map<HTMLElement, Set<HTMLElement>>();
   const pendingBacks = new Map<HTMLElement, { scope: HTMLElement; timer: ReturnType<typeof setTimeout> }>();
   const listeners = new AbortController();
-  const root = () => doc.querySelector<HTMLElement>(':is(ion-app, body).ios-theme-enable-foldable');
+  const root = () => doc.querySelector<HTMLElement>(':is(ion-app, body).ios-theme-vertical-bars');
   let suspended = 0;
   let stopped = false;
   const routedPage = (element: HTMLElement) => element.closest<HTMLElement>('.ion-page:not(ion-app, body)');
@@ -42,8 +46,8 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
     if (!owned) return;
     owned.forEach((element) => {
       element.classList.remove(prehiddenClass);
-      element.classList.remove(foldableBackWebClass);
-      clearFoldablePlacement(element);
+      element.classList.remove(verticalBarsBackWebClass);
+      clearVerticalBarsPlacement(element);
     });
     scopes.delete(scope);
   };
@@ -52,15 +56,15 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
     const owned = scopes.get(scope) ?? new Set<HTMLElement>();
     const place = (element: HTMLElement, rail: boolean) => {
       if (owned.has(element)) return;
-      setFoldablePlacement(element, rail);
-      if (element.matches('ion-back-button')) element.classList.toggle(foldableBackWebClass, !rail);
+      setVerticalBarsPlacement(element, rail);
+      if (element.matches('ion-back-button')) element.classList.toggle(verticalBarsBackWebClass, !rail);
       owned.add(element);
     };
     scope.querySelectorAll<HTMLElement>(sourceSelector).forEach((element) => {
       if (element.closest(overlays) || (scope.matches('.ion-page') && routedPage(element) !== scope)) return;
       if (element.matches('ion-buttons')) {
         const children = Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
-        const actions = children.filter((child) => eligible(child) && isFoldableToolbarActionShape(child));
+        const actions = children.filter((child) => eligible(child) && isVerticalBarsToolbarActionShape(child));
         const group =
           eligible(element) &&
           actions.length === children.length &&
@@ -99,15 +103,15 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
         }
         place(
           element,
-          eligible(element) && (element.matches('ion-back-button') ? backSupported(element) : isFoldableToolbarActionShape(element)),
+          eligible(element) && (element.matches('ion-back-button') ? backSupported(element) : isVerticalBarsToolbarActionShape(element)),
         );
       }
     });
     scopes.set(scope, owned);
   };
   const reconcile = () => {
-    const foldable = root();
-    if (!foldable) {
+    const verticalBars = root();
+    if (!verticalBars) {
       Array.from(scopes.keys()).forEach(release);
       return;
     }
@@ -115,9 +119,9 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
     for (const [element, pending] of pendingBacks) if (element.shadowRoot || element.classList.contains('hydrated')) capture(pending.scope);
     // Ionic inserts the destination as invisible before WillEnter. Hide its
     // sources in that same mutation microtask; capture new DOM identities on active pages too.
-    foldable.querySelectorAll<HTMLElement>('.ion-page:not(ion-app, body, .ion-page-hidden)').forEach(capture);
+    verticalBars.querySelectorAll<HTMLElement>('.ion-page:not(ion-app, body, .ion-page-hidden)').forEach(capture);
     // Root toolbars can mount after startup; each new DOM identity is captured once.
-    foldable.querySelectorAll<HTMLElement>(sourceSelector).forEach((element) => {
+    verticalBars.querySelectorAll<HTMLElement>(sourceSelector).forEach((element) => {
       if (routedPage(element) || element.closest(overlays)) return;
       const scope = element.closest<HTMLElement>('ion-toolbar');
       if (scope) capture(scope);
@@ -126,11 +130,11 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
       for (const element of owned) {
         const groupOwnsChildren =
           element.parentElement?.matches('ion-buttons') &&
-          foldableRailOwned(element.parentElement) &&
-          Array.from(element.parentElement.children).every((child) => child instanceof HTMLElement && foldableRailOwned(child));
+          verticalBarsOwned(element.parentElement) &&
+          Array.from(element.parentElement.children).every((child) => child instanceof HTMLElement && verticalBarsOwned(child));
         const hide =
           !suspended &&
-          foldableRailOwned(element) &&
+          verticalBarsOwned(element) &&
           !groupOwnsChildren &&
           element.isConnected &&
           !element.closest(`.${rejectedClass}`) &&
@@ -138,9 +142,9 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
           !isShellDisabled(element) &&
           (!element.matches('ion-back-button') || backSupported(element) || !element.classList.contains('hydrated')) &&
           (!element.matches('ion-buttons') ||
-            Array.from(element.children).every((child) => child instanceof HTMLElement && foldableRailOwned(child)));
+            Array.from(element.children).every((child) => child instanceof HTMLElement && verticalBarsOwned(child)));
         element.classList.toggle(prehiddenClass, hide);
-        if (element.matches('ion-back-button')) element.classList.toggle(foldableBackWebClass, !hide);
+        if (element.matches('ion-back-button')) element.classList.toggle(verticalBarsBackWebClass, !hide);
       }
     }
   };
@@ -172,7 +176,7 @@ export const prehideFoldableToolbarSources = (doc: Document): { suspend: () => (
     const withoutOwned = (value: string) =>
       value
         .split(/\s+/)
-        .filter((name) => name && ![prehiddenClass, prehideRootClass, foldableBackWebClass].includes(name))
+        .filter((name) => name && ![prehiddenClass, prehideRootClass, verticalBarsBackWebClass].includes(name))
         .join(' ');
     return typeof current !== 'string' || withoutOwned(previous) !== withoutOwned(current);
   };

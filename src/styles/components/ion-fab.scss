@@ -111,37 +111,37 @@ ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
 // FAB alignment is independent from tab placement. Map the reserved physical
 // side to the matching logical FAB edge for the current writing direction.
-:is(ion-app, body).ios-theme-enable-foldable
+:is(ion-app, body).ios-theme-vertical-bars
   ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
-  --ios-theme-foldable-fab-edge-gap: 16px;
-  --ios-theme-foldable-fab-start-offset: var(--ios-theme-menu-width, var(--ios26-menu-width, 0px));
+  --ios-theme-vertical-bars-fab-edge-gap: 16px;
+  --ios-theme-vertical-bars-fab-start-offset: var(--ios-theme-menu-width, var(--ios26-menu-width, 0px));
 
   &.fab-horizontal-start {
     inset-inline-start: calc(
-      var(--ios-theme-foldable-fab-edge-gap) + var(--ios-theme-foldable-fab-start-offset) +
-        var(--ios-theme-foldable-safe-area-left-resolved)
+      var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-fab-start-offset) +
+        var(--ios-theme-vertical-bars-safe-area-left-resolved)
     );
   }
 
   &.fab-horizontal-end {
-    inset-inline-end: calc(var(--ios-theme-foldable-fab-edge-gap) + var(--ios-theme-foldable-safe-area-right-resolved));
+    inset-inline-end: calc(var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
   }
 
   &:dir(rtl).fab-horizontal-start {
     inset-inline-start: calc(
-      var(--ios-theme-foldable-fab-edge-gap) + var(--ios-theme-foldable-fab-start-offset) +
-        var(--ios-theme-foldable-safe-area-right-resolved)
+      var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-fab-start-offset) +
+        var(--ios-theme-vertical-bars-safe-area-right-resolved)
     );
   }
 
   &:dir(rtl).fab-horizontal-end {
-    inset-inline-end: calc(var(--ios-theme-foldable-fab-edge-gap) + var(--ios-theme-foldable-safe-area-left-resolved));
+    inset-inline-end: calc(var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
   }
 
   &:has(.fab-button-small) {
-    --ios-theme-foldable-fab-edge-gap: 10px;
+    --ios-theme-vertical-bars-fab-edge-gap: 10px;
   }
 }
 

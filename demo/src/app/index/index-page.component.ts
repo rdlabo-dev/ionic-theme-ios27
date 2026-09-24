@@ -84,8 +84,8 @@ export class IndexPageComponent {
   readonly #route = inject(ActivatedRoute);
   readonly #document = inject(DOCUMENT);
 
-  get foldableModeEnabled() {
-    return this.#document.querySelector('ion-app')?.classList.contains('ios-theme-enable-foldable') ?? false;
+  get verticalBarsModeEnabled() {
+    return this.#document.querySelector('ion-app')?.classList.contains('ios-theme-vertical-bars') ?? false;
   }
 
   async navigateNativeUiShell() {
@@ -100,7 +100,7 @@ export class IndexPageComponent {
     this.#document.documentElement.classList.toggle('ion-palette-dark', event.detail.checked);
   }
 
-  changeFoldableMode(event: ToggleCustomEvent) {
-    this.#document.querySelector('ion-app')?.classList.toggle('ios-theme-enable-foldable', event.detail.checked);
+  changeVerticalBarsMode(event: ToggleCustomEvent) {
+    this.#document.querySelector('ion-app')?.classList.toggle('ios-theme-vertical-bars', event.detail.checked);
   }
 }

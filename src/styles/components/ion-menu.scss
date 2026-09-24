@@ -4,7 +4,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
 ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:has(ion-menu.menu-pane-visible) {
   .split-pane-main {
-    ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(.ios-theme-enable-foldable *)) {
+    ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(.ios-theme-vertical-bars *)) {
       width: calc(
         100% - calc(18px + var(--ion-safe-area-left, 0px)) - calc(18px + var(--ion-safe-area-right, 0px)) - 60px -
           12px - var(--ios-theme-menu-width, var(--ios26-menu-width))
@@ -43,7 +43,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
       ion-footer ion-toolbar {
         --padding-start: var(--ios-theme-menu-width, var(--ios26-menu-width));
       }
-      ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(.ios-theme-enable-foldable *)) {
+      ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(.ios-theme-vertical-bars *)) {
         &[slot='bottom'] {
           inset-inline-start: calc(16px + var(--ion-safe-area-left, 0px) + var(--ios-theme-menu-width, var(--ios26-menu-width)));
           &:dir(rtl) {
@@ -133,16 +133,16 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 }
 
-// A menu beside foldable system UI must end before the reserved region. Its
+// A menu beside verticalBars system UI must end before the reserved region. Its
 // own ion-content remains unchanged. The host consumes the matching Ionic
 // safe-area variable because its complete surface has already moved inward.
-:is(ion-app, body).ios-theme-enable-foldable {
+:is(ion-app, body).ios-theme-vertical-bars {
   ion-menu.ios.menu-side-end:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
   ion-menu.ios.menu-side-start:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
     --ion-safe-area-right: 0px;
 
     &::part(container) {
-      margin-right: var(--ios-theme-foldable-safe-area-right-resolved);
+      margin-right: var(--ios-theme-vertical-bars-safe-area-right-resolved);
     }
   }
 
@@ -151,7 +151,7 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
     --ion-safe-area-left: 0px;
 
     &::part(container) {
-      margin-left: var(--ios-theme-foldable-safe-area-left-resolved);
+      margin-left: var(--ios-theme-vertical-bars-safe-area-left-resolved);
     }
   }
 }

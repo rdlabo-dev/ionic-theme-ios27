@@ -6,8 +6,8 @@ import * as overlayTypes from '../src/app/overlay-types';
 
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
-const mockNative = async (page: Page, fail = false, foldableRail = true) => {
-  const script = ([fail, foldableRail]: readonly [boolean, boolean]) => {
+const mockNative = async (page: Page, fail = false, verticalBars = true) => {
+  const script = ([fail, verticalBars]: readonly [boolean, boolean]) => {
     const state = {
       updates: [] as any[],
       sequence: 0,
@@ -38,7 +38,7 @@ const mockNative = async (page: Page, fail = false, foldableRail = true) => {
           },
         ],
         nativePromise: async (_plugin: string, method: string, options: any) => {
-          if (method === 'configure') return { supported: true, foldableRail };
+          if (method === 'configure') return { supported: true, verticalBars };
           if (method === 'getWebViewMetrics') return { radius: 0 };
           state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
           if (state.hang && method === 'update') await new Promise(() => {});
@@ -70,7 +70,7 @@ const mockNative = async (page: Page, fail = false, foldableRail = true) => {
       },
     });
   };
-  await page.addInitScript(script, [fail, foldableRail] as const);
+  await page.addInitScript(script, [fail, verticalBars] as const);
 };
 
 const activate = (page: Page, label: string, duplicate = false) =>
@@ -331,39 +331,39 @@ test('unsupported search morph releases and restores a native fixed-slot FAB int
   await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
 });
 
-test('foldable tabs request native adaptive rail placement', async ({ page }) => {
+test('verticalBars tabs request native adaptive rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index');
   const app = page.locator('ion-app');
   const bar = page.locator('ion-tab-bar');
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
 
-  await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect
     .poll(() =>
       page.evaluate(() =>
         (window as any).__nativeUIShell.updates
           .at(-1)
-          .controls.some((control: any) => control.kind === 'ion-tab-bar' && control.placement === 'foldable-rail'),
+          .controls.some((control: any) => control.kind === 'ion-tab-bar' && control.placement === 'vertical-bars'),
       ),
     )
     .toBe(true);
 
-  await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
+  await app.evaluate((element) => element.classList.remove('ios-theme-vertical-bars'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(bar).toHaveClass(/ios27-enable-gesture/);
 });
 
-test('foldable back navigation and toolbar slots request native rail placement', async ({ page }) => {
+test('verticalBars back navigation and toolbar slots request native rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const app = page.locator('ion-app');
   const source = page.locator('app-native-ui-shell ion-back-button');
-  const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
+  const projection = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 
-  await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
   await expect(projection).toHaveCount(0);
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
   await expect
@@ -374,7 +374,7 @@ test('foldable back navigation and toolbar slots request native rail placement',
             .at(-1)
             .controls.some(
               (control: any) =>
-                control.kind === 'ion-back-button' && control.placement === 'foldable-rail' && control.toolbarSlot === undefined,
+                control.kind === 'ion-back-button' && control.placement === 'vertical-bars' && control.toolbarSlot === undefined,
             ) &&
           !(window as any).__nativeUIShell.updates
             .at(-1)
@@ -390,7 +390,7 @@ test('foldable back navigation and toolbar slots request native rail placement',
           .controls.some(
             (control: any) =>
               control.kind === 'ion-button' &&
-              control.placement === 'foldable-rail' &&
+              control.placement === 'vertical-bars' &&
               control.toolbarSlot === 'end' &&
               control.items.some((item: any) => item.accessibilityLabel === 'Save'),
           ),
@@ -406,20 +406,20 @@ test('foldable back navigation and toolbar slots request native rail placement',
     )
     .toBe('start');
 
-  await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
+  await app.evaluate((element) => element.classList.remove('ios-theme-vertical-bars'));
   await expect(projection).toHaveCount(0);
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
-test('native foldable toolbar returns with Index after a pushed page', async ({ page }) => {
+test('native verticalBars toolbar returns with Index after a pushed page', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index');
-  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
   const hasIndexActions = () =>
     page.evaluate(() => {
       const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
       return controls.some(
-        (control: any) => control.placement === 'foldable-rail' && control.items.some((item: any) => item.accessibilityLabel === 'GitHub'),
+        (control: any) => control.placement === 'vertical-bars' && control.items.some((item: any) => item.accessibilityLabel === 'GitHub'),
       );
     });
   await expect.poll(hasIndexActions).toBe(true);
@@ -444,10 +444,10 @@ test('native foldable toolbar returns with Index after a pushed page', async ({ 
   await expect.poll(hasIndexActions).toBe(true);
 });
 
-test('native foldable actions follow WillEnter and stay enabled during navigation', async ({ page }) => {
+test('native verticalBars actions follow WillEnter and stay enabled during navigation', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
-  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
   const source = page.locator('app-native-ui-shell ion-back-button');
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
   const routedPage = page.locator('app-native-ui-shell.ion-page');
@@ -497,14 +497,14 @@ test('native foldable actions follow WillEnter and stay enabled during navigatio
   await routedPage.evaluate((element) => (element.style.pointerEvents = ''));
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
   await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
-  await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
+  await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeVerticalBarsTransitionCanceled', { bubbles: true })));
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
-test('foldable toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {
+test('verticalBars toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
-  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
   const source = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
   await expect(source).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
@@ -549,7 +549,7 @@ test('foldable toolbar sources are hidden before ownership and restored with the
     root.append(header);
     const back = header.querySelector('ion-back-button')!;
     back.setAttribute('data-late-back', '');
-    return back.classList.contains('ios-theme-foldable-back-web-owned');
+    return back.classList.contains('ios-theme-vertical-bars-back-web-owned');
   });
   expect(lateBackInitially).toBe(false);
   const lateBack = page.locator('ion-back-button[data-late-back]');
@@ -557,7 +557,7 @@ test('foldable toolbar sources are hidden before ownership and restored with the
   await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
   await page.waitForTimeout(1600); // Past the unhydrated readiness timeout.
   await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
-  await expect(lateBack).not.toHaveClass(/ios-theme-foldable-back-web-owned/);
+  await expect(lateBack).not.toHaveClass(/ios-theme-vertical-bars-back-web-owned/);
   await lateBack.evaluate((element) => element.closest('ion-header')?.remove());
 
   const lateAction = page.locator('app-native-ui-shell ion-button[data-late-action]');
@@ -587,10 +587,10 @@ test('foldable toolbar sources are hidden before ownership and restored with the
   await expect(source).toHaveCSS('visibility', 'visible');
 });
 
-test('rejected foldable control returns to an operable Web source', async ({ page }) => {
+test('rejected verticalBars control returns to an operable Web source', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
-  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
   const save = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(save).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => {
@@ -604,12 +604,12 @@ test('rejected foldable control returns to an operable Web source', async ({ pag
   await expect(page.locator('[data-save-count]')).toHaveText('1');
 });
 
-test('foldable rail remains native while its Ionic menu is open', async ({ page }) => {
+test('verticalBars rail remains native while its Ionic menu is open', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
-  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
   const menu = page.locator('ion-menu');
   const menuSource = page.locator('app-native-ui-shell ion-menu-button').locator('..');
   const backSource = page.locator('app-native-ui-shell ion-back-button');
@@ -690,16 +690,16 @@ test('foldable rail remains native while its Ionic menu is open', async ({ page 
   await expect(morphedCancel).toBeVisible();
 });
 
-test('foldable controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
+test('verticalBars controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockNative(page, false, false);
   await page.goto('/main/index/native-ui-shell');
   await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
-  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
 
-  const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
-  const menuProjection = page.locator('ion-app > ion-menu-button.ios-theme-foldable-toolbar-projection');
-  const saveProjection = page.locator('ion-app > ion-button.ios-theme-foldable-toolbar-projection[aria-label=Save]');
+  const projection = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
+  const menuProjection = page.locator('ion-app > ion-menu-button.ios-theme-vertical-bars-toolbar-projection');
+  const saveProjection = page.locator('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection[aria-label=Save]');
   await expect(projection).toBeVisible();
   await expect(menuProjection).toBeVisible();
   await expect(saveProjection).toBeVisible();
@@ -715,7 +715,7 @@ test('foldable controls stay operable on Web when the native side rail is unavai
     .poll(() =>
       page.evaluate(() =>
         (window as any).__nativeUIShell.updates.every((snapshot: any) =>
-          snapshot.controls.every((control: any) => control.placement !== 'foldable-rail'),
+          snapshot.controls.every((control: any) => control.placement !== 'vertical-bars'),
         ),
       ),
     )
@@ -732,14 +732,14 @@ test('foldable controls stay operable on Web when the native side rail is unavai
 
   await page.evaluate(() => {
     const outlet = document.querySelector('ion-tabs ion-router-outlet')!;
-    (window as any).__foldableBackCloneMoved = false;
+    (window as any).__verticalBarsBackCloneMoved = false;
     new MutationObserver(() => {
-      if (outlet.querySelector(':scope > ion-back-button.ion-cloned-element')) (window as any).__foldableBackCloneMoved = true;
+      if (outlet.querySelector(':scope > ion-back-button.ion-cloned-element')) (window as any).__verticalBarsBackCloneMoved = true;
     }).observe(outlet, { childList: true });
   });
   await projection.click();
   await expect(page).toHaveURL(/\/main\/index$/);
-  expect(await page.evaluate(() => (window as any).__foldableBackCloneMoved)).toBe(false);
+  expect(await page.evaluate(() => (window as any).__verticalBarsBackCloneMoved)).toBe(false);
 });
 
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {
