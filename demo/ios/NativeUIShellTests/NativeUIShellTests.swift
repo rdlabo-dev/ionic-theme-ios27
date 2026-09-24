@@ -274,16 +274,13 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         save.tap()
         XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
-        let more = app.buttons["More"]
-        XCTAssertTrue(more.waitForExistence(timeout: 5), app.debugDescription)
-        more.tap()
-        XCTAssertTrue(app.buttons["GitHub"].waitForExistence(timeout: 5), app.debugDescription)
-        capture("native-foldable-toolbar-more")
-        app.buttons["GitHub"].tap()
+        let github = app.buttons["GitHub"]
+        XCTAssertTrue(github.waitForExistence(timeout: 5), app.debugDescription)
+        github.tap()
         XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 0"].waitForExistence(timeout: 5), app.debugDescription)
-        more.tap()
-        XCTAssertTrue(app.buttons["Refresh"].waitForExistence(timeout: 5), app.debugDescription)
-        app.buttons["Refresh"].tap()
+        let refresh = app.buttons["Refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5), app.debugDescription)
+        refresh.tap()
         XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 1"].waitForExistence(timeout: 5), app.debugDescription)
         capture("native-foldable-toolbar")
 

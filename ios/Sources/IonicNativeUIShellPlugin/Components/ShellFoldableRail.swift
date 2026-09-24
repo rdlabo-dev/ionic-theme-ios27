@@ -44,10 +44,12 @@ final class ShellFoldableRailModel: ObservableObject {
                  image: rendering.image(source.content), badge: source.content.badge, disabled: source.content.disabled,
                  selected: source.content.selected)
         }
-        back = controls.first(where: { $0.kind == .backButton })?.items.first.map(item)
-        groups = controls.compactMap { control in
-            guard [.button, .buttons, .menuButton].contains(control.kind) else { return nil }
-            return Group(id: control.id, items: control.items.map(item), slot: control.toolbarSlot)
+        withAnimation(.smooth(duration: 0.3)) {
+            back = controls.first(where: { $0.kind == .backButton })?.items.first.map(item)
+            groups = controls.compactMap { control in
+                guard [.button, .buttons, .menuButton].contains(control.kind) else { return nil }
+                return Group(id: control.id, items: control.items.map(item), slot: control.toolbarSlot)
+            }
         }
         tabs = controls.first(where: { $0.kind == .tabBar })?.items.map(item) ?? []
         domSelection = tabs.first(where: \.selected)?.id ?? ""
