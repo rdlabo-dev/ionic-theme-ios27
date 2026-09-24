@@ -35,7 +35,11 @@ interface ToolbarSource {
   actions: HTMLElement[];
 }
 
-export const createVerticalBarsWebProjection = (doc: Document, options: NativeUIShellOptions): NativeUIShellHandle => {
+export const createVerticalBarsWebProjection = (
+  doc: Document,
+  options: NativeUIShellOptions,
+  enabled: () => boolean = () => true,
+): NativeUIShellHandle => {
   const win = doc.defaultView!;
   if (options.controls !== undefined && options.controls.toolbar !== true)
     return {
@@ -275,7 +279,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
         attributeFilter: observingVerticalBars ? undefined : ['class'],
       });
     }
-    if (stopped || suspended || !currentRoot) return restore();
+    if (stopped || suspended || !currentRoot || !enabled()) return restore();
     const nextBack = findBack();
     const groups = findToolbarGroups();
     if (!nextBack && !groups.length) return restore();
@@ -347,6 +351,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
   doc.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, pageLifecycle, { capture: true, signal: listeners.signal });
   for (const name of ['ionModalWillPresent', 'ionModalDidDismiss'])
     doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
+  win.addEventListener('nativeUIShellRefresh', schedule, { signal: listeners.signal });
   if (options.controls === undefined || options.controls.toolbar === true) schedule();
 
   return {

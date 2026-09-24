@@ -39,6 +39,13 @@ export interface NativeUIShellHandle {
   destroy(): Promise<void>;
 }
 
+export type VerticalBarEdge = 'left' | 'right' | null;
+
+export interface VerticalControlAreaHandle extends NativeUIShellHandle {
+  /** Applies the application's chosen placement to both Web and native controls. */
+  setPlacement(edge: VerticalBarEdge): void;
+}
+
 export interface NativeUIShellSuspension {
   /** Releases this suspension. Native projection resumes after all active suspensions are released. */
   resume(): Promise<void>;
@@ -122,6 +129,7 @@ export interface ShellSnapshot {
   revision: number;
   transitionDuration?: number;
   viewportWidth: number;
+  verticalBarEdge?: Exclude<VerticalBarEdge, null>;
   controls: ShellControl[];
 }
 
@@ -137,11 +145,13 @@ export interface WebViewMetrics {
 }
 
 export interface NativeUIShellPlugin {
-  configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean; verticalBars?: boolean }>;
+  configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
+  getVerticalBarPlacement(): Promise<{ edge: VerticalBarEdge }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
   addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'verticalBarPlacementChange', listener: (event: { edge: VerticalBarEdge }) => void): Promise<PluginListenerHandle>;
 }

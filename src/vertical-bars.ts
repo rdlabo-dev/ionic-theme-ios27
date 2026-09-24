@@ -1,2 +1,7 @@
-export { enableVerticalControlArea } from './native';
-export type { NativeUIShellHandle, NativeUIShellStatus, NativeUIShellSuspension } from './native';
+export {
+  addVerticalBarPlacementListener,
+  enableVerticalControlArea,
+  getVerticalBarPlacement,
+  setVerticalControlAreaPlacement,
+} from './native';
+export type { NativeUIShellStatus, NativeUIShellSuspension, VerticalBarEdge, VerticalControlAreaHandle } from './native';

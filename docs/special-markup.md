@@ -56,17 +56,27 @@ Load the separate stylesheet and start its projection runtime. The iOS 27 theme 
 ```
 
 ```ts
-import { enableVerticalControlArea } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import {
+  addVerticalBarPlacementListener,
+  enableVerticalControlArea,
+  getVerticalBarPlacement,
+} from '@rdlabo/ionic-theme-ios27/vertical-bars';
+
+// Start Web projection on Chrome too; it remains idle until the class is present.
+const rail = await enableVerticalControlArea();
 
 // `platform` is the app's injected Ionic Platform instance.
 if (platform.is('ios')) {
-  void enableVerticalControlArea();
+  await addVerticalBarPlacementListener(({ edge }) => rail.setPlacement(edge));
+  rail.setPlacement((await getVerticalBarPlacement()).edge);
 }
 ```
 
-The `platform.is('ios')` guard is an application choice, not an Ionic `mode` requirement. An app can keep `mode: 'md'` on iOS and still enable Vertical Bars.
+The `platform.is('ios')` guard controls automatic application of native placement, not the component mode or the Web simulation. An app can keep `mode: 'md'` on iOS and still enable Vertical Bars.
 
-Add `.ios-theme-vertical-bars` to the active `ion-app`. Use `body` only when the application has no `ion-app` root:
+The placement listener only reports what iOS chose; the application decides whether to call `setPlacement`. Passing `null` restores the ordinary layout. Placement is read from the WebView's UIKit trait; projected tabs and toolbar controls still render with SwiftUI. If the app already starts the full `enableNativeUIShell()`, use `setVerticalControlAreaPlacement(edge)` instead of starting another runtime.
+
+For Chrome development, no native plugin is needed. Add `.ios-theme-vertical-bars` to the active `ion-app` to simulate the right rail, or add `.ios-theme-vertical-bars-left` as well to simulate the left rail. Use `body` only when the application has no `ion-app` root:
 
 ```html
 <ion-app class="ios-theme-vertical-bars">...</ion-app>
@@ -74,7 +84,7 @@ Add `.ios-theme-vertical-bars` to the active `ion-app`. Use `body` only when the
 
 For example, an app configured with Ionic `mode: 'md'` can use this same `ion-app` class. No component needs to switch to `mode="ios"` for Vertical Bars.
 
-The class reserves `80px` on the physical right by default, matching the system navigation region measured in the iPhone Duo Simulator. The physical left defaults to `0px`. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
+The class reserves `80px` on the physical right in Chrome, matching the system navigation region measured in the iPhone Duo Simulator. On iOS it also respects a larger CSS safe-area inset. The left modifier moves that reservation to the physical left. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
 
 This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when it is placed beside the system UI. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
 
@@ -82,11 +92,11 @@ This keeps routers and component backgrounds full-viewport. `ion-content` moves 
 
 These values are web-layout simulation inputs. They are independent from Ionic's normal iPhone safe-area variables and do not change ordinary iPhone layouts unless the opt-in class is present.
 
-When the app contains `ion-tabs`, this mode moves its tab bar into the physical right-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different position. Without Native UI Shell, the stable Web rail is icon-only, matching a four-tab SwiftUI `TabView` on iPhone Duo. While the user presses and drags across that rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The Web tab bar receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; this mode does not convert tabs into a menu.
+When the app contains `ion-tabs`, this mode moves its tab bar into the chosen physical-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different position. Without Native UI Shell, the stable Web rail is icon-only, matching a four-tab SwiftUI `TabView` on iPhone Duo. While the user presses and drags across that rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The Web tab bar receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; this mode does not convert tabs into a menu.
 
 On supported iOS versions, `enableVerticalControlArea()` hands eligible tabs, back navigation, menu buttons, and fixed-toolbar actions to a native SwiftUI `TabView` and toolbar. Vertical Bars works with either Ionic `ios` or `md` mode; the application chooses both its component mode and where to enable Vertical Bars. Back navigation can come from outside a fixed toolbar; other toolbar actions still require a fixed toolbar. It does not project ordinary Native UI Shell controls outside the vertical area. If the app already uses the full `enableNativeUIShell()`, keep that single runtime instead of starting both. The Ionic controls remain the sources of labels, icons, selected/disabled state, form submission, routing, and click handlers while SwiftUI owns adaptive placement and interaction. Fixed-toolbar actions need an icon or SVG, no direct text node, and standard `fill="default"` or `fill="clear"` to be eligible for the side rail. Text-only actions stay in the original Web toolbar. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it in the Web toolbar. Placement is chosen when a routed page enters; changing an existing button's content does not move it between the toolbar and rail until the page leaves and re-enters. Menus, modals, and popovers retain their own toolbar layout.
 
-On Web, Android, older iOS, or when native projection is unavailable during setup, the Web tab bar and fixed-toolbar clones remain the fallback. Those projections also work when no `ion-tabs` exists; text-only actions stay in the original Web toolbar. Disabling the mode or leaving the page removes the native ownership or Web clones and restores their sources. Override `--ios-theme-vertical-bars-toolbar-top` when the simulated system controls use a different vertical layout.
+On Web, Android, or when native projection is unavailable, the Web tab bar and fixed-toolbar clones remain the fallback. Those projections also work when no `ion-tabs` exists; text-only actions stay in the original Web toolbar. Disabling the mode or leaving the page removes the native ownership or Web clones and restores their sources. Override `--ios-theme-vertical-bars-toolbar-top` when the simulated system controls use a different vertical layout.
 
 ## Two-line inset list items
 

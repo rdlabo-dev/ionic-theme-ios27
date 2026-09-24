@@ -42,7 +42,7 @@ export const createRuntime = async (
   doc: Document,
   plugin: NativeUIShellPlugin,
   options: NativeUIShellOptions = {},
-  nativeVerticalBars = true,
+  nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
 ): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
@@ -184,7 +184,7 @@ export const createRuntime = async (
       }
     } else candidate = readCandidate(element, id);
     if (candidate && isVerticalBarsCandidate(element)) {
-      if (!nativeVerticalBars) return undefined;
+      if (!nativeVerticalBars()) return undefined;
       candidate.control.placement = 'vertical-bars';
       if (['ion-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind)) {
         const slot = (element.matches('ion-buttons') ? element : (element.closest('ion-buttons') ?? element)).getAttribute('slot');
@@ -329,7 +329,13 @@ export const createRuntime = async (
           if (stopped || dirty) return;
         }
       }
-      const data = { viewportWidth: win.innerWidth, controls: candidates.map((candidate) => candidate.control) };
+      const root = doc.querySelector(':is(ion-app, body).ios-theme-vertical-bars');
+      const verticalBarEdge: 'left' | 'right' | undefined = root
+        ? root.classList.contains('ios-theme-vertical-bars-left')
+          ? 'left'
+          : 'right'
+        : undefined;
+      const data = { viewportWidth: win.innerWidth, verticalBarEdge, controls: candidates.map((candidate) => candidate.control) };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
       const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };

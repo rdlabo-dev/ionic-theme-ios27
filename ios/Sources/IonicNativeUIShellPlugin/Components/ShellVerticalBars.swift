@@ -5,7 +5,7 @@ import UIKit
 protocol ShellVerticalBarsControlling: AnyObject {
     var view: UIView { get }
     func attach(to owner: UIViewController, in parent: UIView)
-    func apply(_ controls: [ShellControl], rendering: ShellRendering)
+    func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
     func detach()
 }
 
@@ -243,6 +243,7 @@ private struct ShellVerticalBarsLegacyToolbar: ViewModifier {
 @available(iOS 26.0, *)
 final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     private final class TransparentHostingController<Content: View>: UIHostingController<Content> {
+        var railEdge = "right"
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
             makeFullSizeSurfacesTransparent(in: view)
@@ -250,11 +251,14 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
 
         private func makeFullSizeSurfacesTransparent(in surface: UIView) {
             let frame = surface.convert(surface.bounds, to: view)
-            let railWidth = view.safeAreaInsets.right > 0 ? view.safeAreaInsets.right : 80
+            let inset = railEdge == "left" ? view.safeAreaInsets.left : view.safeAreaInsets.right
+            let railWidth = inset > 0 ? inset : 80
             guard !(surface is UIVisualEffectView) else { return }
             let coversHost = frame.insetBy(dx: -1, dy: -1).contains(view.bounds)
             let coversRail = frame.minY <= 1 && frame.maxY >= view.bounds.maxY - 1 &&
-                frame.minX <= view.bounds.maxX - railWidth + 1 && frame.maxX >= view.bounds.maxX - 1
+                (railEdge == "left"
+                    ? frame.minX <= 1 && frame.maxX >= railWidth - 1
+                    : frame.minX <= view.bounds.maxX - railWidth + 1 && frame.maxX >= view.bounds.maxX - 1)
             // SwiftUI may add an opaque backing behind the rail controls.
             // Keep that backing clear without touching the glass controls or materials.
             if coversHost || coversRail {
@@ -267,8 +271,12 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
 
     private final class RailContainer: UIView {
         private let railMask = CAShapeLayer()
+        var railEdge = "right" { didSet { setNeedsLayout() } }
 
-        private var railWidth: CGFloat { safeAreaInsets.right > 0 ? safeAreaInsets.right : 80 }
+        private var railWidth: CGFloat {
+            let inset = railEdge == "left" ? safeAreaInsets.left : safeAreaInsets.right
+            return inset > 0 ? inset : 80
+        }
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -279,12 +287,12 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            railMask.path = UIBezierPath(rect: CGRect(x: bounds.maxX - railWidth, y: 0,
+            railMask.path = UIBezierPath(rect: CGRect(x: railEdge == "left" ? bounds.minX : bounds.maxX - railWidth, y: 0,
                                                        width: railWidth, height: bounds.height)).cgPath
         }
 
         override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-            point.x >= bounds.maxX - railWidth && super.point(inside: point, with: event)
+            (railEdge == "left" ? point.x <= railWidth : point.x >= bounds.maxX - railWidth) && super.point(inside: point, with: event)
         }
     }
 
@@ -316,7 +324,9 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         controller.didMove(toParent: owner)
     }
 
-    func apply(_ controls: [ShellControl], rendering: ShellRendering) {
+    func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String) {
+        container.railEdge = edge
+        controller.railEdge = edge
         model.apply(controls, rendering: rendering)
         controller.overrideUserInterfaceStyle = controls.contains(where: \.dark) ? .dark : .light
     }

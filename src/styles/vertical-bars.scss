@@ -5,7 +5,18 @@
 // This entry point does not load the iOS 27 theme or change ordinary Ionic UI.
 :is(ion-app, body).ios-theme-vertical-bars {
   --ios-theme-vertical-bars-safe-area-left-resolved: var(--ios-theme-vertical-bars-safe-area-left, 0px);
-  --ios-theme-vertical-bars-safe-area-right-resolved: var(--ios-theme-vertical-bars-safe-area-right, 80px);
+  --ios-theme-vertical-bars-safe-area-right-resolved: var(
+    --ios-theme-vertical-bars-safe-area-right,
+    max(80px, env(safe-area-inset-right, 0px))
+  );
+}
+
+:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-left {
+  --ios-theme-vertical-bars-safe-area-left-resolved: var(
+    --ios-theme-vertical-bars-safe-area-left,
+    max(80px, env(safe-area-inset-left, 0px))
+  );
+  --ios-theme-vertical-bars-safe-area-right-resolved: var(--ios-theme-vertical-bars-safe-area-right, 0px);
 }
 
 // Supply material defaults only to Web projections, never to ordinary controls.
@@ -183,6 +194,14 @@
   }
 }
 
+:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-left
+  ion-tabs:not(:where(ion-menu *, ion-modal *, ion-popover *))
+  > ion-tab-bar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-side-safe-area: var(--ios-theme-vertical-bars-safe-area-left-resolved);
+  right: auto;
+  left: max(4px, calc((var(--ios-theme-side-safe-area) - var(--ios-theme-side-tab-bar-width)) / 2));
+}
+
 .ios-theme-native-ui-shell-prehidden {
   position: absolute !important;
   visibility: hidden !important;
@@ -296,5 +315,13 @@ html.ios-theme-native-ui-shell-prehide
         margin-inline: auto;
       }
     }
+  }
+}
+
+:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-left {
+  > ion-back-button.ios-theme-vertical-bars-back-button-projection,
+  > :is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
+    right: auto;
+    left: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-left-resolved) - 46px) / 2));
   }
 }

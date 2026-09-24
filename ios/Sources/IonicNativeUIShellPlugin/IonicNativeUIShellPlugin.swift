@@ -8,6 +8,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     public let jsName = "IonicNativeUIShell"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getVerticalBarPlacement", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
@@ -25,6 +26,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var pendingTabExpiryWorks: [String: DispatchWorkItem] = [:]
     private var restoreTopEdge: (() -> Void)?
     private var observers: [NSObjectProtocol] = []
+    private var lastVerticalBarEdge: String?
+    private var verticalBarPlacementObserved = false
+    private weak var observedVerticalBarView: UIView?
 
     public override func load() {
         for name in [UIApplication.didEnterBackgroundNotification, UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardWillHideNotification,
@@ -59,6 +63,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     }
                 } else if name == UIDevice.orientationDidChangeNotification {
                     self.notifyWebViewMetricsChange()
+                    self.notifyVerticalBarPlacementChange()
                 }
             })
         }
@@ -68,8 +73,10 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 if name == UIResponder.keyboardDidHideNotification { self?.keyboardVisible = false }
                 self?.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh", data: name == UIApplication.didBecomeActiveNotification ? "{\"retireSearch\":true}" : "{}")
                 if name == UIApplication.didBecomeActiveNotification { self?.notifyWebViewMetricsChange() }
+                if name == UIApplication.didBecomeActiveNotification { self?.notifyVerticalBarPlacementChange() }
             })
         }
+        DispatchQueue.main.async { [weak self] in self?.observeVerticalBarPlacement() }
     }
 
     deinit {
@@ -85,6 +92,53 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private func notifyWebViewMetricsChange() {
         guard let metrics = webViewMetrics() else { return }
         notifyListeners("webViewMetricsChange", data: metrics)
+    }
+
+    private func verticalBarEdge() -> String? {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let webView = bridge?.webView {
+            let rtl = webView.effectiveUserInterfaceLayoutDirection == .rightToLeft
+            switch webView.traitCollection.verticalBarEdge {
+            case .leading: return rtl ? "right" : "left"
+            case .trailing: return rtl ? "left" : "right"
+            default: return nil
+            }
+        }
+        #endif
+        return nil
+    }
+
+    private func verticalBarPlacement() -> JSObject {
+        if let edge = verticalBarEdge() { return ["edge": edge] }
+        return ["edge": NSNull()]
+    }
+
+    private func notifyVerticalBarPlacementChange() {
+        let edge = verticalBarEdge()
+        guard !verticalBarPlacementObserved || edge != lastVerticalBarEdge else { return }
+        verticalBarPlacementObserved = true
+        lastVerticalBarEdge = edge
+        notifyListeners("verticalBarPlacementChange", data: verticalBarPlacement())
+    }
+
+    private func observeVerticalBarPlacement() {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let webView = bridge?.webView, observedVerticalBarView !== webView {
+            observedVerticalBarView = webView
+            let traits: [UITrait] = [UITraitLayoutDirection.self] + UITraitCollection.systemTraitsAffectingVerticalBarEdge
+            _ = webView.registerForTraitChanges(traits) { [weak self] (_: UIView, _: UITraitCollection) in
+                self?.notifyVerticalBarPlacementChange()
+            }
+        }
+        #endif
+        notifyVerticalBarPlacementChange()
+    }
+
+    @objc func getVerticalBarPlacement(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            self?.observeVerticalBarPlacement()
+            call.resolve(self?.verticalBarPlacement() ?? ["edge": NSNull()])
+        }
     }
 
     @objc func getWebViewMetrics(_ call: CAPPluginCall) {
@@ -103,6 +157,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
 
     @objc func configure(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
+            self?.observeVerticalBarPlacement()
             // A new JS context starts revision numbering again (live reload / navigation).
             self?.restoreTopEdge?()
             self?.restoreTopEdge = nil
@@ -110,10 +165,6 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             self?.revision = 0
             if #available(iOS 26.0, *) {
                 self?.bridge?.webView?.layoutIfNeeded()
-                // A vertical control rail exists only when the system reserves enough of
-                // the physical right edge to host its adaptive controls. Ordinary
-                // iPhone/iPad safe areas must keep using the Web projection.
-                let verticalBars = (self?.bridge?.webView?.safeAreaInsets.right ?? 0) >= 70
                 // Ionic already paints the header edge; a second native effect can
                 // add a dark scrim when the OS and Web themes differ.
                 if call.getBool("verticalBarsOnly") != true, let effect = self?.bridge?.webView?.scrollView.topEdgeEffect {
@@ -121,7 +172,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     effect.isHidden = true
                     self?.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
                 }
-                call.resolve(["supported": true, "verticalBars": verticalBars])
+                call.resolve(["supported": true])
             }
             else { call.resolve(["supported": false]) }
         }
@@ -230,7 +281,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 let rail = self.verticalBars ?? ShellVerticalBarsController(activate: { [weak self] id in self?.activate(id) })
                 self.verticalBars = rail
                 rail.attach(to: owner, in: owner.view)
-                rail.apply(verticalBars, rendering: self.rendering)
+                rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right")
                 rail.view.isHidden = false
             } else {
                 rejectedControls.append(contentsOf: verticalBars.map(\.id))

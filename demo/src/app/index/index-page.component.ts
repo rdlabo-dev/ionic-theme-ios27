@@ -19,6 +19,7 @@ import {
   ToggleCustomEvent,
 } from '@demo/ionic';
 import { ActivatedRoute, Router } from '@angular/router';
+import { setVerticalControlAreaPlacement } from '@rdlabo/ionic-theme-ios27/vertical-bars';
 
 interface IComponent {
   name: string;
@@ -101,6 +102,6 @@ export class IndexPageComponent {
   }
 
   changeVerticalBarsMode(event: ToggleCustomEvent) {
-    this.#document.querySelector('ion-app')?.classList.toggle('ios-theme-vertical-bars', event.detail.checked);
+    setVerticalControlAreaPlacement(event.detail.checked ? 'right' : null);
   }
 }
