@@ -453,7 +453,7 @@ test('native foldable actions follow WillEnter and stay enabled during navigatio
   const routedPage = page.locator('app-native-ui-shell.ion-page');
 
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
-  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true })));
   await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
   await page.waitForTimeout(150);
@@ -496,7 +496,7 @@ test('native foldable actions follow WillEnter and stay enabled during navigatio
   await save.evaluate((element) => element.classList.remove('author-no-pointer'));
   await routedPage.evaluate((element) => (element.style.pointerEvents = ''));
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
-  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
   await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });

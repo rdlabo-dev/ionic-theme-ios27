@@ -1,6 +1,6 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
-import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
+import { FOLDABLE_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
 import type {
   ShellActivation,
@@ -514,6 +514,14 @@ export const createRuntime = async (
   for (const name of Object.values(CSS_MOTION_EVENTS)) on(doc, name, motion);
   for (const name of [LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE]) on(doc, name, pageWill);
   for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
+  on(doc, FOLDABLE_TRANSITION_CANCELED, (event) => {
+    const leaving = event.target as HTMLElement;
+    const entering = (event as CustomEvent<{ entering?: HTMLElement }>).detail?.entering;
+    foldablePages.cancel(entering, leaving);
+    pages.delete(leaving);
+    if (entering) pages.delete(entering);
+    schedule();
+  });
   on(doc, 'ionTabsWillChange', () => {
     // Vanilla ion-tabs dispatches DOM events; @ionic/angular uses EventEmitters instead.
     armTabSwitchHandoff();

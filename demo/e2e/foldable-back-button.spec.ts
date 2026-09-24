@@ -76,7 +76,7 @@ test('a stale suspension lease cannot re-hide Web controls after shell teardown'
   await expect(page.locator('html')).not.toHaveClass(/ios-theme-native-ui-shell-prehide/);
 });
 
-test('Web toolbar projection stays through WillLeave and retires at DidLeave', async ({ page }) => {
+test('Web toolbar projection switches at WillLeave and restores on cancellation', async ({ page }) => {
   await page.goto('/main/index/button');
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
   const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
@@ -85,9 +85,9 @@ test('Web toolbar projection stays through WillLeave and retires at DidLeave', a
 
   await routedPage.evaluate((element) => {
     element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true }));
-    element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true }));
   });
   await expect(projection).toHaveCount(0);
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true })));
   await page.waitForTimeout(150);
   await expect(projection).toHaveCount(0);
 
@@ -102,7 +102,7 @@ test('Web toolbar projection stays through WillLeave and retires at DidLeave', a
   });
 
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
-  await expect(projection).toBeVisible();
+  await expect(projection).toHaveCount(0);
   await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
   await expect(projection).toBeVisible();
 });
@@ -116,7 +116,7 @@ test('turning foldable on during a transition honors its success or cancellation
 
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
   await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
-  await expect(projection).toBeVisible();
+  await expect(projection).toHaveCount(0);
   await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
   await expect(projection).toBeVisible();
 
