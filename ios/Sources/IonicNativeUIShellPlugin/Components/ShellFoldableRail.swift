@@ -157,8 +157,6 @@ private struct ShellFoldableNavigation: View {
                 }
                 .modifier(ShellFoldableToolbarAdapter(model: model))
         }
-        // Ionic animates the page; NavigationStack must not add a second dimmed rail transition.
-        .transaction { $0.disablesAnimations = true }
     }
 }
 
@@ -238,14 +236,22 @@ final class ShellFoldableRailController: ShellFoldableRailControlling {
         }
 
         private func makeFullSizeSurfacesTransparent(in surface: UIView) {
-            guard !(surface is UIVisualEffectView) else { return }
             let frame = surface.convert(surface.bounds, to: view)
-            // NavigationStack may install a dimmed full-size backing surface during push/pop.
-            // This host has no application content behind its controls, so every full-size
-            // backing must stay clear while smaller controls and system materials remain intact.
-            if frame.insetBy(dx: -1, dy: -1).contains(view.bounds) {
+            let railWidth = view.safeAreaInsets.right > 0 ? view.safeAreaInsets.right : 80
+            guard !(surface is UIVisualEffectView) else { return }
+            let coversHost = frame.insetBy(dx: -1, dy: -1).contains(view.bounds)
+            let coversRail = frame.minY <= 1 && frame.maxY >= view.bounds.maxY - 1 &&
+                frame.minX <= view.bounds.maxX - railWidth + 1 && frame.maxX >= view.bounds.maxX - 1
+            var white: CGFloat = 0
+            var alpha: CGFloat = 0
+            let isDimming = coversRail && surface.backgroundColor?.resolvedColor(with: surface.traitCollection)
+                .getWhite(&white, alpha: &alpha) == true && white <= 0.05 && alpha > 0 && alpha <= 0.2
+            // NavigationStack may add a full-height backing for just the rail during push/pop.
+            // Keep that backing clear without touching the smaller glass controls or materials.
+            if coversHost || coversRail {
                 surface.backgroundColor = .clear
                 surface.isOpaque = false
+                if isDimming { surface.layer.removeAllAnimations() }
             }
             surface.subviews.forEach(makeFullSizeSurfacesTransparent)
         }
