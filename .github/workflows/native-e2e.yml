@@ -51,8 +51,8 @@ jobs:
 
       - name: Fetch pinned simulator setup
         run: |
-          sha=$(jq -r '.packages["node_modules/@rdlabo/ionic-theme-utils"].resolved' package-lock.json | sed 's/.*#//')
-          curl -fsSL "https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-utils/$sha/scripts/ci-simulator.sh" -o "$RUNNER_TEMP/ci-simulator.sh"
+          version=$(jq -er '.packages["node_modules/@rdlabo/ionic-theme-utils"].version' package-lock.json)
+          curl -fsSL "https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-utils/utils-v${version}/scripts/ci-simulator.sh" -o "$RUNNER_TEMP/ci-simulator.sh"
 
       - name: Create and boot simulator
         run: sh "$RUNNER_TEMP/ci-simulator.sh" "iPhone 17" "iOS 27.0" ${{ matrix.kana }}
