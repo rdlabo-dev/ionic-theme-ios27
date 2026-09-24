@@ -42,6 +42,7 @@ export const createRuntime = async (
   plugin: NativeUIShellPlugin,
   options: NativeUIShellOptions = {},
   nativeVerticalBars = true,
+  verticalBarsOnly = false,
 ): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
@@ -157,6 +158,7 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
+    if (verticalBarsOnly && !isVerticalBarsCandidate(element)) return;
     const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
     let candidate: Candidate | undefined;
     if (pointerPage && getComputedStyle(pointerPage).pointerEvents === 'none') {

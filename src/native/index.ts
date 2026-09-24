@@ -52,6 +52,10 @@ export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
 };
 
 /** Call once at application startup. Ionic markup remains the source of truth. */
+export const enableVerticalControlArea = (): Promise<NativeUIShellHandle> =>
+  enableNativeUIShell({ controls: { tabs: true, toolbar: true }, verticalBarsOnly: true });
+
+/** Call once at application startup. Ionic markup remains the source of truth. */
 export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise<NativeUIShellHandle> => {
   if (options.enabled === false) {
     const current = active;
@@ -73,18 +77,21 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
       return resetOnDestroy(withReason(createVerticalBarsWebProjection(document, options), 'Requires Capacitor iOS'), stopPrehide);
     let runtime: NativeUIShellHandle | undefined;
     try {
-      await configureNativeTransition().catch(() => undefined);
-      const capabilities = await plugin.configure();
+      if (!options.verticalBarsOnly) await configureNativeTransition().catch(() => undefined);
+      const capabilities = await plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true });
       if (!capabilities.supported) {
         return resetOnDestroy(withReason(createVerticalBarsWebProjection(document, options), 'Requires iOS 26 or later'), stopPrehide);
       }
-      runtime = await createRuntime(document, plugin, options, capabilities.verticalBars === true);
+      runtime = await createRuntime(document, plugin, options, capabilities.verticalBars === true, options.verticalBarsOnly === true);
       if (capabilities.verticalBars !== true) runtime = combine(runtime, createVerticalBarsWebProjection(document, options));
-      runtime = await bindMetricsLifecycle(
-        runtime,
-        () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
-        () => (active = undefined),
-      );
+      if (!options.verticalBarsOnly)
+        runtime = await bindMetricsLifecycle(
+          runtime,
+          () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
+          () => {
+            active = undefined;
+          },
+        );
       return resetOnDestroy(runtime, stopPrehide);
     } catch (error) {
       await runtime?.destroy();

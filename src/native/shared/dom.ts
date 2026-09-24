@@ -37,7 +37,12 @@ export const withoutPrehide = <T>(element: HTMLElement, read: () => T): T => {
     changed.forEach((current) => current.classList.add(current === root ? prehideRootClass : prehiddenClass));
   }
 };
-export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
+export const isDark = (style: CSSStyleDeclaration): boolean => {
+  const themeScheme = style.getPropertyValue('--ios27-color-scheme').trim();
+  if (themeScheme) return themeScheme === 'dark';
+  const background = style.getPropertyValue('--ion-background-color-rgb').match(/\d+/g)?.slice(0, 3).map(Number);
+  return !!background && background.length === 3 && background[0] * 0.2126 + background[1] * 0.7152 + background[2] * 0.0722 < 128;
+};
 const permanentlyExcluded = '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-cloned-element, [hidden], [inert]';
 export const excluded = `${permanentlyExcluded}, .ion-page-hidden, .ion-page-invisible`;
 const enteringPages = new WeakSet<HTMLElement>();

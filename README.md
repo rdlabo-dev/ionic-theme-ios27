@@ -121,6 +121,10 @@ Use this markup to preview the inset grouped list look. For the list structure t
 
 ## Optional setups
 
+### Support iPhone Duo without the iOS 27 theme
+
+Import only `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, add `ios-theme-vertical-bars` to `ion-app`, and call `enableVerticalControlArea()` from `@rdlabo/ionic-theme-ios27/vertical-bars` at startup. This uses Ionic's standard appearance outside the Vertical Control Area; on supported iOS, only controls moved into that area are projected natively. See [Support iPhone Duo](./docs/special-markup.md#support-iphone-duo) for the complete setup.
+
 ### Use only the iOS 27 theme
 
 Install only `@rdlabo/ionic-theme-ios27` and import its styles unconditionally in your global stylesheet:

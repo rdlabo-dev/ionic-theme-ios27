@@ -2,6 +2,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { createAppConfig, type IonicAnimationOptions } from './app/app.config';
 import { AppComponent } from './app/app.component';
 import { enableNativeUIShell } from '../../src/native';
+import { enableVerticalControlArea } from '../../src/vertical-bars';
 import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
 
 /**
@@ -21,4 +22,5 @@ function loadIOSAnimations(): IonicAnimationOptions {
 
 // Demo forces mode: 'ios' (including Playwright), so do not gate on isPlatform('ios').
 bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations())).catch((err) => console.error(err));
-void enableNativeUIShell().then((handle) => Object.assign(window, { nativeUIShell: handle }));
+const startShell = new URLSearchParams(window.location.search).has('verticalBarsOnly') ? enableVerticalControlArea : enableNativeUIShell;
+void startShell().then((handle) => Object.assign(window, { nativeUIShell: handle }));

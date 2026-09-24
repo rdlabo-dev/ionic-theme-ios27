@@ -1,0 +1,285 @@
+@use 'utils/api';
+@use 'utils/glass';
+
+// iPhone Duo simulation: the system reserves 80pt at the physical right edge.
+// This entry point does not load the iOS 27 theme or change ordinary Ionic UI.
+:is(ion-app, body).ios-theme-vertical-bars {
+  --ios-theme-vertical-bars-safe-area-left-resolved: var(--ios-theme-vertical-bars-safe-area-left, 0px);
+  --ios-theme-vertical-bars-safe-area-right-resolved: var(--ios-theme-vertical-bars-safe-area-right, 80px);
+}
+
+// Supply material defaults only to Web projections, never to ordinary controls.
+:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready
+  > :is(ion-menu-button, ion-button).ios-theme-vertical-bars-toolbar-projection {
+  --ios26-glass-background-rgb: var(--ion-background-color-rgb, 255, 255, 255);
+  --ios26-glass-border-color-rgb: var(--ion-background-color-rgb, 255, 255, 255);
+  --ios26-glass-box-shadow-color-rgb: var(--ion-text-color-rgb, 0, 0, 0);
+}
+
+// The transition shade belongs to the Web page, never to the control area.
+:is(ion-app, body).ios-theme-vertical-bars .ios-transition-shade {
+  clip-path: inset(0 var(--ios-theme-vertical-bars-safe-area-right-resolved) 0 var(--ios-theme-vertical-bars-safe-area-left-resolved));
+}
+
+// Keep page backgrounds and the router full width; move only their foregrounds.
+:is(ion-app, body).ios-theme-vertical-bars
+  ion-content.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
+  --ion-safe-area-left: 0px;
+  --ion-safe-area-right: 0px;
+
+  &::part(scroll) {
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+  }
+
+  &:dir(rtl)::part(scroll) {
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+  }
+}
+
+:is(ion-app, body).ios-theme-vertical-bars
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
+  --ion-safe-area-left: 0px;
+  --ion-safe-area-right: 0px;
+
+  &::part(container) {
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+  }
+
+  &:dir(rtl)::part(container) {
+    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+  }
+}
+
+:is(ion-app, body).ios-theme-vertical-bars
+  ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
+  --ion-safe-area-left: 0px;
+  --ion-safe-area-right: 0px;
+  --ios-theme-vertical-bars-fab-edge-gap: 16px;
+  --ios-theme-vertical-bars-fab-start-offset: var(--ios-theme-menu-width, var(--ios26-menu-width, 0px));
+
+  &.fab-horizontal-start {
+    inset-inline-start: calc(
+      var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-fab-start-offset) +
+        var(--ios-theme-vertical-bars-safe-area-left-resolved)
+    );
+  }
+  &.fab-horizontal-end {
+    inset-inline-end: calc(var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+  }
+  &:dir(rtl).fab-horizontal-start {
+    inset-inline-start: calc(
+      var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-fab-start-offset) +
+        var(--ios-theme-vertical-bars-safe-area-right-resolved)
+    );
+  }
+  &:dir(rtl).fab-horizontal-end {
+    inset-inline-end: calc(var(--ios-theme-vertical-bars-fab-edge-gap) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+  }
+  &:has(.fab-button-small) {
+    --ios-theme-vertical-bars-fab-edge-gap: 10px;
+  }
+}
+
+// Menus retain their own safe-area handling and full-width animation host.
+:is(ion-app, body).ios-theme-vertical-bars {
+  ion-menu.ios.menu-side-end:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
+  ion-menu.ios.menu-side-start:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
+    --ion-safe-area-right: 0px;
+    &::part(container) {
+      margin-right: var(--ios-theme-vertical-bars-safe-area-right-resolved);
+    }
+  }
+  ion-menu.ios.menu-side-start:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
+  ion-menu.ios.menu-side-end:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
+    --ion-safe-area-left: 0px;
+    &::part(container) {
+      margin-left: var(--ios-theme-vertical-bars-safe-area-left-resolved);
+    }
+  }
+}
+
+:is(ion-app, body).ios-theme-vertical-bars
+  ion-tabs:not(:where(ion-menu *, ion-modal *, ion-popover *))
+  > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-side-tab-bar-width: 50px;
+  --ios-theme-side-tab-bar-gap: 8px;
+  --ios-theme-side-safe-area: var(--ios-theme-vertical-bars-safe-area-right-resolved);
+  contain: layout style;
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: 46px;
+  min-width: 46px;
+  max-width: 46px;
+  height: fit-content;
+  min-height: 0;
+  padding: 2px;
+  border-radius: 25px;
+  left: auto;
+  right: max(4px, calc((var(--ios-theme-side-safe-area) - var(--ios-theme-side-tab-bar-width)) / 2));
+  margin: 0;
+  top: auto;
+  bottom: calc(var(--ion-safe-area-bottom, 0px) + var(--ios-theme-side-tab-bar-gap));
+
+  > ion-tab-button:not(.ion-cloned-element) {
+    display: block;
+    flex: none;
+    width: 46px;
+    min-width: 46px;
+    height: 52px;
+    min-height: 52px;
+    border-radius: 23px;
+    &::part(native) {
+      justify-content: center;
+    }
+    ion-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    ion-icon {
+      margin: 0;
+      font-size: 28px;
+    }
+  }
+  > ion-tab-button:not(.ion-cloned-element) ~ ion-tab-button:not(.ion-cloned-element) {
+    margin-block-start: 0;
+    margin-inline-start: 0;
+  }
+  &:has(> ion-tab-button:is(.ion-activated, :active)) > ion-tab-button:not(.ion-cloned-element) {
+    &::part(native) {
+      flex-direction: column;
+      padding-block: 4px;
+    }
+    ion-label {
+      position: static;
+      width: auto;
+      height: auto;
+      max-width: 44px;
+      padding: 0;
+      margin: 1px 0 0;
+      overflow: hidden;
+      clip: auto;
+      font-size: 0.5rem;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    ion-icon {
+      margin: 0;
+      font-size: 22px;
+    }
+  }
+}
+
+.ios-theme-native-ui-shell-prehidden {
+  position: absolute !important;
+  visibility: hidden !important;
+}
+
+// Hide an entering back source until JS decides whether it belongs in the rail.
+html.ios-theme-native-ui-shell-prehide
+  :is(ion-app, body).ios-theme-vertical-bars
+  :is(ion-header, ion-footer):not([collapse]):not(:where(ion-content *, ion-menu *, ion-modal *, ion-popover *))
+  ion-toolbar
+  ion-back-button:not(
+    [icon],
+    [color],
+    .ios-theme-vertical-bars-back-web-owned,
+    .ionic-theme-disabled,
+    .ios-theme-disabled,
+    .ios26-disabled,
+    .ios-theme-vertical-bars-back-button-projection
+  ):not(:where(.ios-theme-shell-disabled *, .ionic-theme-disabled *, .ios-theme-disabled *, .ios26-disabled *)) {
+  position: absolute !important;
+  visibility: hidden !important;
+}
+
+:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready {
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-back-button.ios[data-native-ui-shell]:not(.ios-theme-disabled, .ios26-disabled, .ios-theme-vertical-bars-back-button-projection) {
+    display: none;
+  }
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-buttons.ios
+    > :is(ion-button, ion-menu-button).ios[data-native-ui-shell]:not(
+      .ios-theme-disabled,
+      .ios26-disabled,
+      .ios-theme-vertical-bars-toolbar-action
+    ) {
+    display: none;
+  }
+  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-buttons.ios:has(> :is(ion-back-button, ion-button, ion-menu-button)[data-native-ui-shell]):not(
+      :has(> :is(ion-back-button, ion-button, ion-menu-button):not([data-native-ui-shell]))
+    ) {
+    display: none;
+  }
+  > ion-back-button.ios.ios-theme-vertical-bars-back-button-projection {
+    position: fixed;
+    z-index: 1001;
+    top: var(--ios-theme-vertical-bars-toolbar-top, 220px);
+    right: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 46px) / 2));
+    display: block;
+    width: 46px;
+    height: 46px;
+    margin: 0;
+  }
+  > .ios.ios-theme-vertical-bars-toolbar-projection {
+    position: fixed;
+    z-index: 1001;
+    top: calc(var(--ios-theme-vertical-bars-toolbar-top, 220px) + var(--ios-theme-vertical-bars-toolbar-offset, 0px));
+    right: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 46px) / 2));
+    width: 46px;
+    min-width: 46px;
+    height: 46px;
+    min-height: 46px;
+    margin: 0;
+    :is(ion-icon, svg) {
+      width: 22px;
+      height: 22px;
+      margin: 0;
+      font-size: 22px;
+    }
+  }
+  > ion-menu-button.ios.ios-theme-vertical-bars-toolbar-projection {
+    @include api.glass-control-background;
+    border-radius: 50%;
+  }
+  > ion-button.ios.ios-theme-vertical-bars-toolbar-projection {
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
+    --border-radius: 50%;
+    @include glass.light-shadow('--box-shadow');
+    &::part(native) {
+      @include api.glass-control-background($include-background: false, $shadow: var(--box-shadow));
+    }
+  }
+  > ion-buttons.ios.ios-theme-vertical-bars-toolbar-projection {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+    > :is(ion-button, ion-menu-button).ios.ios-theme-vertical-bars-toolbar-action {
+      display: block;
+      width: 44px;
+      min-width: 44px;
+      height: 46px;
+      min-height: 46px;
+      margin: 0 1px;
+      &::part(native) {
+        margin-inline: auto;
+      }
+    }
+  }
+}

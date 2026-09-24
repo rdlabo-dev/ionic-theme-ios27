@@ -15,6 +15,8 @@ export interface NativeUIShellOptions {
   enabled?: boolean;
   /** Controls eligible for native projection. Omit to enable every control; when present, only `true` controls are enabled. */
   controls?: NativeUIShellControls;
+  /** Internal: limit native projection to the Vertical Control Area. */
+  verticalBarsOnly?: boolean;
 }
 
 export interface NativeUIShellControls {
@@ -135,7 +137,7 @@ export interface WebViewMetrics {
 }
 
 export interface NativeUIShellPlugin {
-  configure(): Promise<{ supported: boolean; verticalBars?: boolean }>;
+  configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean; verticalBars?: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;

@@ -49,7 +49,19 @@ These classes do not reposition a separate `ion-fab`; leave room for it when cho
 
 ## Support iPhone Duo
 
-To simulate the iPhone Duo layout on the web, add `.ios-theme-vertical-bars` to the active `ion-app`. Use `body` only when the application has no `ion-app` root:
+Load the separate stylesheet and start its projection runtime. The iOS 27 theme stylesheets are **not required**:
+
+```scss
+@use '@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css';
+```
+
+```ts
+import { enableVerticalControlArea } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+
+void enableVerticalControlArea();
+```
+
+Add `.ios-theme-vertical-bars` to the active `ion-app`. Use `body` only when the application has no `ion-app` root:
 
 ```html
 <ion-app class="ios-theme-vertical-bars">...</ion-app>
@@ -65,7 +77,7 @@ These values are web-layout simulation inputs. They are independent from Ionic's
 
 When the app contains `ion-tabs`, this mode moves its iOS tab bar into the physical right-side reserved region and aligns it above the bottom safe area. The Ionic `slot` value does not select a different position. Without Native UI Shell, the stable Web rail is icon-only, matching a four-tab SwiftUI `TabView` on iPhone Duo. While the user presses and drags across that rail, every icon-and-label tab reveals its label so the pending destination stays identifiable. The Web tab bar receives pointer input in the simulated system region. Use `ion-menu` when navigation should become a sidebar; this mode does not convert tabs into a menu.
 
-On supported iOS versions, initializing `enableNativeUIShell()` at application startup hands eligible tabs, back navigation, menu buttons, and fixed-toolbar actions to a native SwiftUI `TabView` and toolbar. The Ionic controls remain the sources of labels, icons, selected/disabled state, form submission, routing, and click handlers while SwiftUI owns adaptive placement and interaction. Fixed-toolbar actions need an icon or SVG, no direct text node, and standard `fill="default"` or `fill="clear"` to be eligible for the side rail. Text-only actions stay in the original Web toolbar. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it in the Web toolbar. Placement is chosen when a routed page enters; changing an existing button's content does not move it between the toolbar and rail until the page leaves and re-enters. Menus, modals, and popovers retain their own toolbar layout.
+On supported iOS versions, `enableVerticalControlArea()` hands eligible tabs, back navigation, menu buttons, and fixed-toolbar actions to a native SwiftUI `TabView` and toolbar. It does not project ordinary Native UI Shell controls outside the vertical area. If the app already uses the full `enableNativeUIShell()`, keep that single runtime instead of starting both. The Ionic controls remain the sources of labels, icons, selected/disabled state, form submission, routing, and click handlers while SwiftUI owns adaptive placement and interaction. Fixed-toolbar actions need an icon or SVG, no direct text node, and standard `fill="default"` or `fill="clear"` to be eligible for the side rail. Text-only actions stay in the original Web toolbar. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it in the Web toolbar. Placement is chosen when a routed page enters; changing an existing button's content does not move it between the toolbar and rail until the page leaves and re-enters. Menus, modals, and popovers retain their own toolbar layout.
 
 On Web, Android, older iOS, or when native projection is unavailable during setup, the Web tab bar and fixed-toolbar clones remain the fallback. Those projections also work when no `ion-tabs` exists; text-only actions stay in the original Web toolbar. Disabling the mode or leaving the page removes the native ownership or Web clones and restores their sources. Override `--ios-theme-vertical-bars-toolbar-top` when the simulated system controls use a different vertical layout.
 

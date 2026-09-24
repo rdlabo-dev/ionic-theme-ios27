@@ -16,6 +16,10 @@
     "./native": {
       "types": "./dist/native/index.d.ts",
       "import": "./dist/native/index.js"
+    },
+    "./vertical-bars": {
+      "types": "./dist/vertical-bars.d.ts",
+      "import": "./dist/vertical-bars.js"
     }
   },
   "files": [

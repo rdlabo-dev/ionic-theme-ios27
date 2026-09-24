@@ -16,6 +16,8 @@ const mockNative = async (page: Page, fail = false, verticalBars = true) => {
       rejectInactiveSearch: false,
       rejectAllSearch: false,
       rejectControlLabel: '',
+      configuredWith: undefined as any,
+      metricsRequested: 0,
       activate: (_event: any) => {},
       search: (_event: any) => {},
       metrics: (_event: any) => {},
@@ -38,8 +40,14 @@ const mockNative = async (page: Page, fail = false, verticalBars = true) => {
           },
         ],
         nativePromise: async (_plugin: string, method: string, options: any) => {
-          if (method === 'configure') return { supported: true, verticalBars };
-          if (method === 'getWebViewMetrics') return { radius: 0 };
+          if (method === 'configure') {
+            state.configuredWith = options;
+            return { supported: true, verticalBars };
+          }
+          if (method === 'getWebViewMetrics') {
+            state.metricsRequested++;
+            return { radius: 0 };
+          }
           state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
           if (state.hang && method === 'update') await new Promise(() => {});
           if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
@@ -353,6 +361,41 @@ test('verticalBars tabs request native adaptive rail placement', async ({ page }
   await app.evaluate((element) => element.classList.remove('ios-theme-vertical-bars'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(bar).toHaveClass(/ios27-enable-gesture/);
+});
+
+test('standalone Vertical Control Area never snapshots ordinary Native UI Shell controls', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1');
+  await page.evaluate(() => {
+    for (const sheet of Array.from(document.styleSheets)) {
+      for (let index = sheet.cssRules.length - 1; index >= 0; index--) {
+        const rule = sheet.cssRules[index];
+        if (rule instanceof CSSSupportsRule && rule.cssText.includes('--ios27-color-scheme')) sheet.deleteRule(index);
+      }
+    }
+  });
+  const app = page.locator('ion-app');
+  await app.evaluate((element) => {
+    element.classList.add('ios-theme-vertical-bars');
+    element.style.setProperty('--ion-background-color-rgb', '0, 0, 0');
+  });
+  const allVerticalBarsDark = (expected: boolean) =>
+    page.evaluate((expected) => {
+      const controls = ((window as any).__nativeUIShell.updates.at(-1)?.controls ?? []).filter(
+        (control: any) => control.placement === 'vertical-bars',
+      );
+      return controls.length > 0 && controls.every((control: any) => control.dark === expected);
+    }, expected);
+  await expect.poll(() => allVerticalBarsDark(true)).toBe(true);
+  const state = await page.evaluate(() => {
+    const { configuredWith, metricsRequested, updates } = (window as any).__nativeUIShell;
+    return { configuredWith, metricsRequested, updates };
+  });
+  expect(state.configuredWith).toEqual({ verticalBarsOnly: true });
+  expect(state.metricsRequested).toBe(0);
+  expect(state.updates.flatMap((update: any) => update.controls).every((control: any) => control.placement === 'vertical-bars')).toBe(true);
+  await app.evaluate((element) => element.style.setProperty('--ion-background-color-rgb', '255, 255, 255'));
+  await expect.poll(() => allVerticalBarsDark(false)).toBe(true);
 });
 
 test('verticalBars back navigation and toolbar slots request native rail placement', async ({ page }) => {

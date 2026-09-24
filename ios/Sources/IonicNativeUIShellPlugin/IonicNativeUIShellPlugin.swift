@@ -116,7 +116,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 let verticalBars = (self?.bridge?.webView?.safeAreaInsets.right ?? 0) >= 70
                 // Ionic already paints the header edge; a second native effect can
                 // add a dark scrim when the OS and Web themes differ.
-                if let effect = self?.bridge?.webView?.scrollView.topEdgeEffect {
+                if call.getBool("verticalBarsOnly") != true, let effect = self?.bridge?.webView?.scrollView.topEdgeEffect {
                     let hidden = effect.isHidden
                     effect.isHidden = true
                     self?.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
@@ -213,12 +213,6 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 self.removeControls(duration: duration)
                 call.resolve(["revision": next]); return
             }
-            let host = self.host ?? ShellHost()
-            self.host = host
-            host.frame = parent.bounds
-            host.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            host.backgroundColor = .clear
-            host.isAccessibilityElement = false
             let scale = webView.bounds.width / width
             let retained = Set(snapshots.map(\.id))
             for id in Array(self.controls.keys) where !retained.contains(id) {
@@ -241,6 +235,18 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             } else {
                 rejectedControls.append(contentsOf: verticalBars.map(\.id))
             }
+            if snapshots.isEmpty {
+                self.host?.removeFromSuperview()
+                self.host = nil
+                call.resolve(["revision": next, "rejectedControls": rejectedControls])
+                return
+            }
+            let host = self.host ?? ShellHost()
+            self.host = host
+            host.frame = parent.bounds
+            host.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            host.backgroundColor = .clear
+            host.isAccessibilityElement = false
             UIView.performWithoutAnimation {
                 if host.superview !== parent { parent.addSubview(host) }
                 for node in snapshots {
