@@ -1,4 +1,4 @@
-import { config } from '../utils';
+import { config } from '../utils.js';
 // import { printIonWarning} from '@ionic/core/dist/types/utils/logging';
 
 /**

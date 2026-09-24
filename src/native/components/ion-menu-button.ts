@@ -1,6 +1,6 @@
-import { createCandidate, appendItem } from '../shared/candidate';
-import type { Candidate, Identify } from '../shared/candidate';
-import { inFixedToolbar } from '../shared/dom';
+import { createCandidate, appendItem } from '../shared/candidate.js';
+import type { Candidate, Identify } from '../shared/candidate.js';
+import { inFixedToolbar } from '../shared/dom.js';
 
 export const tag = 'ion-menu-button';
 // The glass and projection ownership belong to ion-buttons, even for one menu button.

@@ -1,6 +1,6 @@
-import { fadeMarker } from './crossfade';
+import { fadeMarker } from './crossfade.js';
 
-import type { Frame } from '../definitions';
+import type { Frame } from '../definitions.js';
 
 export const marker = 'data-native-ui-shell';
 export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';

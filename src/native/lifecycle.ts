@@ -1,5 +1,5 @@
 import type { PluginListenerHandle } from '@capacitor/core';
-import type { NativeUIShellHandle } from './definitions';
+import type { NativeUIShellHandle } from './definitions.js';
 
 export const bindMetricsLifecycle = async (
   runtime: NativeUIShellHandle,

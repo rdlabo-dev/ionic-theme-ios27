@@ -1,7 +1,7 @@
 import type { Animation, AnimationKeyFrames } from '@ionic/core';
-import { AnimationPosition, EffectScales } from './interfaces';
+import { AnimationPosition, EffectScales } from './interfaces.js';
 import { createAnimation, GestureDetail } from '@ionic/core';
-import { getStep } from '../utils';
+import { getStep } from '../utils.js';
 
 export const getScaleAnimation = (effectElement: Element): Animation => {
   return createAnimation().addElement(effectElement.shadowRoot!.querySelector<HTMLElement>('[part="native"]')!).easing('ease-out');

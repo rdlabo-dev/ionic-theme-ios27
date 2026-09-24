@@ -1,7 +1,7 @@
-import type { Candidate } from '../shared/candidate';
-import { excluded, isDark, text } from '../shared/dom';
-import { iconSource } from '../shared/icons';
-import type { ShellItem } from '../definitions';
+import type { Candidate } from '../shared/candidate.js';
+import { excluded, isDark, text } from '../shared/dom.js';
+import { iconSource } from '../shared/icons.js';
+import type { ShellItem } from '../definitions.js';
 
 export const tag = 'ion-fab';
 export const shadowSelector = 'ion-fab-button, ion-fab-list';

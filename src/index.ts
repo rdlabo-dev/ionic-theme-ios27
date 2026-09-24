@@ -1,14 +1,14 @@
-import { registeredEffect } from './sheets-of-glass/interfaces';
-import { registerEffect } from './sheets-of-glass';
-export * from './sheets-of-glass/interfaces';
+import { registeredEffect } from './sheets-of-glass/interfaces.js';
+import { registerEffect } from './sheets-of-glass/index.js';
+export * from './sheets-of-glass/interfaces.js';
 export {
   iosPopoverEnterAnimation as popoverEnterAnimation,
   iosPopoverLeaveAnimation as popoverLeaveAnimation,
 } from '@rdlabo/ionic-theme-utils';
-export * from './tab-bar-searchable';
-export * from './searchbar';
-export * from './transition/ios.transition';
-export { registerSegmentEffect } from './segment';
+export * from './tab-bar-searchable/index.js';
+export * from './searchbar/index.js';
+export * from './transition/ios.transition.js';
+export { registerSegmentEffect } from './segment/index.js';
 
 export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffect | undefined => {
   const win = targetElement.ownerDocument.defaultView;

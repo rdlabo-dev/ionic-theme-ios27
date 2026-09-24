@@ -1,5 +1,5 @@
-import type { registeredEffect } from '../sheets-of-glass/interfaces';
-import { isNativeUIShell } from '../native-integration';
+import type { registeredEffect } from '../sheets-of-glass/interfaces.js';
+import { isNativeUIShell } from '../native-integration/index.js';
 
 interface LensRect {
   x: number;
