@@ -83,7 +83,14 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
     );
   };
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
-    inEligibleToolbar(element) && unprojected(projectedSources(), () => isRendered(element));
+    !!verticalBarsRoot()?.contains(element) &&
+    element.matches('.ios') &&
+    !element.closest('ion-buttons.ios-theme-horizontal-only') &&
+    !isExcluded(element, verticalBarsEnteringPage(element)) &&
+    !isShellDisabled(element) &&
+    !verticalBarsPages.isDeparted(element) &&
+    !element.closest('ion-menu, ion-modal, ion-popover') &&
+    unprojected(projectedSources(), () => isRendered(element));
   const pageOrder = (element: Element) => Array.from(doc.querySelectorAll('.ion-page')).indexOf(element.closest('.ion-page')!);
   const findBack = () => {
     const candidates = Array.from(doc.querySelectorAll<HTMLIonBackButtonElement>(`ion-back-button:not(.${backProjectionClass})`)).filter(

@@ -19,6 +19,11 @@ const backSupported = (element: HTMLElement): boolean => {
   const back = element as HTMLIonBackButtonElement;
   return back.icon === undefined && back.color === undefined && !!back.shadowRoot;
 };
+const eligibleBack = (element: HTMLElement): boolean =>
+  !element.closest('ion-buttons.ios-theme-horizontal-only') &&
+  !isPermanentlyExcluded(element) &&
+  !isShellDisabled(element) &&
+  !element.closest(overlays);
 const eligible = (element: HTMLElement): boolean =>
   inFixedToolbar(element) &&
   !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only') &&
@@ -78,7 +83,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
         if (owned.has(element)) return;
         if (
           element.matches('ion-back-button') &&
-          eligible(element) &&
+          eligibleBack(element) &&
           (element as HTMLIonBackButtonElement).icon === undefined &&
           (element as HTMLIonBackButtonElement).color === undefined &&
           !element.shadowRoot &&
@@ -103,7 +108,9 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
         }
         place(
           element,
-          eligible(element) && (element.matches('ion-back-button') ? backSupported(element) : isVerticalBarsToolbarActionShape(element)),
+          element.matches('ion-back-button')
+            ? eligibleBack(element) && backSupported(element)
+            : eligible(element) && isVerticalBarsToolbarActionShape(element),
         );
       }
     });

@@ -191,8 +191,6 @@
 // Hide an entering back source until JS decides whether it belongs in the rail.
 html.ios-theme-native-ui-shell-prehide
   :is(ion-app, body).ios-theme-vertical-bars
-  :is(ion-header, ion-footer):not([collapse]):not(:where(ion-content *, ion-menu *, ion-modal *, ion-popover *))
-  ion-toolbar
   ion-back-button:not(
     [icon],
     [color],
@@ -201,7 +199,18 @@ html.ios-theme-native-ui-shell-prehide
     .ios-theme-disabled,
     .ios26-disabled,
     .ios-theme-vertical-bars-back-button-projection
-  ):not(:where(.ios-theme-shell-disabled *, .ionic-theme-disabled *, .ios-theme-disabled *, .ios26-disabled *)) {
+  ):not(
+    :where(
+      ion-menu *,
+      ion-modal *,
+      ion-popover *,
+      ion-buttons.ios-theme-horizontal-only *,
+      .ios-theme-shell-disabled *,
+      .ionic-theme-disabled *,
+      .ios-theme-disabled *,
+      .ios26-disabled *
+    )
+  ) {
   position: absolute !important;
   visibility: hidden !important;
 }

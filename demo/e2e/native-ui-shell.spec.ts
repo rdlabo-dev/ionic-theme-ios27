@@ -366,6 +366,11 @@ test('verticalBars tabs request native adaptive rail placement', async ({ page }
 test('standalone Vertical Control Area never snapshots ordinary Native UI Shell controls', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1');
+  const back = page.locator('app-native-ui-shell ion-back-button');
+  await back.evaluate((element: HTMLIonBackButtonElement) => {
+    element.text = 'Return';
+    element.closest('app-native-ui-shell')?.querySelector('ion-content')?.prepend(element);
+  });
   await page.evaluate(() => {
     for (const sheet of Array.from(document.styleSheets)) {
       for (let index = sheet.cssRules.length - 1; index >= 0; index--) {
@@ -394,6 +399,8 @@ test('standalone Vertical Control Area never snapshots ordinary Native UI Shell 
   expect(state.configuredWith).toEqual({ verticalBarsOnly: true });
   expect(state.metricsRequested).toBe(0);
   expect(state.updates.flatMap((update: any) => update.controls).every((control: any) => control.placement === 'vertical-bars')).toBe(true);
+  await expect(back).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  expect(state.updates.at(-1).controls.find((control: any) => control.kind === 'ion-back-button')?.items[0]?.label).toBe('Return');
   await app.evaluate((element) => element.style.setProperty('--ion-background-color-rgb', '255, 255, 255'));
   await expect.poll(() => allVerticalBarsDark(false)).toBe(true);
 });
@@ -571,38 +578,6 @@ test('verticalBars toolbar sources are hidden before ownership and restored with
   await customBack.evaluate((element: HTMLIonBackButtonElement) => (element.color = 'primary'));
   await expect(customBack).not.toHaveAttribute('data-native-ui-shell', '');
   await expect(customBack).toHaveCSS('visibility', 'visible');
-  const webOnlyBacks = await page.locator('app-native-ui-shell').evaluate((host) => {
-    const content = host.querySelector('ion-content')!;
-    const nested = document.createElement('ion-header');
-    nested.innerHTML = '<ion-toolbar><ion-back-button></ion-back-button></ion-toolbar>';
-    content.append(nested);
-    const condensed = document.createElement('ion-header');
-    condensed.setAttribute('collapse', 'condense');
-    condensed.innerHTML = '<ion-toolbar><ion-back-button></ion-back-button></ion-toolbar>';
-    host.append(condensed);
-    return [nested.querySelector('ion-back-button')!, condensed.querySelector('ion-back-button')!].map(
-      (back) => getComputedStyle(back).visibility,
-    );
-  });
-  expect(webOnlyBacks).toEqual(['visible', 'visible']);
-
-  const lateBackInitially = await page.locator('ion-app').evaluate((root) => {
-    const header = document.createElement('ion-header');
-    header.innerHTML = '<ion-toolbar><ion-back-button default-href="/main/index"></ion-back-button></ion-toolbar>';
-    root.append(header);
-    const back = header.querySelector('ion-back-button')!;
-    back.setAttribute('data-late-back', '');
-    return back.classList.contains('ios-theme-vertical-bars-back-web-owned');
-  });
-  expect(lateBackInitially).toBe(false);
-  const lateBack = page.locator('ion-back-button[data-late-back]');
-  await expect(lateBack).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
-  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
-  await page.waitForTimeout(1600); // Past the unhydrated readiness timeout.
-  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
-  await expect(lateBack).not.toHaveClass(/ios-theme-vertical-bars-back-web-owned/);
-  await lateBack.evaluate((element) => element.closest('ion-header')?.remove());
-
   const lateAction = page.locator('app-native-ui-shell ion-button[data-late-action]');
   await page
     .locator('app-native-ui-shell ion-toolbar')
@@ -624,6 +599,23 @@ test('verticalBars toolbar sources are hidden before ownership and restored with
 
   await source.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
   await expect(source).toHaveCSS('visibility', 'visible');
+
+  const lateBackInitially = await page.locator('ion-app').evaluate((root) => {
+    const header = document.createElement('ion-header');
+    header.innerHTML = '<ion-toolbar><ion-back-button default-href="/main/index"></ion-back-button></ion-toolbar>';
+    root.append(header);
+    const back = header.querySelector('ion-back-button')!;
+    back.setAttribute('data-late-back', '');
+    return back.classList.contains('ios-theme-vertical-bars-back-web-owned');
+  });
+  expect(lateBackInitially).toBe(false);
+  const lateBack = page.locator('ion-back-button[data-late-back]');
+  await expect(lateBack).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
+  await page.waitForTimeout(1600); // Past the unhydrated readiness timeout.
+  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
+  await expect(lateBack).not.toHaveClass(/ios-theme-vertical-bars-back-web-owned/);
+  await lateBack.evaluate((element) => element.closest('ion-header')?.remove());
 
   await page.evaluate(() => (window as any).nativeUIShell.destroy());
   await expect(source).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);

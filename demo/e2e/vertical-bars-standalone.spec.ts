@@ -17,6 +17,11 @@ test('Vertical Control Area works with Ionic CSS and no iOS 27 theme', async ({ 
   });
   await page.addStyleTag({ content: verticalBars });
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ios27-color-scheme').trim())).toBe('');
+  const backSource = page.locator('app-native-ui-shell ion-back-button');
+  await backSource.evaluate((element: HTMLIonBackButtonElement) => {
+    element.text = 'Return';
+    element.closest('app-native-ui-shell')?.querySelector('ion-content')?.prepend(element);
+  });
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
 
   const tabBar = page.locator('#tab-bar-bottom');
@@ -34,6 +39,8 @@ test('Vertical Control Area works with Ionic CSS and no iOS 27 theme', async ({ 
 
   const back = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
   await expect(back).toBeVisible();
+  await expect(backSource).toBeHidden();
+  expect(await back.evaluate((element: HTMLIonBackButtonElement) => element.text)).toBe('');
   await back.click();
   await expect(page).toHaveURL(/\/main\/index$/);
 });
