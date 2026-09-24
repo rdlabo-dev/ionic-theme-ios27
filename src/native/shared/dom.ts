@@ -61,7 +61,7 @@ export const createFoldablePageState = () => {
       if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;
       const entering = event.type === 'ionViewWillEnter';
       if (entering || event.type === 'ionViewDidEnter') departed.delete(page);
-      else departed.add(page);
+      else if (event.type === 'ionViewDidLeave') departed.add(page);
       setFoldableEnteringPage(page, entering);
     },
     cancel(entering?: HTMLElement, leaving?: HTMLElement): void {

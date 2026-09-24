@@ -157,6 +157,8 @@ private struct ShellFoldableNavigation: View {
                 }
                 .modifier(ShellFoldableToolbarAdapter(model: model))
         }
+        // Ionic animates the page; NavigationStack must not add a second dimmed rail transition.
+        .transaction { $0.disablesAnimations = true }
     }
 }
 

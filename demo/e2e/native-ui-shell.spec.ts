@@ -452,10 +452,9 @@ test('native foldable actions follow WillEnter and stay enabled during navigatio
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
   const routedPage = page.locator('app-native-ui-shell.ion-page');
 
-  await routedPage.evaluate((element) => {
-    element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true }));
-    element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true }));
-  });
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true })));
   await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
   await page.waitForTimeout(150);
   await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
@@ -496,6 +495,10 @@ test('native foldable actions follow WillEnter and stay enabled during navigatio
   await expect.poll(saveDisabled).toBe(true);
   await save.evaluate((element) => element.classList.remove('author-no-pointer'));
   await routedPage.evaluate((element) => (element.style.pointerEvents = ''));
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
 test('foldable toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {
