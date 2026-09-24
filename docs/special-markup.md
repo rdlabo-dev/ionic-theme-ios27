@@ -58,8 +58,13 @@ Load the separate stylesheet and start its projection runtime. The iOS 27 theme 
 ```ts
 import { enableVerticalControlArea } from '@rdlabo/ionic-theme-ios27/vertical-bars';
 
-void enableVerticalControlArea();
+// `platform` is the app's injected Ionic Platform instance.
+if (platform.is('ios')) {
+  void enableVerticalControlArea();
+}
 ```
+
+The `platform.is('ios')` guard is an application choice, not an Ionic `mode` requirement. An app can keep `mode: 'md'` on iOS and still enable Vertical Bars.
 
 Add `.ios-theme-vertical-bars` to the active `ion-app`. Use `body` only when the application has no `ion-app` root:
 

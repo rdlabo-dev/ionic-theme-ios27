@@ -20,7 +20,7 @@ function loadIOSAnimations(): IonicAnimationOptions {
   };
 }
 
-// Demo forces mode: 'ios' (including Playwright), so do not gate on isPlatform('ios').
+// Keep the Web fallback available in the demo; applications can choose when to enable it.
 bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations())).catch((err) => console.error(err));
 const startShell = new URLSearchParams(window.location.search).has('verticalBarsOnly') ? enableVerticalControlArea : enableNativeUIShell;
 void startShell().then((handle) => Object.assign(window, { nativeUIShell: handle }));
