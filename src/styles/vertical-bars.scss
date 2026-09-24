@@ -23,7 +23,7 @@
 
 // Keep page backgrounds and the router full width; move only their foregrounds.
 :is(ion-app, body).ios-theme-vertical-bars
-  ion-content.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
+  ion-content:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
 
@@ -39,7 +39,7 @@
 }
 
 :is(ion-app, body).ios-theme-vertical-bars
-  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
+  ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
 
@@ -55,7 +55,7 @@
 }
 
 :is(ion-app, body).ios-theme-vertical-bars
-  ion-fab.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
+  ion-fab:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
   --ios-theme-vertical-bars-fab-edge-gap: 16px;
@@ -86,15 +86,15 @@
 
 // Menus retain their own safe-area handling and full-width animation host.
 :is(ion-app, body).ios-theme-vertical-bars {
-  ion-menu.ios.menu-side-end:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
-  ion-menu.ios.menu-side-start:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
+  ion-menu:is(.ios, .md).menu-side-end:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
+  ion-menu:is(.ios, .md).menu-side-start:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
     --ion-safe-area-right: 0px;
     &::part(container) {
       margin-right: var(--ios-theme-vertical-bars-safe-area-right-resolved);
     }
   }
-  ion-menu.ios.menu-side-start:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
-  ion-menu.ios.menu-side-end:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
+  ion-menu:is(.ios, .md).menu-side-start:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
+  ion-menu:is(.ios, .md).menu-side-end:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
     --ion-safe-area-left: 0px;
     &::part(container) {
       margin-left: var(--ios-theme-vertical-bars-safe-area-left-resolved);
@@ -104,7 +104,7 @@
 
 :is(ion-app, body).ios-theme-vertical-bars
   ion-tabs:not(:where(ion-menu *, ion-modal *, ion-popover *))
-  > ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  > ion-tab-bar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled) {
   --ios-theme-side-tab-bar-width: 50px;
   --ios-theme-side-tab-bar-gap: 8px;
   --ios-theme-side-safe-area: var(--ios-theme-vertical-bars-safe-area-right-resolved);
@@ -218,21 +218,25 @@ html.ios-theme-native-ui-shell-prehide
 }
 
 :is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready {
-  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
-    ion-back-button.ios[data-native-ui-shell]:not(.ios-theme-disabled, .ios26-disabled, .ios-theme-vertical-bars-back-button-projection) {
+  ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-back-button:is(.ios, .md)[data-native-ui-shell]:not(
+      .ios-theme-disabled,
+      .ios26-disabled,
+      .ios-theme-vertical-bars-back-button-projection
+    ) {
     display: none;
   }
-  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
-    ion-buttons.ios
-    > :is(ion-button, ion-menu-button).ios[data-native-ui-shell]:not(
+  ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-buttons:is(.ios, .md)
+    > :is(ion-button, ion-menu-button):is(.ios, .md)[data-native-ui-shell]:not(
       .ios-theme-disabled,
       .ios26-disabled,
       .ios-theme-vertical-bars-toolbar-action
     ) {
     display: none;
   }
-  ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
-    ion-buttons.ios:has(> :is(ion-back-button, ion-button, ion-menu-button)[data-native-ui-shell]):not(
+  ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
+    ion-buttons:is(.ios, .md):has(> :is(ion-back-button, ion-button, ion-menu-button)[data-native-ui-shell]):not(
       :has(> :is(ion-back-button, ion-button, ion-menu-button):not([data-native-ui-shell]))
     ) {
     display: none;
@@ -247,7 +251,7 @@ html.ios-theme-native-ui-shell-prehide
     height: 46px;
     margin: 0;
   }
-  > .ios.ios-theme-vertical-bars-toolbar-projection {
+  > :is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     position: fixed;
     z-index: 1001;
     top: calc(var(--ios-theme-vertical-bars-toolbar-top, 220px) + var(--ios-theme-vertical-bars-toolbar-offset, 0px));
@@ -264,11 +268,11 @@ html.ios-theme-native-ui-shell-prehide
       font-size: 22px;
     }
   }
-  > ion-menu-button.ios.ios-theme-vertical-bars-toolbar-projection {
+  > ion-menu-button:is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     @include api.glass-control-background;
     border-radius: 50%;
   }
-  > ion-button.ios.ios-theme-vertical-bars-toolbar-projection {
+  > ion-button:is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     --background: rgba(var(--ios-theme-glass-background-rgb, var(--ios26-glass-background-rgb)), 0.72);
     --border-radius: 50%;
     @include glass.light-shadow('--box-shadow');
@@ -276,12 +280,12 @@ html.ios-theme-native-ui-shell-prehide
       @include api.glass-control-background($include-background: false, $shadow: var(--box-shadow));
     }
   }
-  > ion-buttons.ios.ios-theme-vertical-bars-toolbar-projection {
+  > ion-buttons:is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     display: flex;
     flex-direction: column;
     height: auto;
     min-height: 0;
-    > :is(ion-button, ion-menu-button).ios.ios-theme-vertical-bars-toolbar-action {
+    > :is(ion-button, ion-menu-button):is(.ios, .md).ios-theme-vertical-bars-toolbar-action {
       display: block;
       width: 44px;
       min-width: 44px;

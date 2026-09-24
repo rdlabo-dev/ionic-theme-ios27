@@ -27,7 +27,7 @@ export const createAppConfig = (animations: IonicAnimationOptions = {}): Applica
     provideRouter(routes, withComponentInputBinding()),
     provideIonicAngular({
       useSetInputAPI: true,
-      mode: 'ios',
+      mode: typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ionicMode') === 'md' ? 'md' : 'ios',
       backButtonText: '',
       animated: !isE2ETesting,
       ...animations,

@@ -74,8 +74,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
     const edge = toolbar?.parentElement;
     return (
       !!currentRoot?.contains(element) &&
-      element.matches('.ios') &&
-      !!toolbar?.matches('.ios') &&
+      !!toolbar &&
       !!edge?.matches('ion-header, ion-footer') &&
       !element.closest('ion-content') &&
       !edge.hasAttribute('collapse') &&
@@ -103,7 +102,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
     return preferredVerticalBarsBack(candidates, doc);
   };
   const findToolbarGroups = () => {
-    const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons.ios:not(.${toolbarProjectionClass})`)).flatMap(
+    const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons:not(.${toolbarProjectionClass})`)).flatMap(
       (group): ToolbarSource[] => {
         const actions = verticalBarsToolbarActions(group).filter((action) => unprojected(projectedSources(), () => isRendered(action)));
         if (!actions.length) return [];

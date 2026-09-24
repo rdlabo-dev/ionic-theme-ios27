@@ -82,7 +82,7 @@ const disabledButtonGroup = 'ion-buttons:is(.ionic-theme-disabled, .ios-theme-di
 const shellDisabledSelector = '.ios-theme-shell-disabled';
 
 export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
-  element.matches('ion-button.ios') && element.parentElement?.matches(disabledButtonGroup) === true;
+  element.matches('ion-button') && element.parentElement?.matches(disabledButtonGroup) === true;
 
 const verticalBarsTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons', 'ion-menu-button', 'ion-tab-bar']);
 
@@ -150,17 +150,14 @@ export const clearVerticalBarsPlacement = (element: HTMLElement): void => {
 export const verticalBarsOwned = (element: HTMLElement): boolean => verticalBarsPlacement.get(element) === true;
 
 export const isVerticalBarsToolbarAction = (element: HTMLElement): boolean =>
-  element.matches('.ios') &&
-  verticalBarsOwned(element) &&
-  !isExcluded(element, verticalBarsEnteringPage(element)) &&
-  !isShellDisabled(element);
+  verticalBarsOwned(element) && !isExcluded(element, verticalBarsEnteringPage(element)) && !isShellDisabled(element);
 
 export const verticalBarsToolbarActions = (element: HTMLElement): HTMLElement[] =>
   Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isVerticalBarsToolbarAction(child));
 
 export const isVerticalBarsToolbarGroup = (element: HTMLElement): boolean => {
   return (
-    element.matches('ion-buttons.ios') &&
+    element.matches('ion-buttons') &&
     verticalBarsOwned(element) &&
     !element.matches('.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled') &&
     !isShellDisabled(element)

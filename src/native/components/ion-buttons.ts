@@ -18,8 +18,8 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
     !children.length ||
     children.some(
       (child) =>
-        !child.matches(`${menuButton.tag}.ios`) &&
-        (!child.matches(`ion-button.ios${verticalBars ? '' : '.button-clear'}`) ||
+        !child.matches(`${menuButton.tag}${verticalBars ? '' : '.ios'}`) &&
+        (!child.matches(`ion-button${verticalBars ? '' : '.ios.button-clear'}`) ||
           !(verticalBars ? ['default', 'clear'] : ['clear']).includes((child as HTMLIonButtonElement).fill ?? 'default')),
     )
   )
