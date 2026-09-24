@@ -2,7 +2,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { createAppConfig, type IonicAnimationOptions } from './app/app.config';
 import { AppComponent } from './app/app.component';
 import { enableNativeUIShell } from '../../src/native';
-import { enableVerticalControlArea } from '../../src/vertical-bars';
+import { addVerticalBarPlacementListener, enableVerticalControlArea, setVerticalControlAreaPlacement } from '../../src/vertical-bars';
 import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
 
 /**
@@ -21,6 +21,12 @@ function loadIOSAnimations(): IonicAnimationOptions {
 }
 
 // Keep the Web fallback available in the demo; applications can choose when to enable it.
-bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations())).catch((err) => console.error(err));
+void bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations()))
+  .then(() =>
+    addVerticalBarPlacementListener(({ edge }) => {
+      if (edge && document.querySelector('ion-app.ios-theme-vertical-bars')) setVerticalControlAreaPlacement(edge);
+    }),
+  )
+  .catch((err) => console.error(err));
 const startShell = new URLSearchParams(window.location.search).has('verticalBarsOnly') ? enableVerticalControlArea : enableNativeUIShell;
 void startShell().then((handle) => Object.assign(window, { nativeUIShell: handle }));

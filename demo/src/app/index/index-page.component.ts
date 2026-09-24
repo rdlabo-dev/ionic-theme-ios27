@@ -19,7 +19,7 @@ import {
   ToggleCustomEvent,
 } from '@demo/ionic';
 import { ActivatedRoute, Router } from '@angular/router';
-import { setVerticalControlAreaPlacement } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { getVerticalBarPlacement, setVerticalControlAreaPlacement } from '@rdlabo/ionic-theme-ios27/vertical-bars';
 
 interface IComponent {
   name: string;
@@ -101,7 +101,7 @@ export class IndexPageComponent {
     this.#document.documentElement.classList.toggle('ion-palette-dark', event.detail.checked);
   }
 
-  changeVerticalBarsMode(event: ToggleCustomEvent) {
-    setVerticalControlAreaPlacement(event.detail.checked ? 'right' : null);
+  async changeVerticalBarsMode(event: ToggleCustomEvent) {
+    setVerticalControlAreaPlacement(event.detail.checked ? ((await getVerticalBarPlacement()).edge ?? 'right') : null);
   }
 }
