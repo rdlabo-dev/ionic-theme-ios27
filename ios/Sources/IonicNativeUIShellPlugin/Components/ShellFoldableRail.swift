@@ -107,6 +107,14 @@ private func foldableButton(_ item: ShellFoldableRailModel.Item, model: ShellFol
 }
 
 @available(iOS 26.0, *)
+private func foldableBackButton(_ item: ShellFoldableRailModel.Item, model: ShellFoldableRailModel) -> some View {
+    Button { model.activate(item.id) } label: { Image(systemName: "chevron.backward") }
+        .disabled(item.disabled)
+        .accessibilityLabel(item.accessibilityLabel)
+        .accessibilityIdentifier("BackButton")
+}
+
+@available(iOS 26.0, *)
 private struct ShellFoldableBadge: ViewModifier {
     let badge: ShellBadge?
 
@@ -186,7 +194,7 @@ private struct ShellFoldableToolbar: ViewModifier {
         content.toolbar {
             if let back = model.back {
                 ToolbarItem(placement: .navigation) {
-                    foldableButton(back, model: model).accessibilityIdentifier("BackButton")
+                    foldableBackButton(back, model: model)
                 }
                 .axisBehavior(.verticalPreferred)
             }
@@ -218,7 +226,7 @@ private struct ShellFoldableLegacyToolbar: ViewModifier {
         content.toolbar {
             if let back = model.back {
                 ToolbarItem(placement: .navigation) {
-                    foldableButton(back, model: model).accessibilityIdentifier("BackButton")
+                    foldableBackButton(back, model: model)
                 }
             }
             ForEach(model.groups) { group in
