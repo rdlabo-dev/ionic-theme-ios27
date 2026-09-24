@@ -121,11 +121,11 @@ private struct ShellFoldableRailView: View {
     var body: some View {
         Group {
             if model.tabs.isEmpty {
-                ShellFoldableNavigation(model: model)
+                ShellFoldablePage(model: model)
             } else {
                 TabView(selection: Binding(get: { model.selection }, set: { model.select($0) })) {
                     ForEach(model.tabs) { item in
-                        ShellFoldableNavigation(model: model)
+                        ShellFoldablePage(model: model)
                         .tag(item.id)
                         .tabItem { ShellFoldableLabel(item: item) }
                         .modifier(ShellFoldableBadge(badge: item.badge))
@@ -142,20 +142,12 @@ private struct ShellFoldableRailView: View {
 }
 
 @available(iOS 26.0, *)
-private struct ShellFoldableNavigation: View {
+private struct ShellFoldablePage: View {
     @ObservedObject var model: ShellFoldableRailModel
 
     var body: some View {
-        NavigationStack(path: Binding(get: { model.back.map { [$0.id] } ?? [] }, set: { next in
-            if next.isEmpty, let back = model.back {
-                model.activate(back.id)
-            }
-        })) {
-            Color.clear
-                .navigationDestination(for: String.self) { _ in
-                    Color.clear.modifier(ShellFoldableToolbarAdapter(model: model))
-                }
-                .modifier(ShellFoldableToolbarAdapter(model: model))
+        NavigationStack {
+            Color.clear.modifier(ShellFoldableToolbarAdapter(model: model))
         }
     }
 }
@@ -190,6 +182,12 @@ private struct ShellFoldableToolbar: ViewModifier {
 
     func body(content: Content) -> some View {
         content.toolbar {
+            if let back = model.back {
+                ToolbarItem(placement: .navigation) {
+                    foldableButton(back, model: model).accessibilityIdentifier("BackButton")
+                }
+                .axisBehavior(.verticalPreferred)
+            }
             ForEach(model.groups.filter { $0.slot == .start }) { group in
                 ToolbarItemGroup(placement: .topBarLeading) {
                     ForEach(group.items) { item in
@@ -216,6 +214,11 @@ private struct ShellFoldableLegacyToolbar: ViewModifier {
 
     func body(content: Content) -> some View {
         content.toolbar {
+            if let back = model.back {
+                ToolbarItem(placement: .navigation) {
+                    foldableButton(back, model: model).accessibilityIdentifier("BackButton")
+                }
+            }
             ForEach(model.groups) { group in
                 ToolbarItemGroup(placement: .primaryAction) {
                     ForEach(group.items) { item in
@@ -242,16 +245,11 @@ final class ShellFoldableRailController: ShellFoldableRailControlling {
             let coversHost = frame.insetBy(dx: -1, dy: -1).contains(view.bounds)
             let coversRail = frame.minY <= 1 && frame.maxY >= view.bounds.maxY - 1 &&
                 frame.minX <= view.bounds.maxX - railWidth + 1 && frame.maxX >= view.bounds.maxX - 1
-            var white: CGFloat = 0
-            var alpha: CGFloat = 0
-            let isDimming = coversRail && surface.backgroundColor?.resolvedColor(with: surface.traitCollection)
-                .getWhite(&white, alpha: &alpha) == true && white <= 0.05 && alpha > 0 && alpha <= 0.2
-            // NavigationStack may add a full-height backing for just the rail during push/pop.
-            // Keep that backing clear without touching the smaller glass controls or materials.
+            // SwiftUI may add an opaque backing behind the rail controls.
+            // Keep that backing clear without touching the glass controls or materials.
             if coversHost || coversRail {
                 surface.backgroundColor = .clear
                 surface.isOpaque = false
-                if isDimming { surface.layer.removeAllAnimations() }
             }
             surface.subviews.forEach(makeFullSizeSurfacesTransparent)
         }
