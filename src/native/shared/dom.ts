@@ -52,14 +52,14 @@ export const setVerticalBarsEnteringPage = (page: HTMLElement, entering: boolean
 };
 export const verticalBarsEnteringPage = (element: HTMLElement): HTMLElement | undefined => {
   const page = element.closest<HTMLElement>('.ion-page-invisible');
-  return page && enteringPages.has(page) && page.closest(':is(ion-app, body).ios-theme-vertical-bars') ? page : undefined;
+  return page && enteringPages.has(page) && page.closest('ion-app.ios-theme-vertical-bars') ? page : undefined;
 };
 export const createVerticalBarsPageState = () => {
   const departed = new WeakSet<HTMLElement>();
   return {
     isDeparted(element: HTMLElement): boolean {
       const page = element.closest<HTMLElement>('.ion-page');
-      return !!page && departed.has(page) && !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+      return !!page && departed.has(page) && !!element.closest('ion-app.ios-theme-vertical-bars');
     },
     lifecycle(event: Event): void {
       const page = event.target;
@@ -90,7 +90,7 @@ export const isVerticalBarsSource = (element: HTMLElement): boolean =>
   verticalBarsTags.has(element.localName) &&
   (element.matches('ion-tab-bar') || verticalBarsOwned(element)) &&
   !element.closest('ion-menu, ion-modal, ion-popover') &&
-  !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+  !!element.closest('ion-app.ios-theme-vertical-bars');
 
 export const isVerticalBarsBackPosition = (element: HTMLElement): boolean => {
   if (element.closest('ion-header[collapse], ion-footer[collapse]')) return false;
@@ -233,7 +233,7 @@ export const text = (element: Element): string => {
 
 export const inFixedToolbar = (element: Element): boolean => {
   const edge = element.closest('ion-toolbar')?.parentElement;
-  const verticalBars = !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+  const verticalBars = !!element.closest('ion-app.ios-theme-vertical-bars');
   return (
     !!edge?.matches('ion-header, ion-footer') &&
     !element.closest('ion-content') &&

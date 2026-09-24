@@ -61,7 +61,7 @@ export const createVerticalBarsWebProjection = (
   let sourceObserver: MutationObserver | undefined;
   let waiters: (() => void)[] = [];
   const listeners = new AbortController();
-  const verticalBarsRoot = () => doc.querySelector<HTMLElement>(':is(ion-app, body).ios-theme-vertical-bars');
+  const verticalBarsRoot = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   const projectedSources = () =>
     [backSource, ...toolbarProjections.flatMap(({ actions }) => actions.map(({ source }) => source))].filter(
       (source): source is HTMLElement => !!source,
@@ -314,13 +314,12 @@ export const createVerticalBarsWebProjection = (
     };
     const verticalBarsChanged = records.some(
       (record) =>
-        (record.type === 'attributes' && (record.target as Element).matches('ion-app, body')) ||
+        (record.type === 'attributes' && (record.target as Element).matches('ion-app')) ||
         (record.type === 'childList' &&
           Array.from(record.addedNodes).some(
             (node) =>
               node instanceof Element &&
-              (node.matches(':is(ion-app, body).ios-theme-vertical-bars') ||
-                !!node.querySelector(':is(ion-app, body).ios-theme-vertical-bars')),
+              (node.matches('ion-app.ios-theme-vertical-bars') || !!node.querySelector('ion-app.ios-theme-vertical-bars')),
           )),
     );
     if (

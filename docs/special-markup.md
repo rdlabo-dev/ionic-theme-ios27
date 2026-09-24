@@ -76,11 +76,15 @@ The `platform.is('ios')` guard controls automatic application of native placemen
 
 The placement listener only reports what iOS chose; the application decides whether to call `setPlacement`. Passing `null` restores the ordinary layout. Placement is read from the WebView's UIKit trait; projected tabs and toolbar controls still render with SwiftUI. If the app already starts the full `enableNativeUIShell()`, use `setVerticalControlAreaPlacement(edge)` instead of starting another runtime.
 
-For Chrome development, no native plugin is needed. Add `.ios-theme-vertical-bars` to the active `ion-app` to simulate the right rail, or add `.ios-theme-vertical-bars-left` as well to simulate the left rail. Use `body` only when the application has no `ion-app` root:
+Start either `enableVerticalControlArea()` or the full `enableNativeUIShell()` once at application startup. Repeating the same configuration returns the shared runtime; starting a different configuration while it is active throws an error. The application should have one owner responsible for destroying that runtime.
+
+For Chrome development, no native plugin is needed. Add `.ios-theme-vertical-bars` to `ion-app` to simulate the right rail, or add `.ios-theme-vertical-bars-left` as well to simulate the left rail:
 
 ```html
 <ion-app class="ios-theme-vertical-bars">...</ion-app>
 ```
+
+`setPlacement` requires a mounted `ion-app`. Call it after the app root exists; passing `null` restores the ordinary layout.
 
 For example, an app configured with Ionic `mode: 'md'` can use this same `ion-app` class. No component needs to switch to `mode="ios"` for Vertical Bars.
 

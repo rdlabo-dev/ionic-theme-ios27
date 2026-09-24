@@ -40,7 +40,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
   const owner = new WeakMap<HTMLElement, HTMLElement>();
   const pendingBacks = new Map<HTMLElement, { scope: HTMLElement; timer: ReturnType<typeof setTimeout> }>();
   const listeners = new AbortController();
-  const root = () => doc.querySelector<HTMLElement>(':is(ion-app, body).ios-theme-vertical-bars');
+  const root = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   let suspended = 0;
   let stopped = false;
   const routedPage = (element: HTMLElement) => element.closest<HTMLElement>('.ion-page:not(ion-app, body)');

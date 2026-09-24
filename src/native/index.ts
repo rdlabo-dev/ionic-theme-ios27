@@ -26,6 +26,7 @@ export type {
 
 const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
 let active: Promise<NativeUIShellHandle> | undefined;
+let activeConfiguration: string | undefined;
 const web = (reason: string): NativeUIShellHandle => ({
   getStatus: () => ({ state: 'web', projected: 0, updates: 0, reason }),
   suspend: async () => ({ resume: async () => {} }),
@@ -73,9 +74,10 @@ export const addVerticalBarPlacementListener = (listener: (placement: { edge: Ve
 /** Applies one placement to the CSS layout and both Web/native projections. */
 export const setVerticalControlAreaPlacement = (edge: VerticalBarEdge): void => {
   if (typeof document === 'undefined') return;
-  const root = document.querySelector('ion-app') ?? document.body;
-  root.classList.toggle('ios-theme-vertical-bars', edge !== null);
-  root.classList.toggle('ios-theme-vertical-bars-left', edge === 'left');
+  const app = document.querySelector('ion-app');
+  if (!app) throw new Error('Vertical Control Area requires ion-app');
+  app.classList.toggle('ios-theme-vertical-bars', edge !== null);
+  app.classList.toggle('ios-theme-vertical-bars-left', edge === 'left');
 };
 
 /** Call once at application startup. Ionic markup remains the source of truth. */
@@ -94,6 +96,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
   if (options.enabled === false) {
     const current = active;
     active = undefined;
+    activeConfiguration = undefined;
     return current
       ? current.then(async (handle) => {
           await handle.destroy();
@@ -102,6 +105,16 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
       : Promise.resolve(web('Disabled'));
   }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
+  const controls = options.controls;
+  const configuration = JSON.stringify([
+    options.verticalBarsOnly === true,
+    ...(['tabs', 'toolbar', 'segment', 'fab'] as const).map((component) => !controls || controls[component] === true),
+  ]);
+  if (active && activeConfiguration !== configuration)
+    return Promise.reject(
+      new Error('Native UI Shell is already running with different controls; destroy it before changing configuration.'),
+    );
+  activeConfiguration = configuration;
   const stopPrehide =
     !active && (options.controls === undefined || options.controls.toolbar === true)
       ? prehideVerticalBarsToolbarSources(document)
@@ -119,7 +132,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
       }
       let nativeEdge: VerticalBarEdge = null;
       const nativeVerticalBars = () => {
-        const root = document.querySelector(':is(ion-app, body).ios-theme-vertical-bars');
+        const root = document.querySelector('ion-app.ios-theme-vertical-bars');
         return nativeEdge !== null && !!root && nativeEdge === (root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right');
       };
       placementListener = await addVerticalBarPlacementListener(({ edge }) => {
@@ -183,9 +196,13 @@ const resetOnDestroy = (
     };
   },
   async destroy() {
-    await handle.destroy();
-    prehide?.stop();
-    active = undefined;
+    try {
+      await handle.destroy();
+    } finally {
+      prehide?.stop();
+      active = undefined;
+      activeConfiguration = undefined;
+    }
   },
 });
 

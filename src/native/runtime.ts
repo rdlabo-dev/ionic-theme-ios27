@@ -159,11 +159,7 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    if (
-      element.matches('ion-back-button') &&
-      element.closest(':is(ion-app, body).ios-theme-vertical-bars') &&
-      !isVerticalBarsCandidate(element)
-    )
+    if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
       return;
     if (verticalBarsOnly && !isVerticalBarsCandidate(element)) return;
     const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
@@ -329,7 +325,7 @@ export const createRuntime = async (
           if (stopped || dirty) return;
         }
       }
-      const root = doc.querySelector(':is(ion-app, body).ios-theme-vertical-bars');
+      const root = doc.querySelector('ion-app.ios-theme-vertical-bars');
       const verticalBarEdge: 'left' | 'right' | undefined = root
         ? root.classList.contains('ios-theme-vertical-bars-left')
           ? 'left'
@@ -736,7 +732,7 @@ export const createRuntime = async (
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
         return (canceled = false) => {
           suspended.delete(scopes);
-          if (canceled || !scopes.some((scope) => scope.closest(':is(ion-app, body).ios-theme-vertical-bars'))) {
+          if (canceled || !scopes.some((scope) => scope.closest('ion-app.ios-theme-vertical-bars'))) {
             scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
             if (canceled) {
               verticalBarsPages.cancel(scopes[0], scopes[1]); // The entering page is abandoned; the leaving page stays active.

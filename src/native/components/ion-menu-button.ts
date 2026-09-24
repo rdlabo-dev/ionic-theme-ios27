@@ -16,7 +16,7 @@ export const append = (candidate: Candidate, button: HTMLIonMenuButtonElement, i
 export const read = (group: HTMLElement, id: Identify): Candidate | undefined => {
   if (!inFixedToolbar(group) || !group.matches('ion-buttons') || group.children.length !== 1) return;
   const button = group.firstElementChild;
-  if (!button?.matches(`${tag}${group.closest(':is(ion-app, body).ios-theme-vertical-bars') ? '' : '.ios'}`)) return;
+  if (!button?.matches(`${tag}${group.closest('ion-app.ios-theme-vertical-bars') ? '' : '.ios'}`)) return;
   const candidate = createCandidate(group, tag, id);
   return append(candidate, button as HTMLIonMenuButtonElement, id) ? candidate : undefined;
 };

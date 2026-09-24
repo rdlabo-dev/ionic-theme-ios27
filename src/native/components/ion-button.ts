@@ -6,8 +6,7 @@ export const tag = 'ion-button';
 
 export const read = (element: HTMLElement, id: Identify): Candidate | undefined => {
   const button = element as HTMLIonButtonElement;
-  const verticalBars =
-    !element.closest('ion-menu, ion-modal, ion-popover') && !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+  const verticalBars = !element.closest('ion-menu, ion-modal, ion-popover') && !!element.closest('ion-app.ios-theme-vertical-bars');
   if (verticalBars && element.parentElement && isVerticalBarsToolbarGroup(element.parentElement)) return;
   const fill = button.fill ?? 'default';
   if (

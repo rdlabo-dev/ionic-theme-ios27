@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import type { NativeUIShellHandle } from '../../src/native';
 import { bindMetricsLifecycle } from '../../src/native/lifecycle';
+import { enableNativeUIShell, setVerticalControlAreaPlacement } from '../../src/native';
 
 const runtime = (destroy = vi.fn(async () => {})): NativeUIShellHandle => ({
   getStatus: () => ({ state: 'native', projected: 1, updates: 1 }),
@@ -26,4 +27,29 @@ test('listener removal failure still destroys and deactivates once', async () =>
   await expect(handle.destroy()).rejects.toBe(failure);
   expect(destroy).toHaveBeenCalledOnce();
   expect(deactivate).toHaveBeenCalledOnce();
+});
+
+test('placement requires ion-app and clears it when disabled', () => {
+  document.body.replaceChildren();
+  expect(() => setVerticalControlAreaPlacement('right')).toThrow('requires ion-app');
+  document.body.innerHTML = '<ion-app></ion-app>';
+  const app = document.querySelector('ion-app')!;
+
+  setVerticalControlAreaPlacement('left');
+  expect(app.classList.contains('ios-theme-vertical-bars-left')).toBe(true);
+
+  setVerticalControlAreaPlacement(null);
+  expect(app.classList.contains('ios-theme-vertical-bars')).toBe(false);
+
+  setVerticalControlAreaPlacement('right');
+  expect(app.classList.contains('ios-theme-vertical-bars')).toBe(true);
+  setVerticalControlAreaPlacement(null);
+  document.body.replaceChildren();
+});
+
+test('a second startup cannot silently replace the active configuration', async () => {
+  const first = await enableNativeUIShell({ controls: { tabs: true }, verticalBarsOnly: true });
+  expect(await enableNativeUIShell({ controls: { tabs: true }, verticalBarsOnly: true })).toBe(first);
+  await expect(enableNativeUIShell({ controls: { toolbar: true } })).rejects.toThrow('different controls');
+  await first.destroy();
 });

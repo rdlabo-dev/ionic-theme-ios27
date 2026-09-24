@@ -86,7 +86,7 @@ export class IndexPageComponent {
   readonly #document = inject(DOCUMENT);
 
   get verticalBarsModeEnabled() {
-    return this.#document.querySelector('ion-app')?.classList.contains('ios-theme-vertical-bars') ?? false;
+    return !!this.#document.querySelector('ion-app.ios-theme-vertical-bars');
   }
 
   async navigateNativeUiShell() {

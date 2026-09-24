@@ -3,7 +3,7 @@
 
 // iPhone Duo simulation: the system reserves 80pt at the physical right edge.
 // This entry point does not load the iOS 27 theme or change ordinary Ionic UI.
-:is(ion-app, body).ios-theme-vertical-bars {
+ion-app.ios-theme-vertical-bars {
   --ios-theme-vertical-bars-safe-area-left-resolved: var(--ios-theme-vertical-bars-safe-area-left, 0px);
   --ios-theme-vertical-bars-safe-area-right-resolved: var(
     --ios-theme-vertical-bars-safe-area-right,
@@ -11,7 +11,7 @@
   );
 }
 
-:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-left {
+ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left {
   --ios-theme-vertical-bars-safe-area-left-resolved: var(
     --ios-theme-vertical-bars-safe-area-left,
     max(80px, env(safe-area-inset-left, 0px))
@@ -20,7 +20,7 @@
 }
 
 // Supply material defaults only to Web projections, never to ordinary controls.
-:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready
+ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready
   > :is(ion-menu-button, ion-button).ios-theme-vertical-bars-toolbar-projection {
   --ios26-glass-background-rgb: var(--ion-background-color-rgb, 255, 255, 255);
   --ios26-glass-border-color-rgb: var(--ion-background-color-rgb, 255, 255, 255);
@@ -28,12 +28,12 @@
 }
 
 // The transition shade belongs to the Web page, never to the control area.
-:is(ion-app, body).ios-theme-vertical-bars .ios-transition-shade {
+ion-app.ios-theme-vertical-bars .ios-transition-shade {
   clip-path: inset(0 var(--ios-theme-vertical-bars-safe-area-right-resolved) 0 var(--ios-theme-vertical-bars-safe-area-left-resolved));
 }
 
 // Keep page backgrounds and the router full width; move only their foregrounds.
-:is(ion-app, body).ios-theme-vertical-bars
+ion-app.ios-theme-vertical-bars
   ion-content:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
@@ -49,7 +49,7 @@
   }
 }
 
-:is(ion-app, body).ios-theme-vertical-bars
+ion-app.ios-theme-vertical-bars
   ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
@@ -65,7 +65,7 @@
   }
 }
 
-:is(ion-app, body).ios-theme-vertical-bars
+ion-app.ios-theme-vertical-bars
   ion-fab:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *)) {
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
@@ -96,7 +96,7 @@
 }
 
 // Menus retain their own safe-area handling and full-width animation host.
-:is(ion-app, body).ios-theme-vertical-bars {
+ion-app.ios-theme-vertical-bars {
   ion-menu:is(.ios, .md).menu-side-end:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
   ion-menu:is(.ios, .md).menu-side-start:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
     --ion-safe-area-right: 0px;
@@ -113,7 +113,7 @@
   }
 }
 
-:is(ion-app, body).ios-theme-vertical-bars
+ion-app.ios-theme-vertical-bars
   ion-tabs:not(:where(ion-menu *, ion-modal *, ion-popover *))
   > ion-tab-bar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled) {
   --ios-theme-side-tab-bar-width: 50px;
@@ -194,7 +194,7 @@
   }
 }
 
-:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-left
+ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left
   ion-tabs:not(:where(ion-menu *, ion-modal *, ion-popover *))
   > ion-tab-bar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled) {
   --ios-theme-side-safe-area: var(--ios-theme-vertical-bars-safe-area-left-resolved);
@@ -209,7 +209,7 @@
 
 // Hide an entering back source until JS decides whether it belongs in the rail.
 html.ios-theme-native-ui-shell-prehide
-  :is(ion-app, body).ios-theme-vertical-bars
+  ion-app.ios-theme-vertical-bars
   ion-back-button:not(
     [icon],
     [color],
@@ -236,7 +236,7 @@ html.ios-theme-native-ui-shell-prehide
   visibility: hidden !important;
 }
 
-:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready {
+ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready {
   ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(:where(ion-menu *, ion-modal *, ion-popover *))
     ion-back-button:is(.ios, .md)[data-native-ui-shell]:not(
       .ios-theme-disabled,
@@ -318,7 +318,7 @@ html.ios-theme-native-ui-shell-prehide
   }
 }
 
-:is(ion-app, body).ios-theme-vertical-bars.ios-theme-vertical-bars-left {
+ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left {
   > ion-back-button.ios-theme-vertical-bars-back-button-projection,
   > :is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     right: auto;
