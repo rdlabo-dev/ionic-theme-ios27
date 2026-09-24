@@ -41,6 +41,9 @@ test('Vertical Control Area works with Ionic CSS and no iOS 27 theme', async ({ 
   await expect(back).toBeVisible();
   await expect(backSource).toBeHidden();
   expect(await back.evaluate((element: HTMLIonBackButtonElement) => element.text)).toBe('');
+  await backSource.evaluate((element) => element.closest('ion-app')?.append(element));
+  await expect(page.locator('ion-app > ion-back-button:not(.ios-theme-vertical-bars-back-button-projection)')).toBeHidden();
+  await expect(back).toBeVisible();
   await back.click();
   await expect(page).toHaveURL(/\/main\/index$/);
 });

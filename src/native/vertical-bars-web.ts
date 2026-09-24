@@ -8,6 +8,9 @@ import {
   isExcluded,
   isVerticalBarsToolbarGroup,
   isShellDisabled,
+  isVerticalBarsBackPosition,
+  preferredVerticalBarsBack,
+  verticalBarsOwned,
   marker,
   prehideOnlyMutation,
   prehiddenClass,
@@ -84,7 +87,8 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
   };
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     !!verticalBarsRoot()?.contains(element) &&
-    element.matches('.ios') &&
+    verticalBarsOwned(element) &&
+    isVerticalBarsBackPosition(element) &&
     !element.closest('ion-buttons.ios-theme-horizontal-only') &&
     !isExcluded(element, verticalBarsEnteringPage(element)) &&
     !isShellDisabled(element) &&
@@ -96,11 +100,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
     const candidates = Array.from(doc.querySelectorAll<HTMLIonBackButtonElement>(`ion-back-button:not(.${backProjectionClass})`)).filter(
       isEligibleBack,
     );
-    return candidates.sort((a, b) => {
-      const order = pageOrder(b) - pageOrder(a);
-      if (order) return order;
-      return Number(!!b.closest('ion-header')) - Number(!!a.closest('ion-header'));
-    })[0];
+    return preferredVerticalBarsBack(candidates, doc);
   };
   const findToolbarGroups = () => {
     const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons.ios:not(.${toolbarProjectionClass})`)).flatMap(

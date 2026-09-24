@@ -15,6 +15,7 @@ import {
   activateProjectedElement,
   createVerticalBarsPageState,
   isVerticalBarsSource,
+  preferredVerticalBarsBack,
   marker,
   prehideOnlyMutation,
   rejectedClass,
@@ -158,6 +159,12 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
+    if (
+      element.matches('ion-back-button') &&
+      element.closest(':is(ion-app, body).ios-theme-vertical-bars') &&
+      !isVerticalBarsCandidate(element)
+    )
+      return;
     if (verticalBarsOnly && !isVerticalBarsCandidate(element)) return;
     const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
     let candidate: Candidate | undefined;
@@ -238,7 +245,17 @@ export const createRuntime = async (
         )
         .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate)),
     );
-    return menuOpen ? candidates.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : candidates;
+    const back = preferredVerticalBarsBack(
+      candidates
+        .filter((candidate) => candidate.control.kind === 'ion-back-button' && isVerticalBarsCandidate(candidate.element))
+        .map((candidate) => candidate.element),
+      doc,
+    );
+    const selected = candidates.filter(
+      (candidate) =>
+        candidate.control.kind !== 'ion-back-button' || !isVerticalBarsCandidate(candidate.element) || candidate.element === back,
+    );
+    return menuOpen ? selected.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : selected;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();

@@ -92,6 +92,31 @@ export const isVerticalBarsSource = (element: HTMLElement): boolean =>
   !element.closest('ion-menu, ion-modal, ion-popover') &&
   !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
 
+export const isVerticalBarsBackPosition = (element: HTMLElement): boolean => {
+  if (element.closest('ion-header[collapse], ion-footer[collapse]')) return false;
+  const page = element.closest('.ion-page');
+  if (!page) return true;
+  const candidates = Array.from(page.querySelectorAll<HTMLElement>('ion-back-button')).filter(
+    (back) =>
+      back.closest('.ion-page') === page &&
+      !back.matches('.ion-cloned-element') &&
+      !back.closest('ion-header[collapse], ion-footer[collapse], ion-menu, ion-modal, ion-popover'),
+  );
+  const rank = (back: HTMLElement) =>
+    inFixedToolbar(back) ? 0 : back.closest('ion-header ion-toolbar, ion-footer ion-toolbar') ? 1 : back.closest('ion-toolbar') ? 3 : 2;
+  const best = candidates.reduce<HTMLElement | undefined>(
+    (winner, back) => (!winner || rank(back) < rank(winner) ? back : winner),
+    undefined,
+  );
+  return best === element;
+};
+
+export const preferredVerticalBarsBack = <T extends HTMLElement>(elements: T[], doc: Document): T | undefined => {
+  const pages = Array.from(doc.querySelectorAll('.ion-page'));
+  const pageOrder = (element: Element) => pages.indexOf(element.closest('.ion-page')!);
+  return elements.sort((a, b) => pageOrder(b) - pageOrder(a) || Number(!!b.closest('ion-header')) - Number(!!a.closest('ion-header')))[0];
+};
+
 const excludedBy = (element: HTMLElement, selector: string): boolean => {
   const owner = element.closest<HTMLElement>(selector);
   return !!owner && !(element.parentElement === owner && isDisabledButtonGroupChild(element));

@@ -204,6 +204,8 @@ html.ios-theme-native-ui-shell-prehide
       ion-menu *,
       ion-modal *,
       ion-popover *,
+      ion-header[collapse] *,
+      ion-footer[collapse] *,
       ion-buttons.ios-theme-horizontal-only *,
       .ios-theme-shell-disabled *,
       .ionic-theme-disabled *,
@@ -235,7 +237,7 @@ html.ios-theme-native-ui-shell-prehide
     ) {
     display: none;
   }
-  > ion-back-button.ios.ios-theme-vertical-bars-back-button-projection {
+  > ion-back-button.ios-theme-vertical-bars-back-button-projection {
     position: fixed;
     z-index: 1001;
     top: var(--ios-theme-vertical-bars-toolbar-top, 220px);

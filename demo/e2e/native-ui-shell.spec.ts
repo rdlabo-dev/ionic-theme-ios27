@@ -366,11 +366,14 @@ test('verticalBars tabs request native adaptive rail placement', async ({ page }
 test('standalone Vertical Control Area never snapshots ordinary Native UI Shell controls', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1');
-  const back = page.locator('app-native-ui-shell ion-back-button');
-  await back.evaluate((element: HTMLIonBackButtonElement) => {
+  await page.locator('app-native-ui-shell ion-back-button').evaluate((element: HTMLIonBackButtonElement) => {
     element.text = 'Return';
-    element.closest('app-native-ui-shell')?.querySelector('ion-content')?.prepend(element);
+    element.mode = 'md';
+    element.classList.remove('ios');
+    element.classList.add('md');
+    element.closest('ion-app')?.append(element);
   });
+  const back = page.locator('ion-app > ion-back-button');
   await page.evaluate(() => {
     for (const sheet of Array.from(document.styleSheets)) {
       for (let index = sheet.cssRules.length - 1; index >= 0; index--) {
@@ -400,7 +403,37 @@ test('standalone Vertical Control Area never snapshots ordinary Native UI Shell 
   expect(state.metricsRequested).toBe(0);
   expect(state.updates.flatMap((update: any) => update.controls).every((control: any) => control.placement === 'vertical-bars')).toBe(true);
   await expect(back).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
-  expect(state.updates.at(-1).controls.find((control: any) => control.kind === 'ion-back-button')?.items[0]?.label).toBe('Return');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-back-button')?.items[0]
+            ?.label,
+      ),
+    )
+    .toBe('Return');
+  await expect(back).toHaveClass(/\bmd\b/);
+  await page.locator('app-native-ui-shell ion-content').evaluate((content) => {
+    const pageBack = document.createElement('ion-back-button');
+    pageBack.setAttribute('default-href', '/main/index');
+    pageBack.setAttribute('data-page-back', '');
+    content.prepend(pageBack);
+  });
+  const pageBack = page.locator('ion-back-button[data-page-back]');
+  await expect(pageBack).toHaveAttribute('data-native-ui-shell', '');
+  await expect(back).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as any).__nativeUIShell.updates.at(-1)?.controls.filter((control: any) => control.kind === 'ion-back-button').length,
+      ),
+    )
+    .toBe(1);
+  await page
+    .locator('app-native-ui-shell')
+    .evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true })));
+  await expect(back).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(back).toHaveAttribute('data-native-ui-shell', '');
   await app.evaluate((element) => element.style.setProperty('--ion-background-color-rgb', '255, 255, 255'));
   await expect.poll(() => allVerticalBarsDark(false)).toBe(true);
 });
@@ -409,13 +442,30 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const app = page.locator('ion-app');
-  const source = page.locator('app-native-ui-shell ion-back-button');
+  const source = page.locator('app-native-ui-shell ion-back-button').first();
   const projection = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await source.evaluate((element) => {
+    const second = document.createElement('ion-back-button');
+    second.setAttribute('default-href', '/main/index');
+    second.setAttribute('data-second-back', '');
+    element.closest('ion-toolbar')?.append(second);
+  });
+  const secondBack = page.locator('ion-back-button[data-second-back]');
+  await expect(secondBack).toHaveClass(/hydrated/);
 
   await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
   await expect(projection).toHaveCount(0);
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(secondBack).toBeVisible();
+  await expect(secondBack).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as any).__nativeUIShell.updates.at(-1)?.controls.filter((control: any) => control.kind === 'ion-back-button').length,
+      ),
+    )
+    .toBe(1);
   await expect
     .poll(() =>
       page.evaluate(
@@ -595,7 +645,8 @@ test('verticalBars toolbar sources are hidden before ownership and restored with
   await source.evaluate((element) => element.classList.add('author-hidden'));
   await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
   await source.evaluate((element) => element.classList.remove('author-hidden'));
-  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(source).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
+  await expect(source).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
 
   await source.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
   await expect(source).toHaveCSS('visibility', 'visible');

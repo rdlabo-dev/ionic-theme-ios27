@@ -127,7 +127,7 @@ test('turning verticalBars on during a transition honors its success or cancella
   await expect(projection).toHaveCount(0);
 });
 
-test('verticalBars projection respects shell opt-out and iOS mode', async ({ page }) => {
+test('verticalBars back projection respects source opt-out regardless of Ionic mode', async ({ page }) => {
   await page.goto('/main/index/button');
   const app = page.locator('ion-app');
   const source = page.locator('app-button ion-header ion-back-button').first();
@@ -139,10 +139,19 @@ test('verticalBars projection respects shell opt-out and iOS mode', async ({ pag
   await expect(projection).toHaveCount(0);
   await expect(source).toBeVisible();
 
-  await source.evaluate((element) => element.classList.remove('ios-theme-shell-disabled', 'ios'));
+  await source.evaluate((element) => {
+    element.classList.remove('ios-theme-shell-disabled');
+    (element as HTMLIonBackButtonElement).mode = 'md';
+  });
   await toolbar.evaluate((element) => element.classList.remove('ios'));
-  await expect(projection).toHaveCount(0);
   await expect(source).toBeVisible();
+  await page
+    .locator('app-button.ion-page')
+    .evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true })));
+  await expect(source).toBeHidden();
+  await expect(projection).toBeVisible();
+  expect(await projection.evaluate((element: HTMLIonBackButtonElement) => element.mode)).toBe('md');
+  await expect(projection).toHaveCSS('position', 'fixed');
 });
 
 test('verticalBars toolbar projects icon actions and preserves text-only actions', async ({ page }) => {
