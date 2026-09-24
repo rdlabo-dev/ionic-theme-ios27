@@ -5,6 +5,7 @@ import type {
   NativeUIShellOptions,
   NativeUIShellPlugin,
   VerticalBarEdge,
+  VerticalBarPlacement,
   VerticalControlAreaHandle,
   WebViewMetrics,
 } from './definitions';
@@ -20,6 +21,7 @@ export type {
   NativeUIShellStatus,
   NativeUIShellSuspension,
   VerticalBarEdge,
+  VerticalBarPlacement,
   VerticalControlAreaHandle,
   WebViewMetrics,
 } from './definitions';
@@ -62,22 +64,27 @@ export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
 };
 
 /** Reads the system's current vertical-bar placement without changing the theme. */
-export const getVerticalBarPlacement = (): Promise<{ edge: VerticalBarEdge }> =>
-  typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' ? plugin.getVerticalBarPlacement() : Promise.resolve({ edge: null });
+export const getVerticalBarPlacement = (): Promise<VerticalBarPlacement> =>
+  typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios'
+    ? plugin.getVerticalBarPlacement()
+    : Promise.resolve({ edge: null, inset: 0 });
 
 /** Observes placement; the application decides whether to apply each change. */
-export const addVerticalBarPlacementListener = (listener: (placement: { edge: VerticalBarEdge }) => void) =>
+export const addVerticalBarPlacementListener = (listener: (placement: VerticalBarPlacement) => void) =>
   typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios'
     ? plugin.addListener('verticalBarPlacementChange', listener)
     : Promise.resolve({ remove: async () => {} });
 
 /** Applies one placement to the CSS layout and both Web/native projections. */
-export const setVerticalControlAreaPlacement = (edge: VerticalBarEdge): void => {
+export const setVerticalControlAreaPlacement = (placement: VerticalBarEdge | VerticalBarPlacement): void => {
   if (typeof document === 'undefined') return;
-  const app = document.querySelector('ion-app');
+  const app = document.querySelector<HTMLElement>('ion-app');
   if (!app) throw new Error('Vertical Control Area requires ion-app');
+  const { edge, inset } = placement && typeof placement === 'object' ? placement : { edge: placement, inset: 0 };
   app.classList.toggle('ios-theme-vertical-bars', edge !== null);
   app.classList.toggle('ios-theme-vertical-bars-left', edge === 'left');
+  if (edge && Number.isFinite(inset) && inset > 0) app.style.setProperty('--ios-theme-vertical-bars-native-inset', `${inset}px`);
+  else app.style.removeProperty('--ios-theme-vertical-bars-native-inset');
 };
 
 /** Call once at application startup. Ionic markup remains the source of truth. */

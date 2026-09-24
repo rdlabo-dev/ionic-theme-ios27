@@ -23,8 +23,12 @@ function loadIOSAnimations(): IonicAnimationOptions {
 // Keep the Web fallback available in the demo; applications can choose when to enable it.
 void bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations()))
   .then(() =>
-    addVerticalBarPlacementListener(({ edge }) => {
-      if (edge && document.querySelector('ion-app.ios-theme-vertical-bars')) setVerticalControlAreaPlacement(edge);
+    addVerticalBarPlacementListener((placement) => {
+      const app = document.querySelector('ion-app.ios-theme-vertical-bars');
+      if (app)
+        setVerticalControlAreaPlacement(
+          placement.edge ? placement : app.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right',
+        );
     }),
   )
   .catch((err) => console.error(err));

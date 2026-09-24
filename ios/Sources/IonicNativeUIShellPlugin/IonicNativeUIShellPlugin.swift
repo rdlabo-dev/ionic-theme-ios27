@@ -27,6 +27,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var restoreTopEdge: (() -> Void)?
     private var observers: [NSObjectProtocol] = []
     private var lastVerticalBarEdge: String?
+    private var lastVerticalBarInset: CGFloat = 0
     private var verticalBarPlacementObserved = false
     private weak var observedVerticalBarView: UIView?
 
@@ -108,16 +109,24 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         return nil
     }
 
+    private func verticalBarInset(for edge: String?) -> CGFloat {
+        guard let edge, let webView = bridge?.webView else { return 0 }
+        webView.layoutIfNeeded()
+        return edge == "left" ? webView.safeAreaInsets.left : webView.safeAreaInsets.right
+    }
+
     private func verticalBarPlacement() -> JSObject {
-        if let edge = verticalBarEdge() { return ["edge": edge] }
-        return ["edge": NSNull()]
+        if let edge = verticalBarEdge() { return ["edge": edge, "inset": Double(verticalBarInset(for: edge))] }
+        return ["edge": NSNull(), "inset": 0]
     }
 
     private func notifyVerticalBarPlacementChange() {
         let edge = verticalBarEdge()
-        guard !verticalBarPlacementObserved || edge != lastVerticalBarEdge else { return }
+        let inset = verticalBarInset(for: edge)
+        guard !verticalBarPlacementObserved || edge != lastVerticalBarEdge || abs(inset - lastVerticalBarInset) > 0.5 else { return }
         verticalBarPlacementObserved = true
         lastVerticalBarEdge = edge
+        lastVerticalBarInset = inset
         notifyListeners("verticalBarPlacementChange", data: verticalBarPlacement())
     }
 
@@ -137,7 +146,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     @objc func getVerticalBarPlacement(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
             self?.observeVerticalBarPlacement()
-            call.resolve(self?.verticalBarPlacement() ?? ["edge": NSNull()])
+            call.resolve(self?.verticalBarPlacement() ?? ["edge": NSNull(), "inset": 0])
         }
     }
 

@@ -37,9 +37,15 @@ test('placement requires ion-app and clears it when disabled', () => {
 
   setVerticalControlAreaPlacement('left');
   expect(app.classList.contains('ios-theme-vertical-bars-left')).toBe(true);
+  expect(app.style.getPropertyValue('--ios-theme-vertical-bars-native-inset')).toBe('');
+
+  setVerticalControlAreaPlacement({ edge: 'right', inset: 64 });
+  expect(app.classList.contains('ios-theme-vertical-bars-left')).toBe(false);
+  expect(app.style.getPropertyValue('--ios-theme-vertical-bars-native-inset')).toBe('64px');
 
   setVerticalControlAreaPlacement(null);
   expect(app.classList.contains('ios-theme-vertical-bars')).toBe(false);
+  expect(app.style.getPropertyValue('--ios-theme-vertical-bars-native-inset')).toBe('');
 
   setVerticalControlAreaPlacement('right');
   expect(app.classList.contains('ios-theme-vertical-bars')).toBe(true);

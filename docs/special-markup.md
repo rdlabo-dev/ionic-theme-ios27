@@ -67,14 +67,14 @@ const rail = await enableVerticalControlArea();
 
 // `platform` is the app's injected Ionic Platform instance.
 if (platform.is('ios')) {
-  await addVerticalBarPlacementListener(({ edge }) => rail.setPlacement(edge));
-  rail.setPlacement((await getVerticalBarPlacement()).edge);
+  await addVerticalBarPlacementListener((placement) => rail.setPlacement(placement));
+  rail.setPlacement(await getVerticalBarPlacement());
 }
 ```
 
 The `platform.is('ios')` guard controls automatic application of native placement, not the component mode or the Web simulation. An app can keep `mode: 'md'` on iOS and still enable Vertical Bars.
 
-The placement listener only reports what iOS chose; the application decides whether to call `setPlacement`. Passing `null` restores the ordinary layout. Placement is read from the WebView's UIKit trait; projected tabs and toolbar controls still render with SwiftUI. If the app already starts the full `enableNativeUIShell()`, use `setVerticalControlAreaPlacement(edge)` instead of starting another runtime.
+The placement listener only reports what iOS chose; the application decides whether to call `setPlacement`. Passing `null` restores the ordinary layout. The result includes the physical edge and its UIKit safe-area inset. Projected tabs and toolbar controls still render with SwiftUI. If the app already starts the full `enableNativeUIShell()`, use `setVerticalControlAreaPlacement(placement)` instead of starting another runtime.
 
 Start either `enableVerticalControlArea()` or the full `enableNativeUIShell()` once at application startup. Repeating the same configuration returns the shared runtime; starting a different configuration while it is active throws an error. The application should have one owner responsible for destroying that runtime.
 
@@ -88,7 +88,7 @@ For Chrome development, no native plugin is needed. Add `.ios-theme-vertical-bar
 
 For example, an app configured with Ionic `mode: 'md'` can use this same `ion-app` class. No component needs to switch to `mode="ios"` for Vertical Bars.
 
-The class reserves `80px` on the physical right in Chrome, matching the system navigation region measured in the iPhone Duo Simulator. On iOS it also respects a larger CSS safe-area inset. The left modifier moves that reservation to the physical left. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
+The class reserves `80px` on the physical right in Chrome to simulate iPhone Duo. When `setPlacement` receives a native placement, it uses the measured UIKit inset instead of the simulated width, even when that inset is less than `80px`. The left modifier moves the reservation to the physical left. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
 
 This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when it is placed beside the system UI. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
 

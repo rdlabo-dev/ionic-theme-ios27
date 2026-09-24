@@ -7,14 +7,14 @@ ion-app.ios-theme-vertical-bars {
   --ios-theme-vertical-bars-safe-area-left-resolved: var(--ios-theme-vertical-bars-safe-area-left, 0px);
   --ios-theme-vertical-bars-safe-area-right-resolved: var(
     --ios-theme-vertical-bars-safe-area-right,
-    max(80px, env(safe-area-inset-right, 0px))
+    var(--ios-theme-vertical-bars-native-inset, max(80px, env(safe-area-inset-right, 0px)))
   );
 }
 
 ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left {
   --ios-theme-vertical-bars-safe-area-left-resolved: var(
     --ios-theme-vertical-bars-safe-area-left,
-    max(80px, env(safe-area-inset-left, 0px))
+    var(--ios-theme-vertical-bars-native-inset, max(80px, env(safe-area-inset-left, 0px)))
   );
   --ios-theme-vertical-bars-safe-area-right-resolved: var(--ios-theme-vertical-bars-safe-area-right, 0px);
 }

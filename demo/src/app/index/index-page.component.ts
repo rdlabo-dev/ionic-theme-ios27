@@ -102,6 +102,8 @@ export class IndexPageComponent {
   }
 
   async changeVerticalBarsMode(event: ToggleCustomEvent) {
-    setVerticalControlAreaPlacement(event.detail.checked ? ((await getVerticalBarPlacement()).edge ?? 'right') : null);
+    if (!event.detail.checked) return setVerticalControlAreaPlacement(null);
+    const placement = await getVerticalBarPlacement();
+    setVerticalControlAreaPlacement(placement.edge ? placement : 'right');
   }
 }
