@@ -15,7 +15,6 @@ test('verticalBars mode moves tabs into the right rail and reveals labels while 
   const buttons = bar.locator('ion-tab-button');
   await expect.poll(async () => (await bar.boundingBox())?.x).toBeGreaterThan(620);
   const barBox = (await bar.boundingBox())!;
-  expect(barBox.x).toBeGreaterThan(620);
   expect(barBox.width).toBeCloseTo(50, 0);
   await expect(buttons.first().locator('ion-label')).toHaveCSS('position', 'absolute');
   await expect(buttons.nth(1).locator('ion-label')).toHaveCSS('position', 'absolute');

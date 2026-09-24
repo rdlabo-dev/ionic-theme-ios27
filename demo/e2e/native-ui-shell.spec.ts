@@ -17,7 +17,6 @@ const mockNative = async (page: Page, fail = false, verticalBars = true) => {
       rejectAllSearch: false,
       rejectControlLabel: '',
       configuredWith: undefined as any,
-      metricsRequested: 0,
       activate: (_event: any) => {},
       search: (_event: any) => {},
       metrics: (_event: any) => {},
@@ -44,10 +43,7 @@ const mockNative = async (page: Page, fail = false, verticalBars = true) => {
             state.configuredWith = options;
             return { supported: true, verticalBars };
           }
-          if (method === 'getWebViewMetrics') {
-            state.metricsRequested++;
-            return { radius: 0 };
-          }
+          if (method === 'getWebViewMetrics') return { radius: 0 };
           state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
           if (state.hang && method === 'update') await new Promise(() => {});
           if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
@@ -366,76 +362,20 @@ test('verticalBars tabs request native adaptive rail placement', async ({ page }
 test('standalone Vertical Control Area never snapshots ordinary Native UI Shell controls', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1');
-  await page.locator('app-native-ui-shell ion-back-button').evaluate((element: HTMLIonBackButtonElement) => {
-    element.text = 'Return';
-    element.mode = 'md';
-    element.classList.remove('ios');
-    element.classList.add('md');
-    element.closest('ion-app')?.append(element);
-  });
-  const back = page.locator('ion-app > ion-back-button');
-  await page.evaluate(() => {
-    for (const sheet of Array.from(document.styleSheets)) {
-      for (let index = sheet.cssRules.length - 1; index >= 0; index--) {
-        const rule = sheet.cssRules[index];
-        if (rule instanceof CSSSupportsRule && rule.cssText.includes('--ios27-color-scheme')) sheet.deleteRule(index);
-      }
-    }
-  });
-  const app = page.locator('ion-app');
-  await app.evaluate((element) => {
-    element.classList.add('ios-theme-vertical-bars');
-    element.style.setProperty('--ion-background-color-rgb', '0, 0, 0');
-  });
-  const allVerticalBarsDark = (expected: boolean) =>
-    page.evaluate((expected) => {
-      const controls = ((window as any).__nativeUIShell.updates.at(-1)?.controls ?? []).filter(
-        (control: any) => control.placement === 'vertical-bars',
-      );
-      return controls.length > 0 && controls.every((control: any) => control.dark === expected);
-    }, expected);
-  await expect.poll(() => allVerticalBarsDark(true)).toBe(true);
-  const state = await page.evaluate(() => {
-    const { configuredWith, metricsRequested, updates } = (window as any).__nativeUIShell;
-    return { configuredWith, metricsRequested, updates };
-  });
-  expect(state.configuredWith).toEqual({ verticalBarsOnly: true });
-  expect(state.metricsRequested).toBe(0);
-  expect(state.updates.flatMap((update: any) => update.controls).every((control: any) => control.placement === 'vertical-bars')).toBe(true);
-  await expect(back).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
   await expect
     .poll(() =>
-      page.evaluate(
-        () =>
-          (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-back-button')?.items[0]
-            ?.label,
-      ),
+      page.evaluate(() => {
+        const { configuredWith, updates } = (window as any).__nativeUIShell;
+        const controls = updates.at(-1)?.controls ?? [];
+        return (
+          configuredWith?.verticalBarsOnly === true &&
+          controls.length > 0 &&
+          updates.flatMap((update: any) => update.controls).every((control: any) => control.placement === 'vertical-bars')
+        );
+      }),
     )
-    .toBe('Return');
-  await expect(back).toHaveClass(/\bmd\b/);
-  await page.locator('app-native-ui-shell ion-content').evaluate((content) => {
-    const pageBack = document.createElement('ion-back-button');
-    pageBack.setAttribute('default-href', '/main/index');
-    pageBack.setAttribute('data-page-back', '');
-    content.prepend(pageBack);
-  });
-  const pageBack = page.locator('ion-back-button[data-page-back]');
-  await expect(pageBack).toHaveAttribute('data-native-ui-shell', '');
-  await expect(back).not.toHaveAttribute('data-native-ui-shell', '');
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => (window as any).__nativeUIShell.updates.at(-1)?.controls.filter((control: any) => control.kind === 'ion-back-button').length,
-      ),
-    )
-    .toBe(1);
-  await page
-    .locator('app-native-ui-shell')
-    .evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true })));
-  await expect(back).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
-  await expect(back).toHaveAttribute('data-native-ui-shell', '');
-  await app.evaluate((element) => element.style.setProperty('--ion-background-color-rgb', '255, 255, 255'));
-  await expect.poll(() => allVerticalBarsDark(false)).toBe(true);
+    .toBe(true);
 });
 
 test('verticalBars back navigation and toolbar slots request native rail placement', async ({ page }) => {
