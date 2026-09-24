@@ -56,11 +56,8 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#30acb040153797407a5fe27f0db6c69a3410d855"
+    "@rdlabo/ionic-theme-utils": "0.1.1"
   },
-  "bundleDependencies": [
-    "@rdlabo/ionic-theme-utils"
-  ],
   "devDependencies": {
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
