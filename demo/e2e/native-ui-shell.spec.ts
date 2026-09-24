@@ -6,8 +6,8 @@ import * as overlayTypes from '../src/app/overlay-types';
 
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
-const mockNative = async (page: Page, fail = false) => {
-  await page.addInitScript((fail) => {
+const mockNative = async (page: Page, fail = false, foldableRail = true) => {
+  const script = ([fail, foldableRail]: readonly [boolean, boolean]) => {
     const state = {
       updates: [] as any[],
       sequence: 0,
@@ -15,6 +15,7 @@ const mockNative = async (page: Page, fail = false) => {
       hang: false,
       rejectInactiveSearch: false,
       rejectAllSearch: false,
+      rejectControlLabel: '',
       activate: (_event: any) => {},
       search: (_event: any) => {},
       metrics: (_event: any) => {},
@@ -37,7 +38,7 @@ const mockNative = async (page: Page, fail = false) => {
           },
         ],
         nativePromise: async (_plugin: string, method: string, options: any) => {
-          if (method === 'configure') return { supported: true };
+          if (method === 'configure') return { supported: true, foldableRail };
           if (method === 'getWebViewMetrics') return { radius: 0 };
           state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
           if (state.hang && method === 'update') await new Promise(() => {});
@@ -51,6 +52,11 @@ const mockNative = async (page: Page, fail = false) => {
                     ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
                     .map((control: any) => control.id)
                 : [],
+            rejectedControls: state.rejectControlLabel
+              ? options.controls
+                  ?.filter((control: any) => control.items.some((item: any) => item.accessibilityLabel === state.rejectControlLabel))
+                  .map((control: any) => control.id)
+              : [],
           };
         },
         nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
@@ -63,7 +69,8 @@ const mockNative = async (page: Page, fail = false) => {
         },
       },
     });
-  }, fail);
+  };
+  await page.addInitScript(script, [fail, foldableRail] as const);
 };
 
 const activate = (page: Page, label: string, duplicate = false) =>
@@ -324,7 +331,7 @@ test('unsupported search morph releases and restores a native fixed-slot FAB int
   await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
 });
 
-test('foldable tabs stay in the web layer instead of using horizontal native projection', async ({ page }) => {
+test('foldable tabs request native adaptive rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index');
   const app = page.locator('ion-app');
@@ -332,20 +339,23 @@ test('foldable tabs stay in the web layer instead of using horizontal native pro
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
 
   await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
-  await expect(bar).not.toHaveAttribute('data-native-ui-shell');
-  await expect(bar).not.toHaveClass(/ios27-enable-gesture/);
+  await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect
     .poll(() =>
-      page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.some((control: any) => control.kind === 'ion-tab-bar')),
+      page.evaluate(() =>
+        (window as any).__nativeUIShell.updates
+          .at(-1)
+          .controls.some((control: any) => control.kind === 'ion-tab-bar' && control.placement === 'foldable-rail'),
+      ),
     )
-    .toBe(false);
+    .toBe(true);
 
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(bar).toHaveClass(/ios27-enable-gesture/);
 });
 
-test('foldable back navigation hands ownership between native and Web projection', async ({ page }) => {
+test('foldable back navigation and toolbar slots request native rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const app = page.locator('ion-app');
@@ -354,18 +364,382 @@ test('foldable back navigation hands ownership between native and Web projection
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 
   await app.evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
-  await expect(projection).toHaveCount(1);
+  await expect(projection).toHaveCount(0);
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).__nativeUIShell.updates
+            .at(-1)
+            .controls.some(
+              (control: any) =>
+                control.kind === 'ion-back-button' && control.placement === 'foldable-rail' && control.toolbarSlot === undefined,
+            ) &&
+          !(window as any).__nativeUIShell.updates
+            .at(-1)
+            .controls.some((control: any) => control.items.some((item: any) => item.label === 'Cancel')),
+      ),
+    )
+    .toBe(true);
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates.at(-1).controls.some((control: any) => control.kind === 'ion-back-button'),
+        (window as any).__nativeUIShell.updates
+          .at(-1)
+          .controls.some(
+            (control: any) =>
+              control.kind === 'ion-button' &&
+              control.placement === 'foldable-rail' &&
+              control.toolbarSlot === 'end' &&
+              control.items.some((item: any) => item.accessibilityLabel === 'Save'),
+          ),
       ),
     )
-    .toBe(false);
+    .toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).__nativeUIShell.updates.at(-1).controls.find((control: any) => control.kind === 'ion-menu-button')?.toolbarSlot,
+      ),
+    )
+    .toBe('start');
 
   await app.evaluate((element) => element.classList.remove('ios-theme-enable-foldable'));
   await expect(projection).toHaveCount(0);
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
+});
+
+test('native foldable toolbar returns with Index after a pushed page', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+  const hasIndexActions = () =>
+    page.evaluate(() => {
+      const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+      return controls.some(
+        (control: any) => control.placement === 'foldable-rail' && control.items.some((item: any) => item.accessibilityLabel === 'GitHub'),
+      );
+    });
+  await expect.poll(hasIndexActions).toBe(true);
+  await page.getByRole('button', { name: 'button', exact: true }).click();
+  await expect(page).toHaveURL(/\/main\/index\/button$/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = (window as any).__nativeUIShell;
+        const snapshot = state.updates.at(-1);
+        return !!snapshot.controls.find((control: any) => control.kind === 'ion-back-button')?.items[0];
+      }),
+    )
+    .toBe(true);
+  await page.evaluate(() => {
+    const state = (window as any).__nativeUIShell;
+    const snapshot = state.updates.at(-1);
+    const back = snapshot.controls.find((control: any) => control.kind === 'ion-back-button').items[0];
+    state.activate({ id: back.id, revision: snapshot.revision, sequence: ++state.sequence });
+  });
+  await expect(page).toHaveURL(/\/main\/index$/);
+  await expect.poll(hasIndexActions).toBe(true);
+});
+
+test('native foldable actions follow WillEnter and stay enabled during navigation', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-enable-foldable'));
+  const source = page.locator('app-native-ui-shell ion-back-button');
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  const routedPage = page.locator('app-native-ui-shell.ion-page');
+
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true })));
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+  await page.waitForTimeout(150);
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+
+  await routedPage.evaluate((element) => {
+    element.classList.add('ion-page-invisible');
+    element.style.pointerEvents = 'none';
+    element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
+  });
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  const saveDisabled = () =>
+    page.evaluate(
+      () =>
+        (window as any).__nativeUIShell.updates
+          .findLast((update: any) =>
+            update.controls.some((control: any) => control.items.some((item: any) => item.accessibilityLabel === 'Save')),
+          )
+          .controls.flatMap((control: any) => control.items)
+          .find((item: any) => item.accessibilityLabel === 'Save').disabled,
+    );
+  await expect.poll(saveDisabled).toBe(false);
+  await page.addStyleTag({ content: '.author-no-pointer { pointer-events: none }' });
+  const save = page.locator('app-native-ui-shell ion-button[type=submit]');
+  for (const target of [save, save.locator('xpath=..'), save.locator('xpath=../..')]) {
+    await target.evaluate((element) => element.classList.add('author-no-pointer'));
+    await expect.poll(saveDisabled).toBe(true);
+    await target.evaluate((element) => element.classList.remove('author-no-pointer'));
+    await expect.poll(saveDisabled).toBe(false);
+  }
+  await activate(page, 'Save');
+  await expect(page.locator('app-native-ui-shell [data-save-count]')).toHaveText('1');
+  await routedPage.evaluate((element) => {
+    element.classList.remove('ion-page-invisible');
+    element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
+  });
+  await expect.poll(saveDisabled).toBe(false);
+  await save.evaluate((element) => element.classList.add('author-no-pointer'));
+  await expect.poll(saveDisabled).toBe(true);
+  await save.evaluate((element) => element.classList.remove('author-no-pointer'));
+  await routedPage.evaluate((element) => (element.style.pointerEvents = ''));
+  await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+  await routedPage.evaluate((element) => element.dispatchEvent(new Event('iosThemeFoldableTransitionCanceled', { bubbles: true })));
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+});
+
+test('foldable toolbar sources are hidden before ownership and restored with their lifecycle', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  const source = page.locator('app-native-ui-shell ion-button[type=submit]');
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(source).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+
+  const prehidden = await source.evaluate((element) => {
+    element.removeAttribute('data-native-ui-shell');
+    const style = getComputedStyle(element);
+    return { position: style.position, visibility: style.visibility };
+  });
+  expect(prehidden).toEqual({ position: 'absolute', visibility: 'hidden' });
+
+  const earlyBack = await page.locator('app-native-ui-shell ion-back-button').evaluate((element) => {
+    element.removeAttribute('data-native-ui-shell');
+    element.classList.remove('ios-theme-native-ui-shell-prehidden');
+    const style = getComputedStyle(element);
+    return { position: style.position, visibility: style.visibility };
+  });
+  expect(earlyBack).toEqual({ position: 'absolute', visibility: 'hidden' });
+
+  const customBack = page.locator('app-native-ui-shell ion-back-button');
+  await customBack.evaluate((element: HTMLIonBackButtonElement) => (element.color = 'primary'));
+  await expect(customBack).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(customBack).toHaveCSS('visibility', 'visible');
+  const webOnlyBacks = await page.locator('app-native-ui-shell').evaluate((host) => {
+    const content = host.querySelector('ion-content')!;
+    const nested = document.createElement('ion-header');
+    nested.innerHTML = '<ion-toolbar><ion-back-button></ion-back-button></ion-toolbar>';
+    content.append(nested);
+    const condensed = document.createElement('ion-header');
+    condensed.setAttribute('collapse', 'condense');
+    condensed.innerHTML = '<ion-toolbar><ion-back-button></ion-back-button></ion-toolbar>';
+    host.append(condensed);
+    return [nested.querySelector('ion-back-button')!, condensed.querySelector('ion-back-button')!].map(
+      (back) => getComputedStyle(back).visibility,
+    );
+  });
+  expect(webOnlyBacks).toEqual(['visible', 'visible']);
+
+  const lateBackInitially = await page.locator('ion-app').evaluate((root) => {
+    const header = document.createElement('ion-header');
+    header.innerHTML = '<ion-toolbar><ion-back-button default-href="/main/index"></ion-back-button></ion-toolbar>';
+    root.append(header);
+    const back = header.querySelector('ion-back-button')!;
+    back.setAttribute('data-late-back', '');
+    return back.classList.contains('ios-theme-foldable-back-web-owned');
+  });
+  expect(lateBackInitially).toBe(false);
+  const lateBack = page.locator('ion-back-button[data-late-back]');
+  await expect(lateBack).toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
+  await page.waitForTimeout(1600); // Past the unhydrated readiness timeout.
+  await expect(lateBack).toHaveAttribute('data-native-ui-shell', '');
+  await expect(lateBack).not.toHaveClass(/ios-theme-foldable-back-web-owned/);
+  await lateBack.evaluate((element) => element.closest('ion-header')?.remove());
+
+  const lateAction = page.locator('app-native-ui-shell ion-button[data-late-action]');
+  await page
+    .locator('app-native-ui-shell ion-toolbar')
+    .first()
+    .evaluate((toolbar) => {
+      const button = document.createElement('ion-button');
+      button.setAttribute('data-late-action', '');
+      button.setAttribute('aria-label', 'Late action');
+      button.innerHTML = '<ion-icon slot="icon-only" name="checkmark"></ion-icon>';
+      toolbar.append(button);
+    });
+  await expect(lateAction).toHaveAttribute('data-native-ui-shell', '');
+
+  await page.addStyleTag({ content: '.author-hidden { visibility: hidden !important }' });
+  await source.evaluate((element) => element.classList.add('author-hidden'));
+  await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+  await source.evaluate((element) => element.classList.remove('author-hidden'));
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+
+  await source.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
+  await expect(source).toHaveCSS('visibility', 'visible');
+
+  await page.evaluate(() => (window as any).nativeUIShell.destroy());
+  await expect(source).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(source).toHaveCSS('visibility', 'visible');
+});
+
+test('rejected foldable control returns to an operable Web source', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  const save = page.locator('app-native-ui-shell ion-button[type=submit]');
+  await expect(save).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => {
+    (window as any).__nativeUIShell.rejectControlLabel = 'Save';
+    window.dispatchEvent(new Event('nativeUIShellRefresh'));
+  });
+  await expect(save).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(save).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(save).toHaveCSS('visibility', 'visible');
+  await save.click();
+  await expect(page.locator('[data-save-count]')).toHaveText('1');
+});
+
+test('foldable rail remains native while its Ionic menu is open', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+  const menu = page.locator('ion-menu');
+  const menuSource = page.locator('app-native-ui-shell ion-menu-button').locator('..');
+  const backSource = page.locator('app-native-ui-shell ion-back-button');
+  const saveSource = page.locator('app-native-ui-shell ion-button[type=submit]');
+  const cancelSource = page.locator('app-native-ui-shell ion-button').filter({ hasText: 'Cancel' });
+  const actionGroup = page.locator('app-native-ui-shell ion-buttons[data-glass-group]');
+  const tabs = page.locator('ion-tab-bar');
+
+  await actionGroup.evaluate((element) => {
+    const cancel = document.createElement('ion-button') as HTMLIonButtonElement;
+    cancel.classList.add('ios');
+    cancel.fill = 'clear';
+    cancel.textContent = 'Cancel mixed action';
+    element.prepend(cancel);
+  });
+  const mixedCancel = actionGroup.locator('ion-button').filter({ hasText: 'Cancel mixed action' });
+  const mixedIcons = actionGroup.locator('ion-button').filter({ has: page.locator('ion-icon') });
+  await expect(actionGroup).not.toHaveAttribute('data-native-ui-shell');
+  await expect(mixedIcons.nth(0)).toHaveAttribute('data-native-ui-shell', '');
+  await expect(mixedIcons.nth(1)).toHaveAttribute('data-native-ui-shell', '');
+  await expect(mixedCancel).not.toHaveAttribute('data-native-ui-shell');
+  await expect(mixedCancel).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
+        const demoActions = (control: any) =>
+          control.items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
+        return {
+          groups: controls.filter((control: any) => control.kind === 'ion-buttons' && demoActions(control) === 2).length,
+          individuals: controls.filter((control: any) => control.kind === 'ion-button' && demoActions(control) > 0).length,
+        };
+      }),
+    )
+    .toEqual({ groups: 1, individuals: 0 });
+  const nativeDisabled = () =>
+    page.evaluate(() => {
+      const items = (window as any).__nativeUIShell.updates.at(-1).controls.flatMap((control: any) => control.items);
+      return {
+        save: items.find((item: any) => item.accessibilityLabel === 'Save')?.disabled,
+        actions: items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).map((item: any) => item.disabled),
+      };
+    });
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
+  await activate(page, 'menu');
+  await expect(menu).toHaveClass(/show-menu/);
+  await expect.poll(nativeDisabled).toEqual({ save: false, actions: [true, true] });
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
+  await expect.poll(nativeDisabled).toEqual({ save: false, actions: [false, false] });
+  await mixedCancel.evaluate((element) => element.remove());
+  await expect(actionGroup).toHaveAttribute('data-native-ui-shell', '');
+  await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
+  await expect.poll(nativeDisabled).toEqual({ save: true, actions: [true, true] });
+  await expect(menu).toHaveClass(/show-menu/);
+  await activate(page, 'Save');
+  await expect(page.locator('[data-save-count]')).toHaveText('0');
+  await saveSource.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
+  await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = ''));
+  await expect.poll(nativeDisabled).toEqual({ save: false, actions: [false, false] });
+  await expect.poll(() => cancelSource.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+  for (const source of [menuSource, backSource, saveSource, tabs]) await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect(cancelSource).toBeVisible();
+  await activate(page, 'Save');
+  await expect(page.locator('[data-save-count]')).toHaveText('1');
+  // Placement is selected when this page enters, not re-evaluated from later content.
+  await cancelSource.evaluate((element) => {
+    element.setAttribute('data-morphed-cancel', '');
+    element.textContent = '';
+    const icon = document.createElement('ion-icon');
+    icon.setAttribute('slot', 'icon-only');
+    icon.setAttribute('name', 'checkmark');
+    element.append(icon);
+  });
+  const morphedCancel = page.locator('app-native-ui-shell ion-button[data-morphed-cancel]');
+  await expect(morphedCancel).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(morphedCancel).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
+  await expect(morphedCancel).toBeVisible();
+});
+
+test('foldable controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockNative(page, false, false);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-enable-foldable'));
+
+  const projection = page.locator('ion-app > ion-back-button.ios-theme-foldable-back-button-projection');
+  const menuProjection = page.locator('ion-app > ion-menu-button.ios-theme-foldable-toolbar-projection');
+  const saveProjection = page.locator('ion-app > ion-button.ios-theme-foldable-toolbar-projection[aria-label=Save]');
+  await expect(projection).toBeVisible();
+  await expect(menuProjection).toBeVisible();
+  await expect(saveProjection).toBeVisible();
+  await expect(page.locator('ion-tab-bar')).toBeVisible();
+  await page.addStyleTag({ content: '.author-hidden { visibility: hidden !important }' });
+  const saveSource = page.locator('app-native-ui-shell ion-button[type=submit]');
+  await saveSource.evaluate((element) => element.classList.add('author-hidden'));
+  await expect(saveProjection).toHaveCount(0);
+  await saveSource.evaluate((element) => element.classList.remove('author-hidden'));
+  await expect(saveProjection).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window as any).__nativeUIShell.updates.every((snapshot: any) =>
+          snapshot.controls.every((control: any) => control.placement !== 'foldable-rail'),
+        ),
+      ),
+    )
+    .toBe(true);
+
+  await menuProjection.click();
+  await expect(page.locator('ion-menu')).toHaveClass(/show-menu/);
+  await expect(projection).toBeVisible();
+  await expect(menuProjection).toBeVisible();
+  await expect(saveProjection).toBeVisible();
+  await expect(page.locator('ion-tab-bar')).toBeVisible();
+  await saveProjection.click();
+  await expect(page.locator('[data-save-count]')).toHaveText('1');
+
+  await page.evaluate(() => {
+    const outlet = document.querySelector('ion-tabs ion-router-outlet')!;
+    (window as any).__foldableBackCloneMoved = false;
+    new MutationObserver(() => {
+      if (outlet.querySelector(':scope > ion-back-button.ion-cloned-element')) (window as any).__foldableBackCloneMoved = true;
+    }).observe(outlet, { childList: true });
+  });
+  await projection.click();
+  await expect(page).toHaveURL(/\/main\/index$/);
+  expect(await page.evaluate(() => (window as any).__foldableBackCloneMoved)).toBe(false);
 });
 
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {
@@ -387,15 +761,20 @@ test('native click preserves external form submit, disabled, and duplicate prote
   expect(await page.evaluate(() => (window as any).__nativeUIShell.updates.length)).toBe(count);
 });
 
-test('ancestor display/theme aliases and non-glass fills restore Web', async ({ page }) => {
+test('ancestor display, element opt-out aliases and non-glass fills restore Web', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   const button = page.locator('app-native-ui-shell ion-button[type=submit]');
+  const toolbar = button.locator('xpath=ancestor::ion-toolbar[1]');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
-  for (const toggle of ['Parent hidden', 'Theme disabled']) {
-    await page.getByRole('button', { name: `${toggle}: false`, exact: true }).click();
+  await page.getByRole('button', { name: 'Parent hidden: false', exact: true }).click();
+  await expect(button).not.toHaveAttribute('data-native-ui-shell');
+  await page.getByRole('button', { name: 'Parent hidden: true', exact: true }).click();
+  await expect(button).toHaveAttribute('data-native-ui-shell', '');
+  for (const name of ['ios-theme-disabled', 'ios26-disabled', 'ionic-theme-disabled']) {
+    await toolbar.evaluate((element, name) => element.classList.add(name), name);
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
-    await page.getByRole('button', { name: `${toggle}: true`, exact: true }).click();
+    await toolbar.evaluate((element, name) => element.classList.remove(name), name);
     await expect(button).toHaveAttribute('data-native-ui-shell', '');
   }
   for (const name of ['ios-theme-disabled', 'ios26-disabled', 'ionic-theme-disabled']) {
@@ -404,6 +783,11 @@ test('ancestor display/theme aliases and non-glass fills restore Web', async ({ 
     await button.evaluate((element, name) => element.classList.remove(name), name);
     await expect(button).toHaveAttribute('data-native-ui-shell', '');
   }
+  await page
+    .locator('app-native-ui-shell ion-buttons[slot=end] ion-button')
+    .filter({ hasText: 'Cancel' })
+    .evaluate((element) => element.remove());
+  await expect(button).toHaveAttribute('data-native-ui-shell', '');
   for (const fill of ['clear', 'solid', 'outline']) {
     await page.getByRole('button', { name: `fill: ${fill}`, exact: true }).click();
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
@@ -719,6 +1103,16 @@ test('clear ion-buttons share one glass surface and keep independent actions', a
   const native = await projectedGroup();
   expect(native.items).toHaveLength(2);
   expect(native.items.map((item: any) => item.accessibilityLabel)).toEqual(['GitHub', 'Refresh']);
+  const githubName = () =>
+    page.evaluate(
+      (id) =>
+        (window as any).__nativeUIShell.updates.at(-1).controls.find((control: any) => control.id === id)?.items[0]?.accessibilityLabel,
+      native.id,
+    );
+  await github.locator('ion-icon').evaluate((icon) => icon.setAttribute('aria-hidden', 'true'));
+  await expect.poll(githubName).not.toBe('GitHub');
+  await github.locator('ion-icon').evaluate((icon) => icon.removeAttribute('aria-hidden'));
+  await expect.poll(githubName).toBe('GitHub');
   for (const item of native.items) expect(item.icon).toMatch(/^iVBOR/);
   await activate(page, 'GitHub', true);
   await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 0');
@@ -775,7 +1169,7 @@ test('theme-disabled ion-buttons project eligible buttons independently', async 
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
         const isDemoAction = (control: any) => control.items.some((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel));
         return {
           buttons: controls.filter((control: any) => control.kind === 'ion-button' && isDemoAction(control)).length,
@@ -1071,6 +1465,7 @@ test('menu button toggles its Ionic menu and follows autoHide, disabled and spli
   await page.goto('/main/index/native-ui-shell');
   const menu = page.locator('ion-menu');
   const button = page.locator('app-native-ui-shell ion-menu-button');
+  await button.evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = true));
   const surface = button.locator('..');
   await expect(surface).toHaveAttribute('data-native-ui-shell', '');
   await expect

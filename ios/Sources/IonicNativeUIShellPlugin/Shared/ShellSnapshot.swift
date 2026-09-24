@@ -31,8 +31,12 @@ struct ShellFrame: Decodable, Equatable {
 }
 
 struct ShellControl: Decodable, Equatable {
+    enum Placement: String, Decodable { case foldableRail = "foldable-rail" }
+    enum ToolbarSlot: String, Decodable { case start, end }
     let id: String
     let kind: ShellComponent
+    let placement: Placement?
+    let toolbarSlot: ToolbarSlot?
     let frame: ShellFrame
     let items: [ShellItem]
     let dark: Bool
@@ -40,12 +44,14 @@ struct ShellControl: Decodable, Equatable {
     let tabBarAnchor: ShellTabBar.Anchor?
     let search: ShellSearch?
 
-    private enum CodingKeys: String, CodingKey { case id, kind, items, dark, rtl, tabBarAnchor, search }
+    private enum CodingKeys: String, CodingKey { case id, kind, placement, toolbarSlot, items, dark, rtl, tabBarAnchor, search }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         id = try values.decode(String.self, forKey: .id)
         kind = try values.decode(ShellComponent.self, forKey: .kind)
+        placement = try values.decodeIfPresent(Placement.self, forKey: .placement)
+        toolbarSlot = try values.decodeIfPresent(ToolbarSlot.self, forKey: .toolbarSlot)
         frame = try ShellFrame(from: decoder)
         items = try values.decode([ShellItem].self, forKey: .items)
         dark = try values.decode(Bool.self, forKey: .dark)
@@ -57,6 +63,7 @@ struct ShellControl: Decodable, Equatable {
     var isValid: Bool {
         ShellComponents.supported.contains(kind) && !id.isEmpty && frame.isValid && !items.isEmpty && items.count <= 30 &&
         (!ShellButton.kinds.contains(kind) || items.count == 1) &&
+        (toolbarSlot == nil || (placement == .foldableRail && [.button, .buttons, .menuButton].contains(kind))) &&
         Set(items.map(\.id)).count == items.count && items.allSatisfy(\.isValid) &&
         (tabBarAnchor.map { kind == .tabBar && $0.isValid } ?? true) &&
         (search.map { kind == .tabBar && $0.isValid } ?? true)

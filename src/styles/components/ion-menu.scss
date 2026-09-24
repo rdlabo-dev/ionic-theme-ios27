@@ -140,14 +140,18 @@ ion-menu.ios:not(.ios-theme-disabled, .ios26-disabled) {
   ion-menu.ios.menu-side-end:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
   ion-menu.ios.menu-side-start:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
     --ion-safe-area-right: 0px;
-    right: var(--ios-theme-foldable-safe-area-right-resolved);
-    left: auto;
+
+    &::part(container) {
+      margin-right: var(--ios-theme-foldable-safe-area-right-resolved);
+    }
   }
 
   ion-menu.ios.menu-side-start:not(:dir(rtl)):not(.ios-theme-disabled, .ios26-disabled),
   ion-menu.ios.menu-side-end:dir(rtl):not(.ios-theme-disabled, .ios26-disabled) {
     --ion-safe-area-left: 0px;
-    left: var(--ios-theme-foldable-safe-area-left-resolved);
-    right: auto;
+
+    &::part(container) {
+      margin-left: var(--ios-theme-foldable-safe-area-left-resolved);
+    }
   }
 }

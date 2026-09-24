@@ -5,7 +5,7 @@ import * as menuButton from './ion-menu-button';
 import * as tabBar from './ion-tab-bar';
 import * as segment from './ion-segment';
 import * as fab from './ion-fab';
-import { isDisabledButtonGroupChild, visible } from '../shared/dom';
+import { isDisabledButtonGroupChild, isFoldableRailSource, visible } from '../shared/dom';
 import type { Candidate, Identify } from '../shared/candidate';
 
 // Static composition only. Each component declares its own tag, discovery and reader.
@@ -27,13 +27,17 @@ export const motionSelector = [
   ...components.filter((component) => 'tracksMotion' in component && component.tracksMotion).map((component) => component.tag),
 ].join(', ');
 
+export const isFoldableRailCandidate = isFoldableRailSource;
+
 export const readCandidate = (element: HTMLElement, id: Identify): Candidate | undefined => {
-  if (!element.classList.contains('ios') || !visible(element) || element.closest('ion-modal, ion-popover')) return;
+  const foldable = isFoldableRailCandidate(element);
+  if (!element.classList.contains('ios') || !visible(element, foldable) || element.closest('ion-modal, ion-popover')) return;
   const style = getComputedStyle(element);
   if (
     !isDisabledButtonGroupChild(element) &&
     !style.getPropertyValue('--ios-theme-glass-background-rgb').trim() &&
-    !style.getPropertyValue('--ios26-glass-background-rgb').trim()
+    !style.getPropertyValue('--ios26-glass-background-rgb').trim() &&
+    !foldable
   )
     return;
   if (element.contains(element.ownerDocument.activeElement)) return;

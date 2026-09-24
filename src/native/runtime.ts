@@ -1,6 +1,6 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
-import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
+import { FOLDABLE_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
 import type {
   ShellActivation,
@@ -10,8 +10,16 @@ import type {
   NativeUIShellPlugin,
   NativeUIShellStatus,
 } from './definitions';
-import { readCandidate, selector, shadowSelector, motionSelector } from './components';
-import { marker, unprojected } from './shared/dom';
+import { readCandidate, selector, shadowSelector, motionSelector, isFoldableRailCandidate } from './components';
+import {
+  activateProjectedElement,
+  createFoldablePageState,
+  isFoldableRailSource,
+  marker,
+  prehideOnlyMutation,
+  rejectedClass,
+  unprojected,
+} from './shared/dom';
 import { createIconRenderer } from './shared/icons';
 import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
@@ -19,6 +27,8 @@ import { createCrossfade, fadeMarker } from './shared/crossfade';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
+const foldableRailMarker = 'data-native-ui-shell-foldable-rail';
+const foldableRailMemberMarker = 'data-native-ui-shell-foldable-rail-member';
 
 // A failed bridge must not leave the source inaccessible indefinitely.
 const bounded = <T>(promise: Promise<T>): Promise<T> =>
@@ -31,6 +41,7 @@ export const createRuntime = async (
   doc: Document,
   plugin: NativeUIShellPlugin,
   options: NativeUIShellOptions = {},
+  nativeFoldableRail = true,
 ): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
@@ -38,8 +49,11 @@ export const createRuntime = async (
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
   const sources = new Map<HTMLElement, string | null>();
+  const foldableRailOwners = new Set<HTMLElement>();
+  const foldableRailMembers = new Set<HTMLElement>();
   const suspended = new Set<HTMLElement[]>();
   const pages = new Set<HTMLElement>();
+  const foldablePages = createFoldablePageState();
   const presented = new Set<HTMLElement>();
   const manualSuspensions = new Set<symbol>();
   const moving = new Map<HTMLElement, Set<string>>();
@@ -95,13 +109,22 @@ export const createRuntime = async (
   const style = doc.createElement('style');
   const hidden = `[${marker}]:not([${fadeMarker}])`;
   style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
-    [${marker}], [${marker}] * { pointer-events: none !important; }`;
+    [${marker}], [${marker}] * { pointer-events: none !important; }
+    /* Ionic disables the covered page while a menu is open. Foldable rail
+       controls remain outside that page; zero specificity preserves any
+       pointer-events rule supplied by the application itself. */
+    :where(.menu-content-open) :where([${foldableRailMarker}]) {
+      pointer-events: auto;
+    }
+    :where(.menu-content-open) :where([${foldableRailMarker}]) > :where(:not([${foldableRailMemberMarker}])) {
+      pointer-events: none;
+    }`;
 
   const restore = (element: HTMLElement) => {
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    if (!stopped) crossfade.play(element, false, handoffInstant);
+    if (!stopped) crossfade.play(element, false, handoffInstant || isFoldableRailSource(element));
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -110,7 +133,13 @@ export const createRuntime = async (
     sources.delete(element);
     element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
   };
-  const restoreAll = () => Array.from(sources.keys()).forEach(restore);
+  const restoreAll = () => {
+    Array.from(sources.keys()).forEach(restore);
+    foldableRailOwners.forEach((element) => element.removeAttribute(foldableRailMarker));
+    foldableRailOwners.clear();
+    foldableRailMembers.forEach((element) => element.removeAttribute(foldableRailMemberMarker));
+    foldableRailMembers.clear();
+  };
   const finishWaiters = () => {
     const current = waiters;
     waiters = [];
@@ -123,14 +152,36 @@ export const createRuntime = async (
   };
   const search = createSearchSupport(doc, id, schedule);
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
+  const setRejected = (element: HTMLElement, value: boolean) => {
+    element.classList.toggle(rejectedClass, value);
+  };
+  const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    const candidate = readCandidate(element, id);
-    if (
-      candidate &&
-      ['ion-back-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind) &&
-      element.closest(':is(ion-app, body).ios-theme-enable-foldable')
-    )
-      return undefined;
+    const pointerPage = isFoldableRailCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
+    let candidate: Candidate | undefined;
+    if (pointerPage && getComputedStyle(pointerPage).pointerEvents === 'none') {
+      const previous = pointerPage.style.getPropertyValue('pointer-events');
+      const priority = pointerPage.style.getPropertyPriority('pointer-events');
+      const hadStyle = pointerPage.hasAttribute('style');
+      measuringPointerPages.add(pointerPage);
+      pointerPage.style.setProperty('pointer-events', 'auto', 'important');
+      try {
+        candidate = readCandidate(element, id);
+      } finally {
+        if (previous) pointerPage.style.setProperty('pointer-events', previous, priority);
+        else pointerPage.style.removeProperty('pointer-events');
+        if (!hadStyle && !pointerPage.style.length) pointerPage.removeAttribute('style');
+        win.setTimeout(() => measuringPointerPages.delete(pointerPage), 0);
+      }
+    } else candidate = readCandidate(element, id);
+    if (candidate && isFoldableRailCandidate(element)) {
+      if (!nativeFoldableRail) return undefined;
+      candidate.control.placement = 'foldable-rail';
+      if (['ion-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind)) {
+        const slot = (element.matches('ion-buttons') ? element : (element.closest('ion-buttons') ?? element)).getAttribute('slot');
+        if (slot === 'start' || slot === 'end') candidate.control.toolbarSlot = slot;
+      }
+    }
     return candidate && controlEnabled(candidate) ? candidate : undefined;
   };
   const flush = async () => {
@@ -143,17 +194,22 @@ export const createRuntime = async (
     }
   };
   const blocked = (element: HTMLElement) =>
-    Array.from(suspended).some((scopes) => scopes.some((scope) => scope.contains(element))) ||
-    Array.from(pages).some((page) => page.contains(element)) ||
-    Array.from(moving.keys()).some((surface) => surface.contains(element));
+    foldablePages.isDeparted(element) ||
+    (!isFoldableRailSource(element) &&
+      (Array.from(suspended).some((scopes) => scopes.some((scope) => scope.contains(element))) ||
+        Array.from(pages).some((scope) => scope.contains(element)) ||
+        Array.from(moving.keys()).some((surface) => surface.contains(element))));
   const painted = () => new Promise<void>((resolve) => win.requestAnimationFrame(() => win.requestAnimationFrame(() => resolve())));
-  const overlayOpen = () => {
+  const overlayOpen = (includeMenu = true) => {
     for (const element of presented) if (!element.isConnected) presented.delete(element);
+    const presentedOverlayOpen = Array.from(presented).some((element) => includeMenu || !element.matches('ion-menu'));
     return (
       manualSuspensions.size > 0 ||
-      presented.size > 0 ||
+      presentedOverlayOpen ||
       Array.from(doc.querySelectorAll(overlays)).some(
-        (element) => (element as Element & { presented?: boolean }).presented || element.classList.contains('show-menu'),
+        (element) =>
+          (includeMenu || !element.matches('ion-menu')) &&
+          ((element as Element & { presented?: boolean }).presented || element.classList.contains('show-menu')),
       )
     );
   };
@@ -164,19 +220,21 @@ export const createRuntime = async (
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
-    if (doc.hidden || overlayOpen()) return [];
+    if (doc.hidden || overlayOpen(false)) return [];
     if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
-    return unprojected(sources.keys(), () =>
+    const menuOpen = overlayOpen();
+    const candidates = unprojected(sources.keys(), () =>
       search
         .decorate(
           Array.from(doc.querySelectorAll<HTMLElement>(selector))
-            .filter((element) => !blocked(element))
+            .filter((element) => !foldablePages.isDeparted(element) && (!blocked(element) || (menuOpen && isFoldableRailSource(element))))
             .map(readEnabledCandidate)
             .filter((candidate): candidate is Candidate => !!candidate),
           blocked,
         )
         .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate)),
     );
+    return menuOpen ? candidates.filter((candidate) => isFoldableRailCandidate(candidate.element)) : candidates;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -245,7 +303,7 @@ export const createRuntime = async (
         removed.forEach(restore);
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
         // native snapshot over the destination. Stack transitions still need the paint.
-        if (!handoffInstant) {
+        if (!handoffInstant && removed.some((element) => !isFoldableRailSource(element))) {
           await painted();
           if (stopped || dirty) return;
         }
@@ -274,6 +332,7 @@ export const createRuntime = async (
       for (const candidate of candidates) {
         if (result.rejectedControls?.includes(candidate.control.id)) {
           rejected.set(candidate.element, signatures.get(candidate.element)!);
+          setRejected(candidate.element, true);
           dirty = true;
         }
       }
@@ -282,6 +341,15 @@ export const createRuntime = async (
       const current = dirty ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)])) : signatures;
       const currentSources = new Set(currentCandidates.flatMap(candidateSources));
       const accepted = candidates.filter((candidate) => current.get(candidate.element) === signatures.get(candidate.element));
+      accepted.forEach((candidate) => setRejected(candidate.element, false));
+      const acceptedFoldableRailOwners = new Set(
+        accepted.filter((candidate) => candidate.control.placement === 'foldable-rail').map((candidate) => candidate.element),
+      );
+      const acceptedFoldableRailMembers = new Set(
+        accepted
+          .filter((candidate) => candidate.control.placement === 'foldable-rail')
+          .flatMap((candidate) => Array.from(candidate.actions.values())),
+      );
       const invalidated = candidates.length !== accepted.length;
       acceptedRevision = result.revision;
       lastSnapshot = invalidated ? '' : serialized;
@@ -291,10 +359,28 @@ export const createRuntime = async (
       // Keep an existing cover while its content catches up. Only an ineligible
       // source needs to return to Web; new sources still require an exact ack.
       for (const element of sources.keys()) if (!currentSources.has(element)) restore(element);
+      for (const element of foldableRailOwners) {
+        if (acceptedFoldableRailOwners.has(element)) continue;
+        element.removeAttribute(foldableRailMarker);
+        foldableRailOwners.delete(element);
+      }
+      for (const element of acceptedFoldableRailOwners) {
+        element.setAttribute(foldableRailMarker, '');
+        foldableRailOwners.add(element);
+      }
+      for (const element of foldableRailMembers) {
+        if (acceptedFoldableRailMembers.has(element)) continue;
+        element.removeAttribute(foldableRailMemberMarker);
+        foldableRailMembers.delete(element);
+      }
+      for (const element of acceptedFoldableRailMembers) {
+        element.setAttribute(foldableRailMemberMarker, '');
+        foldableRailMembers.add(element);
+      }
       for (const element of accepted.flatMap(candidateSources)) {
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(element, true, handoffInstant);
+          crossfade.play(element, true, handoffInstant || isFoldableRailSource(element));
           element.setAttribute(marker, '');
           element.setAttribute('aria-hidden', 'true');
           element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
@@ -326,13 +412,21 @@ export const createRuntime = async (
       else finishWaiters();
     }
   };
-  const observation: MutationObserverInit = { subtree: true, childList: true, characterData: true, attributes: true };
+  const observation: MutationObserverInit = {
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeOldValue: true,
+  };
   const observer = new MutationObserver((records) => {
     if (
       records.some(
         (record) =>
           record.attributeName !== marker &&
           record.attributeName !== fadeMarker &&
+          !prehideOnlyMutation(record) &&
+          !(record.attributeName === 'style' && measuringPointerPages.has(record.target as HTMLElement)) &&
           !(
             record.attributeName === 'aria-hidden' &&
             sources.has(record.target as HTMLElement) &&
@@ -347,6 +441,7 @@ export const createRuntime = async (
     target.addEventListener(name, callback, { capture: true, signal: listeners.signal });
   const pageWill: EventListener = (event) => {
     const page = event.target as HTMLElement;
+    foldablePages.lifecycle(event);
     getNativeSearchBindings(doc)
       .filter((binding) => page.contains(binding.footer))
       .forEach((binding) => search.retire(binding));
@@ -357,7 +452,9 @@ export const createRuntime = async (
     schedule();
   };
   const pageDid: EventListener = (event) => {
-    pages.delete(event.target as HTMLElement);
+    const page = event.target as HTMLElement;
+    foldablePages.lifecycle(event);
+    pages.delete(page);
     schedule();
     if (tabSwitchHandoff && pages.size === 0) endTabSwitchHandoff();
   };
@@ -417,6 +514,14 @@ export const createRuntime = async (
   for (const name of Object.values(CSS_MOTION_EVENTS)) on(doc, name, motion);
   for (const name of [LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE]) on(doc, name, pageWill);
   for (const name of [LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE]) on(doc, name, pageDid);
+  on(doc, FOLDABLE_TRANSITION_CANCELED, (event) => {
+    const leaving = event.target as HTMLElement;
+    const entering = (event as CustomEvent<{ entering?: HTMLElement }>).detail?.entering;
+    foldablePages.cancel(entering, leaving);
+    pages.delete(leaving);
+    if (entering) pages.delete(entering);
+    schedule();
+  });
   on(doc, 'ionTabsWillChange', () => {
     // Vanilla ion-tabs dispatches DOM events; @ionic/angular uses EventEmitters instead.
     armTabSwitchHandoff();
@@ -439,12 +544,16 @@ export const createRuntime = async (
       schedule();
     });
   }
+  const eventMenu = (event: Event) =>
+    event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.matches('ion-menu'));
   on(doc, 'ionWillOpen', (event) => {
-    presented.add(event.target as HTMLElement);
+    const menu = eventMenu(event);
+    if (menu) presented.add(menu);
     schedule();
   });
   on(doc, 'ionDidClose', (event) => {
-    presented.delete(event.target as HTMLElement);
+    const menu = eventMenu(event);
+    if (menu) presented.delete(menu);
     schedule();
   });
   for (const name of [
@@ -522,6 +631,7 @@ export const createRuntime = async (
         /* Always restore the Web, even after bridge loss. */
       }
       style.remove();
+      doc.querySelectorAll<HTMLElement>(`.${rejectedClass}`).forEach((element) => setRejected(element, false));
       icons.clear();
       pages.clear();
       presented.clear();
@@ -540,7 +650,7 @@ export const createRuntime = async (
       event.revision < acceptedRevision ||
       event.revision > revision ||
       event.sequence <= lastSequence ||
-      overlayOpen()
+      overlayOpen(false)
     )
       return;
     // Native may send input before update() resolves on the JS bridge.
@@ -561,7 +671,7 @@ export const createRuntime = async (
       candidate?.control.search && [candidate.control.search.trigger.id, candidate.control.search.closeId].includes(event.id);
     if (!searchAction && (!item || item.disabled || item.visible === false)) return;
     // The original Ionic host owns form submission, routerLink and selection events.
-    element.click();
+    activateProjectedElement(element);
     lastSnapshot = ''; // Reconcile even if Ionic rejects the proposed native selection.
     schedule();
   };
@@ -597,9 +707,14 @@ export const createRuntime = async (
         await flush();
         // Source DOM has been restored before Ionic starts moving it.
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
-        return () => {
+        return (canceled = false) => {
           suspended.delete(scopes);
-          scopes.forEach((scope) => pages.delete(scope)); // interactive cancellation has no didLeave.
+          if (canceled || !scopes.some((scope) => scope.closest(':is(ion-app, body).ios-theme-enable-foldable'))) {
+            scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
+            if (canceled) {
+              foldablePages.cancel(scopes[0], scopes[1]); // The entering page is abandoned; the leaving page stays active.
+            }
+          }
           schedule();
         };
       },

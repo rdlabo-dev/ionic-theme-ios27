@@ -83,6 +83,10 @@ export interface ShellItem extends Frame {
 export interface ShellControl extends Frame {
   id: string;
   kind: NativeUIShellComponent;
+  /** Lets the native host own adaptive placement instead of mirroring the DOM frame. */
+  placement?: 'foldable-rail';
+  /** Logical Ionic toolbar slot, preserved when projecting to the foldable rail. */
+  toolbarSlot?: 'start' | 'end';
   items: ShellItem[];
   dark: boolean;
   rtl: boolean;
@@ -131,7 +135,7 @@ export interface WebViewMetrics {
 }
 
 export interface NativeUIShellPlugin {
-  configure(): Promise<{ supported: boolean }>;
+  configure(): Promise<{ supported: boolean; foldableRail?: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;

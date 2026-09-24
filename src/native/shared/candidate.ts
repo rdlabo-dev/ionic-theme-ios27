@@ -1,5 +1,5 @@
 import type { ShellControl, ShellItem, NativeUIShellComponent } from '../definitions';
-import { frame, isDark, text, visible } from './dom';
+import { frame, isDark, isFoldableRailSource, text, visible } from './dom';
 import { iconSource } from './icons';
 
 export interface Candidate {
@@ -39,7 +39,11 @@ export const appendItem = (
   content: ParentNode = child,
   label = text(child),
 ): ShellItem | undefined => {
-  if (!visible(child) || child.querySelector('input, button, a, img, canvas, video, ion-spinner, ion-avatar')) return;
+  if (
+    !visible(child, isFoldableRailSource(candidate.element)) ||
+    child.querySelector('input, button, a, img, canvas, video, ion-spinner, ion-avatar')
+  )
+    return;
   const icons = Array.from(content.querySelectorAll<HTMLElement>('ion-icon'));
   const directSVGs = Array.from(content.querySelectorAll<SVGElement>('svg'));
   if (icons.length + directSVGs.length > 1) return undefined;
@@ -54,7 +58,11 @@ export const appendItem = (
     id: id(child),
     ...frame(child.getBoundingClientRect(), candidate.element.getBoundingClientRect()),
     label,
-    accessibilityLabel: child.getAttribute('aria-label') ?? native?.getAttribute('aria-label') ?? label,
+    accessibilityLabel:
+      child.getAttribute('aria-label') ??
+      native?.getAttribute('aria-label') ??
+      (icons[0]?.getAttribute('aria-hidden') === 'true' ? null : icons[0]?.getAttribute('aria-label')) ??
+      label,
     disabled:
       !!(child as ItemElement).disabled ||
       !!(candidate.element as ItemElement).disabled ||
