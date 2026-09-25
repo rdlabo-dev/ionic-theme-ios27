@@ -13,8 +13,8 @@ test('verticalBars mode moves tabs into the right rail and reveals labels while 
 
   const bar = page.locator('#tab-bar-bottom');
   const buttons = bar.locator('ion-tab-button');
+  await expect.poll(async () => (await bar.boundingBox())?.x).toBeGreaterThan(620);
   const barBox = (await bar.boundingBox())!;
-  expect(barBox.x).toBeGreaterThan(620);
   expect(barBox.width).toBeCloseTo(50, 0);
   await expect(buttons.first().locator('ion-label')).toHaveCSS('position', 'absolute');
   await expect(buttons.nth(1).locator('ion-label')).toHaveCSS('position', 'absolute');
@@ -43,4 +43,14 @@ test('verticalBars mode moves tabs into the right rail and reveals labels while 
     return direction;
   });
   expect(overlayDirection).toBe('row');
+});
+
+test('manual classes place the Web rail on the left in Chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index');
+  await page.locator('ion-app').evaluate((root) => root.classList.add('ios-theme-vertical-bars', 'ios-theme-vertical-bars-left'));
+
+  const bar = page.locator('#tab-bar-bottom');
+  await expect.poll(async () => (await bar.boundingBox())?.x).toBeLessThan(35);
+  await expect(bar).toHaveScreenshot('vertical-bars-left.png', { animations: 'disabled' });
 });

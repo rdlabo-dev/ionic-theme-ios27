@@ -14,7 +14,7 @@ const transitionConfig = {
   offLeftPercent: 30,
   getIonPageElement,
   connectNativeUIShellTransition,
-  shouldAnimateFixedBackButton: (navEl: HTMLElement) => !navEl.closest(':is(ion-app, body).ios-theme-vertical-bars'),
+  shouldAnimateFixedBackButton: (navEl: HTMLElement) => !navEl.closest('ion-app.ios-theme-vertical-bars'),
   radius: 0,
 };
 

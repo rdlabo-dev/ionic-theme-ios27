@@ -15,6 +15,8 @@ export interface NativeUIShellOptions {
   enabled?: boolean;
   /** Controls eligible for native projection. Omit to enable every control; when present, only `true` controls are enabled. */
   controls?: NativeUIShellControls;
+  /** Internal: limit native projection to the Vertical Control Area. */
+  verticalBarsOnly?: boolean;
 }
 
 export interface NativeUIShellControls {
@@ -35,6 +37,26 @@ export interface NativeUIShellHandle {
   suspend(): Promise<NativeUIShellSuspension>;
   /** Stops synchronization, restores Web controls and releases native resources. */
   destroy(): Promise<void>;
+}
+
+export type VerticalBarEdge = 'left' | 'right' | null;
+
+export interface VerticalBarPlacement {
+  edge: VerticalBarEdge;
+  /** UIKit safe-area inset on the physical vertical-bar edge, in points. */
+  inset: number;
+}
+
+export enum HingeStatus {
+  Unavailable = 'unavailable',
+  Closed = 'closed',
+  PartiallyOpen = 'partially-open',
+  FullyOpen = 'fully-open',
+}
+
+export interface VerticalControlAreaHandle extends NativeUIShellHandle {
+  /** Applies the application's chosen placement to both Web and native controls. */
+  setPlacement(placement: VerticalBarEdge | VerticalBarPlacement): void;
 }
 
 export interface NativeUIShellSuspension {
@@ -120,6 +142,7 @@ export interface ShellSnapshot {
   revision: number;
   transitionDuration?: number;
   viewportWidth: number;
+  verticalBarEdge?: Exclude<VerticalBarEdge, null>;
   controls: ShellControl[];
 }
 
@@ -134,12 +157,20 @@ export interface WebViewMetrics {
   radius: number;
 }
 
+export interface DeviceLayout {
+  placement: VerticalBarPlacement;
+  hingeStatus: HingeStatus;
+  webViewMetrics: WebViewMetrics;
+}
+
 export interface NativeUIShellPlugin {
-  configure(): Promise<{ supported: boolean; verticalBars?: boolean }>;
-  getWebViewMetrics(): Promise<WebViewMetrics>;
+  configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
+  getDeviceLayout(): Promise<DeviceLayout>;
+  startDeviceLayoutMonitoring(): Promise<void>;
+  stopDeviceLayoutMonitoring(): Promise<void>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
-  addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'deviceLayoutChange', listener: (event: DeviceLayout) => void): Promise<PluginListenerHandle>;
 }

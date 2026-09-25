@@ -37,7 +37,12 @@ export const withoutPrehide = <T>(element: HTMLElement, read: () => T): T => {
     changed.forEach((current) => current.classList.add(current === root ? prehideRootClass : prehiddenClass));
   }
 };
-export const isDark = (style: CSSStyleDeclaration): boolean => style.getPropertyValue('--ios27-color-scheme').trim() === 'dark';
+export const isDark = (style: CSSStyleDeclaration): boolean => {
+  const themeScheme = style.getPropertyValue('--ios27-color-scheme').trim();
+  if (themeScheme) return themeScheme === 'dark';
+  const background = style.getPropertyValue('--ion-background-color-rgb').match(/\d+/g)?.slice(0, 3).map(Number);
+  return !!background && background.length === 3 && background[0] * 0.2126 + background[1] * 0.7152 + background[2] * 0.0722 < 128;
+};
 const permanentlyExcluded = '.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled, .ion-cloned-element, [hidden], [inert]';
 export const excluded = `${permanentlyExcluded}, .ion-page-hidden, .ion-page-invisible`;
 const enteringPages = new WeakSet<HTMLElement>();
@@ -47,14 +52,14 @@ export const setVerticalBarsEnteringPage = (page: HTMLElement, entering: boolean
 };
 export const verticalBarsEnteringPage = (element: HTMLElement): HTMLElement | undefined => {
   const page = element.closest<HTMLElement>('.ion-page-invisible');
-  return page && enteringPages.has(page) && page.closest(':is(ion-app, body).ios-theme-vertical-bars') ? page : undefined;
+  return page && enteringPages.has(page) && page.closest('ion-app.ios-theme-vertical-bars') ? page : undefined;
 };
 export const createVerticalBarsPageState = () => {
   const departed = new WeakSet<HTMLElement>();
   return {
     isDeparted(element: HTMLElement): boolean {
       const page = element.closest<HTMLElement>('.ion-page');
-      return !!page && departed.has(page) && !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+      return !!page && departed.has(page) && !!element.closest('ion-app.ios-theme-vertical-bars');
     },
     lifecycle(event: Event): void {
       const page = event.target;
@@ -77,7 +82,7 @@ const disabledButtonGroup = 'ion-buttons:is(.ionic-theme-disabled, .ios-theme-di
 const shellDisabledSelector = '.ios-theme-shell-disabled';
 
 export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
-  element.matches('ion-button.ios') && element.parentElement?.matches(disabledButtonGroup) === true;
+  element.matches('ion-button') && element.parentElement?.matches(disabledButtonGroup) === true;
 
 const verticalBarsTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons', 'ion-menu-button', 'ion-tab-bar']);
 
@@ -85,7 +90,32 @@ export const isVerticalBarsSource = (element: HTMLElement): boolean =>
   verticalBarsTags.has(element.localName) &&
   (element.matches('ion-tab-bar') || verticalBarsOwned(element)) &&
   !element.closest('ion-menu, ion-modal, ion-popover') &&
-  !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+  !!element.closest('ion-app.ios-theme-vertical-bars');
+
+export const isVerticalBarsBackPosition = (element: HTMLElement): boolean => {
+  if (element.closest('ion-header[collapse], ion-footer[collapse]')) return false;
+  const page = element.closest('.ion-page');
+  if (!page) return true;
+  const candidates = Array.from(page.querySelectorAll<HTMLElement>('ion-back-button')).filter(
+    (back) =>
+      back.closest('.ion-page') === page &&
+      !back.matches('.ion-cloned-element') &&
+      !back.closest('ion-header[collapse], ion-footer[collapse], ion-menu, ion-modal, ion-popover'),
+  );
+  const rank = (back: HTMLElement) =>
+    inFixedToolbar(back) ? 0 : back.closest('ion-header ion-toolbar, ion-footer ion-toolbar') ? 1 : back.closest('ion-toolbar') ? 3 : 2;
+  const best = candidates.reduce<HTMLElement | undefined>(
+    (winner, back) => (!winner || rank(back) < rank(winner) ? back : winner),
+    undefined,
+  );
+  return best === element;
+};
+
+export const preferredVerticalBarsBack = <T extends HTMLElement>(elements: T[], doc: Document): T | undefined => {
+  const pages = Array.from(doc.querySelectorAll('.ion-page'));
+  const pageOrder = (element: Element) => pages.indexOf(element.closest('.ion-page')!);
+  return elements.sort((a, b) => pageOrder(b) - pageOrder(a) || Number(!!b.closest('ion-header')) - Number(!!a.closest('ion-header')))[0];
+};
 
 const excludedBy = (element: HTMLElement, selector: string): boolean => {
   const owner = element.closest<HTMLElement>(selector);
@@ -120,17 +150,14 @@ export const clearVerticalBarsPlacement = (element: HTMLElement): void => {
 export const verticalBarsOwned = (element: HTMLElement): boolean => verticalBarsPlacement.get(element) === true;
 
 export const isVerticalBarsToolbarAction = (element: HTMLElement): boolean =>
-  element.matches('.ios') &&
-  verticalBarsOwned(element) &&
-  !isExcluded(element, verticalBarsEnteringPage(element)) &&
-  !isShellDisabled(element);
+  verticalBarsOwned(element) && !isExcluded(element, verticalBarsEnteringPage(element)) && !isShellDisabled(element);
 
 export const verticalBarsToolbarActions = (element: HTMLElement): HTMLElement[] =>
   Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isVerticalBarsToolbarAction(child));
 
 export const isVerticalBarsToolbarGroup = (element: HTMLElement): boolean => {
   return (
-    element.matches('ion-buttons.ios') &&
+    element.matches('ion-buttons') &&
     verticalBarsOwned(element) &&
     !element.matches('.ionic-theme-disabled, .ios-theme-disabled, .ios26-disabled') &&
     !isShellDisabled(element)
@@ -206,7 +233,7 @@ export const text = (element: Element): string => {
 
 export const inFixedToolbar = (element: Element): boolean => {
   const edge = element.closest('ion-toolbar')?.parentElement;
-  const verticalBars = !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+  const verticalBars = !!element.closest('ion-app.ios-theme-vertical-bars');
   return (
     !!edge?.matches('ion-header, ion-footer') &&
     !element.closest('ion-content') &&

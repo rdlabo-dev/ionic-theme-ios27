@@ -37,6 +37,7 @@
 @use '@ionic/angular/css/palettes/dark.class.css';
 
 @use 'sass:meta';
+@use '../../src/styles/vertical-bars';
 
 // Adaptive iOS themes: capability checks, not OS version. See README.md.
 // `overflow-anchor: auto` selects the newer theme; `text-wrap: pretty` without it keeps iOS 26.

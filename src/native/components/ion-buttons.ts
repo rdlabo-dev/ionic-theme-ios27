@@ -10,16 +10,15 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
   if (!inFixedToolbar(element)) return;
   let children = Array.from(element.children) as HTMLElement[];
   if (children.length === 1) return menuButton.read(element, id);
-  const verticalBars =
-    !element.closest('ion-menu, ion-modal, ion-popover') && !!element.closest(':is(ion-app, body).ios-theme-vertical-bars');
+  const verticalBars = !element.closest('ion-menu, ion-modal, ion-popover') && !!element.closest('ion-app.ios-theme-vertical-bars');
   if (verticalBars && !isVerticalBarsToolbarGroup(element)) return;
   if (verticalBars) children = verticalBarsToolbarActions(element);
   if (
     !children.length ||
     children.some(
       (child) =>
-        !child.matches(`${menuButton.tag}.ios`) &&
-        (!child.matches(`ion-button.ios${verticalBars ? '' : '.button-clear'}`) ||
+        !child.matches(`${menuButton.tag}${verticalBars ? '' : '.ios'}`) &&
+        (!child.matches(`ion-button${verticalBars ? '' : '.ios.button-clear'}`) ||
           !(verticalBars ? ['default', 'clear'] : ['clear']).includes((child as HTMLIonButtonElement).fill ?? 'default')),
     )
   )

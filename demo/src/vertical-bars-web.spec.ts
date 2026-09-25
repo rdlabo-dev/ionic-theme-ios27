@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { createVerticalBarsWebProjection } from '../../src/native/vertical-bars-web';
+import { setVerticalBarsPlacement } from '../../src/native/shared/dom';
 
 const mountEligibleBackButton = () => {
   document.body.innerHTML = `
@@ -12,6 +13,8 @@ const mountEligibleBackButton = () => {
   button.style.display = 'block';
   button.style.visibility = 'visible';
   button.getBoundingClientRect = () => ({ width: 44, height: 44 }) as DOMRect;
+  // Eligibility requires prehide's per-page placement capture; mark it directly.
+  setVerticalBarsPlacement(button, true);
 };
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));

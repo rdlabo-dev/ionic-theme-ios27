@@ -5,9 +5,13 @@ import {
   createVerticalBarsPageState,
   verticalBarsEnteringPage,
   verticalBarsToolbarActions,
+  inFixedToolbar,
   isExcluded,
   isVerticalBarsToolbarGroup,
   isShellDisabled,
+  isVerticalBarsBackPosition,
+  preferredVerticalBarsBack,
+  verticalBarsOwned,
   marker,
   prehideOnlyMutation,
   prehiddenClass,
@@ -32,7 +36,11 @@ interface ToolbarSource {
   actions: HTMLElement[];
 }
 
-export const createVerticalBarsWebProjection = (doc: Document, options: NativeUIShellOptions): NativeUIShellHandle => {
+export const createVerticalBarsWebProjection = (
+  doc: Document,
+  options: NativeUIShellOptions,
+  enabled: () => boolean = () => true,
+): NativeUIShellHandle => {
   const win = doc.defaultView!;
   if (options.controls !== undefined && options.controls.toolbar !== true)
     return {
@@ -54,7 +62,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
   let sourceObserver: MutationObserver | undefined;
   let waiters: (() => void)[] = [];
   const listeners = new AbortController();
-  const verticalBarsRoot = () => doc.querySelector<HTMLElement>(':is(ion-app, body).ios-theme-vertical-bars');
+  const verticalBarsRoot = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   const projectedSources = () =>
     [backSource, ...toolbarProjections.flatMap(({ actions }) => actions.map(({ source }) => source))].filter(
       (source): source is HTMLElement => !!source,
@@ -65,38 +73,32 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
       const rect = element.getBoundingClientRect();
       return element.isConnected && style.display !== 'none' && style.visibility === 'visible' && rect.width > 0 && rect.height > 0;
     });
-  const inEligibleToolbar = (element: HTMLElement) => {
-    const currentRoot = verticalBarsRoot();
-    const toolbar = element.closest('ion-toolbar');
-    const edge = toolbar?.parentElement;
-    return (
-      !!currentRoot?.contains(element) &&
-      element.matches('.ios') &&
-      !!toolbar?.matches('.ios') &&
-      !!edge?.matches('ion-header, ion-footer') &&
-      !element.closest('ion-content') &&
-      !edge.hasAttribute('collapse') &&
-      !isExcluded(element, verticalBarsEnteringPage(element)) &&
-      !isShellDisabled(element) &&
-      !verticalBarsPages.isDeparted(element) &&
-      !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden')
-    );
-  };
+  const inEligibleToolbar = (element: HTMLElement) =>
+    !!verticalBarsRoot()?.contains(element) &&
+    inFixedToolbar(element) &&
+    !isExcluded(element, verticalBarsEnteringPage(element)) &&
+    !isShellDisabled(element) &&
+    !verticalBarsPages.isDeparted(element) &&
+    !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden');
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
-    inEligibleToolbar(element) && unprojected(projectedSources(), () => isRendered(element));
+    !!verticalBarsRoot()?.contains(element) &&
+    verticalBarsOwned(element) &&
+    isVerticalBarsBackPosition(element) &&
+    !element.closest('ion-buttons.ios-theme-horizontal-only') &&
+    !isExcluded(element, verticalBarsEnteringPage(element)) &&
+    !isShellDisabled(element) &&
+    !verticalBarsPages.isDeparted(element) &&
+    !element.closest('ion-menu, ion-modal, ion-popover') &&
+    unprojected(projectedSources(), () => isRendered(element));
   const pageOrder = (element: Element) => Array.from(doc.querySelectorAll('.ion-page')).indexOf(element.closest('.ion-page')!);
   const findBack = () => {
     const candidates = Array.from(doc.querySelectorAll<HTMLIonBackButtonElement>(`ion-back-button:not(.${backProjectionClass})`)).filter(
       isEligibleBack,
     );
-    return candidates.sort((a, b) => {
-      const order = pageOrder(b) - pageOrder(a);
-      if (order) return order;
-      return Number(!!b.closest('ion-header')) - Number(!!a.closest('ion-header'));
-    })[0];
+    return preferredVerticalBarsBack(candidates, doc);
   };
   const findToolbarGroups = () => {
-    const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons.ios:not(.${toolbarProjectionClass})`)).flatMap(
+    const candidates = Array.from(doc.querySelectorAll<HTMLIonButtonsElement>(`ion-buttons:not(.${toolbarProjectionClass})`)).flatMap(
       (group): ToolbarSource[] => {
         const actions = verticalBarsToolbarActions(group).filter((action) => unprojected(projectedSources(), () => isRendered(action)));
         if (!actions.length) return [];
@@ -269,7 +271,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
         attributeFilter: observingVerticalBars ? undefined : ['class'],
       });
     }
-    if (stopped || suspended || !currentRoot) return restore();
+    if (stopped || suspended || !currentRoot || !enabled()) return restore();
     const nextBack = findBack();
     const groups = findToolbarGroups();
     if (!nextBack && !groups.length) return restore();
@@ -304,13 +306,12 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
     };
     const verticalBarsChanged = records.some(
       (record) =>
-        (record.type === 'attributes' && (record.target as Element).matches('ion-app, body')) ||
+        (record.type === 'attributes' && (record.target as Element).matches('ion-app')) ||
         (record.type === 'childList' &&
           Array.from(record.addedNodes).some(
             (node) =>
               node instanceof Element &&
-              (node.matches(':is(ion-app, body).ios-theme-vertical-bars') ||
-                !!node.querySelector(':is(ion-app, body).ios-theme-vertical-bars')),
+              (node.matches('ion-app.ios-theme-vertical-bars') || !!node.querySelector('ion-app.ios-theme-vertical-bars')),
           )),
     );
     if (
@@ -341,6 +342,7 @@ export const createVerticalBarsWebProjection = (doc: Document, options: NativeUI
   doc.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, pageLifecycle, { capture: true, signal: listeners.signal });
   for (const name of ['ionModalWillPresent', 'ionModalDidDismiss'])
     doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
+  win.addEventListener('nativeUIShellRefresh', schedule, { signal: listeners.signal });
   if (options.controls === undefined || options.controls.toolbar === true) schedule();
 
   return {

@@ -6,6 +6,7 @@ import {
   inFixedToolbar,
   isVerticalBarsToolbarActionShape,
   isPermanentlyExcluded,
+  isVerticalBarsBackPosition,
   isShellDisabled,
   prehiddenClass,
   prehideRootClass,
@@ -19,6 +20,12 @@ const backSupported = (element: HTMLElement): boolean => {
   const back = element as HTMLIonBackButtonElement;
   return back.icon === undefined && back.color === undefined && !!back.shadowRoot;
 };
+const eligibleBack = (element: HTMLElement): boolean =>
+  isVerticalBarsBackPosition(element) &&
+  !element.closest('ion-buttons.ios-theme-horizontal-only') &&
+  !isPermanentlyExcluded(element) &&
+  !isShellDisabled(element) &&
+  !element.closest(overlays);
 const eligible = (element: HTMLElement): boolean =>
   inFixedToolbar(element) &&
   !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only') &&
@@ -30,9 +37,10 @@ const eligible = (element: HTMLElement): boolean =>
 export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () => () => void; stop: () => void } => {
   doc.documentElement.classList.add(prehideRootClass);
   const scopes = new Map<HTMLElement, Set<HTMLElement>>();
+  const owner = new WeakMap<HTMLElement, HTMLElement>();
   const pendingBacks = new Map<HTMLElement, { scope: HTMLElement; timer: ReturnType<typeof setTimeout> }>();
   const listeners = new AbortController();
-  const root = () => doc.querySelector<HTMLElement>(':is(ion-app, body).ios-theme-vertical-bars');
+  const root = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   let suspended = 0;
   let stopped = false;
   const routedPage = (element: HTMLElement) => element.closest<HTMLElement>('.ion-page:not(ion-app, body)');
@@ -45,6 +53,8 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
     const owned = scopes.get(scope);
     if (!owned) return;
     owned.forEach((element) => {
+      if (owner.get(element) !== scope) return;
+      owner.delete(element);
       element.classList.remove(prehiddenClass);
       element.classList.remove(verticalBarsBackWebClass);
       clearVerticalBarsPlacement(element);
@@ -56,11 +66,15 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
     const owned = scopes.get(scope) ?? new Set<HTMLElement>();
     const place = (element: HTMLElement, rail: boolean) => {
       if (owned.has(element)) return;
+      const previousScope = owner.get(element);
+      if (previousScope) scopes.get(previousScope)?.delete(element);
+      owner.set(element, scope);
       setVerticalBarsPlacement(element, rail);
       if (element.matches('ion-back-button')) element.classList.toggle(verticalBarsBackWebClass, !rail);
       owned.add(element);
     };
-    scope.querySelectorAll<HTMLElement>(sourceSelector).forEach((element) => {
+    const sources = scope.matches('ion-back-button') ? [scope] : Array.from(scope.querySelectorAll<HTMLElement>(sourceSelector));
+    sources.forEach((element) => {
       if (element.closest(overlays) || (scope.matches('.ion-page') && routedPage(element) !== scope)) return;
       if (element.matches('ion-buttons')) {
         const children = Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
@@ -78,12 +92,17 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
         if (owned.has(element)) return;
         if (
           element.matches('ion-back-button') &&
-          eligible(element) &&
+          eligibleBack(element) &&
           (element as HTMLIonBackButtonElement).icon === undefined &&
           (element as HTMLIonBackButtonElement).color === undefined &&
           !element.shadowRoot &&
           !element.classList.contains('hydrated')
         ) {
+          const previousPending = pendingBacks.get(element);
+          if (previousPending && previousPending.scope !== scope) {
+            clearTimeout(previousPending.timer);
+            pendingBacks.delete(element);
+          }
           if (!pendingBacks.has(element)) {
             const timer = setTimeout(() => {
               if (pendingBacks.get(element)?.scope !== scope) return;
@@ -103,7 +122,9 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
         }
         place(
           element,
-          eligible(element) && (element.matches('ion-back-button') ? backSupported(element) : isVerticalBarsToolbarActionShape(element)),
+          element.matches('ion-back-button')
+            ? eligibleBack(element) && backSupported(element)
+            : eligible(element) && isVerticalBarsToolbarActionShape(element),
         );
       }
     });
@@ -123,7 +144,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
     // Root toolbars can mount after startup; each new DOM identity is captured once.
     verticalBars.querySelectorAll<HTMLElement>(sourceSelector).forEach((element) => {
       if (routedPage(element) || element.closest(overlays)) return;
-      const scope = element.closest<HTMLElement>('ion-toolbar');
+      const scope = element.closest<HTMLElement>('ion-toolbar') ?? (element.matches('ion-back-button') ? element : null);
       if (scope) capture(scope);
     });
     for (const owned of scopes.values()) {

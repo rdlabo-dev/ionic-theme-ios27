@@ -15,6 +15,7 @@ import {
   activateProjectedElement,
   createVerticalBarsPageState,
   isVerticalBarsSource,
+  preferredVerticalBarsBack,
   marker,
   prehideOnlyMutation,
   rejectedClass,
@@ -41,7 +42,8 @@ export const createRuntime = async (
   doc: Document,
   plugin: NativeUIShellPlugin,
   options: NativeUIShellOptions = {},
-  nativeVerticalBars = true,
+  nativeVerticalBars: () => boolean = () => true,
+  verticalBarsOnly = false,
 ): Promise<NativeUIShellHandle> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
@@ -157,6 +159,9 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
+    if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
+      return;
+    if (verticalBarsOnly && !isVerticalBarsCandidate(element)) return;
     const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
     let candidate: Candidate | undefined;
     if (pointerPage && getComputedStyle(pointerPage).pointerEvents === 'none') {
@@ -175,7 +180,7 @@ export const createRuntime = async (
       }
     } else candidate = readCandidate(element, id);
     if (candidate && isVerticalBarsCandidate(element)) {
-      if (!nativeVerticalBars) return undefined;
+      if (!nativeVerticalBars()) return undefined;
       candidate.control.placement = 'vertical-bars';
       if (['ion-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind)) {
         const slot = (element.matches('ion-buttons') ? element : (element.closest('ion-buttons') ?? element)).getAttribute('slot');
@@ -236,7 +241,17 @@ export const createRuntime = async (
         )
         .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate)),
     );
-    return menuOpen ? candidates.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : candidates;
+    const back = preferredVerticalBarsBack(
+      candidates
+        .filter((candidate) => candidate.control.kind === 'ion-back-button' && isVerticalBarsCandidate(candidate.element))
+        .map((candidate) => candidate.element),
+      doc,
+    );
+    const selected = candidates.filter(
+      (candidate) =>
+        candidate.control.kind !== 'ion-back-button' || !isVerticalBarsCandidate(candidate.element) || candidate.element === back,
+    );
+    return menuOpen ? selected.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : selected;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -310,7 +325,13 @@ export const createRuntime = async (
           if (stopped || dirty) return;
         }
       }
-      const data = { viewportWidth: win.innerWidth, controls: candidates.map((candidate) => candidate.control) };
+      const root = doc.querySelector('ion-app.ios-theme-vertical-bars');
+      const verticalBarEdge: 'left' | 'right' | undefined = root
+        ? root.classList.contains('ios-theme-vertical-bars-left')
+          ? 'left'
+          : 'right'
+        : undefined;
+      const data = { viewportWidth: win.innerWidth, verticalBarEdge, controls: candidates.map((candidate) => candidate.control) };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
       const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
@@ -711,7 +732,7 @@ export const createRuntime = async (
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
         return (canceled = false) => {
           suspended.delete(scopes);
-          if (canceled || !scopes.some((scope) => scope.closest(':is(ion-app, body).ios-theme-vertical-bars'))) {
+          if (canceled || !scopes.some((scope) => scope.closest('ion-app.ios-theme-vertical-bars'))) {
             scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
             if (canceled) {
               verticalBarsPages.cancel(scopes[0], scopes[1]); // The entering page is abandoned; the leaving page stays active.
