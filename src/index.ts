@@ -37,7 +37,7 @@ export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffe
   return {
     destroy: () => {
       reducedMotion.removeEventListener('change', update);
-      placementObserver?.disconnect();
+      placementObserver.disconnect();
       effect?.destroy();
       effect = undefined;
     },

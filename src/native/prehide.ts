@@ -1,12 +1,12 @@
 import { LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER } from '@ionic/core';
 import {
   clearVerticalBarsPlacement,
+  verticalBarsActionCandidate,
+  verticalBarsBackCandidate,
   verticalBarsBackWebClass,
   verticalBarsOwned,
-  inFixedToolbar,
   isVerticalBarsToolbarActionShape,
   isPermanentlyExcluded,
-  isVerticalBarsBackPosition,
   isShellDisabled,
   prehiddenClass,
   prehideRootClass,
@@ -20,18 +20,8 @@ const backSupported = (element: HTMLElement): boolean => {
   const back = element as HTMLIonBackButtonElement;
   return back.icon === undefined && back.color === undefined && !!back.shadowRoot;
 };
-const eligibleBack = (element: HTMLElement): boolean =>
-  isVerticalBarsBackPosition(element) &&
-  !element.closest('ion-buttons.ios-theme-horizontal-only') &&
-  !isPermanentlyExcluded(element) &&
-  !isShellDisabled(element) &&
-  !element.closest(overlays);
-const eligible = (element: HTMLElement): boolean =>
-  inFixedToolbar(element) &&
-  !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only') &&
-  !isPermanentlyExcluded(element) &&
-  !isShellDisabled(element) &&
-  !element.closest(overlays);
+const eligibleBack = verticalBarsBackCandidate;
+const eligible = verticalBarsActionCandidate;
 
 /** Capture toolbar placement once per routed-page epoch, before Ionic paints its transition. */
 export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () => () => void; stop: () => void } => {

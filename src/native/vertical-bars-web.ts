@@ -3,13 +3,12 @@ import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration';
 import {
   activateProjectedElement,
   createVerticalBarsPageState,
+  verticalBarsActionCandidate,
+  verticalBarsBackCandidate,
   verticalBarsEnteringPage,
   verticalBarsToolbarActions,
-  inFixedToolbar,
   isExcluded,
   isVerticalBarsToolbarGroup,
-  isShellDisabled,
-  isVerticalBarsBackPosition,
   preferredVerticalBarsBack,
   verticalBarsOwned,
   marker,
@@ -75,20 +74,15 @@ export const createVerticalBarsWebProjection = (
     });
   const inEligibleToolbar = (element: HTMLElement) =>
     !!verticalBarsRoot()?.contains(element) &&
-    inFixedToolbar(element) &&
+    verticalBarsActionCandidate(element) &&
     !isExcluded(element, verticalBarsEnteringPage(element)) &&
-    !isShellDisabled(element) &&
-    !verticalBarsPages.isDeparted(element) &&
-    !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden');
+    !verticalBarsPages.isDeparted(element);
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     !!verticalBarsRoot()?.contains(element) &&
     verticalBarsOwned(element) &&
-    isVerticalBarsBackPosition(element) &&
-    !element.closest('ion-buttons.ios-theme-horizontal-only') &&
+    verticalBarsBackCandidate(element) &&
     !isExcluded(element, verticalBarsEnteringPage(element)) &&
-    !isShellDisabled(element) &&
     !verticalBarsPages.isDeparted(element) &&
-    !element.closest('ion-menu, ion-modal, ion-popover') &&
     unprojected(projectedSources(), () => isRendered(element));
   const pageOrder = (element: Element) => Array.from(doc.querySelectorAll('.ion-page')).indexOf(element.closest('.ion-page')!);
   const findBack = () => {
@@ -343,7 +337,7 @@ export const createVerticalBarsWebProjection = (
   for (const name of ['ionModalWillPresent', 'ionModalDidDismiss'])
     doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
   win.addEventListener('nativeUIShellRefresh', schedule, { signal: listeners.signal });
-  if (options.controls === undefined || options.controls.toolbar === true) schedule();
+  schedule();
 
   return {
     getStatus: (): NativeUIShellStatus => ({

@@ -152,6 +152,24 @@ export const verticalBarsOwned = (element: HTMLElement): boolean => verticalBars
 export const isVerticalBarsToolbarAction = (element: HTMLElement): boolean =>
   verticalBarsOwned(element) && !isExcluded(element, verticalBarsEnteringPage(element)) && !isShellDisabled(element);
 
+const overlays = 'ion-menu, ion-modal, ion-popover';
+
+/** Shared eligibility for a toolbar action candidate, before placement is decided (prehide) or consumed (projection). */
+export const verticalBarsActionCandidate = (element: HTMLElement): boolean =>
+  inFixedToolbar(element) &&
+  !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only') &&
+  !isPermanentlyExcluded(element) &&
+  !isShellDisabled(element) &&
+  !element.closest(overlays);
+
+/** Shared eligibility for a back-button candidate; the back button may sit outside a fixed toolbar. */
+export const verticalBarsBackCandidate = (element: HTMLElement): boolean =>
+  isVerticalBarsBackPosition(element) &&
+  !element.closest('ion-buttons.ios-theme-horizontal-only') &&
+  !isPermanentlyExcluded(element) &&
+  !isShellDisabled(element) &&
+  !element.closest(overlays);
+
 export const verticalBarsToolbarActions = (element: HTMLElement): HTMLElement[] =>
   Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isVerticalBarsToolbarAction(child));
 
