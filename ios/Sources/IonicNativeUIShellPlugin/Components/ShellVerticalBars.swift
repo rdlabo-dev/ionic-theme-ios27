@@ -251,16 +251,13 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
 
         private func makeFullSizeSurfacesTransparent(in surface: UIView) {
             let frame = surface.convert(surface.bounds, to: view)
-            let inset = railEdge == "left" ? view.safeAreaInsets.left : view.safeAreaInsets.right
-            let railWidth = inset > 0 ? inset : 80
             guard !(surface is UIVisualEffectView) else { return }
             let coversHost = frame.insetBy(dx: -1, dy: -1).contains(view.bounds)
+            // SwiftUI may add an opaque backing behind the rail controls, sized to
+            // the rail or to an expanded tab bar. Keep that backing clear without
+            // touching the glass controls or materials.
             let coversRail = frame.minY <= 1 && frame.maxY >= view.bounds.maxY - 1 &&
-                (railEdge == "left"
-                    ? frame.minX <= 1 && frame.maxX >= railWidth - 1
-                    : frame.minX <= view.bounds.maxX - railWidth + 1 && frame.maxX >= view.bounds.maxX - 1)
-            // SwiftUI may add an opaque backing behind the rail controls.
-            // Keep that backing clear without touching the glass controls or materials.
+                (railEdge == "left" ? frame.minX <= 1 : frame.maxX >= view.bounds.maxX - 1)
             if coversHost || coversRail {
                 surface.backgroundColor = .clear
                 surface.isOpaque = false
@@ -270,29 +267,38 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     }
 
     private final class RailContainer: UIView {
-        private let railMask = CAShapeLayer()
-        var railEdge = "right" { didSet { setNeedsLayout() } }
+        var railEdge = "right"
 
         private var railWidth: CGFloat {
             let inset = railEdge == "left" ? safeAreaInsets.left : safeAreaInsets.right
             return inset > 0 ? inset : 80
         }
 
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            layer.mask = railMask
+        // The rail is not masked: expanded rail content (a widened tab bar) is
+        // allowed to draw over the WebView. Inside the base rail touches behave
+        // as before; beyond it touches are captured only where they land inside
+        // an actual bar surface so empty overlap still belongs to the WebView.
+        // The SwiftUI hosting scaffold reports a full-size hosting view for
+        // every point, so the hit result cannot tell bar content from empty
+        // space — the bar frames decide instead.
+        override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+            let hit = super.hitTest(point, with: event)
+            let inRail = railEdge == "left" ? point.x <= railWidth : point.x >= bounds.maxX - railWidth
+            if inRail { return hit }
+            guard hit != nil, containsBarSurface(at: point) else { return nil }
+            return hit
         }
 
-        required init?(coder: NSCoder) { nil }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            railMask.path = UIBezierPath(rect: CGRect(x: railEdge == "left" ? bounds.minX : bounds.maxX - railWidth, y: 0,
-                                                       width: railWidth, height: bounds.height)).cgPath
+        private func containsBarSurface(at point: CGPoint) -> Bool {
+            containsBarSurface(in: self, at: point)
         }
 
-        override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-            (railEdge == "left" ? point.x <= railWidth : point.x >= bounds.maxX - railWidth) && super.point(inside: point, with: event)
+        private func containsBarSurface(in view: UIView, at point: CGPoint) -> Bool {
+            guard !view.isHidden, view.alpha > 0.05 else { return false }
+            let name = NSStringFromClass(type(of: view))
+            if (name.contains("TabBar") || name.contains("Platter") || name.contains("Pocket") || name.contains("Sidebar")),
+               convert(view.bounds, from: view).contains(point) { return true }
+            return view.subviews.contains { containsBarSurface(in: $0, at: point) }
         }
     }
 
