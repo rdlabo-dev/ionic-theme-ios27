@@ -3,6 +3,7 @@
     <ion-buttons slot="start"><ion-back-button defaultHref="/main/index"></ion-back-button></ion-buttons>
     <ion-title>Native UI Shell</ion-title>
     <ion-buttons slot="end" [style.display]="hidden() ? 'none' : null" [class.ionic-theme-disabled]="themeDisabled()">
+      <ion-button fill="clear" type="button">Cancel</ion-button>
       <ion-button [fill]="fill()" type="submit" [form]="formRef" [disabled]="disabled()" aria-label="Save">
         <ion-icon slot="start" name="heart" aria-hidden="true"></ion-icon>
         <span data-label>Save</span>
@@ -17,11 +18,11 @@
     </ion-segment>
   </ion-toolbar>
   <ion-toolbar>
-    <ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>
+    <ion-buttons slot="start"><ion-menu-button [autoHide]="false"></ion-menu-button></ion-buttons>
     <ion-title>Actions: {{ github() }} / {{ refreshes() }}</ion-title>
     <ion-buttons slot="end" data-glass-group>
-      <ion-button fill="clear" type="button" aria-label="GitHub" (click)="github.update(increment)">
-        <ion-icon slot="icon-only" name="logo-github" aria-hidden="true"></ion-icon>
+      <ion-button fill="clear" type="button" (click)="github.update(increment)">
+        <ion-icon slot="icon-only" name="logo-github" aria-label="GitHub"></ion-icon>
       </ion-button>
       <ion-button fill="clear" type="button" aria-label="Refresh" (click)="refreshes.update(increment)">
         <ion-icon slot="icon-only" name="refresh-circle" aria-hidden="true"></ion-icon>

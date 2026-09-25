@@ -1,8 +1,8 @@
 import { AnimationPosition } from './sheets-of-glass/interfaces';
 import { IonicConfig } from '@ionic/core';
 
-declare const __zone_symbol__requestAnimationFrame: any;
-declare const requestAnimationFrame: any;
+declare const __zone_symbol__requestAnimationFrame: ((callback: FrameRequestCallback) => number) | undefined;
+declare const requestAnimationFrame: ((callback: FrameRequestCallback) => number) | undefined;
 
 export const getElementRoot = (el: HTMLElement, fallback: HTMLElement = el) => {
   return el.shadowRoot || fallback;
@@ -58,15 +58,15 @@ export const changeSelectedElement = (
 };
 
 export class Config {
-  private m = new Map<keyof IonicConfig, any>();
+  private m = new Map<keyof IonicConfig, unknown>();
 
   reset(configObj: IonicConfig) {
-    this.m = new Map<keyof IonicConfig, any>(Object.entries(configObj) as any);
+    this.m = new Map<keyof IonicConfig, unknown>(Object.entries(configObj) as [keyof IonicConfig, unknown][]);
   }
 
-  get(key: keyof IonicConfig, fallback?: any): any {
+  get<T>(key: keyof IonicConfig, fallback?: T): T {
     const value = this.m.get(key);
-    return value !== undefined ? value : fallback;
+    return value !== undefined ? (value as T) : (fallback as T);
   }
 
   getBoolean(key: keyof IonicConfig, fallback = false): boolean {
@@ -81,11 +81,11 @@ export class Config {
   }
 
   getNumber(key: keyof IonicConfig, fallback?: number): number {
-    const val = parseFloat(this.m.get(key));
+    const val = parseFloat(String(this.m.get(key)));
     return isNaN(val) ? (fallback !== undefined ? fallback : NaN) : val;
   }
 
-  set(key: keyof IonicConfig, value: any) {
+  set(key: keyof IonicConfig, value: unknown) {
     this.m.set(key, value);
   }
 }

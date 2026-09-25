@@ -37,10 +37,6 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
         padding-right: calc(var(--ion-safe-area-right, 0px) + 18px);
       }
 
-      &:dir(rtl)::part(native) {
-        padding-left: calc(var(--ion-safe-area-left, 0px) + 18px);
-      }
-
       --min-height: 52px;
       font-size: 1rem;
       line-height: 1.29rem;

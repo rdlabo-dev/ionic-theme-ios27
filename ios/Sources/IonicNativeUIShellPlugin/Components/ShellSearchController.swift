@@ -45,8 +45,22 @@ private final class ShellSearchInputDelegate: NSObject, UITextFieldDelegate {
     func textFieldShouldClear(_ textField: UITextField) -> Bool { clear?(); return false }
 }
 
+// Lets the plugin registry retain iOS 26-gated search controllers without
+// availability-gated stored properties, mirroring ShellVerticalBarsControlling.
+protocol ShellSearchControlling: AnyObject {
+    var surface: ShellSearchHost { get }
+    var ownsKeyboard: Bool { get }
+    var ownsKeyboardChrome: Bool { get }
+    var transitionCoordinator: UIViewControllerTransitionCoordinator? { get }
+    var activate: ((String) -> Void)? { get set }
+    var changed: ((String, ShellSearchPhase, String, Bool, Int) -> Int)? { get set }
+    func attach(to parent: UIViewController, in container: UIView)
+    func detach()
+    func apply(_ snapshot: ShellControl, webFrame: CGRect, barFrame: CGRect, triggerFrame: CGRect, rendering: ShellRendering) -> Bool
+}
+
 @available(iOS 26.0, *)
-final class ShellSearchController: UITabBarController, UITabBarControllerDelegate, UISearchBarDelegate {
+final class ShellSearchController: UITabBarController, UITabBarControllerDelegate, UISearchBarDelegate, ShellSearchControlling {
     // Wire stays active+focused; local session drives chrome (idle / presented / focused).
     private enum Session: Equatable { case idle, presented, focused }
 

@@ -8,13 +8,16 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     public let jsName = "IonicNativeUIShell"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getDeviceLayout", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startDeviceLayoutMonitoring", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopDeviceLayoutMonitoring", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
     ]
     private var host: ShellHost?
+    private var verticalBars: ShellVerticalBarsControlling?
     private var controls: [String: UIView] = [:]
-    private var searchControllers: [String: UIViewController] = [:]
+    private var searchControllers: [String: ShellSearchControlling] = [:]
     private var fingerprints: [String: ShellControl] = [:]
     private let rendering = ShellRendering()
     private var revision = 0
@@ -24,6 +27,16 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var pendingTabExpiryWorks: [String: DispatchWorkItem] = [:]
     private var restoreTopEdge: (() -> Void)?
     private var observers: [NSObjectProtocol] = []
+    private var lastVerticalBarEdge: String?
+    private var lastVerticalBarInset: CGFloat = 0
+    private var verticalBarPlacementObserved = false
+    private weak var observedVerticalBarView: UIView?
+    private var unregisterVerticalBarObservation: (() -> Void)?
+    private weak var observedHingeView: UIView?
+    private var hingeInteraction: UIInteraction?
+    private var hingeStatus: String?
+    private var deviceLayoutMonitoring = 0
+    private var lastDeviceLayout: String?
 
     public override func load() {
         for name in [UIApplication.didEnterBackgroundNotification, UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardWillHideNotification,
@@ -40,14 +53,14 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         self.keyboardVisible = !overlap.isNull && overlap.width > 0 && overlap.height > 0
                     }
                 }
-                if !keyboard { self.host?.isHidden = true }
+                if !keyboard {
+                    self.host?.isHidden = true
+                    self.verticalBars?.view.isHidden = true
+                }
                 var searchOwnsKeyboard = false
-                if #available(iOS 26.0, *) {
-                    self.searchControllers.values.forEach {
-                        guard let controller = $0 as? ShellSearchController else { return }
-                        if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
-                        if !keyboard { controller.surface.isHidden = true }
-                    }
+                self.searchControllers.values.forEach { controller in
+                    if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
+                    if !keyboard { controller.surface.isHidden = true }
                 }
                 if keyboard {
                     if !searchOwnsKeyboard {
@@ -55,6 +68,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     }
                 } else if name == UIDevice.orientationDidChangeNotification {
                     self.notifyWebViewMetricsChange()
+                    self.notifyVerticalBarPlacementChange()
                 }
             })
         }
@@ -64,12 +78,25 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 if name == UIResponder.keyboardDidHideNotification { self?.keyboardVisible = false }
                 self?.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh", data: name == UIApplication.didBecomeActiveNotification ? "{\"retireSearch\":true}" : "{}")
                 if name == UIApplication.didBecomeActiveNotification { self?.notifyWebViewMetricsChange() }
+                if name == UIApplication.didBecomeActiveNotification { self?.notifyVerticalBarPlacementChange() }
+                if name == UIApplication.didBecomeActiveNotification { self?.refreshHingeStatus() }
             })
         }
     }
 
     deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    private func stopDeviceLayoutObservation() {
+        unregisterVerticalBarObservation?()
+        unregisterVerticalBarObservation = nil
+        observedVerticalBarView = nil
+        if let interaction = hingeInteraction {
+            observedHingeView?.removeInteraction(interaction)
+        }
+        hingeInteraction = nil
+        observedHingeView = nil
     }
 
     private func webViewMetrics() -> JSObject? {
@@ -79,35 +106,158 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     }
 
     private func notifyWebViewMetricsChange() {
-        guard let metrics = webViewMetrics() else { return }
-        notifyListeners("webViewMetricsChange", data: metrics)
+        notifyDeviceLayoutChange()
     }
 
-    @objc func getWebViewMetrics(_ call: CAPPluginCall) {
+    private func deviceLayout() -> JSObject {
+        var layout: JSObject = ["placement": verticalBarPlacement(),
+                                "webViewMetrics": webViewMetrics() ?? ["radius": 0]]
+        layout["hingeStatus"] = hingeStatus ?? "unavailable"
+        return layout
+    }
+
+    private func notifyDeviceLayoutChange() {
+        guard deviceLayoutMonitoring > 0 else { return }
+        let layout = deviceLayout()
+        let fingerprint = "\(verticalBarEdge() ?? "none"):\(verticalBarInset(for: verticalBarEdge())):\(hingeStatus ?? "none"):\(webViewMetrics()?["radius"] ?? 0)"
+        guard fingerprint != lastDeviceLayout else { return }
+        lastDeviceLayout = fingerprint
+        notifyListeners("deviceLayoutChange", data: layout)
+    }
+
+    @objc func getDeviceLayout(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            guard #available(iOS 26.0, *) else {
-                call.resolve(["radius": 0])
-                return
+            self?.observeVerticalBarPlacement()
+            self?.observeHingeStatus()
+            self?.refreshHingeStatus()
+            DispatchQueue.main.async {
+                call.resolve(self?.deviceLayout() ?? ["placement": ["edge": NSNull(), "inset": 0], "hingeStatus": "unavailable", "webViewMetrics": ["radius": 0]])
+                if self?.deviceLayoutMonitoring == 0 { self?.stopDeviceLayoutObservation() }
             }
-            guard let metrics = self?.webViewMetrics() else {
-                call.reject("WebView unavailable")
-                return
-            }
-            call.resolve(metrics)
         }
+    }
+
+    @objc func startDeviceLayoutMonitoring(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            self?.deviceLayoutMonitoring += 1
+            self?.lastDeviceLayout = nil
+            self?.observeVerticalBarPlacement()
+            self?.observeHingeStatus()
+            self?.refreshHingeStatus()
+            call.resolve()
+        }
+    }
+
+    @objc func stopDeviceLayoutMonitoring(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            if let self, self.deviceLayoutMonitoring > 0 {
+                self.deviceLayoutMonitoring -= 1
+                if self.deviceLayoutMonitoring == 0 {
+                    self.lastDeviceLayout = nil
+                    self.stopDeviceLayoutObservation()
+                }
+            }
+            call.resolve()
+        }
+    }
+
+    private func verticalBarEdge() -> String? {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let webView = bridge?.webView {
+            let rtl = webView.effectiveUserInterfaceLayoutDirection == .rightToLeft
+            switch webView.traitCollection.verticalBarEdge {
+            case .leading: return rtl ? "right" : "left"
+            case .trailing: return rtl ? "left" : "right"
+            default: return nil
+            }
+        }
+        #endif
+        return nil
+    }
+
+    private func verticalBarInset(for edge: String?) -> CGFloat {
+        guard let edge, let webView = bridge?.webView else { return 0 }
+        webView.layoutIfNeeded()
+        return edge == "left" ? webView.safeAreaInsets.left : webView.safeAreaInsets.right
+    }
+
+    private func verticalBarPlacement() -> JSObject {
+        if let edge = verticalBarEdge() { return ["edge": edge, "inset": Double(verticalBarInset(for: edge))] }
+        return ["edge": NSNull(), "inset": 0]
+    }
+
+    private func notifyVerticalBarPlacementChange() {
+        let edge = verticalBarEdge()
+        let inset = verticalBarInset(for: edge)
+        guard !verticalBarPlacementObserved || edge != lastVerticalBarEdge || abs(inset - lastVerticalBarInset) > 0.5 else { return }
+        verticalBarPlacementObserved = true
+        lastVerticalBarEdge = edge
+        lastVerticalBarInset = inset
+        notifyDeviceLayoutChange()
+    }
+
+    private func observeVerticalBarPlacement() {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let webView = bridge?.webView, observedVerticalBarView !== webView {
+            unregisterVerticalBarObservation?()
+            observedVerticalBarView = webView
+            let traits: [UITrait] = [UITraitLayoutDirection.self] + UITraitCollection.systemTraitsAffectingVerticalBarEdge
+            let registration = webView.registerForTraitChanges(traits) { [weak self] (_: UIView, _: UITraitCollection) in
+                self?.notifyVerticalBarPlacementChange()
+            }
+            unregisterVerticalBarObservation = { [weak webView] in webView?.unregisterForTraitChanges(registration) }
+        }
+        #endif
+        notifyVerticalBarPlacementChange()
+    }
+
+    private func observeHingeStatus() {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let webView = bridge?.webView, observedHingeView !== webView {
+            if let interaction = hingeInteraction {
+                observedHingeView?.removeInteraction(interaction)
+            }
+            observedHingeView = webView
+            let interaction = UIHingeInteraction { [weak self] _, update in
+                let status: String?
+                switch update.hinge?.status {
+                case .closed: status = "closed"
+                case .partiallyOpen: status = "partially-open"
+                case .fullyOpen: status = "fully-open"
+                default: status = nil
+                }
+                guard status != self?.hingeStatus else { return }
+                self?.hingeStatus = status
+                self?.notifyDeviceLayoutChange()
+            }
+            hingeInteraction = interaction
+            webView.addInteraction(interaction)
+        }
+        #endif
+    }
+
+    private func refreshHingeStatus() {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let interaction = hingeInteraction as? UIHingeInteraction {
+            interaction.isEnabled = false
+            interaction.isEnabled = true
+        }
+        #endif
     }
 
     @objc func configure(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
+            self?.observeVerticalBarPlacement()
             // A new JS context starts revision numbering again (live reload / navigation).
             self?.restoreTopEdge?()
             self?.restoreTopEdge = nil
             self?.removeControls()
             self?.revision = 0
             if #available(iOS 26.0, *) {
+                self?.bridge?.webView?.layoutIfNeeded()
                 // Ionic already paints the header edge; a second native effect can
                 // add a dark scrim when the OS and Web themes differ.
-                if let effect = self?.bridge?.webView?.scrollView.topEdgeEffect {
+                if call.getBool("verticalBarsOnly") != true, let effect = self?.bridge?.webView?.scrollView.topEdgeEffect {
                     let hidden = effect.isHidden
                     effect.isHidden = true
                     self?.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
@@ -133,9 +283,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     }
 
     private func removeControl(_ id: String, duration: TimeInterval = 0) {
-        if #available(iOS 26.0, *) {
-            (searchControllers.removeValue(forKey: id) as? ShellSearchController)?.detach()
-        }
+        searchControllers.removeValue(forKey: id)?.detach()
         if let control = controls.removeValue(forKey: id) { ShellCrossfade.retire(control, duration: duration) }
         fingerprints.removeValue(forKey: id)
         pendingTabSelections.removeValue(forKey: id)
@@ -146,6 +294,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         Array(controls.keys).forEach { removeControl($0, duration: duration) }
         host?.removeFromSuperview()
         host = nil
+        verticalBars?.detach()
+        verticalBars = nil
         rendering.clear()
         pendingTabSelections.removeAll()
         pendingTabExpiryWorks.values.forEach { $0.cancel() }
@@ -194,19 +344,14 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             let duration = ShellCrossfade.duration(snapshot.transitionDuration)
             let existing = Set(self.controls.keys)
-            let snapshots = snapshot.controls
+            let verticalBars = snapshot.controls.filter { $0.placement == .verticalBars }
+            let snapshots = snapshot.controls.filter { $0.placement != .verticalBars }
             let width = snapshot.viewportWidth
             self.revision = next
-            if snapshots.isEmpty {
+            if snapshots.isEmpty && verticalBars.isEmpty {
                 self.removeControls(duration: duration)
                 call.resolve(["revision": next]); return
             }
-            let host = self.host ?? ShellHost()
-            self.host = host
-            host.frame = parent.bounds
-            host.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            host.backgroundColor = .clear
-            host.isAccessibilityElement = false
             let scale = webView.bounds.width / width
             let retained = Set(snapshots.map(\.id))
             for id in Array(self.controls.keys) where !retained.contains(id) {
@@ -214,8 +359,33 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             var rejectedControls: [String] = []
             var fabs: [(ShellFab, ShellControl)] = []
-            var searches: [(ShellSearchController, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
+            var searches: [(ShellSearchControlling, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
+            if verticalBars.isEmpty || self.keyboardVisible {
+                self.verticalBars?.detach()
+                self.verticalBars = nil
+                if self.keyboardVisible { rejectedControls.append(contentsOf: verticalBars.map(\.id)) }
+            } else if let owner = self.bridge?.viewController {
+                let rail = self.verticalBars ?? ShellVerticalBarsController(activate: { [weak self] id in self?.activate(id) })
+                self.verticalBars = rail
+                rail.attach(to: owner, in: owner.view)
+                rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right")
+                rail.view.isHidden = false
+            } else {
+                rejectedControls.append(contentsOf: verticalBars.map(\.id))
+            }
+            if snapshots.isEmpty {
+                self.host?.removeFromSuperview()
+                self.host = nil
+                call.resolve(["revision": next, "rejectedControls": rejectedControls])
+                return
+            }
+            let host = self.host ?? ShellHost()
+            self.host = host
+            host.frame = parent.bounds
+            host.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            host.backgroundColor = .clear
+            host.isAccessibilityElement = false
             UIView.performWithoutAnimation {
                 if host.superview !== parent { parent.addSubview(host) }
                 for node in snapshots {
@@ -233,7 +403,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         rejectedControls.append(id)
                     }
                     // Only native search owns its keyboard; other controls return to Web.
-                    if self.keyboardVisible && (self.searchControllers[id] as? ShellSearchController)?.ownsKeyboard != true {
+                    if self.keyboardVisible && self.searchControllers[id]?.ownsKeyboard != true {
                         reject(); continue
                     }
                     let local = node.frame.rect
@@ -241,9 +411,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                                                        width: local.width * scale, height: local.height * scale), to: parent)
                     if let search = node.search {
                         guard let owner = self.bridge?.viewController else { rejectedSearches.append(id); continue }
-                        let controller: ShellSearchController
+                        let controller: ShellSearchControlling
                         let previousCover = self.controls[id]
-                        let replacing = self.searchControllers[id] as? ShellSearchController
+                        let replacing = self.searchControllers[id]
                         if let existing = replacing { controller = existing }
                         else {
                             // Keep the ordinary UITabBar cover until the search controller applies.

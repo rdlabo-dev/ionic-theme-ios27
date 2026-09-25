@@ -13,7 +13,7 @@ for (const direction of ['ltr', 'rtl']) {
       const range = page.locator('#range-probe');
       await expect(range).toHaveClass(/hydrated/);
       await range.evaluate(
-        (el: any, { direction, endpoint }) => {
+        (el: HTMLIonRangeElement, { direction, endpoint }) => {
           el.dir = direction;
           el.min = 0;
           el.max = 100;
@@ -33,7 +33,7 @@ for (const direction of ['ltr', 'rtl']) {
       await page.mouse.move(endX, initial.y + initial.height / 2, { steps: 8 });
       await expect(range).toHaveClass(/range-pressed/);
       await expect.poll(() => knob.evaluate((el) => el.getBoundingClientRect().width)).toBeCloseTo(initial.width, 1);
-      await expect.poll(() => range.evaluate((el: any) => el.value)).toEqual({ lower: endpoint, upper: endpoint });
+      await expect.poll(() => range.evaluate((el: HTMLIonRangeElement) => el.value)).toEqual({ lower: endpoint, upper: endpoint });
       await page.mouse.up();
     });
   }
@@ -47,7 +47,7 @@ for (const direction of ['ltr', 'rtl']) {
     });
     const range = page.locator('#range-probe');
     await expect(range).toHaveClass(/hydrated/);
-    await range.evaluate((el: any, direction) => {
+    await range.evaluate((el: HTMLIonRangeElement, direction) => {
       el.dir = direction;
       el.min = 0;
       el.max = 100;

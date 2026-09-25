@@ -19,6 +19,8 @@ import {
   ToggleCustomEvent,
 } from '@demo/ionic';
 import { ActivatedRoute, Router } from '@angular/router';
+import { IonicNativeUIShell, setVerticalControlAreaPlacement } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { Capacitor } from '@capacitor/core';
 
 interface IComponent {
   name: string;
@@ -84,6 +86,10 @@ export class IndexPageComponent {
   readonly #route = inject(ActivatedRoute);
   readonly #document = inject(DOCUMENT);
 
+  get verticalBarsModeEnabled() {
+    return !!this.#document.querySelector('ion-app.ios-theme-vertical-bars');
+  }
+
   async navigateNativeUiShell() {
     await this.#router.navigate(['native-ui-shell'], { relativeTo: this.#route });
   }
@@ -94,5 +100,12 @@ export class IndexPageComponent {
 
   changeColorMode(event: ToggleCustomEvent) {
     this.#document.documentElement.classList.toggle('ion-palette-dark', event.detail.checked);
+  }
+
+  async changeVerticalBarsMode(event: ToggleCustomEvent) {
+    if (!event.detail.checked) return setVerticalControlAreaPlacement(null);
+    const placement =
+      Capacitor.getPlatform() === 'ios' ? (await IonicNativeUIShell.getDeviceLayout()).placement : ({ edge: null, inset: 0 } as const);
+    setVerticalControlAreaPlacement(placement.edge ? placement : 'right');
   }
 }

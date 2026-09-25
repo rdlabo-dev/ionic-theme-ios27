@@ -1,3 +1,14 @@
 ion-item {
   --background: transparent;
 }
+
+// The demo enables its Duo split pane at 900px; ordinary Ionic split panes keep their own width.
+ion-split-pane[when='(min-width: 900px)'] {
+  --ios-theme-menu-width: var(--ios-theme-split-pane-width);
+  --side-width: var(--ios-theme-menu-width);
+  --side-max-width: var(--ios-theme-menu-width);
+
+  @media (prefers-reduced-motion: no-preference) {
+    transition: --ios-theme-split-pane-width 300ms ease;
+  }
+}

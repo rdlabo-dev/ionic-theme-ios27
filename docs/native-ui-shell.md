@@ -6,7 +6,7 @@ title: Native UI Shell (Experimental)
 
 Native UI Shell is experimental. Its API and supported controls may change.
 
-Native UI Shell gives an Ionic app native navigation and action controls around its Web content. The optional Capacitor iOS plugin renders supported fixed Ionic controls with UIKit and the system's Liquid Glass material. Page content, scrolling, application state and routing remain in Ionic's WebView.
+Native UI Shell gives an Ionic app native navigation and action controls around its Web content. The optional Capacitor iOS plugin renders supported fixed Ionic controls with UIKit or SwiftUI and the system's Liquid Glass material. Page content, scrolling, application state and routing remain in Ionic's WebView.
 
 ## Background
 
@@ -50,7 +50,7 @@ Native appearance follows the applied class, system or always-dark theme CSS. Sy
 | `ion-segment`                                 | Fixed toolbar, non-scrollable, text **or** one icon per item                                              | `UISegmentedControl`                                                  |
 | `ion-fab` / `ion-fab-button` / `ion-fab-list` | Glass FAB in an `ion-content` fixed slot; one main button and optional directional lists                  | Persistent glass `UIButton` per button; one FAB synchronization group |
 
-Only iOS-mode components with the theme variables installed are eligible. `ionic-theme-disabled`, `ios-theme-disabled`, and the legacy `ios26-disabled` on an element or ancestor always exclude it. A disabled theme on one tab/segment item keeps its whole group on the Web.
+For the ordinary Native UI Shell, only iOS-mode components with the theme variables installed are eligible. Explicitly enabled Vertical Bars is mode-independent as described below. `ionic-theme-disabled`, `ios-theme-disabled`, and the legacy `ios26-disabled` on an element or ancestor always exclude it. A disabled theme on one tab/segment item keeps its whole group on the Web.
 
 Use `ios-theme-shell-disabled` to disable only the iOS Native UI Shell while keeping the Web theme. It excludes the element and all its descendants. Adding or removing the class at runtime automatically restores Web rendering or re-evaluates native eligibility.
 
@@ -62,7 +62,7 @@ Use `ios-theme-shell-disabled` to disable only the iOS Native UI Shell while kee
 
 If a child inside a shared native surface opts out, the entire surface stays on the Web: this includes button groups, tab bars, segments and FAB lists. Opting out of the search FAB or any part of the search footer disables native search integration; the tab bar can still render natively if it remains eligible.
 
-Placement is required even when the appearance is glass. Buttons, back buttons, menu-button groups and segments need a toolbar directly inside `ion-header` or `ion-footer`, with no `ion-content` ancestor around the control. Buttons directly inside a header/footer, standalone toolbars, and toolbars or headers nested in scrolling content stay on the Web. FABs without `slot="fixed"` also stay on the Web. Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility.
+Placement is required even when the appearance is glass. In the ordinary Native UI Shell, buttons, back buttons, menu-button groups and segments need a toolbar directly inside `ion-header` or `ion-footer`, with no `ion-content` ancestor around the control. Buttons directly inside a header/footer, standalone toolbars, and toolbars or headers nested in scrolling content stay on the Web. FABs without `slot="fixed"` also stay on the Web. Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility. When `.ios-theme-vertical-bars` is enabled, a standard `ion-back-button` can instead be projected to the Vertical Control Area from outside a fixed toolbar, including routed content or a persistent app shell. The application chooses where to enable this mode and which Ionic component mode to use; Vertical Bars projection does not require `ios` mode classes. Overlays, collapsed headers, opted-out controls and departed pages are excluded.
 
 Native tabs accept equal-width items with Ionic's default `layout="icon-top"`. The native bar uses a local compact horizontal and regular vertical size class to preserve the Web's stacked icon/label arrangement on iPad and in landscape. This does not change the app's size class. Label size and weight follow the Web snapshot. Other explicit Ionic layouts (`icon-start`, `icon-end`, `icon-bottom`, `icon-hide`, `label-hide`) and unequal item widths keep the entire tab bar on the Web. Start, center and end placement follow the original `ion-tab-bar`, including RTL. Directional `ion-icon` artwork preserves its rendered RTL flip.
 
@@ -167,16 +167,26 @@ Suspensions are nestable and `resume()` is idempotent. Native projection resumes
 
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
 
+## Support iPhone Duo
+
+The standalone Vertical Control Area entry point (`@rdlabo/ionic-theme-ios27/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+
+On supported iOS versions, adding `.ios-theme-vertical-bars` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar only when iOS reports a physical right-side safe area large enough for that rail. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
+
+The SwiftUI surface is clipped and hit-tested to the system rail. Web content remains visible and interactive outside that physical region. The runtime optimistically updates tab selection before forwarding the action to the original `ion-tab-button`, using the same event and stale-revision protection as the other native controls. Menus, modals, and popovers remain independent surfaces and are not moved into the main-page rail.
+
+This mode accepts standard `fill="default"` and `fill="clear"` fixed-toolbar buttons because SwiftUI determines their compact representation. Solid, outline, custom-color, scrolling, and explicitly opted-out controls remain on the Web. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it in the horizontal Web toolbar. On Web, Android, older iOS, or when native projection is unavailable during setup, the Web projection remains the fallback.
+
 ## Native UI Shell API
 
 The generated reference below documents the handle returned by `enableNativeUIShell()`. The underlying Capacitor bridge and its control-snapshot protocol are implementation details.
 
 <docgen-index>
 
-- [`getStatus()`](#getstatus)
-- [`suspend()`](#suspend)
-- [`destroy()`](#destroy)
-- [Interfaces](#interfaces)
+* [`getStatus()`](#getstatus)
+* [`suspend()`](#suspend)
+* [`destroy()`](#destroy)
+* [Interfaces](#interfaces)
 
 </docgen-index>
 
@@ -193,7 +203,8 @@ Returns the current Web/native projection state.
 
 **Returns:** <code><a href="#nativeuishellstatus">NativeUIShellStatus</a></code>
 
----
+--------------------
+
 
 ### suspend()
 
@@ -205,7 +216,8 @@ Restores projected controls to the Web until the returned lease is resumed.
 
 **Returns:** <code>Promise&lt;<a href="#nativeuishellsuspension">NativeUIShellSuspension</a>&gt;</code>
 
----
+--------------------
+
 
 ### destroy()
 
@@ -215,9 +227,11 @@ destroy() => Promise<void>
 
 Stops synchronization, restores Web controls and releases native resources.
 
----
+--------------------
+
 
 ### Interfaces
+
 
 #### NativeUIShellStatus
 
@@ -227,6 +241,7 @@ Stops synchronization, restores Web controls and releases native resources.
 | **`projected`** | <code>number</code>                         |
 | **`updates`**   | <code>number</code>                         |
 | **`reason`**    | <code>string</code>                         |
+
 
 #### NativeUIShellSuspension
 

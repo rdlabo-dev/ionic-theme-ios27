@@ -1,78 +1,128 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { buildSync } from 'esbuild';
+import type { NativeUIShellComponent, ShellControl, ShellItem, ShellSnapshot } from '../../src/native/definitions';
+import type { ShellMockCore } from './native-shell-mock';
+
+interface GeometryEvidence {
+  id: string;
+  frame: number;
+  visibleFrame: number;
+  backReleases: number;
+  retirements: { frame: number; visibleFrame: number; visible: boolean; backProjected: boolean }[];
+}
+
+interface ShellMock extends ShellMockCore {
+  rejectKind?: NativeUIShellComponent;
+  /** Controls UIKit would still show; a rejected kind is omitted like the real host. */
+  rendered: Map<string, ShellControl>;
+  holdAcknowledgement: boolean;
+  /** Resolves the held update() acknowledgement. */
+  acknowledge?: () => void;
+  onUpdate?: (snapshot: { controls: ShellControl[] }) => void;
+  evidence?: GeometryEvidence;
+}
 
 const mockNative = async (page: Page) => {
   await page.addInitScript(() => {
-    const state = {
-      updates: [] as any[],
+    const mock = {
+      updates: [] as ShellSnapshot[],
       sequence: 0,
-      rejectKind: undefined as string | undefined,
-      rendered: new Map<string, any>(),
+      rejectKind: undefined as NativeUIShellComponent | undefined,
+      rendered: new Map<string, ShellControl>(),
       holdAcknowledgement: false,
       acknowledge: undefined as (() => void) | undefined,
-      onUpdate: undefined as ((snapshot: any) => void) | undefined,
-      activate: (_event: any) => {},
-      metrics: (_event: any) => {},
+      onUpdate: undefined as ((snapshot: { controls: ShellControl[] }) => void) | undefined,
+      evidence: undefined as GeometryEvidence | undefined,
+      listeners: {} as Record<string, ((event: never) => void)[]>,
+      addListener(eventName: string, callback: (event: never) => void) {
+        const listeners = (this.listeners[eventName] ??= []);
+        listeners.push(callback);
+        return Promise.resolve({ remove: async () => listeners.splice(listeners.indexOf(callback), 1) });
+      },
+      async removeAllListeners() {
+        this.listeners = {};
+      },
+      notifyListeners(eventName: string, data: unknown) {
+        for (const listener of this.listeners[eventName] ?? []) listener(data as never);
+      },
+      async configure() {
+        return { supported: true };
+      },
+      async getWebViewMetrics() {
+        return { radius: 0 };
+      },
+      async getDeviceLayout() {
+        return {
+          placement: { edge: 'right' as const, inset: 84 },
+          hingeStatus: 'unavailable' as const,
+          webViewMetrics: { radius: 0 },
+        };
+      },
+      async startDeviceLayoutMonitoring() {},
+      async stopDeviceLayoutMonitoring() {},
+      async update(options: ShellSnapshot) {
+        this.updates.push(options);
+        return this.settle(options);
+      },
+      async clear(options: { revision: number }) {
+        this.updates.push({ revision: options.revision, viewportWidth: 0, controls: [] });
+        return this.settle({ ...options, controls: [] });
+      },
+      async settle(options: { revision?: number; controls: ShellControl[] }) {
+        const controls = options.controls;
+        const rejectedControls = controls.filter((control) => control.kind === this.rejectKind).map((control) => control.id);
+        const ids = new Set(controls.map((control) => control.id));
+        for (const id of this.rendered.keys()) if (!ids.has(id)) this.rendered.delete(id);
+        for (const control of controls) {
+          // UIKit retains an existing cover until a later snapshot retires its id.
+          if (control.kind !== this.rejectKind) this.rendered.set(control.id, control);
+        }
+        this.onUpdate?.({ ...options, controls });
+        if (this.holdAcknowledgement) await new Promise<void>((resolve) => (this.acknowledge = resolve));
+        return { revision: options.revision, rejectedControls };
+      },
     };
-    Object.assign(window, {
-      __nativeUIShell: state,
-      CapacitorCustomPlatform: { name: 'ios' },
-      Capacitor: {
-        PluginHeaders: [
-          {
-            name: 'IonicNativeUIShell',
-            methods: [
-              { name: 'configure', rtype: 'promise' },
-              { name: 'getWebViewMetrics', rtype: 'promise' },
-              { name: 'update', rtype: 'promise' },
-              { name: 'clear', rtype: 'promise' },
-              { name: 'addListener' },
-              { name: 'removeListener' },
-            ],
-          },
-        ],
-        nativePromise: async (_plugin: string, method: string, options: any) => {
-          if (method === 'configure') return { supported: true };
-          if (method === 'getWebViewMetrics') return { radius: 0 };
-          state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
-          const controls = method === 'clear' ? [] : options.controls;
-          const rejectedControls = controls.filter((control: any) => control.kind === state.rejectKind).map((control: any) => control.id);
-          const ids = new Set(controls.map((control: any) => control.id));
-          for (const id of state.rendered.keys()) if (!ids.has(id)) state.rendered.delete(id);
-          for (const control of controls) {
-            // UIKit retains an existing cover until a later snapshot retires its id.
-            if (control.kind !== state.rejectKind) state.rendered.set(control.id, control);
-          }
-          state.onUpdate?.({ ...options, controls });
-          if (state.holdAcknowledgement) await new Promise<void>((resolve) => (state.acknowledge = resolve));
-          return {
-            revision: options.revision,
-            rejectedControls,
-          };
-        },
-        nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
-          if (method === 'addListener' && options.eventName === 'activate') state.activate = callback;
-          if (method === 'addListener' && options.eventName === 'webViewMetricsChange') state.metrics = callback;
-          return 'shell-listener';
-        },
+
+    window.CapacitorCustomPlatform = { name: 'ios' };
+    // Substitute the mock as the plugin implementation when @capacitor/core
+    // initialises its global, before the app registers 'IonicNativeUIShell'.
+    let capacitor: { registerPlugin: (name: string, implementations?: Record<string, unknown>) => unknown } | undefined;
+    Object.defineProperty(window, 'Capacitor', {
+      configurable: true,
+      get: () => capacitor,
+      set: (instance) => {
+        const registerPlugin = instance.registerPlugin;
+        instance.registerPlugin = (name: string, implementations?: Record<string, unknown>) =>
+          name === 'IonicNativeUIShell' ? mock : registerPlugin(name, implementations);
+        capacitor = instance;
       },
     });
   });
 };
 
 const latestControl = (page: Page, kind: string) =>
-  page.evaluate((kind) => (window as any).__nativeUIShell.updates.at(-1)?.controls.find((c: any) => c.kind === kind), kind);
+  page.evaluate(
+    (kind) =>
+      Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+        .updates.at(-1)
+        ?.controls.find((c: ShellControl) => c.kind === kind),
+    kind,
+  );
 
 const activate = (page: Page, kind: string, label?: string, count = 1) =>
   page.evaluate(
     ({ kind, label, count }) => {
-      const state = (window as any).__nativeUIShell;
-      const snapshot = state.updates.at(-1);
-      const control = snapshot.controls.find((c: any) => c.kind === kind);
-      const item = label ? control.items.find((i: any) => i.label === label) : control.items[0];
+      const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const snapshot = state.updates.at(-1)!;
+      const item = label
+        ? snapshot.controls
+            .filter((c: ShellControl) => c.kind === kind)
+            .flatMap((c: ShellControl) => c.items)
+            .find((i) => i.label === label)
+        : snapshot.controls.find((c: ShellControl) => c.kind === kind)!.items[0];
       for (let index = 0; index < count; index++) {
-        state.activate({ id: item.id, revision: snapshot.revision, sequence: ++state.sequence });
+        state.notifyListeners('activate', { id: item!.id, revision: snapshot.revision, sequence: ++state.sequence });
       }
     },
     { kind, label, count },
@@ -82,14 +132,14 @@ const tabState = (page: Page) =>
   page.locator('ion-tab-bar').evaluate((bar) => ({
     frame: bar.getBoundingClientRect().toJSON(),
     role: bar.getAttribute('role'),
-    items: Array.from(bar.querySelectorAll('ion-tab-button:not(.ion-cloned-element)')).map((button: any) => ({
-      label: button.querySelector('ion-label')?.textContent.trim(),
+    items: Array.from(bar.querySelectorAll<HTMLIonTabButtonElement>('ion-tab-button:not(.ion-cloned-element)')).map((button) => ({
+      label: button.querySelector('ion-label')?.textContent?.trim(),
       frame: button.getBoundingClientRect().toJSON(),
       selected: button.selected,
       disabled: button.disabled,
-      role: button.shadowRoot.querySelector('[part=native]')?.getAttribute('role'),
-      ariaSelected: button.shadowRoot.querySelector('[part=native]')?.getAttribute('aria-selected'),
-      color: getComputedStyle(button.shadowRoot.querySelector('[part=native]')).color,
+      role: button.shadowRoot?.querySelector('[part=native]')?.getAttribute('role'),
+      ariaSelected: button.shadowRoot?.querySelector('[part=native]')?.getAttribute('aria-selected'),
+      color: getComputedStyle(button.shadowRoot!.querySelector('[part=native]')!).color,
     })),
   }));
 
@@ -128,18 +178,20 @@ for (const direction of ['ltr', 'rtl']) {
           await expect(page).toHaveURL(`/main/${label.toLowerCase()}`);
           await expect(web).toHaveURL(`/main/${label.toLowerCase()}`);
           await expect
-            .poll(async () => (await latestControl(page, 'ion-tab-bar'))?.items.filter((i: any) => i.selected).map((i: any) => i.label))
+            .poll(async () =>
+              (await latestControl(page, 'ion-tab-bar'))?.items.filter((i: ShellItem) => i.selected).map((i: ShellItem) => i.label),
+            )
             .toEqual([label]);
           // A real Web click runs the press animation; compare after both settle.
           await web.locator('ion-tab-bar').evaluate(async (bar) => {
             await Promise.all(bar.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => {})));
           });
           await expect.poll(async () => JSON.stringify(await tabState(page)) === JSON.stringify(await tabState(web))).toBe(true);
-          const native = await latestControl(page, 'ion-tab-bar');
+          const native = (await latestControl(page, 'ion-tab-bar'))!;
           const actual = await tabState(page);
           const reference = await tabState(web);
           expect(actual).toEqual(reference);
-          for (const key of ['x', 'y', 'width', 'height']) expect(native[key]).toBeCloseTo(reference.frame[key], 1);
+          for (const key of ['x', 'y', 'width', 'height'] as const) expect(native[key]).toBeCloseTo(reference.frame[key], 1);
           expect(native.rtl).toBe(direction === 'rtl');
           for (const [index, item] of native.items.entries()) {
             const dom = reference.items[index];
@@ -198,11 +250,11 @@ for (const fixed of [false, true]) {
       }
       await expect.poll(async () => JSON.stringify(await appearance(page)) === JSON.stringify(await appearance(web))).toBe(true);
       if (fixed) {
-        const control = await latestControl(page, 'ion-back-button');
+        const control = (await latestControl(page, 'ion-back-button'))!;
         const original = await appearance(web);
         expect(control.items[0].label).toBe(original.label);
         expect(control.items[0].accessibilityLabel).toBe(original.accessibilityLabel);
-        for (const key of ['x', 'y', 'width', 'height']) expect(control[key]).toBeCloseTo(original.frame[key], 1);
+        for (const key of ['x', 'y', 'width', 'height'] as const) expect(control[key]).toBeCloseTo(original.frame[key], 1);
       }
     };
     const clickBack = async (p: Page, count = 1) => {
@@ -212,11 +264,14 @@ for (const fixed of [false, true]) {
           for (let i = 0; i < count; i++) button.click();
         }, count);
     };
+    // With fixed native headers the toolbar button is projected, so tap it through the native activation path.
+    const clickPush = (p: Page) =>
+      p === page && fixed ? activate(p, 'ion-button', 'Push') : p.getByRole('button', { name: 'Push', exact: true }).click();
     for (let cycle = 0; cycle < 3; cycle++) {
       await Promise.all([page, web].map((p) => p.getByRole('button', { name: 'button', exact: true }).click()));
       await Promise.all([page, web].map((p) => expect(p).toHaveURL('/main/index/button')));
       await checkBack();
-      await Promise.all([page, web].map((p) => p.getByRole('button', { name: 'Push', exact: true }).click()));
+      await Promise.all([page, web].map((p) => clickPush(p)));
       await Promise.all([page, web].map((p) => expect(p).toHaveURL('/main/index/action-sheet')));
       await checkBack();
       await Promise.all([page, web].map((p) => clickBack(p, cycle === 2 ? 3 : 1)));
@@ -237,10 +292,10 @@ test('RTL native back icon mirrors the Web chevron', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
   await expect(page.locator('app-native-ui-shell ion-back-button')).toHaveAttribute('data-native-ui-shell', '');
-  const ltr = (await latestControl(page, 'ion-back-button')).items[0].icon;
+  const ltr = (await latestControl(page, 'ion-back-button'))!.items[0].icon!;
   await page.evaluate(() => (document.documentElement.dir = 'rtl'));
   await expect.poll(async () => (await latestControl(page, 'ion-back-button'))?.rtl).toBe(true);
-  const rtl = (await latestControl(page, 'ion-back-button')).items[0].icon;
+  const rtl = (await latestControl(page, 'ion-back-button'))!.items[0].icon!;
   expect(rtl).not.toBe(ltr);
   const error = await page.evaluate(
     async ({ ltr, rtl }) => {
@@ -327,27 +382,27 @@ test('native geometry rejection paints Web before retirement and retries after l
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(back).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
     const bar = document.querySelector('ion-tab-bar')!;
     const back = document.querySelector('app-native-ui-shell ion-back-button')!;
-    const id = state.updates.at(-1).controls.find((control: any) => control.kind === 'ion-tab-bar').id;
+    const id = state.updates.at(-1)!.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')!.id;
     state.evidence = { id, frame: 0, visibleFrame: -1, backReleases: 0, retirements: [] };
     const tick = () => {
-      state.evidence.frame++;
-      if (!back.hasAttribute('data-native-ui-shell')) state.evidence.backReleases++;
+      state.evidence!.frame++;
+      if (!back.hasAttribute('data-native-ui-shell')) state.evidence!.backReleases++;
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
     bar.addEventListener('nativeUIShellChange', () => {
       if (!bar.hasAttribute('data-native-ui-shell') && getComputedStyle(bar).visibility === 'visible') {
-        state.evidence.visibleFrame = state.evidence.frame;
+        state.evidence!.visibleFrame = state.evidence!.frame;
       }
     });
-    state.onUpdate = (snapshot: any) => {
-      if (!snapshot.controls.some((control: any) => control.id === id)) {
-        state.evidence.retirements.push({
-          frame: state.evidence.frame,
-          visibleFrame: state.evidence.visibleFrame,
+    state.onUpdate = (snapshot: { controls: ShellControl[] }) => {
+      if (!snapshot.controls.some((control: ShellControl) => control.id === id)) {
+        state.evidence!.retirements.push({
+          frame: state.evidence!.frame,
+          visibleFrame: state.evidence!.visibleFrame,
           visible: getComputedStyle(bar).visibility === 'visible',
           backProjected: back.hasAttribute('data-native-ui-shell'),
         });
@@ -357,31 +412,31 @@ test('native geometry rejection paints Web before retirement and retries after l
     state.holdAcknowledgement = true;
   });
   await bar.evaluate((bar) => (bar.style.width = '300px'));
-  await expect.poll(() => page.evaluate(() => !!(window as any).__nativeUIShell.acknowledge)).toBe(true);
+  await expect.poll(() => page.evaluate(() => !!Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').acknowledge)).toBe(true);
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   expect(
     await page.evaluate(() => {
-      const state = (window as any).__nativeUIShell;
-      return state.rendered.has(state.evidence.id);
+      const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      return state.rendered.has(state.evidence!.id);
     }),
   ).toBe(true);
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
     state.holdAcknowledgement = false;
-    state.acknowledge();
+    state.acknowledge!();
   });
   await expect(bar).not.toHaveAttribute('data-native-ui-shell');
   await expect(bar).toHaveCSS('visibility', 'visible');
   await expect(bar).not.toHaveAttribute('aria-hidden');
   await expect(back).toHaveAttribute('data-native-ui-shell', '');
   await expect.poll(() => latestControl(page, 'ion-tab-bar')).toBeUndefined();
-  const retirement = await page.evaluate(() => (window as any).__nativeUIShell.evidence.retirements[0]);
+  const retirement = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').evidence!.retirements[0]);
   expect(retirement.visible).toBe(true);
   expect(retirement.backProjected).toBe(true);
   expect(retirement.visibleFrame).toBeGreaterThanOrEqual(0);
   expect(retirement.frame - retirement.visibleFrame).toBeGreaterThanOrEqual(2);
   const counts = await page.evaluate(async () => {
-    const state = (window as any).__nativeUIShell;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
     // Let the restoration's mutation notification settle, then re-read identical data.
     for (let frame = 0; frame < 4; frame++) await new Promise(requestAnimationFrame);
     const before = state.updates.length;
@@ -392,24 +447,24 @@ test('native geometry rejection paints Web before retirement and retries after l
     return { before, after: state.updates.length };
   });
   expect(counts.after).toBe(counts.before);
-  await page.evaluate(() => ((window as any).__nativeUIShell.rejectKind = undefined));
+  await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').rejectKind = undefined));
   // Recovery is driven by a new DOM layout, without recreating the runtime.
   await bar.evaluate((bar) => bar.style.removeProperty('width'));
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(back).toHaveAttribute('data-native-ui-shell', '');
-  expect(await page.evaluate(() => (window as any).__nativeUIShell.updates.length)).toBeGreaterThan(counts.after);
+  expect(await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length)).toBeGreaterThan(counts.after);
   await page.evaluate(() => {
-    (window as any).__nativeUIShell.rejectKind = 'ion-tab-bar';
+    Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').rejectKind = 'ion-tab-bar';
     window.dispatchEvent(new Event('nativeUIShellRefresh'));
   });
   await expect(bar).not.toHaveAttribute('data-native-ui-shell');
   await expect.poll(() => latestControl(page, 'ion-tab-bar')).toBeUndefined();
   await page.evaluate(() => {
-    (window as any).__nativeUIShell.rejectKind = undefined;
+    Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').rejectKind = undefined;
     window.dispatchEvent(new Event('nativeUIShellRefresh'));
   });
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
-  expect(await page.evaluate(() => (window as any).__nativeUIShell.evidence.backReleases)).toBe(0);
+  expect(await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').evidence!.backReleases)).toBe(0);
 });
 
 test('native refresh during a pending rejection retries after the stale acknowledgement', async ({ page }) => {
@@ -421,27 +476,27 @@ test('native refresh during a pending rejection retries after the stale acknowle
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(back).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
     state.rejectKind = 'ion-tab-bar';
     state.holdAcknowledgement = true;
   });
   await bar.evaluate((bar) => (bar.style.width = '300px'));
-  await expect.poll(() => page.evaluate(() => !!(window as any).__nativeUIShell.acknowledge)).toBe(true);
+  await expect.poll(() => page.evaluate(() => !!Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').acknowledge)).toBe(true);
   const pending = await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
     // UIKit now has usable geometry, but its earlier rejection has not reached JS.
     state.rejectKind = undefined;
     window.dispatchEvent(new Event('nativeUIShellRefresh'));
     state.holdAcknowledgement = false;
-    state.acknowledge();
-    return { revision: snapshot.revision, id: snapshot.controls.find((control: any) => control.kind === 'ion-tab-bar').id };
+    state.acknowledge!();
+    return { revision: snapshot.revision, id: snapshot.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')!.id };
   });
   await expect
     .poll(() =>
       page.evaluate(({ revision, id }) => {
-        const snapshot = (window as any).__nativeUIShell.updates.at(-1);
-        return snapshot.revision > revision && snapshot.controls.some((control: any) => control.id === id);
+        const snapshot = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!;
+        return snapshot.revision > revision && snapshot.controls.some((control: ShellControl) => control.id === id);
       }, pending),
     )
     .toBe(true);
@@ -473,7 +528,7 @@ for (const path of ['/main/index', '/main/album']) {
       }
       await page.locator('ion-tab-bar').evaluate((bar, variant) => {
         bar.setAttribute('color', 'light');
-        const buttons = [...bar.querySelectorAll('ion-tab-button:not(.ion-cloned-element)')];
+        const buttons = [...bar.querySelectorAll<HTMLIonTabButtonElement>('ion-tab-button:not(.ion-cloned-element)')];
         buttons.forEach((button) => button.setAttribute('aria-label', button.textContent!.trim()));
         if (variant === 'icon-only') buttons.forEach((button) => button.querySelector('ion-label')?.remove());
         if (variant === 'label-only') buttons.forEach((button) => button.querySelector('ion-icon')?.remove());
@@ -494,14 +549,14 @@ for (const path of ['/main/index', '/main/album']) {
       }, variant);
       const current = () => latestControl(page, 'ion-tab-bar');
       if (variant === 'icon-only') {
-        await expect.poll(async () => (await current())?.items.every((item: any) => item.label === '' && !!item.icon)).toBe(true);
-        expect((await current()).items.every((item: any) => !!item.accessibilityLabel)).toBe(true);
+        await expect.poll(async () => (await current())?.items.every((item: ShellItem) => item.label === '' && !!item.icon)).toBe(true);
+        expect((await current())!.items.every((item: ShellItem) => !!item.accessibilityLabel)).toBe(true);
       } else if (variant === 'label-only') {
-        await expect.poll(async () => (await current())?.items.every((item: any) => !!item.label && !item.icon)).toBe(true);
+        await expect.poll(async () => (await current())?.items.every((item: ShellItem) => !!item.label && !item.icon)).toBe(true);
       } else {
         await expect(page.locator('ion-badge').first()).toHaveClass(/hydrated/);
         await expect
-          .poll(async () => (await current())?.items.map((item: any) => item.badge?.value ?? null))
+          .poll(async () => (await current())?.items.map((item: ShellItem) => item.badge?.value ?? null))
           .toEqual([null, null, '47', null]);
         // Ionic iOS hides an empty badge; a visible empty badge maps to a notification dot.
         await page
@@ -517,7 +572,7 @@ for (const path of ['/main/index', '/main/album']) {
             return { color: style.backgroundColor, textColor: style.color };
           }),
         );
-        const snapshot = await current();
+        const snapshot = (await current())!;
         expect(colors.every(({ color }) => color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)')).toBe(true);
         expect(snapshot.items[0].badge).toEqual({ value: '', ...colors[0] });
         expect(snapshot.items[2].badge).toEqual({ value: '47', ...colors[1] });
@@ -545,10 +600,10 @@ for (const path of ['/main/index', '/main/album']) {
       await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
       // Selection stays owned by the actual Ionic tab button, including icon-only tabs.
       await page.evaluate(() => {
-        const state = (window as any).__nativeUIShell;
-        const snapshot = state.updates.at(-1);
-        const item = snapshot.controls.find((control: any) => control.kind === 'ion-tab-bar').items[1];
-        state.activate({ id: item.id, revision: snapshot.revision, sequence: ++state.sequence });
+        const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+        const snapshot = state.updates.at(-1)!;
+        const item = snapshot.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')!.items[1];
+        state.notifyListeners('activate', { id: item.id, revision: snapshot.revision, sequence: ++state.sequence });
       });
       await expect(page).toHaveURL('/main/docs');
       await expect.poll(async () => (await current())?.items[1].selected).toBe(true);

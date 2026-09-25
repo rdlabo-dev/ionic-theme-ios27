@@ -47,6 +47,10 @@ Add one of `tab-bar-position-start`, `tab-bar-position-center`, or `tab-bar-posi
 
 These classes do not reposition a separate `ion-fab`; leave room for it when choosing the bar's position.
 
+## Support iPhone Duo
+
+iPhone Duo support — the vertical system rail, hinge posture, and the posture-driven split-pane layout — is independent of the iOS 27 theme and the full Native UI Shell. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including device-layout monitoring without a projection runtime.
+
 ## Two-line inset list items
 
 Place an unslotted `ion-label` immediately alongside an unslotted `ion-note` to render a two-line item. When using the iOS-style inset-list background, wrap the items in `ion-item-group`; keep `ion-list-header` outside the group.

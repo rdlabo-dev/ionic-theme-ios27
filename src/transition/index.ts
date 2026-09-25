@@ -170,7 +170,7 @@ const waitForReady = async (opts: TransitionOptions, defaultDeep: boolean) => {
   await notifyViewReady(opts.viewIsReady, opts.enteringEl);
 };
 
-const notifyViewReady = async (viewIsReady: undefined | ((enteringEl: HTMLElement) => Promise<any>), enteringEl: HTMLElement) => {
+const notifyViewReady = async (viewIsReady: undefined | ((enteringEl: HTMLElement) => Promise<unknown>), enteringEl: HTMLElement) => {
   if (viewIsReady) {
     await viewIsReady(enteringEl);
   }
@@ -180,7 +180,7 @@ const playTransition = (trans: Animation, opts: TransitionOptions): Promise<bool
   const progressCallback = opts.progressCallback;
 
   const promise = new Promise<boolean>((resolve) => {
-    trans.onFinish((currentStep: any) => resolve(currentStep === 1));
+    trans.onFinish((currentStep) => resolve(currentStep === 1));
   });
 
   // cool, let's do this, start the transition
@@ -236,8 +236,13 @@ export const waitForMount = (): Promise<void> => {
   return new Promise((resolve) => raf(() => raf(() => resolve())));
 };
 
-export const deepReady = async (el: any | undefined): Promise<void> => {
-  const element = el as any;
+type LazyLoadedElement = Element & {
+  componentOnReady?: () => Promise<unknown>;
+  __registerHost?: unknown;
+};
+
+export const deepReady = async (el: Element | undefined): Promise<void> => {
+  const element = el as LazyLoadedElement | undefined;
   if (element) {
     if (element.componentOnReady != null) {
       // eslint-disable-next-line custom-rules/no-component-on-ready-method
@@ -259,7 +264,7 @@ export const deepReady = async (el: any | undefined): Promise<void> => {
 
       return;
     }
-    await Promise.all(Array.from(element.children).map(deepReady));
+    await Promise.all(Array.from(element.children).map((child) => deepReady(child)));
   }
 };
 
@@ -358,7 +363,7 @@ const getIosIonHeader = (opts: TransitionOptions): HTMLElement | null => {
 
 export interface TransitionOptions extends NavOptions {
   progressCallback?: (ani: Animation | undefined) => void;
-  baseEl: any;
+  baseEl: HTMLElement;
   enteringEl: HTMLElement;
   leavingEl: HTMLElement | undefined;
 }
