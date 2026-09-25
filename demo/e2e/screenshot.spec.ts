@@ -169,6 +169,24 @@ test.describe('Screenshot Tests - VerticalBars Layout', () => {
   }
 });
 
+test('Settings split-menu widths on iPhone Duo', async ({ page }) => {
+  await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width: 951, height: 669 });
+  await page.goto('/main/index', { waitUntil: 'networkidle' });
+  const splitPane = page.locator('ion-split-pane');
+  await splitPane.evaluate((element) => {
+    element.setAttribute('when', '(min-width: 900px)');
+  });
+  await expect(splitPane).toHaveClass(/split-pane-visible/);
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page).toHaveScreenshot('duo-split-menu-flat.png', { animations: 'disabled' });
+
+  await splitPane.evaluate((element) => {
+    element.classList.add('ios-theme-split-pane-half-open');
+  });
+  await expect(page).toHaveScreenshot('duo-split-menu-half-open.png', { animations: 'disabled' });
+});
+
 test.describe('Screenshot Tests - VerticalBars Back Button', () => {
   for (const direction of ['ltr', 'rtl'] as const) {
     test(`should project the active back button into the physical system rail in ${direction.toUpperCase()}`, async ({ page }) => {

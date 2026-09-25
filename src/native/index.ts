@@ -9,7 +9,6 @@ import type {
   VerticalControlAreaHandle,
   WebViewMetrics,
 } from './definitions';
-import { bindMetricsLifecycle } from './lifecycle';
 import { createRuntime } from './runtime';
 import { createVerticalBarsWebProjection } from './vertical-bars-web';
 import { prehideVerticalBarsToolbarSources } from './prehide';
@@ -20,13 +19,16 @@ export type {
   NativeUIShellOptions,
   NativeUIShellStatus,
   NativeUIShellSuspension,
+  DeviceLayout,
   VerticalBarEdge,
   VerticalBarPlacement,
   VerticalControlAreaHandle,
   WebViewMetrics,
 } from './definitions';
+export { HingeStatus } from './definitions';
 
 const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
+export const IonicNativeUIShell = plugin;
 let active: Promise<NativeUIShellHandle> | undefined;
 let activeConfiguration: string | undefined;
 const web = (reason: string): NativeUIShellHandle => ({
@@ -58,22 +60,11 @@ const combine = (native: NativeUIShellHandle, fallback: NativeUIShellHandle): Na
 
 /** Reads the current native WebView geometry and applies it to page transitions. */
 export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
-  const metrics = typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' ? await plugin.getWebViewMetrics() : { radius: 0 };
+  const metrics =
+    typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' ? (await plugin.getDeviceLayout()).webViewMetrics : { radius: 0 };
   setConfig({ radius: metrics.radius });
   return metrics;
 };
-
-/** Reads the system's current vertical-bar placement without changing the theme. */
-export const getVerticalBarPlacement = (): Promise<VerticalBarPlacement> =>
-  typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios'
-    ? plugin.getVerticalBarPlacement()
-    : Promise.resolve({ edge: null, inset: 0 });
-
-/** Observes placement; the application decides whether to apply each change. */
-export const addVerticalBarPlacementListener = (listener: (placement: VerticalBarPlacement) => void) =>
-  typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios'
-    ? plugin.addListener('verticalBarPlacementChange', listener)
-    : Promise.resolve({ remove: async () => {} });
 
 /** Applies one placement to the CSS layout and both Web/native projections. */
 export const setVerticalControlAreaPlacement = (placement: VerticalBarEdge | VerticalBarPlacement): void => {
@@ -130,7 +121,8 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     if (Capacitor.getPlatform() !== 'ios')
       return resetOnDestroy(withReason(createVerticalBarsWebProjection(document, options), 'Requires Capacitor iOS'), stopPrehide);
     let runtime: NativeUIShellHandle | undefined;
-    let placementListener: Awaited<ReturnType<typeof addVerticalBarPlacementListener>> | undefined;
+    let placementListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
+    let monitoring = false;
     try {
       if (!options.verticalBarsOnly) await configureNativeTransition().catch(() => undefined);
       const capabilities = await plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true });
@@ -142,28 +134,24 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         const root = document.querySelector('ion-app.ios-theme-vertical-bars');
         return nativeEdge !== null && !!root && nativeEdge === (root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right');
       };
-      placementListener = await addVerticalBarPlacementListener(({ edge }) => {
-        nativeEdge = edge;
+      await plugin.startDeviceLayoutMonitoring();
+      monitoring = true;
+      placementListener = await plugin.addListener('deviceLayoutChange', ({ placement, webViewMetrics }) => {
+        nativeEdge = placement.edge;
+        if (!options.verticalBarsOnly) setConfig({ radius: webViewMetrics.radius });
         document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
       });
-      nativeEdge = (await getVerticalBarPlacement()).edge;
+      nativeEdge = (await plugin.getDeviceLayout()).placement.edge;
       runtime = await createRuntime(document, plugin, options, nativeVerticalBars, options.verticalBarsOnly === true);
       runtime = combine(
         runtime,
         createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars()),
       );
-      if (!options.verticalBarsOnly)
-        runtime = await bindMetricsLifecycle(
-          runtime,
-          () => plugin.addListener('webViewMetricsChange', (metrics) => setConfig({ radius: metrics.radius })),
-          () => {
-            active = undefined;
-          },
-        );
       return resetOnDestroy(withPlacementListener(runtime, placementListener), stopPrehide);
     } catch (error) {
       await runtime?.destroy();
       await placementListener?.remove().catch(() => {});
+      if (monitoring) await plugin.stopDeviceLayoutMonitoring().catch(() => {});
       return resetOnDestroy(
         withReason(createVerticalBarsWebProjection(document, options), error instanceof Error ? error.message : String(error)),
         stopPrehide,
@@ -174,18 +162,24 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
 
 const withPlacementListener = (
   handle: NativeUIShellHandle,
-  listener: Awaited<ReturnType<typeof addVerticalBarPlacementListener>>,
-): NativeUIShellHandle => ({
-  getStatus: () => handle.getStatus(),
-  suspend: () => handle.suspend(),
-  async destroy() {
-    try {
-      await handle.destroy();
-    } finally {
-      await listener.remove().catch(() => {});
-    }
-  },
-});
+  listener: Awaited<ReturnType<typeof plugin.addListener>>,
+): NativeUIShellHandle => {
+  let destroyed = false;
+  return {
+    getStatus: () => handle.getStatus(),
+    suspend: () => handle.suspend(),
+    async destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      try {
+        await handle.destroy();
+      } finally {
+        await listener.remove().catch(() => {});
+        await plugin.stopDeviceLayoutMonitoring().catch(() => {});
+      }
+    },
+  };
+};
 
 const resetOnDestroy = (
   handle: NativeUIShellHandle,

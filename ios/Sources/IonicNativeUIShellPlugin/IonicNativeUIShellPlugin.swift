@@ -8,8 +8,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     public let jsName = "IonicNativeUIShell"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getVerticalBarPlacement", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getDeviceLayout", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "startDeviceLayoutMonitoring", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopDeviceLayoutMonitoring", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
     ]
@@ -30,6 +31,12 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var lastVerticalBarInset: CGFloat = 0
     private var verticalBarPlacementObserved = false
     private weak var observedVerticalBarView: UIView?
+    private var verticalBarRegistration: AnyObject?
+    private weak var observedHingeView: UIView?
+    private var hingeInteraction: AnyObject?
+    private var hingeStatus: String?
+    private var deviceLayoutMonitoring = 0
+    private var lastDeviceLayout: String?
 
     public override func load() {
         for name in [UIApplication.didEnterBackgroundNotification, UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardWillHideNotification,
@@ -75,13 +82,27 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 self?.bridge?.triggerWindowJSEvent(eventName: "nativeUIShellRefresh", data: name == UIApplication.didBecomeActiveNotification ? "{\"retireSearch\":true}" : "{}")
                 if name == UIApplication.didBecomeActiveNotification { self?.notifyWebViewMetricsChange() }
                 if name == UIApplication.didBecomeActiveNotification { self?.notifyVerticalBarPlacementChange() }
+                if name == UIApplication.didBecomeActiveNotification { self?.refreshHingeStatus() }
             })
         }
-        DispatchQueue.main.async { [weak self] in self?.observeVerticalBarPlacement() }
     }
 
     deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    private func stopDeviceLayoutObservation() {
+        if #available(iOS 17.0, *), let view = observedVerticalBarView,
+           let registration = verticalBarRegistration as? any UITraitChangeRegistration {
+            view.unregisterForTraitChanges(registration)
+        }
+        verticalBarRegistration = nil
+        observedVerticalBarView = nil
+        if let interaction = hingeInteraction as? UIInteraction {
+            observedHingeView?.removeInteraction(interaction)
+        }
+        hingeInteraction = nil
+        observedHingeView = nil
     }
 
     private func webViewMetrics() -> JSObject? {
@@ -91,8 +112,59 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     }
 
     private func notifyWebViewMetricsChange() {
-        guard let metrics = webViewMetrics() else { return }
-        notifyListeners("webViewMetricsChange", data: metrics)
+        notifyDeviceLayoutChange()
+    }
+
+    private func deviceLayout() -> JSObject {
+        var layout: JSObject = ["placement": verticalBarPlacement(),
+                                "webViewMetrics": webViewMetrics() ?? ["radius": 0]]
+        layout["hingeStatus"] = hingeStatus ?? "unavailable"
+        return layout
+    }
+
+    private func notifyDeviceLayoutChange() {
+        guard deviceLayoutMonitoring > 0 else { return }
+        let layout = deviceLayout()
+        let fingerprint = "\(verticalBarEdge() ?? "none"):\(verticalBarInset(for: verticalBarEdge())):\(hingeStatus ?? "none"):\(webViewMetrics()?["radius"] ?? 0)"
+        guard fingerprint != lastDeviceLayout else { return }
+        lastDeviceLayout = fingerprint
+        notifyListeners("deviceLayoutChange", data: layout)
+    }
+
+    @objc func getDeviceLayout(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            self?.observeVerticalBarPlacement()
+            self?.observeHingeStatus()
+            self?.refreshHingeStatus()
+            DispatchQueue.main.async {
+                call.resolve(self?.deviceLayout() ?? ["placement": ["edge": NSNull(), "inset": 0], "hingeStatus": "unavailable", "webViewMetrics": ["radius": 0]])
+                if self?.deviceLayoutMonitoring == 0 { self?.stopDeviceLayoutObservation() }
+            }
+        }
+    }
+
+    @objc func startDeviceLayoutMonitoring(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            self?.deviceLayoutMonitoring += 1
+            self?.lastDeviceLayout = nil
+            self?.observeVerticalBarPlacement()
+            self?.observeHingeStatus()
+            self?.refreshHingeStatus()
+            call.resolve()
+        }
+    }
+
+    @objc func stopDeviceLayoutMonitoring(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            if let self, self.deviceLayoutMonitoring > 0 {
+                self.deviceLayoutMonitoring -= 1
+                if self.deviceLayoutMonitoring == 0 {
+                    self.lastDeviceLayout = nil
+                    self.stopDeviceLayoutObservation()
+                }
+            }
+            call.resolve()
+        }
     }
 
     private func verticalBarEdge() -> String? {
@@ -127,15 +199,18 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         verticalBarPlacementObserved = true
         lastVerticalBarEdge = edge
         lastVerticalBarInset = inset
-        notifyListeners("verticalBarPlacementChange", data: verticalBarPlacement())
+        notifyDeviceLayoutChange()
     }
 
     private func observeVerticalBarPlacement() {
         #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
         if #available(iOS 27.1, *), let webView = bridge?.webView, observedVerticalBarView !== webView {
+            if let view = observedVerticalBarView, let registration = verticalBarRegistration as? any UITraitChangeRegistration {
+                view.unregisterForTraitChanges(registration)
+            }
             observedVerticalBarView = webView
             let traits: [UITrait] = [UITraitLayoutDirection.self] + UITraitCollection.systemTraitsAffectingVerticalBarEdge
-            _ = webView.registerForTraitChanges(traits) { [weak self] (_: UIView, _: UITraitCollection) in
+            verticalBarRegistration = webView.registerForTraitChanges(traits) { [weak self] (_: UIView, _: UITraitCollection) in
                 self?.notifyVerticalBarPlacementChange()
             }
         }
@@ -143,25 +218,38 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         notifyVerticalBarPlacementChange()
     }
 
-    @objc func getVerticalBarPlacement(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { [weak self] in
-            self?.observeVerticalBarPlacement()
-            call.resolve(self?.verticalBarPlacement() ?? ["edge": NSNull(), "inset": 0])
+    private func observeHingeStatus() {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let webView = bridge?.webView, observedHingeView !== webView {
+            if let interaction = hingeInteraction as? UIInteraction {
+                observedHingeView?.removeInteraction(interaction)
+            }
+            observedHingeView = webView
+            let interaction = UIHingeInteraction { [weak self] _, update in
+                let status: String?
+                switch update.hinge?.status {
+                case .closed: status = "closed"
+                case .partiallyOpen: status = "partially-open"
+                case .fullyOpen: status = "fully-open"
+                default: status = nil
+                }
+                guard status != self?.hingeStatus else { return }
+                self?.hingeStatus = status
+                self?.notifyDeviceLayoutChange()
+            }
+            hingeInteraction = interaction
+            webView.addInteraction(interaction)
         }
+        #endif
     }
 
-    @objc func getWebViewMetrics(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { [weak self] in
-            guard #available(iOS 26.0, *) else {
-                call.resolve(["radius": 0])
-                return
-            }
-            guard let metrics = self?.webViewMetrics() else {
-                call.reject("WebView unavailable")
-                return
-            }
-            call.resolve(metrics)
+    private func refreshHingeStatus() {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let interaction = hingeInteraction as? UIHingeInteraction {
+            interaction.isEnabled = false
+            interaction.isEnabled = true
         }
+        #endif
     }
 
     @objc func configure(_ call: CAPPluginCall) {

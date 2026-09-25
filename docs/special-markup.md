@@ -57,9 +57,8 @@ Load the separate stylesheet and start its projection runtime. The iOS 27 theme 
 
 ```ts
 import {
-  addVerticalBarPlacementListener,
+  IonicNativeUIShell,
   enableVerticalControlArea,
-  getVerticalBarPlacement,
 } from '@rdlabo/ionic-theme-ios27/vertical-bars';
 
 // Start Web projection on Chrome too; it remains idle until the class is present.
@@ -67,14 +66,18 @@ const rail = await enableVerticalControlArea();
 
 // `platform` is the app's injected Ionic Platform instance.
 if (platform.is('ios')) {
-  await addVerticalBarPlacementListener((placement) => rail.setPlacement(placement));
-  rail.setPlacement(await getVerticalBarPlacement());
+  await IonicNativeUIShell.startDeviceLayoutMonitoring();
+  const listener = await IonicNativeUIShell.addListener('deviceLayoutChange', ({ placement }) => rail.setPlacement(placement));
+  rail.setPlacement((await IonicNativeUIShell.getDeviceLayout()).placement);
+  // When updates are no longer needed:
+  // await listener.remove();
+  // await IonicNativeUIShell.stopDeviceLayoutMonitoring();
 }
 ```
 
 The `platform.is('ios')` guard controls automatic application of native placement, not the component mode or the Web simulation. An app can keep `mode: 'md'` on iOS and still enable Vertical Bars.
 
-The placement listener only reports what iOS chose; the application decides whether to call `setPlacement`. Passing `null` restores the ordinary layout. The result includes the physical edge and its UIKit safe-area inset. Projected tabs and toolbar controls still render with SwiftUI. If the app already starts the full `enableNativeUIShell()`, use `setVerticalControlAreaPlacement(placement)` instead of starting another runtime.
+The device-layout listener reports what iOS chose; the application decides whether to call `setPlacement`. Passing `null` restores the ordinary layout. The placement includes the physical edge and its UIKit safe-area inset. The same event also includes hinge status and WebView corner radius. Call `stopDeviceLayoutMonitoring()` after removing the listener to stop device-layout events. Projected tabs and toolbar controls still render with SwiftUI. If the app already starts the full `enableNativeUIShell()`, use `setVerticalControlAreaPlacement(placement)` instead of starting another runtime.
 
 Start either `enableVerticalControlArea()` or the full `enableNativeUIShell()` once at application startup. Repeating the same configuration returns the shared runtime; starting a different configuration while it is active throws an error. The application should have one owner responsible for destroying that runtime.
 
@@ -93,6 +96,32 @@ The class reserves `80px` on the physical right in Chrome to simulate iPhone Duo
 This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when it is placed beside the system UI. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
 
 `ion-menu`, `ion-modal`, and `ion-popover` are handled as separate surfaces: their internal foreground components do not receive the main-page conversion and retain Ionic's standard safe-area handling. A menu presented beside the system UI keeps Ionic's full-viewport animation host and offsets only its visible container by the corresponding inset; a menu from the opposite side is unchanged. Left and right remain physical coordinates in RTL, while Ionic's `side="start"` and `side="end"` values remain logical.
+
+For a side-by-side menu on iPhone Duo, opt the `ion-split-pane` into the separately measured Settings layout. The sidebar is 320pt when fully unfolded and reaches the display midpoint when half-opened (50vw). The application supplies the posture; both states have the same viewport width, so a width media query cannot distinguish them:
+
+```html
+<ion-split-pane
+  [class.ios-theme-split-pane-half-open]="halfOpened"
+  contentId="main-content"
+  when="(min-width: 900px)"
+>
+  <ion-menu contentId="main-content">...</ion-menu>
+  <div id="main-content">...</div>
+</ion-split-pane>
+```
+
+Set the ordinary split-pane width to 320pt in the application's stylesheet, and let the half-open class change only the width value:
+
+```css
+ion-split-pane {
+  --ios-theme-menu-width: var(--ios-theme-split-pane-width);
+  --side-width: var(--ios-theme-menu-width);
+  --side-max-width: var(--ios-theme-menu-width);
+  transition: --ios-theme-split-pane-width 300ms ease;
+}
+```
+
+The registered `--ios-theme-split-pane-width` defaults to 320px; `.ios-theme-split-pane-half-open` sets it to 50vw. Set `halfOpened` from `deviceLayoutChange.hingeStatus` (and read the initial value with `getDeviceLayout`). The exported `HingeStatus` enum has `Unavailable`, `Closed`, `PartiallyOpen`, and `FullyOpen`; `Unavailable` means no hinge is available. Ionic's `when` decides whether the menu is a persistent side pane; choose its breakpoint so the pane is hidden when closed. The application chooses where to apply this width rule; an ordinary split pane elsewhere is unchanged. This layout works without the iOS 27 theme and does not enable Vertical Bars or move an overlay menu.
 
 These values are web-layout simulation inputs. They are independent from Ionic's normal iPhone safe-area variables and do not change ordinary iPhone layouts unless the opt-in class is present.
 

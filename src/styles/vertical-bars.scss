@@ -3,6 +3,18 @@
 
 // iPhone Duo simulation: the system reserves 80pt at the physical right edge.
 // This entry point does not load the iOS 27 theme or change ordinary Ionic UI.
+// A split menu is independent of the vertical control area. Its width is
+// selected by the application from the device posture, not the viewport width.
+@property --ios-theme-split-pane-width {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 320px;
+}
+
+ion-split-pane.ios-theme-split-pane-half-open {
+  --ios-theme-split-pane-width: 50vw;
+}
+
 ion-app.ios-theme-vertical-bars {
   --ios-theme-vertical-bars-safe-area-left-resolved: var(--ios-theme-vertical-bars-safe-area-left, 0px);
   --ios-theme-vertical-bars-safe-area-right-resolved: var(

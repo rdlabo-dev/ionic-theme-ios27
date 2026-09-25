@@ -2,7 +2,8 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { createAppConfig, type IonicAnimationOptions } from './app/app.config';
 import { AppComponent } from './app/app.component';
 import { enableNativeUIShell } from '../../src/native';
-import { addVerticalBarPlacementListener, enableVerticalControlArea, setVerticalControlAreaPlacement } from '../../src/vertical-bars';
+import { IonicNativeUIShell, enableVerticalControlArea, setVerticalControlAreaPlacement } from '../../src/vertical-bars';
+import { Capacitor } from '@capacitor/core';
 import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
 
 /**
@@ -22,15 +23,17 @@ function loadIOSAnimations(): IonicAnimationOptions {
 
 // Keep the Web fallback available in the demo; applications can choose when to enable it.
 void bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations()))
-  .then(() =>
-    addVerticalBarPlacementListener((placement) => {
+  .then(async () => {
+    if (Capacitor.getPlatform() !== 'ios') return;
+    await IonicNativeUIShell.startDeviceLayoutMonitoring();
+    await IonicNativeUIShell.addListener('deviceLayoutChange', ({ placement }) => {
       const app = document.querySelector('ion-app.ios-theme-vertical-bars');
       if (app)
         setVerticalControlAreaPlacement(
           placement.edge ? placement : app.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right',
         );
-    }),
-  )
+    });
+  })
   .catch((err) => console.error(err));
 const startShell = new URLSearchParams(window.location.search).has('verticalBarsOnly') ? enableVerticalControlArea : enableNativeUIShell;
 void startShell().then((handle) => Object.assign(window, { nativeUIShell: handle }));

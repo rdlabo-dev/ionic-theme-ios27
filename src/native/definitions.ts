@@ -47,6 +47,13 @@ export interface VerticalBarPlacement {
   inset: number;
 }
 
+export enum HingeStatus {
+  Unavailable = 'unavailable',
+  Closed = 'closed',
+  PartiallyOpen = 'partially-open',
+  FullyOpen = 'fully-open',
+}
+
 export interface VerticalControlAreaHandle extends NativeUIShellHandle {
   /** Applies the application's chosen placement to both Web and native controls. */
   setPlacement(placement: VerticalBarEdge | VerticalBarPlacement): void;
@@ -150,14 +157,20 @@ export interface WebViewMetrics {
   radius: number;
 }
 
+export interface DeviceLayout {
+  placement: VerticalBarPlacement;
+  hingeStatus: HingeStatus;
+  webViewMetrics: WebViewMetrics;
+}
+
 export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
-  getVerticalBarPlacement(): Promise<VerticalBarPlacement>;
-  getWebViewMetrics(): Promise<WebViewMetrics>;
+  getDeviceLayout(): Promise<DeviceLayout>;
+  startDeviceLayoutMonitoring(): Promise<void>;
+  stopDeviceLayoutMonitoring(): Promise<void>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
-  addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
-  addListener(name: 'verticalBarPlacementChange', listener: (event: VerticalBarPlacement) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'deviceLayoutChange', listener: (event: DeviceLayout) => void): Promise<PluginListenerHandle>;
 }

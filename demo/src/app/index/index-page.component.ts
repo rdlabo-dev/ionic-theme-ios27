@@ -19,7 +19,8 @@ import {
   ToggleCustomEvent,
 } from '@demo/ionic';
 import { ActivatedRoute, Router } from '@angular/router';
-import { getVerticalBarPlacement, setVerticalControlAreaPlacement } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { IonicNativeUIShell, setVerticalControlAreaPlacement } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { Capacitor } from '@capacitor/core';
 
 interface IComponent {
   name: string;
@@ -103,7 +104,8 @@ export class IndexPageComponent {
 
   async changeVerticalBarsMode(event: ToggleCustomEvent) {
     if (!event.detail.checked) return setVerticalControlAreaPlacement(null);
-    const placement = await getVerticalBarPlacement();
+    const placement =
+      Capacitor.getPlatform() === 'ios' ? (await IonicNativeUIShell.getDeviceLayout()).placement : ({ edge: null, inset: 0 } as const);
     setVerticalControlAreaPlacement(placement.edge ? placement : 'right');
   }
 }
