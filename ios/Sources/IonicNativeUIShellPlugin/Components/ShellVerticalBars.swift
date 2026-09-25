@@ -165,11 +165,15 @@ private struct ShellVerticalBarsPage: View {
 @available(iOS 26.0, *)
 private struct ShellVerticalBarsCompression: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
         if #available(iOS 27.1, *) {
             content.toolbarVerticalCompressionBehavior(.prefersToolbarItems)
         } else {
             content
         }
+        #else
+        content
+        #endif
     }
 }
 
@@ -178,14 +182,19 @@ private struct ShellVerticalBarsToolbarAdapter: ViewModifier {
     @ObservedObject var model: ShellVerticalBarsModel
 
     @ViewBuilder func body(content: Content) -> some View {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
         if #available(iOS 27.1, *) {
             content.modifier(ShellVerticalBarsToolbar(model: model))
         } else {
             content.modifier(ShellVerticalBarsLegacyToolbar(model: model))
         }
+        #else
+        content.modifier(ShellVerticalBarsLegacyToolbar(model: model))
+        #endif
     }
 }
 
+#if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
 @available(iOS 27.1, *)
 private struct ShellVerticalBarsToolbar: ViewModifier {
     @ObservedObject var model: ShellVerticalBarsModel
@@ -217,6 +226,7 @@ private struct ShellVerticalBarsToolbar: ViewModifier {
         }
     }
 }
+#endif
 
 @available(iOS 26.0, *)
 private struct ShellVerticalBarsLegacyToolbar: ViewModifier {

@@ -17,7 +17,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var host: ShellHost?
     private var verticalBars: ShellVerticalBarsControlling?
     private var controls: [String: UIView] = [:]
-    private var searchControllers: [String: UIViewController] = [:]
+    private var searchControllers: [String: ShellSearchControlling] = [:]
     private var fingerprints: [String: ShellControl] = [:]
     private let rendering = ShellRendering()
     private var revision = 0
@@ -31,9 +31,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var lastVerticalBarInset: CGFloat = 0
     private var verticalBarPlacementObserved = false
     private weak var observedVerticalBarView: UIView?
-    private var verticalBarRegistration: AnyObject?
+    private var unregisterVerticalBarObservation: (() -> Void)?
     private weak var observedHingeView: UIView?
-    private var hingeInteraction: AnyObject?
+    private var hingeInteraction: UIInteraction?
     private var hingeStatus: String?
     private var deviceLayoutMonitoring = 0
     private var lastDeviceLayout: String?
@@ -58,12 +58,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     self.verticalBars?.view.isHidden = true
                 }
                 var searchOwnsKeyboard = false
-                if #available(iOS 26.0, *) {
-                    self.searchControllers.values.forEach {
-                        guard let controller = $0 as? ShellSearchController else { return }
-                        if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
-                        if !keyboard { controller.surface.isHidden = true }
-                    }
+                self.searchControllers.values.forEach { controller in
+                    if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
+                    if !keyboard { controller.surface.isHidden = true }
                 }
                 if keyboard {
                     if !searchOwnsKeyboard {
@@ -92,13 +89,10 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     }
 
     private func stopDeviceLayoutObservation() {
-        if #available(iOS 17.0, *), let view = observedVerticalBarView,
-           let registration = verticalBarRegistration as? any UITraitChangeRegistration {
-            view.unregisterForTraitChanges(registration)
-        }
-        verticalBarRegistration = nil
+        unregisterVerticalBarObservation?()
+        unregisterVerticalBarObservation = nil
         observedVerticalBarView = nil
-        if let interaction = hingeInteraction as? UIInteraction {
+        if let interaction = hingeInteraction {
             observedHingeView?.removeInteraction(interaction)
         }
         hingeInteraction = nil
@@ -205,14 +199,13 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private func observeVerticalBarPlacement() {
         #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
         if #available(iOS 27.1, *), let webView = bridge?.webView, observedVerticalBarView !== webView {
-            if let view = observedVerticalBarView, let registration = verticalBarRegistration as? any UITraitChangeRegistration {
-                view.unregisterForTraitChanges(registration)
-            }
+            unregisterVerticalBarObservation?()
             observedVerticalBarView = webView
             let traits: [UITrait] = [UITraitLayoutDirection.self] + UITraitCollection.systemTraitsAffectingVerticalBarEdge
-            verticalBarRegistration = webView.registerForTraitChanges(traits) { [weak self] (_: UIView, _: UITraitCollection) in
+            let registration = webView.registerForTraitChanges(traits) { [weak self] (_: UIView, _: UITraitCollection) in
                 self?.notifyVerticalBarPlacementChange()
             }
+            unregisterVerticalBarObservation = { [weak webView] in webView?.unregisterForTraitChanges(registration) }
         }
         #endif
         notifyVerticalBarPlacementChange()
@@ -221,7 +214,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private func observeHingeStatus() {
         #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
         if #available(iOS 27.1, *), let webView = bridge?.webView, observedHingeView !== webView {
-            if let interaction = hingeInteraction as? UIInteraction {
+            if let interaction = hingeInteraction {
                 observedHingeView?.removeInteraction(interaction)
             }
             observedHingeView = webView
@@ -290,9 +283,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     }
 
     private func removeControl(_ id: String, duration: TimeInterval = 0) {
-        if #available(iOS 26.0, *) {
-            (searchControllers.removeValue(forKey: id) as? ShellSearchController)?.detach()
-        }
+        searchControllers.removeValue(forKey: id)?.detach()
         if let control = controls.removeValue(forKey: id) { ShellCrossfade.retire(control, duration: duration) }
         fingerprints.removeValue(forKey: id)
         pendingTabSelections.removeValue(forKey: id)
@@ -368,7 +359,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             var rejectedControls: [String] = []
             var fabs: [(ShellFab, ShellControl)] = []
-            var searches: [(ShellSearchController, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
+            var searches: [(ShellSearchControlling, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
             if verticalBars.isEmpty || self.keyboardVisible {
                 self.verticalBars?.detach()
@@ -412,7 +403,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         rejectedControls.append(id)
                     }
                     // Only native search owns its keyboard; other controls return to Web.
-                    if self.keyboardVisible && (self.searchControllers[id] as? ShellSearchController)?.ownsKeyboard != true {
+                    if self.keyboardVisible && self.searchControllers[id]?.ownsKeyboard != true {
                         reject(); continue
                     }
                     let local = node.frame.rect
@@ -420,9 +411,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                                                        width: local.width * scale, height: local.height * scale), to: parent)
                     if let search = node.search {
                         guard let owner = self.bridge?.viewController else { rejectedSearches.append(id); continue }
-                        let controller: ShellSearchController
+                        let controller: ShellSearchControlling
                         let previousCover = self.controls[id]
-                        let replacing = self.searchControllers[id] as? ShellSearchController
+                        let replacing = self.searchControllers[id]
                         if let existing = replacing { controller = existing }
                         else {
                             // Keep the ordinary UITabBar cover until the search controller applies.
