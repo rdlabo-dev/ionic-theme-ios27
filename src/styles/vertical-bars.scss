@@ -66,14 +66,17 @@ ion-app.ios-theme-vertical-bars
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
 
-  &::part(container) {
-    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
-    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
-  }
+  // Collapse headers already sit inside the padded ion-content scroll area.
+  &:not(:where(ion-header.header-collapse-condense *, ion-footer.footer-collapse-fade *)) {
+    &::part(container) {
+      padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+      padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+    }
 
-  &:dir(rtl)::part(container) {
-    padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
-    padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+    &:dir(rtl)::part(container) {
+      padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));
+      padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
+    }
   }
 }
 
