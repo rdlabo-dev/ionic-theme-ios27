@@ -26,6 +26,8 @@ This package provides three independent pieces for that hardware. Each works **w
 
 The stylesheet never changes ordinary Ionic UI by itself; every rule requires an opt-in class. Load it unconditionally — these values are simulation and layout inputs, independent from Ionic's normal safe-area variables.
 
+The `/vertical-bars` entry point imports `@capacitor/core` at module load, so install it even for Web-only use (it is an optional peer dependency). Apps that want only the stylesheet and its opt-in classes need nothing else.
+
 ## Read the device layout
 
 `npx cap sync ios` registers the plugin automatically; no `configure` call is needed for device layout. An app that only wants the hinge posture — for example to drive a split pane — uses this API alone, with no projection runtime:
