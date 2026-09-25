@@ -58,6 +58,42 @@ const combine = (native: NativeUIShellHandle, fallback: NativeUIShellHandle): Na
   },
 });
 
+/** Wraps a runtime handle with the shared enable-lifecycle: reason, suspend hooks and idempotent destroy. */
+const manage = (
+  handle: NativeUIShellHandle,
+  lifecycle: {
+    reason?: string;
+    suspend?: () => (() => void) | undefined;
+    destroy?: () => void | Promise<void>;
+  } = {},
+): NativeUIShellHandle => {
+  let destroyed = false;
+  return {
+    getStatus: () => (lifecycle.reason ? { ...handle.getStatus(), reason: lifecycle.reason } : handle.getStatus()),
+    async suspend() {
+      const lease = await handle.suspend();
+      const resume = lifecycle.suspend?.();
+      return {
+        async resume() {
+          await lease.resume();
+          resume?.();
+        },
+      };
+    },
+    async destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      try {
+        await handle.destroy();
+      } finally {
+        await lifecycle.destroy?.();
+        active = undefined;
+        activeConfiguration = undefined;
+      }
+    },
+  };
+};
+
 /** Reads the current native WebView geometry and applies it to page transitions. */
 export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
   const metrics =
@@ -113,22 +149,25 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
       new Error('Native UI Shell is already running with different controls; destroy it before changing configuration.'),
     );
   activeConfiguration = configuration;
-  const stopPrehide =
+  const prehide =
     !active && (options.controls === undefined || options.controls.toolbar === true)
       ? prehideVerticalBarsToolbarSources(document)
       : undefined;
+  const fallback = (reason: string) =>
+    manage(createVerticalBarsWebProjection(document, options), {
+      reason,
+      suspend: () => prehide?.suspend(),
+      destroy: () => prehide?.stop(),
+    });
   return (active ??= (async () => {
-    if (Capacitor.getPlatform() !== 'ios')
-      return resetOnDestroy(withReason(createVerticalBarsWebProjection(document, options), 'Requires Capacitor iOS'), stopPrehide);
+    if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
     let runtime: NativeUIShellHandle | undefined;
     let placementListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
     let monitoring = false;
     try {
       if (!options.verticalBarsOnly) await configureNativeTransition().catch(() => undefined);
       const capabilities = await plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true });
-      if (!capabilities.supported) {
-        return resetOnDestroy(withReason(createVerticalBarsWebProjection(document, options), 'Requires iOS 26 or later'), stopPrehide);
-      }
+      if (!capabilities.supported) return fallback('Requires iOS 26 or later');
       let nativeEdge: VerticalBarEdge = null;
       const nativeVerticalBars = () => {
         const root = document.querySelector('ion-app.ios-theme-vertical-bars');
@@ -142,73 +181,23 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
       });
       nativeEdge = (await plugin.getDeviceLayout()).placement.edge;
-      runtime = await createRuntime(document, plugin, options, nativeVerticalBars, options.verticalBarsOnly === true);
       runtime = combine(
-        runtime,
+        await createRuntime(document, plugin, options, nativeVerticalBars, options.verticalBarsOnly === true),
         createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars()),
       );
-      return resetOnDestroy(withPlacementListener(runtime, placementListener), stopPrehide);
+      return manage(runtime, {
+        suspend: () => prehide?.suspend(),
+        destroy: async () => {
+          await placementListener?.remove().catch(() => {});
+          if (monitoring) await plugin.stopDeviceLayoutMonitoring().catch(() => {});
+          prehide?.stop();
+        },
+      });
     } catch (error) {
       await runtime?.destroy();
       await placementListener?.remove().catch(() => {});
       if (monitoring) await plugin.stopDeviceLayoutMonitoring().catch(() => {});
-      return resetOnDestroy(
-        withReason(createVerticalBarsWebProjection(document, options), error instanceof Error ? error.message : String(error)),
-        stopPrehide,
-      );
+      return fallback(error instanceof Error ? error.message : String(error));
     }
   })());
 };
-
-const withPlacementListener = (
-  handle: NativeUIShellHandle,
-  listener: Awaited<ReturnType<typeof plugin.addListener>>,
-): NativeUIShellHandle => {
-  let destroyed = false;
-  return {
-    getStatus: () => handle.getStatus(),
-    suspend: () => handle.suspend(),
-    async destroy() {
-      if (destroyed) return;
-      destroyed = true;
-      try {
-        await handle.destroy();
-      } finally {
-        await listener.remove().catch(() => {});
-        await plugin.stopDeviceLayoutMonitoring().catch(() => {});
-      }
-    },
-  };
-};
-
-const resetOnDestroy = (
-  handle: NativeUIShellHandle,
-  prehide?: ReturnType<typeof prehideVerticalBarsToolbarSources>,
-): NativeUIShellHandle => ({
-  getStatus: handle.getStatus,
-  async suspend() {
-    const lease = await handle.suspend();
-    const resumePrehide = prehide?.suspend();
-    return {
-      async resume() {
-        await lease.resume();
-        resumePrehide?.();
-      },
-    };
-  },
-  async destroy() {
-    try {
-      await handle.destroy();
-    } finally {
-      prehide?.stop();
-      active = undefined;
-      activeConfiguration = undefined;
-    }
-  },
-});
-
-const withReason = (handle: NativeUIShellHandle, reason: string): NativeUIShellHandle => ({
-  getStatus: () => ({ ...handle.getStatus(), reason }),
-  suspend: () => handle.suspend(),
-  destroy: () => handle.destroy(),
-});

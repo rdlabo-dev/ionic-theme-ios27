@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { AnimationCall } from './native-shell-mock';
 
 const installAnimationObserver = async (page: Page) => {
   await page.addInitScript(() => {
     const originalAnimate = Element.prototype.animate;
 
-    (window as any).__IONIC_ANIMATION_CALLS__ = [];
+    document.__IONIC_ANIMATION_CALLS__ = [];
     Element.prototype.animate = function (keyframes, options) {
       const animation = originalAnimate.call(this, keyframes, options);
       const properties = Array.isArray(keyframes)
@@ -16,7 +17,7 @@ const installAnimationObserver = async (page: Page) => {
         : Object.keys(keyframes ?? {}).filter((key) => !['offset', 'easing', 'composite'].includes(key));
       const duration = typeof options === 'number' ? options : typeof options?.duration === 'number' ? options.duration : 0;
 
-      (window as any).__IONIC_ANIMATION_CALLS__.push({
+      document.__IONIC_ANIMATION_CALLS__!.push({
         animation,
         duration,
         properties,
@@ -30,13 +31,13 @@ const installAnimationObserver = async (page: Page) => {
 };
 
 const clearAnimationCalls = async (page: Page) => {
-  await page.evaluate(() => ((window as any).__IONIC_ANIMATION_CALLS__ = []));
+  await page.evaluate(() => (document.__IONIC_ANIMATION_CALLS__ = []));
 };
 
 const hasRunningAnimation = (page: Page, targetClass?: string) => {
   return page.evaluate((expectedClass) => {
-    return (window as any).__IONIC_ANIMATION_CALLS__.some(
-      (call: { animation: Animation; duration: number; properties: string[]; targetClass: string }) =>
+    return document.__IONIC_ANIMATION_CALLS__!.some(
+      (call: AnimationCall) =>
         call.animation.playState === 'running' &&
         call.duration > 0 &&
         call.properties.includes('transform') &&
@@ -47,8 +48,8 @@ const hasRunningAnimation = (page: Page, targetClass?: string) => {
 
 const hasAnimationCall = (page: Page, targetClass: string) => {
   return page.evaluate((expectedClass) => {
-    return (window as any).__IONIC_ANIMATION_CALLS__.some(
-      (call: { duration: number; properties: string[]; targetClass: string }) =>
+    return document.__IONIC_ANIMATION_CALLS__!.some(
+      (call: AnimationCall) =>
         call.duration > 0 && call.properties.includes('transform') && call.targetClass.split(' ').includes(expectedClass),
     );
   }, targetClass);

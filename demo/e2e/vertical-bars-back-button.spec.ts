@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { TestAppElement } from './native-shell-mock';
 
 test('verticalBars mode replaces the toolbar back button with an interactive Web projection', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
@@ -14,17 +15,18 @@ test('verticalBars mode replaces the toolbar back button with an interactive Web
 
   await source.evaluate((element) => {
     const original = element.getBoundingClientRect.bind(element);
-    (window as any).verticalBarsBackButtonReads = 0;
+    const app = document.querySelector('ion-app') as TestAppElement;
+    app.verticalBarsBackButtonReads = 0;
     element.getBoundingClientRect = () => {
-      (window as any).verticalBarsBackButtonReads++;
+      app.verticalBarsBackButtonReads = (app.verticalBarsBackButtonReads ?? 0) + 1;
       return original();
     };
     element.toggleAttribute('data-projection-sync');
   });
   await page.waitForTimeout(100);
-  const settledReads = await page.evaluate(() => (window as any).verticalBarsBackButtonReads);
+  const settledReads = await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).verticalBarsBackButtonReads);
   await page.waitForTimeout(150);
-  expect(await page.evaluate(() => (window as any).verticalBarsBackButtonReads)).toBe(settledReads);
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).verticalBarsBackButtonReads)).toBe(settledReads);
 
   await projection.click();
   await expect(page).toHaveURL(/\/main\/index$/);
@@ -51,11 +53,14 @@ test('Native UI Shell suspension synchronously restores and resumes verticalBars
   const projection = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
   await expect(projection).toBeVisible();
 
-  await page.evaluate(async () => Object.assign(window, { verticalBarsLease: await (window as any).nativeUIShell.suspend() }));
+  await page.evaluate(async () => {
+    const app = document.querySelector('ion-app') as TestAppElement;
+    app.verticalBarsLease = await app.nativeUIShell!.suspend();
+  });
   await expect(source).toBeVisible();
   await expect(projection).toHaveCount(0);
 
-  await page.evaluate(async () => (window as any).verticalBarsLease.resume());
+  await page.evaluate(async () => (document.querySelector('ion-app') as TestAppElement).verticalBarsLease!.resume());
   await expect(source).toBeHidden();
   await expect(projection).toBeVisible();
 });
@@ -67,7 +72,7 @@ test('a stale suspension lease cannot re-hide Web controls after shell teardown'
   await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
 
   await page.evaluate(async () => {
-    const shell = (window as any).nativeUIShell;
+    const shell = (document.querySelector('ion-app') as TestAppElement).nativeUIShell!;
     const lease = await shell.suspend();
     await shell.destroy();
     await lease.resume();

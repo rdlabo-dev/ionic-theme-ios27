@@ -44,7 +44,7 @@ import { Capacitor } from '@capacitor/core';
 export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter, ViewDidLeave {
   readonly #router = inject(Router);
   readonly #el = inject(ElementRef);
-  private readonly splitPane = viewChild.required<IonSplitPane, ElementRef<HTMLIonSplitPaneElement>>('splitPane', { read: ElementRef });
+  readonly splitPane = viewChild.required<IonSplitPane, ElementRef<HTMLIonSplitPaneElement>>('splitPane', { read: ElementRef });
   #hingeListener?: { remove(): Promise<void> };
   #hingeMonitoring = false;
   #destroyed = false;
@@ -78,16 +78,16 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
     if (Capacitor.getPlatform() !== 'ios') return;
     await IonicNativeUIShell.startDeviceLayoutMonitoring();
     this.#hingeMonitoring = true;
-    if (this.#destroyed) return this.releaseHinge();
+    if (this.#destroyed) return this.#releaseHinge();
     this.#hingeListener = await IonicNativeUIShell.addListener('deviceLayoutChange', ({ hingeStatus }) => {
       if (!this.#destroyed) this.setHingeStatus(hingeStatus);
     });
     const { hingeStatus } = await IonicNativeUIShell.getDeviceLayout();
-    if (this.#destroyed) return this.releaseHinge();
+    if (this.#destroyed) return this.#releaseHinge();
     this.setHingeStatus(hingeStatus);
   }
 
-  private releaseHinge() {
+  #releaseHinge() {
     void this.#hingeListener?.remove();
     this.#hingeListener = undefined;
     if (this.#hingeMonitoring) {
@@ -98,7 +98,7 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
 
   ngOnDestroy() {
     this.#destroyed = true;
-    this.releaseHinge();
+    this.#releaseHinge();
   }
 
   ionViewDidEnter() {

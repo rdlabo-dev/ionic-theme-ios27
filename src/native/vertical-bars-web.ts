@@ -5,6 +5,7 @@ import {
   createVerticalBarsPageState,
   verticalBarsEnteringPage,
   verticalBarsToolbarActions,
+  inFixedToolbar,
   isExcluded,
   isVerticalBarsToolbarGroup,
   isShellDisabled,
@@ -72,22 +73,13 @@ export const createVerticalBarsWebProjection = (
       const rect = element.getBoundingClientRect();
       return element.isConnected && style.display !== 'none' && style.visibility === 'visible' && rect.width > 0 && rect.height > 0;
     });
-  const inEligibleToolbar = (element: HTMLElement) => {
-    const currentRoot = verticalBarsRoot();
-    const toolbar = element.closest('ion-toolbar');
-    const edge = toolbar?.parentElement;
-    return (
-      !!currentRoot?.contains(element) &&
-      !!toolbar &&
-      !!edge?.matches('ion-header, ion-footer') &&
-      !element.closest('ion-content') &&
-      !edge.hasAttribute('collapse') &&
-      !isExcluded(element, verticalBarsEnteringPage(element)) &&
-      !isShellDisabled(element) &&
-      !verticalBarsPages.isDeparted(element) &&
-      !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden')
-    );
-  };
+  const inEligibleToolbar = (element: HTMLElement) =>
+    !!verticalBarsRoot()?.contains(element) &&
+    inFixedToolbar(element) &&
+    !isExcluded(element, verticalBarsEnteringPage(element)) &&
+    !isShellDisabled(element) &&
+    !verticalBarsPages.isDeparted(element) &&
+    !element.closest('ion-menu, ion-modal, ion-popover, .ion-page-hidden');
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     !!verticalBarsRoot()?.contains(element) &&
     verticalBarsOwned(element) &&

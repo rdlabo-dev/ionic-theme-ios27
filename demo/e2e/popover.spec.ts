@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+/** Element the spec instruments to capture the bounds the animation measured. */
+interface MeasuredTrigger extends HTMLElement {
+  presentationBounds?: DOMRect;
+  restoreMeasurement?: () => void;
+}
+
+/** `presented` exists on the component class but not its public element interface. */
+type PopoverProbe = HTMLIonPopoverElement & { presented: boolean };
+
 test('ordinary anchors show an arrow and morphing buttons do not', async ({ page }) => {
   await page.goto('/main/index/popover');
   // Reopen the ordinary trigger to verify callout cleanup after a morphing popover.
@@ -13,7 +22,7 @@ test('ordinary anchors show an arrow and morphing buttons do not', async ({ page
     } else {
       await expect(arrow).toBeVisible();
     }
-    await popover.evaluate(async (el: any) => el.dismiss());
+    await popover.evaluate(async (el: HTMLIonPopoverElement) => el.dismiss());
     await expect(popover).toBeHidden();
   }
 });
@@ -22,7 +31,7 @@ test('popover can be presented without a trigger', async ({ page }) => {
   await page.goto('/main/index/popover');
   await page.waitForSelector('ion-popover.hydrated', { state: 'attached' });
   const result = await page.evaluate(async () => {
-    const popover = document.createElement('ion-popover') as any;
+    const popover = document.createElement('ion-popover') as PopoverProbe;
     popover.component = document.createElement('div');
     popover.component.textContent = 'Unanchored content';
     document.body.append(popover);
@@ -35,7 +44,7 @@ test('popover can be presented without a trigger', async ({ page }) => {
   expect(result).toBe(true);
 });
 
-for (const side of ['top', 'bottom', 'left', 'right']) {
+for (const side of ['top', 'bottom', 'left', 'right'] as const) {
   test(`arrow stays visible for ${side} placement`, async ({ page }) => {
     await page.setViewportSize({ width: 1210, height: 834 });
     await page.goto('/main/index/popover');
@@ -44,7 +53,7 @@ for (const side of ['top', 'bottom', 'left', 'right']) {
       const anchor = document.createElement('button');
       anchor.style.cssText = 'position:fixed;left:540px;top:350px;width:80px;height:44px';
       document.body.append(anchor);
-      const popover = document.createElement('ion-popover') as any;
+      const popover = document.createElement('ion-popover') as PopoverProbe;
       popover.component = document.createElement('div');
       popover.component.textContent = 'Content';
       popover.style.cssText = '--width:240px;--height:180px';
@@ -52,7 +61,7 @@ for (const side of ['top', 'bottom', 'left', 'right']) {
       popover.side = side;
       document.body.append(popover);
       await popover.present();
-      const arrow = popover.shadowRoot.querySelector('[part="arrow"]');
+      const arrow = popover.shadowRoot!.querySelector('[part="arrow"]')!;
       const rect = arrow.getBoundingClientRect();
       const result = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
       await popover.dismiss();
@@ -87,14 +96,14 @@ for (const width of [390, 1210]) {
         await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
         const anchorRect = anchor.getBoundingClientRect();
         const paneRect = pane.getBoundingClientRect();
-        const popover = document.createElement('ion-popover') as any;
+        const popover = document.createElement('ion-popover') as PopoverProbe;
         popover.component = document.createElement('div');
         popover.component.textContent = 'Content';
         popover.event = { target: anchor };
         popover.style.cssText = '--width:240px';
         document.body.append(popover);
         await popover.present();
-        const content = popover.shadowRoot.querySelector('[part="content"]');
+        const content = popover.shadowRoot!.querySelector('[part="content"]')!;
         const rect = content.getBoundingClientRect();
         const origin = parseFloat(getComputedStyle(content).transformOrigin);
         const result = {
@@ -132,7 +141,7 @@ for (const width of [390, 1210]) {
       await trigger.scrollIntoViewIfNeeded();
       // The pressed button can grow before presentation; compare the surface with
       // the visual bounds read by the animation, rather than the resting button.
-      await trigger.evaluate((el: any) => {
+      await trigger.evaluate((el: MeasuredTrigger) => {
         const measure = el.getBoundingClientRect;
         el.getBoundingClientRect = () => {
           const rect = measure.call(el);
@@ -149,29 +158,29 @@ for (const width of [390, 1210]) {
       await expect(popover).toBeVisible();
       await expect
         .poll(() =>
-          popover.evaluate((el: any) =>
-            el.shadowRoot
-              .querySelector('[part="content"]')
+          popover.evaluate((el: HTMLIonPopoverElement) =>
+            el
+              .shadowRoot!.querySelector('[part="content"]')!
               .getAnimations()
               .every((a: Animation) => a.playState === 'finished'),
           ),
         )
         .toBe(true);
-      const before = await trigger.evaluate((el: any) => {
-        const rect = el.presentationBounds;
-        el.restoreMeasurement();
+      const before = await trigger.evaluate((el: MeasuredTrigger) => {
+        const rect = el.presentationBounds!;
+        el.restoreMeasurement!();
         delete el.presentationBounds;
         return { x: rect.x, width: rect.width };
       });
-      const geometry = await popover.evaluate((el: any) => {
-        const trigger = document.getElementById(el.trigger)!;
+      const geometry = await popover.evaluate((el: HTMLIonPopoverElement) => {
+        const trigger = document.getElementById(el.trigger!)!;
         const pane = trigger.closest('ion-content')!;
         const scroll = pane.shadowRoot!.querySelector('[part="scroll"]')!;
         const style = getComputedStyle(scroll);
         const paneRect = pane.getBoundingClientRect();
-        const content = el.shadowRoot.querySelector('[part="content"]');
+        const content = el.shadowRoot!.querySelector('[part="content"]')!;
         const rect = content.getBoundingClientRect();
-        const arrow = el.shadowRoot.querySelector('[part="arrow"]');
+        const arrow = el.shadowRoot!.querySelector('[part="arrow"]')!;
         const arrowRect = arrow.getBoundingClientRect();
         const anchor = trigger.getBoundingClientRect();
         return {
@@ -205,14 +214,14 @@ for (const width of [390, 1210]) {
           1.5,
         );
       }
-      await popover.evaluate(async (el: any) => el.dismiss());
+      await popover.evaluate(async (el: HTMLIonPopoverElement) => el.dismiss());
       await expect(popover).toBeHidden();
     }
   });
 }
 
 for (const tag of ['button', 'ion-button']) {
-  for (const side of ['top', 'bottom', 'left', 'right']) {
+  for (const side of ['top', 'bottom', 'left', 'right'] as const) {
     test(`event reference points to the click on ${tag} for ${side} placement`, async ({ page }) => {
       await page.setViewportSize({ width: 1210, height: 834 });
       await page.goto('/main/index/popover');
@@ -223,7 +232,7 @@ for (const tag of ['button', 'ion-button']) {
           anchor.style.cssText = 'position:fixed;left:500px;top:300px;width:200px;height:120px';
           anchor.textContent = 'Open';
           document.body.append(anchor);
-          const popover = document.createElement('ion-popover') as any;
+          const popover = document.createElement('ion-popover') as PopoverProbe;
           popover.component = document.createElement('div');
           popover.component.textContent = 'Content';
           popover.style.cssText = '--width:240px;--height:180px';
@@ -232,12 +241,12 @@ for (const tag of ['button', 'ion-button']) {
           popover.side = side;
           document.body.append(popover);
           await popover.present();
-          const root = popover.shadowRoot;
-          const content = root.querySelector('.popover-content');
+          const root = popover.shadowRoot!;
+          const content = root.querySelector('.popover-content')!;
           const rect = content.getBoundingClientRect();
-          const arrow = root.querySelector('[part="arrow"]').getBoundingClientRect();
+          const arrow = root.querySelector('[part="arrow"]')!.getBoundingClientRect();
           const origin = getComputedStyle(content).transformOrigin.split(' ').map(parseFloat);
-          const layer = root.querySelector('[part="callout-glass"]');
+          const layer = root.querySelector('[part="callout-glass"]')!;
           const layerRect = layer.getBoundingClientRect();
           const layerOrigin = getComputedStyle(layer).transformOrigin.split(' ').map(parseFloat);
           const horizontal = side === 'left' || side === 'right';

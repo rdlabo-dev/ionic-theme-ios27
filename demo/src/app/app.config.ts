@@ -3,7 +3,7 @@ import { provideRouter, withComponentInputBinding } from '@angular/router';
 import * as allIcons from 'ionicons/icons';
 
 import { routes } from './app.routes';
-import { IONIC_MAJOR, provideIonicAngular } from '@demo/ionic';
+import { IONIC_MAJOR, provideIonicAngular, type AnimationBuilder } from '@demo/ionic';
 import { addIcons } from 'ionicons';
 
 addIcons(allIcons);
@@ -13,13 +13,13 @@ if (typeof document !== 'undefined') {
 }
 
 export interface IonicAnimationOptions {
-  navAnimation?: (...args: any[]) => any;
-  popoverEnter?: (...args: any[]) => any;
-  popoverLeave?: (...args: any[]) => any;
+  navAnimation?: AnimationBuilder;
+  popoverEnter?: AnimationBuilder;
+  popoverLeave?: AnimationBuilder;
 }
 
 // Disable animations during E2E tests for consistent screenshots
-const isE2ETesting = typeof window !== 'undefined' && (window as any).IONIC_E2E_TESTING === true;
+const isE2ETesting = typeof document !== 'undefined' && (document as Document & { IONIC_E2E_TESTING?: boolean }).IONIC_E2E_TESTING === true;
 
 export const createAppConfig = (animations: IonicAnimationOptions = {}): ApplicationConfig => ({
   providers: [

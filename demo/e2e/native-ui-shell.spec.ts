@@ -3,74 +3,106 @@ import type { Page } from '@playwright/test';
 import { compile, NodePackageImporter } from 'sass';
 import { resolve } from 'node:path';
 import * as overlayTypes from '../src/app/overlay-types';
+import type { ShellControl, ShellItem, ShellSnapshot } from '../../src/native/definitions';
+import type { ShellMockCore, TestAppElement } from './native-shell-mock';
 
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
+interface ShellMock extends ShellMockCore {
+  delay: number;
+  hang: boolean;
+  rejectInactiveSearch: boolean;
+  rejectAllSearch: boolean;
+  rejectControlLabel: string;
+  configuredWith?: { verticalBarsOnly?: boolean };
+  lateSearch?: () => void;
+  tabRetirements: number;
+  retirementDetails: { path: string; tabs: string }[];
+}
+
 const mockNative = async (page: Page, fail = false, verticalBars = true) => {
   const script = ([fail, verticalBars]: readonly [boolean, boolean]) => {
-    const state = {
-      updates: [] as any[],
+    const mock = {
+      updates: [] as ShellSnapshot[],
       sequence: 0,
       delay: 0,
       hang: false,
       rejectInactiveSearch: false,
       rejectAllSearch: false,
       rejectControlLabel: '',
-      configuredWith: undefined as any,
-      activate: (_event: any) => {},
-      search: (_event: any) => {},
-      metrics: (_event: any) => {},
-    };
-    Object.assign(window, {
-      __nativeUIShell: state,
-      CapacitorCustomPlatform: { name: 'ios' },
-      Capacitor: {
-        PluginHeaders: [
-          {
-            name: 'IonicNativeUIShell',
-            methods: [
-              { name: 'configure', rtype: 'promise' },
-              { name: 'getWebViewMetrics', rtype: 'promise' },
-              { name: 'update', rtype: 'promise' },
-              { name: 'clear', rtype: 'promise' },
-              { name: 'addListener' },
-              { name: 'removeListener' },
-            ],
-          },
-        ],
-        nativePromise: async (_plugin: string, method: string, options: any) => {
-          if (method === 'configure') {
-            state.configuredWith = options;
-            return { supported: true, verticalBars };
-          }
-          if (method === 'getWebViewMetrics') return { radius: 0 };
-          state.updates.push(method === 'clear' ? { ...options, controls: [] } : options);
-          if (state.hang && method === 'update') await new Promise(() => {});
-          if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
-          if (fail && method === 'update' && options.controls.length) throw new Error('Test native failure');
-          return {
-            revision: options.revision,
-            rejectedSearches:
-              state.rejectInactiveSearch || state.rejectAllSearch
-                ? options.controls
-                    ?.filter((control: any) => control.search && (state.rejectAllSearch || control.search.available === false))
-                    .map((control: any) => control.id)
-                : [],
-            rejectedControls: state.rejectControlLabel
+      configuredWith: undefined as { verticalBarsOnly?: boolean } | undefined,
+      lateSearch: undefined as (() => void) | undefined,
+      tabRetirements: 0,
+      retirementDetails: [] as { path: string; tabs: string }[],
+      listeners: {} as Record<string, ((event: never) => void)[]>,
+      addListener(eventName: string, callback: (event: never) => void) {
+        const listeners = (this.listeners[eventName] ??= []);
+        listeners.push(callback);
+        return Promise.resolve({ remove: async () => listeners.splice(listeners.indexOf(callback), 1) });
+      },
+      async removeAllListeners() {
+        this.listeners = {};
+      },
+      notifyListeners(eventName: string, data: unknown) {
+        for (const listener of this.listeners[eventName] ?? []) listener(data as never);
+      },
+      async configure(options: { verticalBarsOnly?: boolean }) {
+        this.configuredWith = options;
+        return { supported: true, verticalBars };
+      },
+      async getWebViewMetrics() {
+        return { radius: 0 };
+      },
+      async getDeviceLayout() {
+        return {
+          placement: { edge: verticalBars ? ('right' as const) : null, inset: verticalBars ? 84 : 0 },
+          hingeStatus: 'unavailable' as const,
+          webViewMetrics: { radius: 0 },
+        };
+      },
+      async startDeviceLayoutMonitoring() {},
+      async stopDeviceLayoutMonitoring() {},
+      async update(options: ShellSnapshot) {
+        this.updates.push(options);
+        if (this.hang) await new Promise(() => {});
+        return this.rejections(options);
+      },
+      async clear(options: { revision: number }) {
+        this.updates.push({ revision: options.revision, viewportWidth: 0, controls: [] });
+        return this.rejections(options);
+      },
+      async rejections(options: { revision?: number; controls?: ShellControl[] }) {
+        if (this.delay) await new Promise((resolve) => setTimeout(resolve, this.delay));
+        if (fail && options.controls?.length) throw new Error('Test native failure');
+        return {
+          revision: options.revision,
+          rejectedSearches:
+            this.rejectInactiveSearch || this.rejectAllSearch
               ? options.controls
-                  ?.filter((control: any) => control.items.some((item: any) => item.accessibilityLabel === state.rejectControlLabel))
-                  .map((control: any) => control.id)
+                  ?.filter((control) => control.search && (this.rejectAllSearch || control.search.available === false))
+                  .map((control) => control.id)
               : [],
-          };
-        },
-        nativeCallback: (_plugin: string, method: string, options: any, callback: (event: any) => void) => {
-          if (method === 'addListener') {
-            if (options.eventName === 'search') state.search = callback;
-            else if (options.eventName === 'activate') state.activate = callback;
-            else if (options.eventName === 'webViewMetricsChange') state.metrics = callback;
-          }
-          return 'shell-listener';
-        },
+          rejectedControls: this.rejectControlLabel
+            ? options.controls
+                ?.filter((control) => control.items.some((item) => item.accessibilityLabel === this.rejectControlLabel))
+                .map((control) => control.id)
+            : [],
+        };
+      },
+    };
+
+    window.CapacitorCustomPlatform = { name: 'ios' };
+    // Substitute the mock as the plugin implementation when @capacitor/core
+    // initialises its global, before the app registers 'IonicNativeUIShell'.
+    let capacitor: { registerPlugin: (name: string, implementations?: Record<string, unknown>) => unknown } | undefined;
+    Object.defineProperty(window, 'Capacitor', {
+      configurable: true,
+      get: () => capacitor,
+      set: (instance) => {
+        const registerPlugin = instance.registerPlugin;
+        instance.registerPlugin = (name: string, implementations?: Record<string, unknown>) =>
+          name === 'IonicNativeUIShell' ? mock : registerPlugin(name, implementations);
+        capacitor = instance;
       },
     });
   };
@@ -80,16 +112,16 @@ const mockNative = async (page: Page, fail = false, verticalBars = true) => {
 const activate = (page: Page, label: string, duplicate = false) =>
   page.evaluate(
     ({ label, duplicate }) => {
-      const state = (window as any).__nativeUIShell;
-      const snapshot = state.updates.findLast((value: any) =>
-        value.controls.some((control: any) => control.items.some((item: any) => item.label === label || item.accessibilityLabel === label)),
-      );
+      const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const snapshot = state.updates.findLast((value) =>
+        value.controls.some((control) => control.items.some((item) => item.label === label || item.accessibilityLabel === label)),
+      )!;
       const item = snapshot.controls
-        .flatMap((control: any) => control.items)
-        .find((item: any) => item.label === label || item.accessibilityLabel === label);
+        .flatMap((control) => control.items)
+        .find((item) => item.label === label || item.accessibilityLabel === label)!;
       const event = { id: item.id, revision: snapshot.revision, sequence: ++state.sequence };
-      state.activate(event);
-      if (duplicate) state.activate(event);
+      state.notifyListeners('activate', event);
+      if (duplicate) state.notifyListeners('activate', event);
     },
     { label, duplicate },
   );
@@ -104,22 +136,22 @@ test('FAB keeps a complete native batch across staggered lists and measures each
   const state = () =>
     page.evaluate(() => {
       const fab = document.querySelector('ion-fab[horizontal=center]')!;
-      const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
-      return controls.find((c: any) => c.kind === 'ion-fab' && c.items.length === 7);
+      const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls;
+      return controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7)!;
     });
   const closed = await state();
-  expect(closed.items.filter((i: any) => i.visible)).toHaveLength(1);
-  expect(closed.items.every((i: any) => i.icon && i.closeIcon)).toBe(true);
+  expect(closed.items.filter((i: ShellItem) => i.visible)).toHaveLength(1);
+  expect(closed.items.every((i: ShellItem) => i.icon && i.closeIcon)).toBe(true);
   await fab.locator(':scope > ion-fab-button').evaluate((b: HTMLIonFabButtonElement) => b.click());
-  await expect.poll(async () => (await state()).items.filter((i: any) => i.visible).length).toBe(7);
+  await expect.poll(async () => (await state()).items.filter((i: ShellItem) => i.visible).length).toBe(7);
   const opened = await state();
-  expect(opened.items.map((i: any) => i.id)).toEqual(closed.items.map((i: any) => i.id));
+  expect(opened.items.map((i: ShellItem) => i.id)).toEqual(closed.items.map((i: ShellItem) => i.id));
   const rects = await fab.locator('ion-fab-button').evaluateAll((buttons) => buttons.map((b) => b.getBoundingClientRect().toJSON()));
   for (let index = 0; index < rects.length; index++) {
-    for (const key of ['x', 'y', 'width', 'height']) expect(opened.items[index][key]).toBeCloseTo(rects[index][key], 1);
+    for (const key of ['x', 'y', 'width', 'height'] as const) expect(opened.items[index][key]).toBeCloseTo(rects[index][key], 1);
   }
   await fab.evaluate((f: HTMLIonFabElement) => f.close());
-  await expect.poll(async () => (await state()).items.filter((i: any) => i.visible).length).toBe(1);
+  await expect.poll(async () => (await state()).items.filter((i: ShellItem) => i.visible).length).toBe(1);
   await expect(fab).toHaveAttribute('data-native-ui-shell', '');
 });
 
@@ -129,26 +161,27 @@ test('FAB activation stays with Ionic and rejects hidden, disabled and duplicate
   const fab = page.locator('ion-fab[horizontal=center]');
   await expect(fab).toHaveAttribute('data-native-ui-shell', '');
   await fab.evaluate((element) => {
-    (window as any).__fabClicks = 0;
-    element.querySelector('ion-fab-list ion-fab-button')!.addEventListener('click', () => (window as any).__fabClicks++);
+    const app = document.querySelector('ion-app') as TestAppElement;
+    app.fabClicks = 0;
+    element.querySelector('ion-fab-list ion-fab-button')!.addEventListener('click', () => (app.fabClicks = (app.fabClicks ?? 0) + 1));
   });
   await activate(page, 'Up action');
-  expect(await page.evaluate(() => (window as any).__fabClicks)).toBe(0);
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).fabClicks)).toBe(0);
   await activate(page, 'Center FAB actions', true);
   await expect.poll(() => fab.evaluate((element: HTMLIonFabElement) => element.activated)).toBe(true);
   await expect
     .poll(() =>
       page.evaluate(
         () =>
-          (window as any).__nativeUIShell.updates
-            .at(-1)
-            .controls.find((c: any) => c.kind === 'ion-fab' && c.items.length === 7)
-            .items.filter((i: any) => i.visible).length,
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7)!
+            .items.filter((i: ShellItem) => i.visible).length,
       ),
     )
     .toBe(7);
   await activate(page, 'Up action', true);
-  expect(await page.evaluate(() => (window as any).__fabClicks)).toBe(1);
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).fabClicks)).toBe(1);
   await expect.poll(() => fab.evaluate((element: HTMLIonFabElement) => element.activated)).toBe(false);
   await fab.locator(':scope > ion-fab-button').evaluate((element: HTMLIonFabButtonElement) => (element.disabled = true));
   await activate(page, 'Center FAB actions');
@@ -179,7 +212,7 @@ test('FAB reverses during stagger, keeps its cover, and ignores late hidden acti
   expect(evidence.covered).toBe(true);
   expect(evidence.active).toBe(false);
   await expect(fab).toHaveAttribute('data-native-ui-shell', '');
-  await page.evaluate(() => ((window as any).__nativeUIShell.delay = 120));
+  await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').delay = 120));
   await fab.evaluate((element: HTMLIonFabElement) => (element.activated = true));
   await fab.evaluate((element: HTMLIonFabElement) => {
     element.style.display = 'none';
@@ -213,8 +246,9 @@ test('FAB restores excluded groups and follows icon, list and theme changes', as
     .poll(() =>
       page.evaluate(
         () =>
-          (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.kind === 'ion-fab' && c.items.length === 6)?.items
-            .length,
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 6)?.items.length,
       ),
     )
     .toBe(6);
@@ -281,10 +315,10 @@ test('FAB uses measured positions after RTL and viewport changes', async ({ page
       await expect
         .poll(() =>
           page.evaluate(() => {
-            const control = (window as any).__nativeUIShell.updates
-              .at(-1)
-              .controls.find((c: any) => c.kind === 'ion-fab' && c.items.length === 7);
-            if (!control || control.rtl !== (document.documentElement.dir === 'rtl') || control.items.some((i: any) => !i.visible))
+            const control = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+              .updates.at(-1)!
+              .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7);
+            if (!control || control.rtl !== (document.documentElement.dir === 'rtl') || control.items.some((i: ShellItem) => !i.visible))
               return false;
             const buttons = Array.from(document.querySelector('ion-fab[horizontal=center]')!.querySelectorAll('ion-fab-button'));
             return buttons.every((b, index) => {
@@ -297,10 +331,11 @@ test('FAB uses measured positions after RTL and viewport changes', async ({ page
         .toBe(true);
       const icon = await page.evaluate(
         () =>
-          (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.kind === 'ion-fab' && c.items.length === 7).items[2]
-            .icon,
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7)!.items[2].icon,
       );
-      if (direction === 'rtl') rtlIcon = icon;
+      if (direction === 'rtl') rtlIcon = icon!;
       else expect(icon).not.toBe(rtlIcon);
     }
   }
@@ -321,9 +356,11 @@ test('unsupported search morph releases and restores a native fixed-slot FAB int
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
-          .controls.some((c: any) => c.kind === 'ion-fab' && c.items.some((i: any) => i.accessibilityLabel === 'Search albums')),
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.some(
+            (c: ShellControl) => c.kind === 'ion-fab' && c.items.some((i: ShellItem) => i.accessibilityLabel === 'Search albums'),
+          ),
       ),
     )
     .toBe(true);
@@ -347,9 +384,9 @@ test('verticalBars tabs request native adaptive rail placement', async ({ page }
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
-          .controls.some((control: any) => control.kind === 'ion-tab-bar' && control.placement === 'vertical-bars'),
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.some((control: ShellControl) => control.kind === 'ion-tab-bar' && control.placement === 'vertical-bars'),
       ),
     )
     .toBe(true);
@@ -366,12 +403,14 @@ test('standalone Vertical Control Area never snapshots ordinary Native UI Shell 
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const { configuredWith, updates } = (window as any).__nativeUIShell;
+        const { configuredWith, updates } = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
         const controls = updates.at(-1)?.controls ?? [];
         return (
           configuredWith?.verticalBarsOnly === true &&
           controls.length > 0 &&
-          updates.flatMap((update: any) => update.controls).every((control: any) => control.placement === 'vertical-bars')
+          updates
+            .flatMap((update: ShellSnapshot) => update.controls)
+            .every((control: ShellControl) => control.placement === 'vertical-bars')
         );
       }),
     )
@@ -402,7 +441,10 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as any).__nativeUIShell.updates.at(-1)?.controls.filter((control: any) => control.kind === 'ion-back-button').length,
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)
+            ?.controls.filter((control: ShellControl) => control.kind === 'ion-back-button').length,
       ),
     )
     .toBe(1);
@@ -410,29 +452,29 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
     .poll(() =>
       page.evaluate(
         () =>
-          (window as any).__nativeUIShell.updates
-            .at(-1)
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
             .controls.some(
-              (control: any) =>
+              (control: ShellControl) =>
                 control.kind === 'ion-back-button' && control.placement === 'vertical-bars' && control.toolbarSlot === undefined,
             ) &&
-          !(window as any).__nativeUIShell.updates
-            .at(-1)
-            .controls.some((control: any) => control.items.some((item: any) => item.label === 'Cancel')),
+          !Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.some((control: ShellControl) => control.items.some((item: ShellItem) => item.label === 'Cancel')),
       ),
     )
     .toBe(true);
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
           .controls.some(
-            (control: any) =>
+            (control: ShellControl) =>
               control.kind === 'ion-button' &&
               control.placement === 'vertical-bars' &&
               control.toolbarSlot === 'end' &&
-              control.items.some((item: any) => item.accessibilityLabel === 'Save'),
+              control.items.some((item: ShellItem) => item.accessibilityLabel === 'Save'),
           ),
       ),
     )
@@ -441,7 +483,9 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
     .poll(() =>
       page.evaluate(
         () =>
-          (window as any).__nativeUIShell.updates.at(-1).controls.find((control: any) => control.kind === 'ion-menu-button')?.toolbarSlot,
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((control: ShellControl) => control.kind === 'ion-menu-button')?.toolbarSlot,
       ),
     )
     .toBe('start');
@@ -457,9 +501,10 @@ test('native verticalBars toolbar returns with Index after a pushed page', async
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
   const hasIndexActions = () =>
     page.evaluate(() => {
-      const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
+      const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls;
       return controls.some(
-        (control: any) => control.placement === 'vertical-bars' && control.items.some((item: any) => item.accessibilityLabel === 'GitHub'),
+        (control: ShellControl) =>
+          control.placement === 'vertical-bars' && control.items.some((item: ShellItem) => item.accessibilityLabel === 'GitHub'),
       );
     });
   await expect.poll(hasIndexActions).toBe(true);
@@ -468,17 +513,17 @@ test('native verticalBars toolbar returns with Index after a pushed page', async
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const state = (window as any).__nativeUIShell;
-        const snapshot = state.updates.at(-1);
-        return !!snapshot.controls.find((control: any) => control.kind === 'ion-back-button')?.items[0];
+        const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+        const snapshot = state.updates.at(-1)!;
+        return !!snapshot.controls.find((control: ShellControl) => control.kind === 'ion-back-button')?.items[0];
       }),
     )
     .toBe(true);
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
-    const back = snapshot.controls.find((control: any) => control.kind === 'ion-back-button').items[0];
-    state.activate({ id: back.id, revision: snapshot.revision, sequence: ++state.sequence });
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
+    const back = snapshot.controls.find((control: ShellControl) => control.kind === 'ion-back-button')!.items[0];
+    state.notifyListeners('activate', { id: back.id, revision: snapshot.revision, sequence: ++state.sequence });
   });
   await expect(page).toHaveURL(/\/main\/index$/);
   await expect.poll(hasIndexActions).toBe(true);
@@ -508,12 +553,12 @@ test('native verticalBars actions follow WillEnter and stay enabled during navig
   const saveDisabled = () =>
     page.evaluate(
       () =>
-        (window as any).__nativeUIShell.updates
-          .findLast((update: any) =>
-            update.controls.some((control: any) => control.items.some((item: any) => item.accessibilityLabel === 'Save')),
-          )
-          .controls.flatMap((control: any) => control.items)
-          .find((item: any) => item.accessibilityLabel === 'Save').disabled,
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.findLast((update: ShellSnapshot) =>
+            update.controls.some((control: ShellControl) => control.items.some((item: ShellItem) => item.accessibilityLabel === 'Save')),
+          )!
+          .controls.flatMap((control: ShellControl) => control.items)
+          .find((item: ShellItem) => item.accessibilityLabel === 'Save')!.disabled,
     );
   await expect.poll(saveDisabled).toBe(false);
   await page.addStyleTag({ content: '.author-no-pointer { pointer-events: none }' });
@@ -608,7 +653,7 @@ test('verticalBars toolbar sources are hidden before ownership and restored with
   await expect(lateBack).not.toHaveClass(/ios-theme-vertical-bars-back-web-owned/);
   await lateBack.evaluate((element) => element.closest('ion-header')?.remove());
 
-  await page.evaluate(() => (window as any).nativeUIShell.destroy());
+  await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.destroy());
   await expect(source).not.toHaveClass(/ios-theme-native-ui-shell-prehidden/);
   await expect(source).toHaveCSS('visibility', 'visible');
 });
@@ -620,7 +665,7 @@ test('rejected verticalBars control returns to an operable Web source', async ({
   const save = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(save).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => {
-    (window as any).__nativeUIShell.rejectControlLabel = 'Save';
+    Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').rejectControlLabel = 'Save';
     window.dispatchEvent(new Event('nativeUIShellRefresh'));
   });
   await expect(save).not.toHaveAttribute('data-native-ui-shell', '');
@@ -661,22 +706,26 @@ test('verticalBars rail remains native while its Ionic menu is open', async ({ p
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
-        const demoActions = (control: any) =>
-          control.items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
+        const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.controls ?? [];
+        const demoActions = (control: ShellControl) =>
+          control.items.filter((item: ShellItem) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
         return {
-          groups: controls.filter((control: any) => control.kind === 'ion-buttons' && demoActions(control) === 2).length,
-          individuals: controls.filter((control: any) => control.kind === 'ion-button' && demoActions(control) > 0).length,
+          groups: controls.filter((control: ShellControl) => control.kind === 'ion-buttons' && demoActions(control) === 2).length,
+          individuals: controls.filter((control: ShellControl) => control.kind === 'ion-button' && demoActions(control) > 0).length,
         };
       }),
     )
     .toEqual({ groups: 1, individuals: 0 });
   const nativeDisabled = () =>
     page.evaluate(() => {
-      const items = (window as any).__nativeUIShell.updates.at(-1).controls.flatMap((control: any) => control.items);
+      const items = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+        .updates.at(-1)!
+        .controls.flatMap((control: ShellControl) => control.items);
       return {
-        save: items.find((item: any) => item.accessibilityLabel === 'Save')?.disabled,
-        actions: items.filter((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).map((item: any) => item.disabled),
+        save: items.find((item: ShellItem) => item.accessibilityLabel === 'Save')?.disabled,
+        actions: items
+          .filter((item: ShellItem) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel))
+          .map((item: ShellItem) => item.disabled),
       };
     });
   await actionGroup.evaluate((element: HTMLElement) => (element.style.pointerEvents = 'none'));
@@ -736,12 +785,14 @@ test('verticalBars controls stay operable on Web when the native side rail is un
   await expect(saveProjection).toHaveCount(0);
   await saveSource.evaluate((element) => element.classList.remove('author-hidden'));
   await expect(saveProjection).toBeVisible();
-  await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBeGreaterThan(0);
+  await expect
+    .poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus().projected))
+    .toBeGreaterThan(0);
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates.every((snapshot: any) =>
-          snapshot.controls.every((control: any) => control.placement !== 'vertical-bars'),
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.every((snapshot: ShellSnapshot) =>
+          snapshot.controls.every((control: ShellControl) => control.placement !== 'vertical-bars'),
         ),
       ),
     )
@@ -758,14 +809,15 @@ test('verticalBars controls stay operable on Web when the native side rail is un
 
   await page.evaluate(() => {
     const outlet = document.querySelector('ion-tabs ion-router-outlet')!;
-    (window as any).__verticalBarsBackCloneMoved = false;
+    (document.querySelector('ion-app') as TestAppElement).verticalBarsBackCloneMoved = false;
     new MutationObserver(() => {
-      if (outlet.querySelector(':scope > ion-back-button.ion-cloned-element')) (window as any).__verticalBarsBackCloneMoved = true;
+      if (outlet.querySelector(':scope > ion-back-button.ion-cloned-element'))
+        (document.querySelector('ion-app') as TestAppElement).verticalBarsBackCloneMoved = true;
     }).observe(outlet, { childList: true });
   });
   await projection.click();
   await expect(page).toHaveURL(/\/main\/index$/);
-  expect(await page.evaluate(() => (window as any).__verticalBarsBackCloneMoved)).toBe(false);
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).verticalBarsBackCloneMoved)).toBe(false);
 });
 
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {
@@ -780,11 +832,13 @@ test('native click preserves external form submit, disabled, and duplicate prote
   await expect(button).toHaveJSProperty('disabled', true);
   await activate(page, 'Save');
   await expect(page.locator('[data-save-count]')).toHaveText('1');
-  await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBeGreaterThan(0);
+  await expect
+    .poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus().projected))
+    .toBeGreaterThan(0);
   await page.waitForTimeout(200);
-  const count = await page.evaluate(() => (window as any).__nativeUIShell.updates.length);
+  const count = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length);
   await page.waitForTimeout(250);
-  expect(await page.evaluate(() => (window as any).__nativeUIShell.updates.length)).toBe(count);
+  expect(await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length)).toBe(count);
 });
 
 test('ancestor display, element opt-out aliases and non-glass fills restore Web', async ({ page }) => {
@@ -891,7 +945,13 @@ test('shell opt-out cannot be bypassed by searchable tab integration', async ({ 
   await page.goto('/main/album');
   const footer = page.locator('app-album-page ion-footer');
   const tabs = page.locator('ion-tab-bar');
-  const search = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  const search = () =>
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find((c: ShellControl) => c.search)?.search,
+    );
   await expect.poll(async () => (await search())?.trigger.accessibilityLabel).toBe('Search');
   for (const target of [
     footer,
@@ -921,22 +981,28 @@ test('shell opt-out retires active search without losing input or accepting late
   await page.goto('/main/album');
   const footer = page.locator('app-album-page ion-footer');
   const bar = footer.locator('ion-searchbar');
-  const search = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  const search = () =>
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find((c: ShellControl) => c.search)?.search,
+    );
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
-    state.activate({
-      id: snapshot.controls.find((c: any) => c.search).search.trigger.id,
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
+    state.notifyListeners('activate', {
+      id: snapshot.controls.find((c: ShellControl) => c.search)!.search!.trigger.id,
       revision: snapshot.revision,
       sequence: ++state.sequence,
     });
   });
   await expect.poll(async () => (await search())?.active).toBe(true);
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
-    const search = snapshot.controls.find((c: any) => c.search).search;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
+    const search = snapshot.controls.find((c: ShellControl) => c.search)!.search!;
     const event = {
       id: search.id,
       valueVersion: search.valueVersion,
@@ -945,14 +1011,14 @@ test('shell opt-out retires active search without losing input or accepting late
       value: '日本',
       composing: false,
     };
-    state.search({ ...event, sequence: ++state.sequence });
-    state.lateSearch = () => state.search({ ...event, value: 'stale', sequence: ++state.sequence });
+    state.notifyListeners('search', { ...event, sequence: ++state.sequence });
+    state.lateSearch = () => state.notifyListeners('search', { ...event, value: 'stale', sequence: ++state.sequence });
   });
   await expect(bar).toHaveJSProperty('value', '日本');
   await bar.evaluate((element) => element.classList.add('ios-theme-shell-disabled'));
   await expect(footer).not.toHaveAttribute('data-native-ui-shell');
   await expect.poll(search).toBeUndefined();
-  await page.evaluate(() => (window as any).__nativeUIShell.lateSearch());
+  await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').lateSearch!());
   await expect(bar).toHaveJSProperty('value', '日本');
   await bar.evaluate((element) => element.classList.remove('ios-theme-shell-disabled'));
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
@@ -984,7 +1050,7 @@ test('modal suspension, tab hiding and destroy restore ownership', async ({ page
   await page.getByRole('button', { name: 'Open modal', exact: true }).click();
   await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1)))
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!))
     .toMatchObject({ controls: [], transitionDuration: 0 });
   await page.getByRole('button', { name: 'Close modal', exact: true }).click();
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
@@ -992,7 +1058,7 @@ test('modal suspension, tab hiding and destroy restore ownership', async ({ page
   await expect(tabs).not.toHaveAttribute('data-native-ui-shell');
   await tabs.evaluate((element) => element.style.removeProperty('display'));
   await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
-  await page.evaluate(() => (window as any).nativeUIShell.destroy());
+  await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.destroy());
   await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('[data-save-count]')).toHaveText('1');
@@ -1003,7 +1069,7 @@ test('delayed response cannot reclaim a hidden source', async ({ page }) => {
   await page.goto('/main/index/native-ui-shell');
   const button = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
-  await page.evaluate(() => ((window as any).__nativeUIShell.delay = 150));
+  await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').delay = 150));
   await button.evaluate((element) => (element.querySelector('[data-label]')!.textContent = '変更'));
   await page.getByRole('button', { name: 'Parent hidden: false', exact: true }).click();
   await expect(button).not.toHaveAttribute('data-native-ui-shell');
@@ -1012,9 +1078,9 @@ test('delayed response cannot reclaim a hidden source', async ({ page }) => {
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
-          .controls.some((control: any) => control.items.some((item: any) => item.label === '変更')),
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.some((control: ShellControl) => control.items.some((item: ShellItem) => item.label === '変更')),
       ),
     )
     .toBe(false);
@@ -1027,23 +1093,33 @@ test('native refresh during a pending acknowledgement resends unchanged controls
   await page.locator('ion-tab-bar').evaluate((element) => element.remove());
   await expect(page.locator('app-native-ui-shell ion-button[type=submit]')).toHaveAttribute('data-native-ui-shell', '');
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.some((c: any) => c.kind === 'ion-tab-bar')))
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.some((c: ShellControl) => c.kind === 'ion-tab-bar'),
+      ),
+    )
     .toBe(false);
   const revision = await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
     state.delay = 500;
     window.dispatchEvent(new Event('nativeUIShellRefresh'));
-    return state.updates.at(-1).revision;
+    return state.updates.at(-1)!.revision;
   });
-  await expect.poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).revision)).toBeGreaterThan(revision);
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.revision))
+    .toBeGreaterThan(revision);
   const pending = await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
     window.dispatchEvent(new Event('nativeUIShellRefresh'));
     return snapshot;
   });
-  await expect.poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).revision)).toBeGreaterThan(pending.revision);
-  const refreshed = await page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1));
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.revision))
+    .toBeGreaterThan(pending.revision);
+  const refreshed = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!);
   expect(refreshed.controls).toEqual(pending.controls);
   await expect(page.locator('app-native-ui-shell ion-button[type=submit]')).toHaveAttribute('data-native-ui-shell', '');
 });
@@ -1051,7 +1127,9 @@ test('native refresh during a pending acknowledgement resends unchanged controls
 test('native failure leaves Web form usable', async ({ page }) => {
   await mockNative(page, true);
   await page.goto('/main/index/native-ui-shell');
-  await expect.poll(() => page.evaluate(() => (window as any).nativeUIShell?.getStatus().state)).toBe('stopped');
+  await expect
+    .poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell?.getStatus().state))
+    .toBe('web');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('[data-save-count]')).toHaveText('1');
 });
@@ -1073,19 +1151,21 @@ test('100 hide/show cycles leave stable ownership and destroy stops updates', as
   await page.goto('/main/index/native-ui-shell');
   const button = page.locator('app-native-ui-shell ion-button[type=submit]');
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
-  const initial = await page.evaluate(() => (window as any).nativeUIShell.getStatus().projected);
+  const initial = await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus().projected);
   for (let index = 0; index < 100; index++) {
     await button.evaluate((element) => (element.parentElement!.hidden = true));
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await button.evaluate((element) => (element.parentElement!.hidden = false));
     await expect(button).toHaveAttribute('data-native-ui-shell', '');
   }
-  expect(await page.evaluate(() => (window as any).nativeUIShell.getStatus().projected)).toBe(initial);
-  await page.evaluate(() => (window as any).nativeUIShell.destroy());
-  const updates = await page.evaluate(() => (window as any).__nativeUIShell.updates.length);
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus().projected)).toBe(
+    initial,
+  );
+  await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.destroy());
+  const updates = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length);
   await button.evaluate((element) => element.setAttribute('fill', 'clear'));
   await page.waitForTimeout(300);
-  expect(await page.evaluate(() => (window as any).__nativeUIShell.updates.length)).toBe(updates);
+  expect(await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length)).toBe(updates);
   await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
 });
 
@@ -1096,8 +1176,10 @@ test('ion-icon SVGs project and update when their name changes', async ({ page }
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
   const nativeIcon = () =>
     button.evaluate(() => {
-      const snapshot = (window as any).__nativeUIShell.updates.at(-1);
-      return snapshot.controls.flatMap((control: any) => control.items).find((item: any) => item.accessibilityLabel === 'Save')?.icon;
+      const snapshot = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!;
+      return snapshot.controls
+        .flatMap((control: ShellControl) => control.items)
+        .find((item: ShellItem) => item.accessibilityLabel === 'Save')?.icon;
     });
   await expect.poll(nativeIcon).toMatch(/^iVBOR/);
   const original = await nativeIcon();
@@ -1116,23 +1198,27 @@ test('clear ion-buttons share one glass surface and keep independent actions', a
   const github = group.locator('ion-button').nth(0);
   const refresh = group.locator('ion-button').nth(1);
   const projectedGroup = () =>
-    page.evaluate(() =>
-      (window as any).__nativeUIShell.updates
-        .at(-1)
-        .controls.find(
-          (control: any) => control.kind === 'ion-buttons' && control.items.some((item: any) => item.accessibilityLabel === 'GitHub'),
-        ),
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find(
+            (control: ShellControl) =>
+              control.kind === 'ion-buttons' && control.items.some((item: ShellItem) => item.accessibilityLabel === 'GitHub'),
+          )!,
     );
   await expect(group).toHaveAttribute('data-native-ui-shell', '');
   await expect(group.locator('[data-native-ui-shell]')).toHaveCount(0);
   await expect(github.locator('button')).toHaveCSS('visibility', 'hidden');
   const native = await projectedGroup();
   expect(native.items).toHaveLength(2);
-  expect(native.items.map((item: any) => item.accessibilityLabel)).toEqual(['GitHub', 'Refresh']);
+  expect(native.items.map((item: ShellItem) => item.accessibilityLabel)).toEqual(['GitHub', 'Refresh']);
   const githubName = () =>
     page.evaluate(
       (id) =>
-        (window as any).__nativeUIShell.updates.at(-1).controls.find((control: any) => control.id === id)?.items[0]?.accessibilityLabel,
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find((control: ShellControl) => control.id === id)?.items[0]?.accessibilityLabel,
       native.id,
     );
   await github.locator('ion-icon').evaluate((icon) => icon.setAttribute('aria-hidden', 'true'));
@@ -1195,11 +1281,12 @@ test('theme-disabled ion-buttons project eligible buttons independently', async 
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const controls = (window as any).__nativeUIShell.updates.at(-1)?.controls ?? [];
-        const isDemoAction = (control: any) => control.items.some((item: any) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel));
+        const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.controls ?? [];
+        const isDemoAction = (control: ShellControl) =>
+          control.items.some((item: ShellItem) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel));
         return {
-          buttons: controls.filter((control: any) => control.kind === 'ion-button' && isDemoAction(control)).length,
-          groups: controls.filter((control: any) => control.kind === 'ion-buttons' && isDemoAction(control)).length,
+          buttons: controls.filter((control: ShellControl) => control.kind === 'ion-button' && isDemoAction(control)).length,
+          groups: controls.filter((control: ShellControl) => control.kind === 'ion-buttons' && isDemoAction(control)).length,
         };
       }),
     )
@@ -1234,11 +1321,12 @@ test('all demo pages keep projection consistent through consecutive navigation',
     await expect
       .poll(() =>
         page.evaluate(() => {
-          const status = (window as any).nativeUIShell.getStatus();
-          const snapshot = (window as any).__nativeUIShell.updates.at(-1);
+          const status = (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus();
+          const snapshot = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!;
           return (
             status.state !== 'stopped' &&
-            status.projected === snapshot?.controls.reduce((count: number, control: any) => count + (control.search?.available ? 3 : 1), 0)
+            status.projected ===
+              snapshot?.controls.reduce((count: number, control: ShellControl) => count + (control.search?.available ? 3 : 1), 0)
           );
         }),
       )
@@ -1262,7 +1350,9 @@ test('all demo pages keep projection consistent through consecutive navigation',
   const back = async () => {
     await settled();
     const hasNativeBack = await page.evaluate(() =>
-      (window as any).__nativeUIShell.updates.at(-1).controls.some((control: any) => control.kind === 'ion-back-button'),
+      Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+        .updates.at(-1)!
+        .controls.some((control: ShellControl) => control.kind === 'ion-back-button'),
     );
     if (hasNativeBack) await activate(page, 'back');
     else
@@ -1340,7 +1430,9 @@ test('demo overlay variants retire native controls and restore them after dismis
         await expect(page.locator('[data-native-ui-shell]')).toHaveCount(0);
         await overlay.evaluate((element: HTMLElement & { dismiss(): Promise<boolean> }) => element.dismiss());
         await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
-        expect(await page.evaluate(() => (window as any).nativeUIShell.getStatus().state)).not.toBe('stopped');
+        expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus().state)).not.toBe(
+          'stopped',
+        );
       });
     }
   }
@@ -1354,7 +1446,7 @@ test('shared tabs stay native throughout navigation and delayed page updates', a
   const tabs = page.locator('ion-tab-bar');
   await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
   await tabs.evaluate((element) => {
-    const state = (window as any).__nativeUIShell;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
     state.updates = [];
     state.delay = 100;
     state.tabRetirements = 0;
@@ -1374,9 +1466,9 @@ test('shared tabs stay native throughout navigation and delayed page updates', a
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
-          ?.controls.some((control: any) => control.items.some((item: any) => item.label === 'Index pending')),
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          ?.controls.some((control: ShellControl) => control.items.some((item: ShellItem) => item.label === 'Index pending')),
       ),
     )
     .toBe(true);
@@ -1396,9 +1488,9 @@ test('shared tabs stay native throughout navigation and delayed page updates', a
       await expect
         .poll(() =>
           page.evaluate(() =>
-            (window as any).__nativeUIShell.updates
-              .at(-1)
-              .controls.some((control: any) => control.items.some((item: any) => item.label === '更新中')),
+            Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+              .updates.at(-1)!
+              .controls.some((control: ShellControl) => control.items.some((item: ShellItem) => item.label === '更新中')),
           ),
         )
         .toBe(true);
@@ -1414,10 +1506,10 @@ test('shared tabs stay native throughout navigation and delayed page updates', a
   }
   await page.waitForTimeout(300);
   const state = await page.evaluate(() => ({
-    retirements: (window as any).__nativeUIShell.tabRetirements,
-    details: (window as any).__nativeUIShell.retirementDetails,
-    ids: (window as any).__nativeUIShell.updates.map(
-      (snapshot: any) => snapshot.controls.find((control: any) => control.kind === 'ion-tab-bar')?.id,
+    retirements: Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').tabRetirements,
+    details: Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').retirementDetails,
+    ids: Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.map(
+      (snapshot: ShellSnapshot) => snapshot.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')?.id,
     ),
   }));
   expect(state.retirements, JSON.stringify(state.details)).toBe(0);
@@ -1436,7 +1528,7 @@ test('native tabs carry position anchors for both slots and text directions', as
       for (const position of ['start', 'center', 'end']) {
         await tabs.evaluate(
           (element, state) => {
-            element.dir = state.direction;
+            (element as HTMLElement).dir = state.direction;
             element.slot = state.slot;
             element.classList.remove('tab-bar-position-start', 'tab-bar-position-center', 'tab-bar-position-end');
             element.classList.add(`tab-bar-position-${state.position}`);
@@ -1448,13 +1540,17 @@ test('native tabs carry position anchors for both slots and text directions', as
           .poll(() =>
             page.evaluate(
               () =>
-                (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-tab-bar')
-                  ?.tabBarAnchor,
+                Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+                  .updates.at(-1)
+                  ?.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')?.tabBarAnchor,
             ),
           )
           .toEqual({ x, y: slot === 'bottom' ? 1 : 0 });
-        const native = await page.evaluate(() =>
-          (window as any).__nativeUIShell.updates.at(-1).controls.find((control: any) => control.kind === 'ion-tab-bar'),
+        const native = await page.evaluate(
+          () =>
+            Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+              .updates.at(-1)!
+              .controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')!,
         );
         const dom = await tabs.boundingBox();
         expect(native.x).toBeCloseTo(dom!.x, 1);
@@ -1471,9 +1567,12 @@ test('tab icons use selection tint only for text-colored SVGs', async ({ page })
   await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
   const items = () =>
     page.evaluate(
-      () => (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-tab-bar')?.items,
+      () =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)
+          ?.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')?.items,
     );
-  await expect.poll(async () => (await items())?.every((item: any) => item.iconTemplate)).toBe(true);
+  await expect.poll(async () => (await items())?.every((item: ShellItem) => item.iconTemplate)).toBe(true);
   await tabs
     .locator('ion-icon')
     .first()
@@ -1482,7 +1581,7 @@ test('tab icons use selection tint only for text-colored SVGs', async ({ page })
         '<path fill="red" d="M0 0h256v512H0z"/><path fill="blue" d="M256 0h256v512H256z"/>';
     });
   await expect.poll(async () => (await items())?.[0]?.iconTemplate).toBe(false);
-  expect((await items()).slice(1).every((item: any) => item.iconTemplate)).toBe(true);
+  expect((await items())!.slice(1).every((item: ShellItem) => item.iconTemplate)).toBe(true);
 });
 
 test('menu button toggles its Ionic menu and follows autoHide, disabled and split pane', async ({ page }) => {
@@ -1498,8 +1597,9 @@ test('menu button toggles its Ionic menu and follows autoHide, disabled and spli
     .poll(() =>
       page.evaluate(
         () =>
-          (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.kind === 'ion-menu-button')?.items[0].icon?.length ??
-          0,
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')?.items[0].icon?.length ?? 0,
       ),
     )
     .toBeGreaterThan(0);
@@ -1523,7 +1623,10 @@ test('menu button toggles its Ionic menu and follows autoHide, disabled and spli
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.kind === 'ion-menu-button')?.items[0].disabled,
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')?.items[0].disabled,
       ),
     )
     .toBe(true);
@@ -1567,7 +1670,10 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
   const surface = button.locator('..');
   await expect(surface).toHaveAttribute('data-native-ui-shell', '');
   const original = await page.evaluate(
-    () => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.kind === 'ion-menu-button').items[0].icon,
+    () =>
+      Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+        .updates.at(-1)!
+        .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')!.items[0].icon,
   );
   await button.evaluate((element) => {
     element.innerHTML = '<ion-icon name="heart"></ion-icon>';
@@ -1575,7 +1681,10 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.kind === 'ion-menu-button')?.items[0].icon,
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')?.items[0].icon,
       ),
     )
     .not.toBe(original);
@@ -1585,7 +1694,7 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
     extra.fill = 'clear';
     extra.textContent = 'Extra';
     extra.addEventListener('click', () => {
-      (window as any).__menuExtra = true;
+      (document.querySelector('ion-app') as TestAppElement).menuExtra = true;
     });
     element.append(extra);
   });
@@ -1593,14 +1702,15 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
     .poll(() =>
       page.evaluate(
         () =>
-          (window as any).__nativeUIShell.updates
-            .at(-1)
-            .controls.find((c: any) => c.kind === 'ion-buttons' && c.items.some((i: any) => i.label === 'Extra'))?.items.length,
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.kind === 'ion-buttons' && c.items.some((i: ShellItem) => i.label === 'Extra'))?.items
+            .length,
       ),
     )
     .toBe(2);
   await activate(page, 'Extra');
-  await expect.poll(() => page.evaluate(() => (window as any).__menuExtra)).toBe(true);
+  await expect.poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).menuExtra)).toBe(true);
   await activate(page, 'menu');
   await expect(page.locator('ion-menu')).toHaveClass(/show-menu/);
   await expect.poll(() => page.locator('ion-menu').evaluate((element: HTMLIonMenuElement) => element.isOpen())).toBe(true);
@@ -1644,39 +1754,45 @@ test('replacing a projected searchbar retires old input and binds the new field'
   await page.goto('/main/album');
   const footer = page.locator('app-album-page ion-footer');
   const bar = footer.locator('ion-searchbar');
-  const config = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  const config = () =>
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find((c: ShellControl) => c.search)?.search,
+    );
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
   await bar.evaluate((element: HTMLIonSearchbarElement) => element.setFocus());
   await expect.poll(async () => (await config())?.active).toBe(true);
   const previous = await config();
   await bar.evaluate((old: HTMLIonSearchbarElement) => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
-    const search = snapshot.controls.find((c: any) => c.search).search;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
+    const search = snapshot.controls.find((c: ShellControl) => c.search)!.search!;
     const event = { id: search.id, revision: snapshot.revision, valueVersion: search.valueVersion, phase: 'input', composing: false };
-    state.search({ ...event, value: 'old field', sequence: ++state.sequence });
+    state.notifyListeners('search', { ...event, value: 'old field', sequence: ++state.sequence });
     const replacement = document.createElement('ion-searchbar');
     for (const attribute of old.attributes) replacement.setAttribute(attribute.name, attribute.value);
     replacement.value = 'application initial value';
-    (window as any).__retiredSearchbar = old;
+    (document.querySelector('ion-app') as TestAppElement).retiredSearchbar = old;
     old.replaceWith(replacement);
     // Arrive before the observer can retire the old state: DOM identity must reject it.
-    state.search({ ...event, value: 'stale input', sequence: ++state.sequence });
+    state.notifyListeners('search', { ...event, value: 'stale input', sequence: ++state.sequence });
   });
-  expect(await page.evaluate(() => (window as any).__retiredSearchbar.value)).toBe('old field');
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).retiredSearchbar!.value)).toBe('old field');
   await expect
     .poll(async () => {
       const current = await config();
-      return !!current && current.id !== previous.id && !current.active && current.value === 'application initial value';
+      return !!current && current.id !== previous!.id && !current.active && current.value === 'application initial value';
     })
     .toBe(true);
   await bar.evaluate((element: HTMLIonSearchbarElement) => element.setFocus());
   await expect.poll(async () => (await config())?.focused).toBe(true);
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
-    const search = snapshot.controls.find((c: any) => c.search).search;
-    state.search({
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
+    const search = snapshot.controls.find((c: ShellControl) => c.search)!.search!;
+    state.notifyListeners('search', {
       id: search.id,
       revision: snapshot.revision,
       valueVersion: search.valueVersion,
@@ -1692,7 +1808,7 @@ test('replacing a projected searchbar retires old input and binds the new field'
   await expect
     .poll(async () => {
       const current = await config();
-      return !!current && current.id !== session.id && !current.active && current.value === 'replacement input';
+      return !!current && current.id !== session!.id && !current.active && current.value === 'replacement input';
     })
     .toBe(true);
 });
@@ -1704,15 +1820,21 @@ test('native search compensates keyboard tab hiding while respecting application
   await page.goto('/main/album');
   const footer = page.locator('app-album-page ion-footer');
   const tabBar = page.locator('ion-tab-bar');
-  const config = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
+  const config = () =>
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find((c: ShellControl) => c.search)?.search,
+    );
   await page.addStyleTag({ content: 'ion-tab-bar.application-hidden { display: none !important; }' });
   for (const mode of ['inline', 'class']) {
     await expect(footer).toHaveAttribute('data-native-ui-shell', '');
     await page.evaluate(() => {
-      const state = (window as any).__nativeUIShell;
-      const snapshot = state.updates.at(-1);
-      state.activate({
-        id: snapshot.controls.find((c: any) => c.search).search.trigger.id,
+      const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const snapshot = state.updates.at(-1)!;
+      state.notifyListeners('activate', {
+        id: snapshot.controls.find((c: ShellControl) => c.search)!.search!.trigger.id,
         revision: snapshot.revision,
         sequence: ++state.sequence,
       });
@@ -1726,10 +1848,10 @@ test('native search compensates keyboard tab hiding while respecting application
     await expect(tabBar).not.toHaveClass(/tab-bar-hidden/);
     await expect(footer).toHaveAttribute('data-native-ui-shell', '');
     await page.evaluate(() => {
-      const state = (window as any).__nativeUIShell;
-      const snapshot = state.updates.at(-1);
-      const search = snapshot.controls.find((c: any) => c.search).search;
-      state.search({
+      const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const snapshot = state.updates.at(-1)!;
+      const search = snapshot.controls.find((c: ShellControl) => c.search)!.search!;
+      state.notifyListeners('search', {
         id: search.id,
         revision: snapshot.revision,
         valueVersion: search.valueVersion,
@@ -1765,34 +1887,46 @@ test('search group keeps its covers, forwards Ionic events and preserves text on
   await page.goto('/main/album');
   const footer = page.locator('app-album-page ion-footer');
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
-  const config = () => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search);
-  expect((await config()).active).toBe(false);
+  const config = () =>
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find((c: ShellControl) => c.search)?.search,
+    );
+  expect((await config())?.active).toBe(false);
   await footer.evaluate((element) => {
     const bar = element.querySelector('ion-searchbar')!;
-    (window as any).__searchEvents = [];
+    (document.querySelector('ion-app') as TestAppElement).searchEvents = [];
     for (const name of ['ionFocus', 'ionInput', 'ionBlur', 'ionChange', 'ionClear', 'ionCancel']) {
-      bar.addEventListener(name, (event: any) => (window as any).__searchEvents.push([name, event.detail?.value]));
+      bar.addEventListener(name, (event: Event) =>
+        (document.querySelector('ion-app') as TestAppElement).searchEvents!.push([name, (event as CustomEvent).detail?.value]),
+      );
     }
   });
   const action = async (close = false) =>
     page.evaluate((close) => {
-      const state = (window as any).__nativeUIShell;
-      const snapshot = state.updates.at(-1);
-      const search = snapshot.controls.find((c: any) => c.search).search;
-      state.activate({ id: close ? search.closeId : search.trigger.id, revision: snapshot.revision, sequence: ++state.sequence });
+      const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const snapshot = state.updates.at(-1)!;
+      const search = snapshot.controls.find((c: ShellControl) => c.search)!.search!;
+      state.notifyListeners('activate', {
+        id: close ? search.closeId : search.trigger.id,
+        revision: snapshot.revision,
+        sequence: ++state.sequence,
+      });
     }, close);
   await action();
-  await expect.poll(async () => (await config()).active).toBe(true);
+  await expect.poll(async () => (await config())?.active).toBe(true);
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
   expect(page.url()).toContain('/main/album');
   const nativeEvent = async (phase: string, value: string, composing = false) =>
     page.evaluate(
       ({ phase, value, composing }) => {
-        const state = (window as any).__nativeUIShell;
-        const snapshot = state.updates.at(-1);
-        state.search({
-          id: snapshot.controls.find((c: any) => c.search).search.id,
-          valueVersion: snapshot.controls.find((c: any) => c.search).search.valueVersion,
+        const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+        const snapshot = state.updates.at(-1)!;
+        state.notifyListeners('search', {
+          id: snapshot.controls.find((c: ShellControl) => c.search)!.search!.id,
+          valueVersion: snapshot.controls.find((c: ShellControl) => c.search)!.search!.valueVersion,
           revision: snapshot.revision,
           sequence: ++state.sequence,
           phase,
@@ -1808,9 +1942,9 @@ test('search group keeps its covers, forwards Ionic events and preserves text on
   await nativeEvent('input', '日本', false);
   await expect(footer.locator('ion-searchbar')).toHaveJSProperty('value', '日本');
   await action(true);
-  await expect.poll(async () => (await config()).active).toBe(false);
+  await expect.poll(async () => (await config())?.active).toBe(false);
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
-  expect(await page.evaluate(() => (window as any).__searchEvents.map((e: any) => e[0]))).toEqual([
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).searchEvents!.map((e) => e[0]))).toEqual([
     'ionFocus',
     'ionInput',
     'ionInput',
@@ -1818,16 +1952,20 @@ test('search group keeps its covers, forwards Ionic events and preserves text on
     'ionChange',
   ]);
   await action();
-  await expect.poll(async () => (await config()).active).toBe(true);
-  expect((await config()).value).toBe('日本');
+  await expect.poll(async () => (await config())?.active).toBe(true);
+  expect((await config())?.value).toBe('日本');
   await footer.locator('ion-searchbar').evaluate((bar: HTMLIonSearchbarElement) => {
     bar.value = 'external';
   });
-  await expect.poll(async () => (await config()).value).toBe('external');
+  await expect.poll(async () => (await config())?.value).toBe('external');
   await nativeEvent('focus', 'external');
   await nativeEvent('clear', 'external');
-  await expect.poll(async () => (await config()).value).toBe('');
-  expect(await page.evaluate(() => (window as any).__searchEvents.filter((e: any) => e[0] === 'ionClear').length)).toBe(1);
+  await expect.poll(async () => (await config())?.value).toBe('');
+  expect(
+    await page.evaluate(
+      () => (document.querySelector('ion-app') as TestAppElement).searchEvents!.filter((e) => e[0] === 'ionClear').length,
+    ),
+  ).toBe(1);
 });
 
 test('search retirement keeps the value, rejects late input and allows a fresh Web session', async ({ page }) => {
@@ -1839,7 +1977,14 @@ test('search retirement keeps the value, rejects late input and allows a fresh W
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
   await page.locator('app-album-page ion-fab-button').evaluate((button: HTMLElement) => button.click());
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search.active))
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.search)?.search?.active,
+      ),
+    )
     .toBe(true);
   await footer.locator('ion-searchbar').evaluate((bar: HTMLIonSearchbarElement) => {
     bar.value = 'retained';
@@ -1847,11 +1992,11 @@ test('search retirement keeps the value, rejects late input and allows a fresh W
   await footer.evaluate((element) => element.classList.add('ionic-theme-disabled'));
   await expect(footer).not.toHaveAttribute('data-native-ui-shell');
   await page.evaluate(() => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.findLast((s: any) => s.controls.some((c: any) => c.search?.active));
-    state.search({
-      id: snapshot.controls.find((c: any) => c.search).search.id,
-      valueVersion: snapshot.controls.find((c: any) => c.search).search.valueVersion,
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.findLast((s: ShellSnapshot) => s.controls.some((c: ShellControl) => c.search?.active))!;
+    state.notifyListeners('search', {
+      id: snapshot.controls.find((c: ShellControl) => c.search)!.search!.id,
+      valueVersion: snapshot.controls.find((c: ShellControl) => c.search)!.search!.valueVersion,
       revision: snapshot.revision,
       sequence: ++state.sequence,
       phase: 'input',
@@ -1870,7 +2015,14 @@ test('search retirement keeps the value, rejects late input and allows a fresh W
   await footer.evaluate((element) => element.classList.remove('ionic-theme-disabled'));
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search.active))
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.search)?.search?.active,
+      ),
+    )
     .toBe(false);
   expect(errors).toEqual([]);
 });
@@ -1920,13 +2072,20 @@ test('a Leave sent before native Enter completes remains the final state', async
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.evaluate(() => {
-    (window as any).__nativeUIShell.delay = 200;
+    Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').delay = 200;
     (document.querySelector('app-album-page ion-fab-button') as HTMLElement).click();
     (document.querySelector('app-album-page ion-footer ion-button') as HTMLElement).click();
   });
   await page.waitForTimeout(600);
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search.active))
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.search)?.search?.active,
+      ),
+    )
     .toBe(false);
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
   expect(errors).toEqual([]);
@@ -1941,14 +2100,21 @@ test('app normalization wins over old native input while blur still terminates f
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
   await page.locator('app-album-page ion-fab-button').evaluate((button: HTMLElement) => button.click());
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search.active))
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.search)?.search?.active,
+      ),
+    )
     .toBe(true);
   await footer.locator('ion-searchbar').evaluate((bar: HTMLIonSearchbarElement) => {
-    const state = (window as any).__nativeUIShell;
-    const snapshot = state.updates.at(-1);
-    const search = snapshot.controls.find((c: any) => c.search).search;
+    const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = state.updates.at(-1)!;
+    const search = snapshot.controls.find((c: ShellControl) => c.search)!.search!;
     const emit = (phase: string, value: string) =>
-      state.search({
+      state.notifyListeners('search', {
         id: search.id,
         revision: snapshot.revision,
         sequence: ++state.sequence,
@@ -1971,7 +2137,14 @@ test('app normalization wins over old native input while blur still terminates f
   });
   await expect(footer.locator('ion-searchbar')).toHaveJSProperty('value', 'NORMALIZED');
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search.focused))
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.search)?.search?.focused,
+      ),
+    )
     .toBe(false);
 });
 
@@ -1985,13 +2158,13 @@ test('a lost search bridge releases Enter and keeps the current value in Web', a
   await page.evaluate(() => {
     const page = document.querySelector('app-album-page')!;
     (page.querySelector('ion-searchbar') as HTMLIonSearchbarElement).value = 'bridge retained';
-    (window as any).__nativeUIShell.hang = true;
+    Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').hang = true;
     (page.querySelector('ion-fab-button') as HTMLElement).click();
   });
   await expect(footer).not.toHaveAttribute('data-native-ui-shell', { timeout: 10000 });
   await expect(footer).toHaveCSS('opacity', '1');
   await expect(footer.locator('ion-searchbar')).toHaveJSProperty('value', 'bridge retained');
-  expect(await page.evaluate(() => (window as any).nativeUIShell.getStatus().state)).toBe('stopped');
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus().state)).toBe('web');
   await footer.locator('ion-button').click();
   await expect(footer).toHaveCSS('opacity', '0');
 });
@@ -2002,15 +2175,17 @@ test('a retained FAB accepts a second click while its current native update awai
   const fab = page.locator('ion-fab[horizontal=center]');
   await expect(fab).toHaveAttribute('data-native-ui-shell', '');
   await page.evaluate(() => {
-    (window as any).__nativeUIShell.delay = 500;
+    Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').delay = 500;
   });
   await activate(page, 'Center FAB actions');
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
-          .controls.some((c: any) => c.kind === 'ion-fab' && c.items.length === 7 && c.items.filter((i: any) => i.visible).length > 1),
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.some(
+            (c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7 && c.items.filter((i: ShellItem) => i.visible).length > 1,
+          ),
       ),
     )
     .toBe(true);
@@ -2031,23 +2206,23 @@ test('FAB keeps its cover while Stencil show and the rendered host class catch u
     // Hold the real Stencil intermediate state long enough to exercise a bridge update.
     Object.defineProperty(child, 'show', { configurable: true, get: () => true });
     child.classList.remove('fab-button-show');
-    (window as any).__fabRetired = false;
+    (document.querySelector('ion-app') as TestAppElement).fabRetired = false;
     element.addEventListener('nativeUIShellChange', () => {
-      if (!element.hasAttribute('data-native-ui-shell')) (window as any).__fabRetired = true;
+      if (!element.hasAttribute('data-native-ui-shell')) (document.querySelector('ion-app') as TestAppElement).fabRetired = true;
     });
   });
   await expect
     .poll(() =>
       page.evaluate(() =>
-        (window as any).__nativeUIShell.updates
-          .at(-1)
-          .controls.some((c: any) => c.kind === 'ion-fab' && c.items.length === 7 && c.items[1].visible === false),
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.some((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7 && c.items[1].visible === false),
       ),
     )
     .toBe(true);
   await activate(page, 'Center FAB actions');
   await expect(fab).toHaveJSProperty('activated', false);
-  expect(await page.evaluate(() => (window as any).__fabRetired)).toBe(false);
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).fabRetired)).toBe(false);
 });
 
 test('native resume retires search even when WebKit visibility stayed visible', async ({ page }) => {
@@ -2061,7 +2236,14 @@ test('native resume retires search even when WebKit visibility stayed visible', 
   });
   await page.evaluate(() => window.dispatchEvent(Object.assign(new Event('nativeUIShellRefresh'), { retireSearch: true })));
   await expect
-    .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.search)?.search.active))
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((c: ShellControl) => c.search)?.search?.active,
+      ),
+    )
     .toBe(false);
   await expect(footer.locator('ion-searchbar')).toHaveJSProperty('value', 'background');
 });
@@ -2106,14 +2288,23 @@ for (const [kind, selector] of [
     const source = page.locator(`app-native-ui-shell ${selector}`);
     await expect(source).toHaveAttribute('data-native-ui-shell', '');
     const id = await page.evaluate(
-      (kind) => (window as any).__nativeUIShell.updates.at(-1).controls.find((c: any) => c.kind === kind).id,
+      (kind) =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.find((c: ShellControl) => c.kind === kind)!.id,
       kind,
     );
     await source.evaluate((element) => {
       const zone = document.createElement('div');
       zone.style.cssText = 'position:fixed;top:330px;left:12px;width:300px;height:140px;z-index:200';
       element.closest('app-native-ui-shell')!.append(zone);
-      (window as any).__placement = { element, parent: element.parentElement, next: element.nextSibling, slot: element.slot, zone };
+      (document.querySelector('ion-app') as TestAppElement).placement = {
+        element,
+        parent: element.parentElement,
+        next: element.nextSibling,
+        slot: element.slot,
+        zone,
+      };
     });
     for (const markup of [
       '<ion-header data-target></ion-header>',
@@ -2124,29 +2315,37 @@ for (const [kind, selector] of [
       '<ion-header><ion-toolbar><ion-content style="height:140px" data-target></ion-content></ion-toolbar></ion-header>',
     ]) {
       await page.evaluate((markup) => {
-        const { element, zone } = (window as any).__placement;
+        const { element, zone } = (document.querySelector('ion-app') as TestAppElement).placement!;
         // These destinations have no toolbar start slot; keep the Web control assigned.
         element.slot = '';
         zone.innerHTML = markup;
-        zone.querySelector('[data-target]').append(element);
+        zone.querySelector('[data-target]')!.append(element);
       }, markup);
       await expect(source).not.toHaveAttribute('data-native-ui-shell');
       await expect
-        .poll(() => page.evaluate((id) => (window as any).__nativeUIShell.updates.at(-1).controls.some((c: any) => c.id === id), id))
+        .poll(() =>
+          page.evaluate(
+            (id) =>
+              Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+                .updates.at(-1)!
+                .controls.some((c: ShellControl) => c.id === id),
+            id,
+          ),
+        )
         .toBe(false);
       await expect(source).toHaveCSS('visibility', 'visible');
       await page.evaluate(() => {
-        const { element, parent, next, slot } = (window as any).__placement;
-        parent.insertBefore(element, next);
+        const { element, parent, next, slot } = (document.querySelector('ion-app') as TestAppElement).placement!;
+        parent!.insertBefore(element, next);
         element.slot = slot;
       });
       await expect(source, `restored from ${markup}`).toHaveAttribute('data-native-ui-shell', '');
     }
     // A footer toolbar is supported too; do not accidentally restrict this to headers.
     await page.evaluate(() => {
-      const { element, zone } = (window as any).__placement;
+      const { element, zone } = (document.querySelector('ion-app') as TestAppElement).placement!;
       zone.innerHTML = '<ion-footer><ion-toolbar></ion-toolbar></ion-footer>';
-      zone.querySelector('ion-toolbar').append(element);
+      zone.querySelector('ion-toolbar')!.append(element);
     });
     await expect(source).toHaveAttribute('data-native-ui-shell', '');
   });
@@ -2184,11 +2383,11 @@ test('search registration cannot bypass fixed placement restrictions', async ({ 
     const page = footer.parentElement!;
     const fab = page.querySelector('ion-fab')!;
     const buttons = footer.querySelector('ion-buttons')!;
-    (window as any).__searchPlacement = { page, footer, fab, buttons, toolbar: buttons.parentElement };
+    (document.querySelector('ion-app') as TestAppElement).searchPlacement = { page, footer, fab, buttons, toolbar: buttons.parentElement! };
   });
   for (const placement of ['fab-slot', 'fab-wrapper', 'back-outside', 'footer-scroll']) {
     await page.evaluate((placement) => {
-      const { page, footer, fab, buttons } = (window as any).__searchPlacement;
+      const { page, footer, fab, buttons } = (document.querySelector('ion-app') as TestAppElement).searchPlacement!;
       if (placement === 'fab-slot') fab.removeAttribute('slot');
       if (placement === 'fab-wrapper') {
         const wrapper = document.createElement('div');
@@ -2197,16 +2396,22 @@ test('search registration cannot bypass fixed placement restrictions', async ({ 
         wrapper.append(fab);
       }
       if (placement === 'back-outside') footer.append(buttons);
-      if (placement === 'footer-scroll') page.querySelector('ion-content').append(footer);
+      if (placement === 'footer-scroll') page.querySelector('ion-content')!.append(footer);
     }, placement);
     await expect(footer).not.toHaveAttribute('data-native-ui-shell');
     await expect
-      .poll(() => page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).controls.some((c: any) => c.search?.available)))
+      .poll(() =>
+        page.evaluate(() =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.some((c: ShellControl) => c.search?.available),
+        ),
+      )
       .toBe(false);
     await page.evaluate((placement) => {
-      const { page, footer, fab, buttons, toolbar } = (window as any).__searchPlacement;
+      const { page, footer, fab, buttons, toolbar } = (document.querySelector('ion-app') as TestAppElement).searchPlacement!;
       if (placement === 'fab-slot') fab.setAttribute('slot', 'fixed');
-      if (placement === 'fab-wrapper') fab.parentElement.replaceWith(fab);
+      if (placement === 'fab-wrapper') fab.parentElement!.replaceWith(fab);
       if (placement === 'back-outside') toolbar.prepend(buttons);
       if (placement === 'footer-scroll') page.append(footer);
     }, placement);
@@ -2249,8 +2454,10 @@ for (const theme of ['light', 'class', 'system', 'always'] as const) {
       await expect
         .poll(() =>
           page.evaluate(() => {
-            const controls = (window as any).__nativeUIShell.updates.at(-1).controls;
-            return ['ion-tab-bar', 'ion-fab'].map((kind) => controls.filter((c: any) => c.kind === kind).map((c: any) => c.dark));
+            const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls;
+            return ['ion-tab-bar', 'ion-fab'].map((kind) =>
+              controls.filter((c: ShellControl) => c.kind === kind).map((c: ShellControl) => c.dark),
+            );
           }),
         )
         .toEqual([[expected], [expected, expected, expected, expected]]);
@@ -2302,7 +2509,7 @@ test('reduced motion hands off without a crossfade', async ({ page }) => {
   const segment = page.locator('app-native-ui-shell ion-segment');
   await expect(segment).toHaveAttribute('data-native-ui-shell', '');
   await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
-  const duration = await page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).transitionDuration);
+  const duration = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.transitionDuration);
   expect(duration).toBe(0);
   await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
   await expect(segment).not.toHaveAttribute('data-native-ui-shell');
@@ -2314,17 +2521,18 @@ test('tab switches hand off without a crossfade', async ({ page }) => {
   await page.goto('/main/index/native-ui-shell');
   const segment = page.locator('app-native-ui-shell ion-segment');
   await expect(segment).toHaveAttribute('data-native-ui-shell', '');
-  const before = await page.evaluate(() => (window as any).__nativeUIShell.updates.length);
+  const before = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length);
   await activate(page, 'Docs');
   await expect(page).toHaveURL(/\/main\/docs/);
   await expect
     .poll(() =>
       page.evaluate(
         (start) =>
-          (window as any).__nativeUIShell.updates
-            .slice(start)
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.slice(start)
             .some(
-              (update: any) => update.transitionDuration === 0 && !update.controls.some((control: any) => control.kind === 'ion-segment'),
+              (update: ShellSnapshot) =>
+                update.transitionDuration === 0 && !update.controls.some((control: ShellControl) => control.kind === 'ion-segment'),
             ),
         before,
       ),
@@ -2372,8 +2580,9 @@ for (const direction of ['ltr', 'rtl']) {
       await expect
         .poll(() =>
           page.evaluate(() => {
-            const item = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-button')
-              ?.items[0];
+            const item = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+              .updates.at(-1)
+              ?.controls.find((control: ShellControl) => control.kind === 'ion-button')?.items[0];
             return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
           }),
         )
@@ -2401,8 +2610,9 @@ for (const direction of ['ltr', 'rtl']) {
     await expect
       .poll(() =>
         page.evaluate(() => {
-          const item = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((control: any) => control.kind === 'ion-back-button')
-            ?.items[0];
+          const item = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)
+            ?.controls.find((control: ShellControl) => control.kind === 'ion-back-button')?.items[0];
           return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
         }),
       )
@@ -2416,13 +2626,15 @@ test('rejected cached search is replaced by ordinary native tabs after navigatio
   await page.route('https://picsum.photos/**', (route) => route.abort());
   await page.goto('/main/album');
   await expect(page.locator('app-album-page ion-footer')).toHaveAttribute('data-native-ui-shell', '');
-  await page.evaluate(() => ((window as any).__nativeUIShell.rejectInactiveSearch = true));
+  await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').rejectInactiveSearch = true));
   await activate(page, 'Index');
   await expect(page).toHaveURL('/main/index');
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const control = (window as any).__nativeUIShell.updates.at(-1)?.controls.find((c: any) => c.kind === 'ion-tab-bar');
+        const control = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)
+          ?.controls.find((c: ShellControl) => c.kind === 'ion-tab-bar');
         return !!control && !control.search;
       }),
     )
@@ -2442,22 +2654,22 @@ for (const invalidated of [false, true]) {
     await expect(button).toHaveAttribute('data-native-ui-shell', '');
     await button.evaluate((el) => (el.parentElement!.hidden = true));
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
-    await page.evaluate(() => ((window as any).__nativeUIShell.delay = 1000));
-    const previous = await page.evaluate(() => (window as any).__nativeUIShell.updates.at(-1).revision);
+    await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').delay = 1000));
+    const previous = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.revision);
     await button.evaluate((el) => (el.parentElement!.hidden = false));
     await expect
       .poll(() =>
         page.evaluate((previous) => {
-          const snapshot = (window as any).__nativeUIShell.updates.at(-1);
-          return snapshot.revision > previous && snapshot.controls.some((c: any) => c.kind === 'ion-button');
+          const snapshot = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!;
+          return snapshot.revision > previous && snapshot.controls.some((c: ShellControl) => c.kind === 'ion-button');
         }, previous),
       )
       .toBe(true);
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await activate(page, (await button.locator('[data-label]').textContent()) as string, true);
     await expect(page.locator('[data-save-count]')).toHaveText('0');
-    if (invalidated) await button.evaluate((el: any) => (el.disabled = true));
-    await page.evaluate(() => ((window as any).__nativeUIShell.delay = 0));
+    if (invalidated) await button.evaluate((el: HTMLIonButtonElement) => (el.disabled = true));
+    await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').delay = 0));
     if (invalidated) {
       await page.waitForTimeout(1200);
       await expect(page.locator('[data-save-count]')).toHaveText('0');
@@ -2474,14 +2686,14 @@ test('rejected search retries when tab content changes without resizing', async 
   await page.goto('/main/album');
   const footer = page.locator('app-album-page ion-footer');
   await expect(footer).toHaveAttribute('data-native-ui-shell', '');
-  await page.evaluate(() => ((window as any).__nativeUIShell.rejectAllSearch = true));
+  await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').rejectAllSearch = true));
   await page
     .locator('ion-tab-button ion-label')
     .first()
     .evaluate((el) => (el.textContent = 'Rejected'));
   await expect(footer).not.toHaveAttribute('data-native-ui-shell');
   const before = await page.locator('ion-tab-bar').boundingBox();
-  await page.evaluate(() => ((window as any).__nativeUIShell.rejectAllSearch = false));
+  await page.evaluate(() => (Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').rejectAllSearch = false));
   await page
     .locator('ion-tab-button ion-label')
     .first()

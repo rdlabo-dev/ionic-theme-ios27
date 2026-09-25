@@ -36,4 +36,7 @@ void bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations()))
   })
   .catch((err) => console.error(err));
 const startShell = new URLSearchParams(window.location.search).has('verticalBarsOnly') ? enableVerticalControlArea : enableNativeUIShell;
-void startShell().then((handle) => Object.assign(window, { nativeUIShell: handle }));
+void startShell().then((handle) => {
+  const app = document.querySelector('ion-app');
+  if (app) Object.assign(app, { nativeUIShell: handle });
+});
