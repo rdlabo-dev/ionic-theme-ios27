@@ -5,7 +5,10 @@ ion-toggle.ios:not(.ios-theme-disabled, .ios26-disabled) {
   --handle-max-width: none;
   --handle-max-height: none;
   --border-radius: 14px;
-  --track-background-checked: var(--ion-color-base, #34c759);
+  --track-background-checked: var(--ion-color-primary, #3880ff);
+  &.ion-color {
+    --track-background-checked: var(--ion-color-base);
+  }
   &::part(track) {
     width: 63px;
     height: 28px;
@@ -48,7 +51,10 @@ ion-toggle.ios:not(.ios-theme-disabled, .ios26-disabled) {
     &:not(.ion-color) {
       --track-background: rgba(var(--ion-color-contrast-rgb, var(--ion-text-color-rgb, 0, 0, 0)), 0.23);
     }
-    --track-background-checked: var(--ion-color-base, #34c759);
+    --track-background-checked: var(--ion-color-primary, #3880ff);
+    &.ion-color {
+      --track-background-checked: var(--ion-color-base);
+    }
     // Measured from the iOS 27 UISwitch presentation layer (37 -> 58pt).
     --ios27-toggle-release: linear(
       0,

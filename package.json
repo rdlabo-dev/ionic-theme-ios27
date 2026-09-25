@@ -1,7 +1,7 @@
 {
   "name": "@rdlabo/ionic-theme-ios27",
   "private": false,
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "iOS27 Theme for Ionic Framework",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -60,11 +60,8 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "git+https://github.com/rdlabo-dev/ionic-theme-utils.git#44b1535387c326ed69fc239d38dbdb9776b629c2"
+    "@rdlabo/ionic-theme-utils": "0.1.1"
   },
-  "bundleDependencies": [
-    "@rdlabo/ionic-theme-utils"
-  ],
   "devDependencies": {
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
