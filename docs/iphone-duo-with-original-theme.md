@@ -40,19 +40,47 @@ Add the class to your existing app root and keep the content inside it:
 
 The preview reserves `80px` on the physical right. To preview the left side, also add `ios-theme-vertical-bars-left`.
 
-### 3. Configure page transitions before Ionic initializes
+### 3. Connect your navigation animation
 
-Import the page transition and register it as Ionic's `navAnimation`. Starting the rail runtime does not register this option. The animation coordinates native control retirement before navigation and avoids animating the horizontal back button in the vertical layout. Your existing theme styles remain in use, but iOS page transitions use this package's animation.
+Configure `navAnimation` before Ionic initializes. Starting the rail runtime does not register this option. The adapter waits for native control retirement and coordinates swipe progress and cancellation while keeping your existing animation.
+
+#### Keep Ionic's default animation
+
+If you have not configured `navAnimation`, wrap Ionic's standard builders. Select the builder from Ionic's transition `mode` so both `ios` and `md` keep their usual animation:
 
 ```ts
-import { iosTransitionAnimation } from '@rdlabo/ionic-theme-ios27';
+import { iosTransitionAnimation, mdTransitionAnimation, type AnimationBuilder } from '@ionic/core';
+import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+
+const defaultTransition: AnimationBuilder = (baseEl, opts) =>
+  (opts.mode === 'ios' ? iosTransitionAnimation : mdTransitionAnimation)(baseEl, opts);
 
 const ionicConfig = {
-  navAnimation: iosTransitionAnimation,
+  navAnimation: withNativeUIShellTransition(defaultTransition),
 };
 ```
 
-Merge this option into your existing Ionic configuration for `ios` mode before initialization: pass it to Angular's `provideIonicAngular()`, React's `setupIonicReact()`, or Vue's `IonicVue` plugin options. Keep your existing `md` animation configuration. Importing the JavaScript entry point does not load the iOS 27 theme stylesheets.
+Merge this option into your existing Ionic configuration before initialization: pass it to Angular's `provideIonicAngular()`, React's `setupIonicReact()`, or Vue's `IonicVue` plugin options. Keep your existing theme stylesheet imports. No iOS 27 theme stylesheet is required.
+
+#### Keep your custom animation
+
+If your app already configures `navAnimation`, wrap that builder instead:
+
+```ts
+import type { AnimationBuilder } from '@ionic/core';
+import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+
+// Pass the animation builder your app already uses.
+const configureNavigation = (existingTransition: AnimationBuilder) => ({
+  navAnimation: withNativeUIShellTransition(existingTransition),
+});
+```
+
+The adapter returns the original `Animation`, preserving its effects, duration, and easing. Use it only for navigation, not modal or popover animations. The builder must return a fresh `Animation` for each navigation; Ionic destroys it after the transition. Keep lifecycle events for control registration and transitions without animation.
+
+The adapter keeps the builder's animation targets, including any horizontal back-button effect. If you need the iOS 27 transition with that effect excluded in vertical layouts, use `iosTransitionAnimation` from `@rdlabo/ionic-theme-ios27` as your `navAnimation` instead. It already includes the adapter, so no wrapper is needed.
+
+The adapter is available after `1.2.0-0`. With `1.2.0-0`, use the package's `iosTransitionAnimation` for iOS mode and keep your existing MD configuration.
 
 ### 4. Start the controls after the app root is mounted
 
