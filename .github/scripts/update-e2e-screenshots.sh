@@ -5,7 +5,7 @@ npm ci
 npm run build
 
 npm ci --prefix demo
-IONIC_MAJOR=9 npm run --prefix demo test:e2e -- e2e/screenshot.spec.ts --update-snapshots
+IONIC_MAJOR=9 npm run --prefix demo test:e2e -- e2e/screenshot.spec.ts e2e/adaptive-tab-bar.spec.ts --update-snapshots
 
 npm install --no-save --package-lock=false @ionic/angular@8.8.19 @ionic/core@8.8.19
 npm run build
