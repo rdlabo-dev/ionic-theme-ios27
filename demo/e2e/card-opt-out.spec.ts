@@ -18,7 +18,11 @@ for (const disabled of ['ios-theme-disabled', 'ios26-disabled']) {
             return card;
           };
           const cards = [create(false), create(true)];
-          await Promise.all(cards.flatMap((card) => [card, ...card.querySelectorAll('*')]).map((el: any) => el.componentOnReady?.()));
+          await Promise.all(
+            cards
+              .flatMap((card) => [card, ...card.querySelectorAll('*')])
+              .map((el: Element & { componentOnReady?: () => Promise<unknown> }) => el.componentOnReady?.()),
+          );
           const result = cards.map((card) =>
             [...card.querySelectorAll(tag)].map((el) => {
               const s = getComputedStyle(el);

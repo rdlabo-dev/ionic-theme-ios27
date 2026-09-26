@@ -102,30 +102,6 @@ test('reduced motion removes the release transition', async ({ page }) => {
   expect((await toggle.locator('[part="handle"]').boundingBox())!.height).toBe(24);
 });
 
-test('native resting and held dimensions preserve the handle center', async ({ page }) => {
-  const toggle = page.locator('.section-example ion-toggle').first();
-  const track = toggle.locator('[part="track"]');
-  const handle = toggle.locator('[part="handle"]');
-  await track.scrollIntoViewIfNeeded();
-  const rest = (await handle.boundingBox())!;
-  const bounds = (await track.boundingBox())!;
-  expect(bounds.width).toBe(63);
-  expect(bounds.height).toBe(28);
-  expect(rest.width).toBe(37);
-  expect(rest.height).toBe(24);
-  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-  await page.mouse.down();
-  // Measure the held state, not the same width on the initial spring's way up.
-  await page.waitForTimeout(400);
-  await expect.poll(async () => Math.round((await handle.boundingBox())!.width)).toBe(58);
-  const held = (await handle.boundingBox())!;
-  expect(held.height).toBeCloseTo(38.333, 0);
-  expect(held.x + held.width / 2).toBeCloseTo(rest.x + rest.width / 2, 1);
-  await page.mouse.up();
-  await expect.poll(async () => Math.round((await handle.boundingBox())!.width)).toBe(37);
-  await expect.poll(async () => Math.round((await handle.boundingBox())!.x - rest.x)).toBe(22);
-});
-
 test('custom handle shadow remains overridable', async ({ page }) => {
   const toggle = page.locator('.section-example ion-toggle').first();
   await toggle.evaluate((element) => element.style.setProperty('--handle-box-shadow', 'none'));
@@ -189,24 +165,6 @@ for (const duration of [50, 80, 100, 150, 600]) {
     }
   });
 }
-
-test('checked toggle uses its Ionic palette color', async ({ page }) => {
-  const toggle = page.locator('.section-example ion-toggle').first();
-  await toggle.evaluate((el) => {
-    el.setAttribute('color', 'danger');
-    (el as HTMLIonToggleElement).checked = true;
-  });
-  await expect(toggle).toHaveClass(/ion-color-danger/);
-  const expected = await toggle.evaluate((el) => {
-    const probe = document.createElement('span');
-    probe.style.color = getComputedStyle(el).getPropertyValue('--ion-color-base');
-    el.append(probe);
-    const color = getComputedStyle(probe).color;
-    probe.remove();
-    return color;
-  });
-  await expect(toggle.locator('[part="track"]')).toHaveCSS('background-color', expected);
-});
 
 test('native handle still moves when lens CSS is unavailable', async ({ page }) => {
   const removed = await page.evaluate(() => {

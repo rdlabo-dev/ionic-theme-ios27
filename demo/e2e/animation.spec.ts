@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { AnimationCall } from './native-shell-mock';
 
 const installAnimationObserver = async (page: Page) => {
   await page.addInitScript(() => {
     const originalAnimate = Element.prototype.animate;
 
-    (window as any).__IONIC_ANIMATION_CALLS__ = [];
+    document.__IONIC_ANIMATION_CALLS__ = [];
     Element.prototype.animate = function (keyframes, options) {
       const animation = originalAnimate.call(this, keyframes, options);
       const properties = Array.isArray(keyframes)
@@ -16,7 +17,7 @@ const installAnimationObserver = async (page: Page) => {
         : Object.keys(keyframes ?? {}).filter((key) => !['offset', 'easing', 'composite'].includes(key));
       const duration = typeof options === 'number' ? options : typeof options?.duration === 'number' ? options.duration : 0;
 
-      (window as any).__IONIC_ANIMATION_CALLS__.push({
+      document.__IONIC_ANIMATION_CALLS__!.push({
         animation,
         duration,
         properties,
@@ -30,13 +31,13 @@ const installAnimationObserver = async (page: Page) => {
 };
 
 const clearAnimationCalls = async (page: Page) => {
-  await page.evaluate(() => ((window as any).__IONIC_ANIMATION_CALLS__ = []));
+  await page.evaluate(() => (document.__IONIC_ANIMATION_CALLS__ = []));
 };
 
 const hasRunningAnimation = (page: Page, targetClass?: string) => {
   return page.evaluate((expectedClass) => {
-    return (window as any).__IONIC_ANIMATION_CALLS__.some(
-      (call: { animation: Animation; duration: number; properties: string[]; targetClass: string }) =>
+    return document.__IONIC_ANIMATION_CALLS__!.some(
+      (call: AnimationCall) =>
         call.animation.playState === 'running' &&
         call.duration > 0 &&
         call.properties.includes('transform') &&
@@ -47,8 +48,8 @@ const hasRunningAnimation = (page: Page, targetClass?: string) => {
 
 const hasAnimationCall = (page: Page, targetClass: string) => {
   return page.evaluate((expectedClass) => {
-    return (window as any).__IONIC_ANIMATION_CALLS__.some(
-      (call: { duration: number; properties: string[]; targetClass: string }) =>
+    return document.__IONIC_ANIMATION_CALLS__!.some(
+      (call: AnimationCall) =>
         call.duration > 0 && call.properties.includes('transform') && call.targetClass.split(' ').includes(expectedClass),
     );
   }, targetClass);
@@ -102,6 +103,17 @@ test.describe('Animation Tests', () => {
     await expect(page).toHaveURL('/main/index');
     await expect.poll(() => hasRunningAnimation(page), { timeout: 2000 }).toBe(false);
     await expect(shade).toHaveCount(0);
+  });
+
+  test('verticalBars page transition keeps its shade outside the control rail', async ({ page }) => {
+    await page.goto('/main/index', { waitUntil: 'networkidle' });
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    await page.getByRole('button', { name: 'button', exact: true }).click();
+    const shade = page.locator('.ios-transition-shade');
+    await expect(shade).toBeVisible();
+    await page.evaluate(() => document.getAnimations().forEach((animation) => animation.pause()));
+    await expect(shade).toHaveCSS('clip-path', 'inset(0px 80px 0px 0px)');
+    await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
   });
 
   test('runs and completes the iOS popover animations', async ({ page }) => {

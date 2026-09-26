@@ -46,13 +46,13 @@ const routes = [
   { path: '/main/index/reorder', name: 'reorder' },
   { path: '/main/index/tabs', name: 'tabs' },
   { path: '/main/index/toolbar', name: 'toolbar' },
-].sort(() => Math.random() - 0.5);
+];
 
 const prepareScreenShot = async (page: Page, routeName: string) => {
-  await page.waitForTimeout(1000);
   await page.waitForSelector('ion-content[role="main"]', { timeout: 10000 });
+  await page.evaluate(() => document.fonts.ready);
   if (!routeName.includes(':')) {
-    const scrollHeight = await page.locator('ion-content[role="main"]').evaluate(async (el: any) => {
+    const scrollHeight = await page.locator('ion-content[role="main"]').evaluate(async (el: HTMLIonContentElement) => {
       const scrollEl = await el.getScrollElement();
       return scrollEl.scrollHeight;
     });
@@ -60,11 +60,69 @@ const prepareScreenShot = async (page: Page, routeName: string) => {
   }
 };
 
+const prepareVerticalBarsLayout = async (page: Page, direction: 'ltr' | 'rtl', width = 700) => {
+  await page.addInitScript(() => (document.IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto('/main/index', { waitUntil: 'networkidle' });
+  await page.waitForSelector('ion-content[role="main"]');
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate((direction) => {
+    const app = document.querySelector('ion-app')!;
+    app.dir = direction;
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-left', '76px');
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');
+    app.style.setProperty('--ion-safe-area-left', '76px');
+    app.style.setProperty('--ion-safe-area-right', '84px');
+    app.classList.add('ios-theme-vertical-bars');
+
+    const content = document.querySelector<HTMLIonContentElement>('ion-content[role="main"]')!;
+    const logicalLeft = direction === 'ltr' ? 'start' : 'end';
+    for (const physicalSide of ['left', 'right'] as const) {
+      const logicalSide = physicalSide === 'left' ? logicalLeft : logicalLeft === 'start' ? 'end' : 'start';
+      const fab = document.createElement('ion-fab');
+      fab.mode = 'ios';
+      fab.dir = direction;
+      fab.horizontal = logicalSide;
+      fab.vertical = 'center';
+      fab.slot = 'fixed';
+      fab.style.setProperty('--ios-theme-menu-width', '0px');
+      fab.style.setProperty('--ios26-menu-width', '0px');
+      fab.innerHTML = `<ion-fab-button mode="ios" aria-label="${physicalSide} action">${physicalSide === 'left' ? 'L' : 'R'}</ion-fab-button>`;
+      content.append(fab);
+    }
+  }, direction);
+};
+
+const prepareVerticalBarsBackButton = async (page: Page, direction: 'ltr' | 'rtl') => {
+  await page.addInitScript(() => (document.IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index/button', { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator('ion-app').evaluate((app, dir) => {
+    app.dir = dir;
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');
+    app.classList.add('ios-theme-vertical-bars');
+  }, direction);
+  await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
+};
+
+const prepareVerticalBarsToolbar = async (page: Page) => {
+  await page.addInitScript(() => (document.IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index/native-ui-shell', { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.fonts.ready);
+  await page.locator('ion-app').evaluate((app) => {
+    app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');
+    app.classList.add('ios-theme-vertical-bars');
+  });
+  await expect(page.locator('ion-app > ion-buttons.ios-theme-vertical-bars-toolbar-projection')).not.toHaveCount(0);
+};
+
 test.describe('Screenshot Tests - All Routes', () => {
   for (const route of routes) {
     test(`should match screenshot for ${route.name}`, async ({ page }) => {
       // Set E2E testing flag to disable animations
-      await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
+      await page.addInitScript(() => (document.IONIC_E2E_TESTING = true));
       await page.goto(route.path, { waitUntil: 'networkidle' });
       await prepareScreenShot(page, route.name);
       await expect(page).toHaveScreenshot(`${route.name}.png`, {
@@ -81,7 +139,7 @@ test.describe('Screenshot Tests - Dark Mode', () => {
   for (const route of routes) {
     test(`should match dark mode screenshot for ${route.name}`, async ({ page }) => {
       // Set E2E testing flag to disable animations
-      await page.addInitScript(() => ((window as any).IONIC_E2E_TESTING = true));
+      await page.addInitScript(() => (document.IONIC_E2E_TESTING = true));
       await page.goto(route.path, { waitUntil: 'networkidle' });
       await page.evaluate(async () => {
         document.documentElement.classList.add('ion-palette-dark');
@@ -94,4 +152,51 @@ test.describe('Screenshot Tests - Dark Mode', () => {
       });
     });
   }
+});
+
+test.describe('Screenshot Tests - VerticalBars Layout', () => {
+  for (const direction of ['ltr', 'rtl'] as const) {
+    test(`should keep the app foreground clear of verticalBars system UI in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareVerticalBarsLayout(page, direction);
+      await expect(page).toHaveScreenshot(`vertical-bars-layout-${direction}.png`, { animations: 'disabled' });
+    });
+
+    test(`should keep verticalBars tabs in the system rail beside a visible split pane in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareVerticalBarsLayout(page, direction, 1024);
+      await expect(page.locator('ion-split-pane')).toHaveClass(/split-pane-visible/);
+      await expect(page).toHaveScreenshot(`vertical-bars-split-pane-${direction}.png`, { animations: 'disabled' });
+    });
+  }
+});
+
+test('Settings split-menu widths on iPhone Duo', async ({ page }) => {
+  await page.addInitScript(() => (document.IONIC_E2E_TESTING = true));
+  await page.setViewportSize({ width: 951, height: 669 });
+  await page.goto('/main/index', { waitUntil: 'networkidle' });
+  const splitPane = page.locator('ion-split-pane');
+  await splitPane.evaluate((element) => {
+    element.setAttribute('when', '(min-width: 900px)');
+  });
+  await expect(splitPane).toHaveClass(/split-pane-visible/);
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page).toHaveScreenshot('duo-split-menu-flat.png', { animations: 'disabled' });
+
+  await splitPane.evaluate((element) => {
+    element.classList.add('ios-theme-split-pane-half-open');
+  });
+  await expect(page).toHaveScreenshot('duo-split-menu-half-open.png', { animations: 'disabled' });
+});
+
+test.describe('Screenshot Tests - VerticalBars Back Button', () => {
+  for (const direction of ['ltr', 'rtl'] as const) {
+    test(`should project the active back button into the physical system rail in ${direction.toUpperCase()}`, async ({ page }) => {
+      await prepareVerticalBarsBackButton(page, direction);
+      await expect(page).toHaveScreenshot(`vertical-bars-back-button-${direction}.png`, { animations: 'disabled' });
+    });
+  }
+
+  test('should project icon actions while keeping text actions in the toolbar', async ({ page }) => {
+    await prepareVerticalBarsToolbar(page);
+    await expect(page).toHaveScreenshot('vertical-bars-toolbar-actions.png', { animations: 'disabled' });
+  });
 });

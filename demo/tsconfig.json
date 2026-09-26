@@ -22,6 +22,7 @@
     "target": "es2022",
     "module": "es2020",
     "useDefineForClassFields": false,
+    "lib": ["es2023", "dom", "dom.iterable", "webworker.importscripts", "scripthost"],
     "skipLibCheck": true
   },
   "angularCompilerOptions": {

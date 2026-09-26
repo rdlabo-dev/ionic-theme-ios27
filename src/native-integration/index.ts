@@ -2,7 +2,7 @@
 import type { Animation } from '@ionic/core';
 
 export interface NativeUIShellIntegration {
-  suspend(scopes: HTMLElement[]): Promise<() => void>;
+  suspend(scopes: HTMLElement[]): Promise<(canceled?: boolean) => void>;
   search?(binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean>;
 }
 
@@ -32,6 +32,7 @@ export const requestNativeSearch = async (binding: NativeSearchBinding, active: 
   (await runtimes.get(binding.tabBar.ownerDocument)?.search?.(binding, active, focus)) ?? false;
 
 const runtimes = new WeakMap<Document, NativeUIShellIntegration>();
+export const VERTICAL_BARS_TRANSITION_CANCELED = 'iosThemeVerticalBarsTransitionCanceled';
 
 export const setNativeUIShellIntegration = (doc: Document, runtime?: NativeUIShellIntegration) => {
   if (runtime) runtimes.set(doc, runtime);
@@ -40,11 +41,15 @@ export const setNativeUIShellIntegration = (doc: Document, runtime?: NativeUIShe
 
 export const isNativeUIShell = (element: HTMLElement) => element.hasAttribute('data-native-ui-shell');
 
-export const suspendNativeUIShell = async (scopes: HTMLElement[]): Promise<() => void> =>
+export const suspendNativeUIShell = async (scopes: HTMLElement[]): Promise<(canceled?: boolean) => void> =>
   (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes)) ?? (() => {});
 
 /** Ionic write hooks cannot await the bridge. Gate playback, including interactive playback. */
 export const connectNativeUIShellTransition = (animation: Animation, entering: HTMLElement, leaving?: HTMLElement) => {
+  if (leaving)
+    animation.onFinish((step) => {
+      if (step === 0) leaving.dispatchEvent(new CustomEvent(VERTICAL_BARS_TRANSITION_CANCELED, { bubbles: true, detail: { entering } }));
+    });
   if (!runtimes.has(entering.ownerDocument)) return;
   const scopes = leaving ? [entering, leaving] : [entering];
   const play = animation.play.bind(animation);
@@ -52,7 +57,7 @@ export const connectNativeUIShellTransition = (animation: Animation, entering: H
   const progressStep = animation.progressStep.bind(animation);
   const progressEnd = animation.progressEnd.bind(animation);
   const destroy = animation.destroy.bind(animation);
-  let release: (() => void) | undefined;
+  let release: ((canceled?: boolean) => void) | undefined;
   let preparation: Promise<void> | undefined;
   let disposed = false;
   let interactiveReady = false;
@@ -60,15 +65,15 @@ export const connectNativeUIShellTransition = (animation: Animation, entering: H
   let end: Parameters<Animation['progressEnd']> | undefined;
   const prepare = () =>
     (preparation ??= suspendNativeUIShell(scopes).then((resume) => {
-      if (disposed) resume();
+      if (disposed) resume(true);
       else release = resume;
     }));
-  const finish = () => {
-    release?.();
+  const finish = (canceled = false) => {
+    release?.(canceled);
     release = undefined;
     preparation = undefined;
   };
-  animation.onFinish(finish);
+  animation.onFinish((step) => finish(step === 0));
   animation.play = async (options) => {
     await prepare();
     if (disposed) return;
@@ -103,7 +108,7 @@ export const connectNativeUIShellTransition = (animation: Animation, entering: H
   };
   animation.destroy = (...args) => {
     disposed = true;
-    finish();
+    finish(true);
     return destroy(...args);
   };
 };

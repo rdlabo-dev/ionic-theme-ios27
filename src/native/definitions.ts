@@ -15,6 +15,8 @@ export interface NativeUIShellOptions {
   enabled?: boolean;
   /** Controls eligible for native projection. Omit to enable every control; when present, only `true` controls are enabled. */
   controls?: NativeUIShellControls;
+  /** Internal: limit native projection to the Vertical Control Area. */
+  verticalBarsOnly?: boolean;
 }
 
 export interface NativeUIShellControls {
@@ -35,6 +37,26 @@ export interface NativeUIShellHandle {
   suspend(): Promise<NativeUIShellSuspension>;
   /** Stops synchronization, restores Web controls and releases native resources. */
   destroy(): Promise<void>;
+}
+
+/** Logical edge in the reading direction, matching UIVerticalBarEdge and capacitor-foldable. */
+export type VerticalBarEdge = 'leading' | 'trailing' | null;
+
+export interface VerticalBarPlacement {
+  edge: VerticalBarEdge;
+  /** UIKit safe-area inset on the vertical-bar edge, in points. */
+  inset: number;
+}
+
+export enum HingeStatus {
+  Closed = 'closed',
+  PartiallyOpen = 'partiallyOpen',
+  FullyOpen = 'fullyOpen',
+}
+
+export interface VerticalControlAreaHandle extends NativeUIShellHandle {
+  /** Applies the application's chosen placement to both Web and native controls. */
+  setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean): void;
 }
 
 export interface NativeUIShellSuspension {
@@ -83,6 +105,10 @@ export interface ShellItem extends Frame {
 export interface ShellControl extends Frame {
   id: string;
   kind: NativeUIShellComponent;
+  /** Lets the native host own adaptive placement instead of mirroring the DOM frame. */
+  placement?: 'vertical-bars';
+  /** Logical Ionic toolbar slot, preserved when projecting to the vertical rail. */
+  toolbarSlot?: 'start' | 'end';
   items: ShellItem[];
   dark: boolean;
   rtl: boolean;
@@ -116,6 +142,8 @@ export interface ShellSnapshot {
   revision: number;
   transitionDuration?: number;
   viewportWidth: number;
+  /** Physical side the native rail is drawn on; the runtime resolves the logical edge through the document direction. */
+  verticalBarEdge?: 'left' | 'right';
   controls: ShellControl[];
 }
 
@@ -130,12 +158,21 @@ export interface WebViewMetrics {
   radius: number;
 }
 
+export interface DeviceLayout {
+  placement: VerticalBarPlacement;
+  /** Fold hinge posture, or `null` when the device reports no hinge. */
+  hingeStatus: HingeStatus | null;
+  webViewMetrics: WebViewMetrics;
+}
+
 export interface NativeUIShellPlugin {
-  configure(): Promise<{ supported: boolean }>;
-  getWebViewMetrics(): Promise<WebViewMetrics>;
+  configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
+  getDeviceLayout(): Promise<DeviceLayout>;
+  startDeviceLayoutMonitoring(): Promise<void>;
+  stopDeviceLayoutMonitoring(): Promise<void>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
-  addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'deviceLayoutChange', listener: (event: DeviceLayout) => void): Promise<PluginListenerHandle>;
 }
