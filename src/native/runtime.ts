@@ -1,7 +1,7 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
-import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
-import { createSearchSupport } from './components/searchable-tabs';
+import { getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration/index.js';
+import { createSearchSupport } from './components/searchable-tabs.js';
 import type {
   ShellActivation,
   ShellSnapshot,
@@ -9,13 +9,13 @@ import type {
   NativeUIShellOptions,
   NativeUIShellPlugin,
   NativeUIShellStatus,
-} from './definitions';
-import { readCandidate, selector, shadowSelector, motionSelector } from './components';
-import { marker, unprojected } from './shared/dom';
-import { createIconRenderer } from './shared/icons';
-import type { Candidate } from './shared/candidate';
-import { CSS_MOTION_EVENTS } from './shared/events';
-import { createCrossfade, fadeMarker } from './shared/crossfade';
+} from './definitions.js';
+import { readCandidate, selector, shadowSelector, motionSelector } from './components/index.js';
+import { marker, unprojected } from './shared/dom.js';
+import { createIconRenderer } from './shared/icons.js';
+import type { Candidate } from './shared/candidate.js';
+import { CSS_MOTION_EVENTS } from './shared/events.js';
+import { createCrossfade, fadeMarker } from './shared/crossfade.js';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];

@@ -1,8 +1,8 @@
-import { AnimationPosition, EffectScales, registeredEffect } from './interfaces';
+import { AnimationPosition, EffectScales, registeredEffect } from './interfaces.js';
 import { createAnimation, createGesture } from '@ionic/core';
 import type { Animation, Gesture, GestureDetail } from '@ionic/core';
-import { changeSelectedElement, cloneElement, getStep } from '../utils';
-import { isNativeUIShell } from '../native-integration';
+import { changeSelectedElement, cloneElement, getStep } from '../utils.js';
+import { isNativeUIShell } from '../native-integration/index.js';
 import {
   createMoveAnimation,
   createPreMoveAnimation,
@@ -11,7 +11,7 @@ import {
   createTabBarReleaseAnimation,
   getMoveAnimationKeyframe,
   getScaleAnimation,
-} from './animations';
+} from './animations.js';
 
 const GESTURE_NAME = 'ios27-enable-gesture';
 const ANIMATED_NAME = 'ios27-animated';

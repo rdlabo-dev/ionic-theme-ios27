@@ -1,7 +1,7 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 
-import type { NativeUIShellComponent } from './components';
-export type { NativeUIShellComponent } from './components';
+import type { NativeUIShellComponent } from './components/index.js';
+export type { NativeUIShellComponent } from './components/index.js';
 
 export interface NativeUIShellStatus {
   state: 'web' | 'native' | 'stopped';

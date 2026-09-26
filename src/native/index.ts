@@ -1,8 +1,8 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { setConfig } from '../transition/ios.transition';
-import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellPlugin, WebViewMetrics } from './definitions';
-import { bindMetricsLifecycle } from './lifecycle';
-import { createRuntime } from './runtime';
+import { setConfig } from '../transition/ios.transition.js';
+import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellPlugin, WebViewMetrics } from './definitions.js';
+import { bindMetricsLifecycle } from './lifecycle.js';
+import { createRuntime } from './runtime.js';
 export type {
   NativeUIShellComponent,
   NativeUIShellControls,
@@ -11,7 +11,7 @@ export type {
   NativeUIShellStatus,
   NativeUIShellSuspension,
   WebViewMetrics,
-} from './definitions';
+} from './definitions.js';
 
 const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
 let active: Promise<NativeUIShellHandle> | undefined;

@@ -1,6 +1,6 @@
-import type { ShellControl, ShellItem, NativeUIShellComponent } from '../definitions';
-import { frame, isDark, text, visible } from './dom';
-import { iconSource } from './icons';
+import type { ShellControl, ShellItem, NativeUIShellComponent } from '../definitions.js';
+import { frame, isDark, text, visible } from './dom.js';
+import { iconSource } from './icons.js';
 
 export interface Candidate {
   element: HTMLElement;

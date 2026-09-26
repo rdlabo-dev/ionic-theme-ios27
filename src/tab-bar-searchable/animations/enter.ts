@@ -1,6 +1,6 @@
 import { Animation, createAnimation } from '@ionic/core';
 import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION, type ElementReferences, type ElementSizes } from '@rdlabo/ionic-theme-utils';
-import { cloneElement } from '../../utils';
+import { cloneElement } from '../../utils.js';
 
 export const createEffectAnimation = (references: ElementReferences, sizes: ElementSizes): Animation => {
   const effectElement = cloneElement('ion-icon');

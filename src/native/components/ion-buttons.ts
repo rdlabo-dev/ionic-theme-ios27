@@ -1,7 +1,7 @@
-import { createCandidate, appendItem } from '../shared/candidate';
-import type { Candidate, Identify } from '../shared/candidate';
-import { inFixedToolbar } from '../shared/dom';
-import * as menuButton from './ion-menu-button';
+import { createCandidate, appendItem } from '../shared/candidate.js';
+import type { Candidate, Identify } from '../shared/candidate.js';
+import { inFixedToolbar } from '../shared/dom.js';
+import * as menuButton from './ion-menu-button.js';
 
 export const tag = 'ion-buttons';
 export const tracksMotion = true;

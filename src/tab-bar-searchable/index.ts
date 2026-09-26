@@ -10,21 +10,21 @@ import {
   type TabBarSearchableFunction,
   TabBarSearchableType,
 } from '@rdlabo/ionic-theme-utils';
-import { isNativeUIShell, registerNativeSearch, requestNativeSearch, suspendNativeUIShell } from '../native-integration';
+import { isNativeUIShell, registerNativeSearch, requestNativeSearch, suspendNativeUIShell } from '../native-integration/index.js';
 import {
   createCloseButtonsAnimation,
   createEffectAnimation,
   createFabButtonAnimation,
   createSearchContainerAnimation,
   createTabBarAnimation,
-} from './animations/enter';
+} from './animations/enter.js';
 import {
   createReverseCloseButtonsAnimation,
   createReverseEffectAnimation,
   createReverseFabButtonAnimation,
   createReverseSearchContainerAnimation,
   createReverseTabBarAnimation,
-} from './animations/leave';
+} from './animations/leave.js';
 
 export {
   TabBarSearchableType,

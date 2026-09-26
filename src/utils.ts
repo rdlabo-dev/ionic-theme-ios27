@@ -1,4 +1,4 @@
-import { AnimationPosition } from './sheets-of-glass/interfaces';
+import { AnimationPosition } from './sheets-of-glass/interfaces.js';
 import { IonicConfig } from '@ionic/core';
 
 declare const __zone_symbol__requestAnimationFrame: any;

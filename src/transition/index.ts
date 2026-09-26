@@ -1,11 +1,11 @@
-import { config } from '../utils';
+import { config } from '../utils.js';
 import { Build, writeTask } from '@stencil/core';
 
 import { LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE } from '@ionic/core';
 import type { NavOptions, NavDirection } from '@ionic/core';
 import type { Animation, AnimationBuilder } from '@ionic/core';
-import { createFocusController } from '../focus-controller';
-import { raf } from '../utils';
+import { createFocusController } from '../focus-controller/index.js';
+import { raf } from '../utils.js';
 
 const iosTransitionAnimation = () => import('./ios.transition');
 // const mdTransitionAnimation = () => import('./md.transition');

@@ -1,12 +1,12 @@
-import * as button from './ion-button';
-import * as buttons from './ion-buttons';
-import * as backButton from './ion-back-button';
-import * as menuButton from './ion-menu-button';
-import * as tabBar from './ion-tab-bar';
-import * as segment from './ion-segment';
-import * as fab from './ion-fab';
-import { visible } from '../shared/dom';
-import type { Candidate, Identify } from '../shared/candidate';
+import * as button from './ion-button.js';
+import * as buttons from './ion-buttons.js';
+import * as backButton from './ion-back-button.js';
+import * as menuButton from './ion-menu-button.js';
+import * as tabBar from './ion-tab-bar.js';
+import * as segment from './ion-segment.js';
+import * as fab from './ion-fab.js';
+import { visible } from '../shared/dom.js';
+import type { Candidate, Identify } from '../shared/candidate.js';
 
 // Static composition only. Each component declares its own tag, discovery and reader.
 export const components = [button, buttons, backButton, menuButton, tabBar, segment, fab] as const;

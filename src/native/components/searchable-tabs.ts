@@ -1,9 +1,9 @@
-import { getNativeSearchBindings, requestNativeSearch } from '../../native-integration';
-import type { NativeSearchBinding } from '../../native-integration';
-import { excluded, inFixedToolbar, isShellDisabled, marker, text, visible } from '../shared/dom';
-import { iconSource } from '../shared/icons';
-import type { Candidate } from '../shared/candidate';
-import type { ShellItem, ShellSearch, ShellSearchEvent } from '../definitions';
+import { getNativeSearchBindings, requestNativeSearch } from '../../native-integration/index.js';
+import type { NativeSearchBinding } from '../../native-integration/index.js';
+import { excluded, inFixedToolbar, isShellDisabled, marker, text, visible } from '../shared/dom.js';
+import { iconSource } from '../shared/icons.js';
+import type { Candidate } from '../shared/candidate.js';
+import type { ShellItem, ShellSearch, ShellSearchEvent } from '../definitions.js';
 
 interface SearchState {
   binding: NativeSearchBinding;
