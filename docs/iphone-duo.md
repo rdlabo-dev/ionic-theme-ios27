@@ -54,15 +54,15 @@ if (Capacitor.getPlatform() === 'ios') {
 
 | Field                   | Meaning                                                                                                    |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `placement`             | `{ edge: 'left' \| 'right' \| null, inset }` — the physical rail edge and its UIKit safe-area inset in points; `edge` is `null` on devices without a rail |
-| `hingeStatus`           | `HingeStatus.Unavailable` (no hinge), `Closed`, `PartiallyOpen`, or `FullyOpen`                              |
+| `placement`             | `{ edge: 'leading' \| 'trailing' \| null, inset }` — the rail's logical edge in the reading direction and its UIKit safe-area inset in points; `edge` is `null` on devices without a rail |
+| `hingeStatus`           | `HingeStatus.Closed`, `PartiallyOpen`, or `FullyOpen`; `null` when the device reports no hinge             |
 | `webViewMetrics.radius` | the WebView's effective top-left corner radius in points                                                   |
 
 Monitoring is reference-counted: each consumer pairs `startDeviceLayoutMonitoring()` with `stopDeviceLayoutMonitoring()`, and events stop when the last consumer releases it. `getDeviceLayout()` also works without monitoring for a one-shot read. While `enableVerticalControlArea()` or `enableNativeUIShell()` has native projection active it already holds a monitoring reference, so those users only add a listener and read the initial value — no extra start/stop pair.
 
 The plugin reports device facts and never applies them to the DOM. The application decides what each value means for its layout — this boundary keeps the native values easy to mock in tests and keeps the theme's responsibility limited to the stylesheets and runtime below.
 
-**Build requirement:** iOS only enables the vertical bar for apps linked against the iOS 27.1 SDK or later — build with Xcode 27.1 or newer. Apps built with an older SDK run in backward-compatibility mode on iPhone Duo: the system reserves no rail, `placement.edge` stays `null`, `inset` stays `0`, and `hingeStatus` stays `unavailable`. Everything else still works in that state — the opt-in classes reserve the DOM strip and the rail follows whatever placement the application applies — so the compat build remains usable and testable; only the real system rail, its measured inset and hinge posture require the newer toolchain.
+**Build requirement:** iOS only enables the vertical bar for apps linked against the iOS 27.1 SDK or later — build with Xcode 27.1 or newer. Apps built with an older SDK run in backward-compatibility mode on iPhone Duo: the system reserves no rail, `placement.edge` stays `null`, `inset` stays `0`, and `hingeStatus` stays `null`. Everything else still works in that state — the opt-in classes reserve the DOM strip and the rail follows whatever placement the application applies — so the compat build remains usable and testable; only the real system rail, its measured inset and hinge posture require the newer toolchain.
 
 ## Reserve the vertical rail
 
@@ -98,7 +98,7 @@ if (Capacitor.getPlatform() === 'ios') {
 }
 ```
 
-`setPlacement` on the handle and the exported `setVerticalControlAreaPlacement` are the same function; either applies the application's chosen placement to the CSS layout and both projections. Passing `null` restores the ordinary layout. It requires a mounted `ion-app` — call it after the app root exists. The device-layout listener reports what iOS chose; the application decides whether to apply it. An app that wants to keep its own fixed edge can ignore `placement.edge` and pass `'left'` or `'right'`.
+`setPlacement` on the handle and the exported `setVerticalControlAreaPlacement` are the same function; either applies the application's chosen placement to the CSS layout and both projections. Passing `null` restores the ordinary layout. It requires a mounted `ion-app` — call it after the app root exists. The device-layout listener reports what iOS chose; the application decides whether to apply it. An app that wants to keep its own fixed edge can ignore `placement.edge` and pass `'leading'` or `'trailing'` — the logical edge resolves to a physical side through the nearest `dir` attribute, or through an explicit `rtl` argument.
 
 Start either `enableVerticalControlArea()` or the full `enableNativeUIShell()` — not both. Repeating the same configuration returns the shared runtime; starting a different configuration while it is active throws an error. The application should have one owner responsible for destroying that runtime. If the app already uses `enableNativeUIShell()`, keep that single runtime and call `setVerticalControlAreaPlacement(placement)` from its listener.
 
@@ -132,7 +132,7 @@ ion-split-pane {
 }
 ```
 
-The registered `--ios-theme-split-pane-width` defaults to `320px`; `.ios-theme-split-pane-half-open` sets it to `50vw`. Set `halfOpened` when `deviceLayoutChange` reports `HingeStatus.PartiallyOpen` (and read the initial value with `getDeviceLayout`). Ionic's `when` decides whether the menu is a persistent side pane; choose its breakpoint so the pane is hidden when closed — `HingeStatus.Unavailable` means the device has no hinge, so restore the ordinary breakpoint for it. The application chooses where to apply this width rule; an ordinary split pane elsewhere is unchanged. This layout does not enable Vertical Bars or move an overlay menu.
+The registered `--ios-theme-split-pane-width` defaults to `320px`; `.ios-theme-split-pane-half-open` sets it to `50vw`. Set `halfOpened` when `deviceLayoutChange` reports `HingeStatus.PartiallyOpen` (and read the initial value with `getDeviceLayout`). Ionic's `when` decides whether the menu is a persistent side pane; choose its breakpoint so the pane is hidden when closed — `null` means the device has no hinge, so restore the ordinary breakpoint for it. The application chooses where to apply this width rule; an ordinary split pane elsewhere is unchanged. This layout does not enable Vertical Bars or move an overlay menu.
 
 ## Vertical Control Area API
 
@@ -155,7 +155,7 @@ The generated reference below documents the handle returned by `enableVerticalCo
 ### setPlacement(...)
 
 ```typescript
-setPlacement(placement: VerticalBarEdge | VerticalBarPlacement) => void
+setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean) => void
 ```
 
 Applies the application's chosen placement to both Web and native controls.
@@ -163,6 +163,7 @@ Applies the application's chosen placement to both Web and native controls.
 | Param           | Type                                                                                                                    |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | **`placement`** | <code><a href="#verticalbaredge">VerticalBarEdge</a> \| <a href="#verticalbarplacement">VerticalBarPlacement</a></code> |
+| **`rtl`**       | <code>boolean</code>                                                                                                   |
 
 --------------------
 
@@ -212,7 +213,7 @@ Stops synchronization, restores Web controls and releases native resources.
 | Prop        | Type                                                        | Description                                                         |
 | ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
 | **`edge`**  | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> |                                                                     |
-| **`inset`** | <code>number</code>                                         | UIKit safe-area inset on the physical vertical-bar edge, in points. |
+| **`inset`** | <code>number</code>                                         | UIKit safe-area inset on the vertical-bar edge, in points. |
 
 
 #### NativeUIShellStatus
@@ -237,6 +238,6 @@ Stops synchronization, restores Web controls and releases native resources.
 
 #### VerticalBarEdge
 
-<code>'left' | 'right' | null</code>
+<code>'leading' | 'trailing' | null</code>
 
 </docgen-api>

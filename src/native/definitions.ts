@@ -39,24 +39,24 @@ export interface NativeUIShellHandle {
   destroy(): Promise<void>;
 }
 
-export type VerticalBarEdge = 'left' | 'right' | null;
+/** Logical edge in the reading direction, matching UIVerticalBarEdge and capacitor-foldable. */
+export type VerticalBarEdge = 'leading' | 'trailing' | null;
 
 export interface VerticalBarPlacement {
   edge: VerticalBarEdge;
-  /** UIKit safe-area inset on the physical vertical-bar edge, in points. */
+  /** UIKit safe-area inset on the vertical-bar edge, in points. */
   inset: number;
 }
 
 export enum HingeStatus {
-  Unavailable = 'unavailable',
   Closed = 'closed',
-  PartiallyOpen = 'partially-open',
-  FullyOpen = 'fully-open',
+  PartiallyOpen = 'partiallyOpen',
+  FullyOpen = 'fullyOpen',
 }
 
 export interface VerticalControlAreaHandle extends NativeUIShellHandle {
   /** Applies the application's chosen placement to both Web and native controls. */
-  setPlacement(placement: VerticalBarEdge | VerticalBarPlacement): void;
+  setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean): void;
 }
 
 export interface NativeUIShellSuspension {
@@ -142,7 +142,8 @@ export interface ShellSnapshot {
   revision: number;
   transitionDuration?: number;
   viewportWidth: number;
-  verticalBarEdge?: Exclude<VerticalBarEdge, null>;
+  /** Physical side the native rail is drawn on; the runtime resolves the logical edge through the document direction. */
+  verticalBarEdge?: 'left' | 'right';
   controls: ShellControl[];
 }
 
@@ -159,7 +160,8 @@ export interface WebViewMetrics {
 
 export interface DeviceLayout {
   placement: VerticalBarPlacement;
-  hingeStatus: HingeStatus;
+  /** Fold hinge posture, or `null` when the device reports no hinge. */
+  hingeStatus: HingeStatus | null;
   webViewMetrics: WebViewMetrics;
 }
 

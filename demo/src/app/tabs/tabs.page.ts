@@ -67,10 +67,10 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
     void this.observeHinge();
   }
 
-  setHingeStatus(status: HingeStatus) {
+  setHingeStatus(status: HingeStatus | null) {
     const splitPane = this.splitPane().nativeElement;
     // The width rules key off the `when` attribute, so go through setAttribute.
-    splitPane.setAttribute('when', status === HingeStatus.Unavailable ? '(min-width: 992px)' : '(min-width: 900px)');
+    splitPane.setAttribute('when', status === null ? '(min-width: 992px)' : '(min-width: 900px)');
     splitPane.classList.toggle('ios-theme-split-pane-half-open', status === HingeStatus.PartiallyOpen);
   }
 

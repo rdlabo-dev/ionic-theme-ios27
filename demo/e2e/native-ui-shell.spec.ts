@@ -20,8 +20,8 @@ interface ShellMock extends ShellMockCore {
   retirementDetails: { path: string; tabs: string }[];
 }
 
-const mockNative = async (page: Page, fail = false, nativeEdge: 'left' | 'right' | null = 'right') => {
-  const script = ([fail, nativeEdge]: readonly [boolean, 'left' | 'right' | null]) => {
+const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'trailing' | null = 'trailing') => {
+  const script = ([fail, nativeEdge]: readonly [boolean, 'leading' | 'trailing' | null]) => {
     const mock = {
       updates: [] as ShellSnapshot[],
       sequence: 0,
@@ -56,7 +56,7 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'left' | 'right'
       async getDeviceLayout() {
         return {
           placement: { edge: nativeEdge, inset: nativeEdge ? 84 : 0 },
-          hingeStatus: 'unavailable' as const,
+          hingeStatus: null,
           webViewMetrics: { radius: 0 },
         };
       },
@@ -800,7 +800,7 @@ test('verticalBars rail remains native while its Ionic menu is open', async ({ p
 // "native rail unavailable" state; the Web fallback then owns the rail.
 test('verticalBars controls stay operable on Web when the reported rail edge differs', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await mockNative(page, false, 'left');
+  await mockNative(page, false, 'leading');
   await page.goto('/main/index/native-ui-shell');
   await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));

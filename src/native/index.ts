@@ -103,14 +103,23 @@ export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
   return metrics;
 };
 
-/** Applies one placement to the CSS layout and both Web/native projections. */
-export const setVerticalControlAreaPlacement = (placement: VerticalBarEdge | VerticalBarPlacement): void => {
+/** Resolves a logical vertical-bar edge to the physical side for the given direction. */
+const physicalVerticalBarEdge = (edge: Exclude<VerticalBarEdge, null>, rtl: boolean): 'left' | 'right' =>
+  (edge === 'leading') !== rtl ? 'left' : 'right';
+
+const elementRtl = (element: Element): boolean => element.closest('[dir]')?.getAttribute('dir') === 'rtl';
+
+/**
+ * Applies one placement to the CSS layout and both Web/native projections.
+ * Pass `rtl` when the document direction is known; otherwise the nearest `dir` attribute is used.
+ */
+export const setVerticalControlAreaPlacement = (placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean): void => {
   if (typeof document === 'undefined') return;
   const app = document.querySelector<HTMLElement>('ion-app');
   if (!app) throw new Error('Vertical Control Area requires ion-app');
   const { edge, inset } = placement && typeof placement === 'object' ? placement : { edge: placement, inset: 0 };
   app.classList.toggle('ios-theme-vertical-bars', edge !== null);
-  app.classList.toggle('ios-theme-vertical-bars-left', edge === 'left');
+  app.classList.toggle('ios-theme-vertical-bars-left', edge !== null && physicalVerticalBarEdge(edge, rtl ?? elementRtl(app)) === 'left');
   if (edge && Number.isFinite(inset) && inset > 0) app.style.setProperty('--ios-theme-vertical-bars-native-inset', `${inset}px`);
   else app.style.removeProperty('--ios-theme-vertical-bars-native-inset');
 };
@@ -186,7 +195,8 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
           // example an app linked against an SDK older than 27.1 — so the DOM
           // class is trusted there. When the OS does report an edge, the native
           // rail only takes over once the app has applied the matching class.
-          return nativeEdge === null || nativeEdge === (root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right');
+          const domEdge = root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right';
+          return nativeEdge === null || physicalVerticalBarEdge(nativeEdge, elementRtl(root)) === domEdge;
         };
         await plugin.startDeviceLayoutMonitoring();
         monitoring = true;

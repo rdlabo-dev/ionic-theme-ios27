@@ -112,7 +112,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private func deviceLayout() -> JSObject {
         var layout: JSObject = ["placement": verticalBarPlacement(),
                                 "webViewMetrics": webViewMetrics() ?? ["radius": 0]]
-        layout["hingeStatus"] = hingeStatus ?? "unavailable"
+        layout["hingeStatus"] = hingeStatus ?? NSNull()
         return layout
     }
 
@@ -131,7 +131,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             self?.observeHingeStatus()
             self?.refreshHingeStatus()
             DispatchQueue.main.async {
-                call.resolve(self?.deviceLayout() ?? ["placement": ["edge": NSNull(), "inset": 0], "hingeStatus": "unavailable", "webViewMetrics": ["radius": 0]])
+                call.resolve(self?.deviceLayout() ?? ["placement": ["edge": NSNull(), "inset": 0], "hingeStatus": NSNull(), "webViewMetrics": ["radius": 0]])
                 if self?.deviceLayoutMonitoring == 0 { self?.stopDeviceLayoutObservation() }
             }
         }
@@ -161,13 +161,13 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         }
     }
 
+    // Logical edge in the reading direction, matching UIVerticalBarEdge.
     private func verticalBarEdge() -> String? {
         #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
         if #available(iOS 27.1, *), let webView = bridge?.webView {
-            let rtl = webView.effectiveUserInterfaceLayoutDirection == .rightToLeft
             switch webView.traitCollection.verticalBarEdge {
-            case .leading: return rtl ? "right" : "left"
-            case .trailing: return rtl ? "left" : "right"
+            case .leading: return "leading"
+            case .trailing: return "trailing"
             default: break
             }
         }
@@ -177,15 +177,18 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         // ~80pt; ordinary iPhones stay below 70pt even in landscape).
         guard let webView = bridge?.webView else { return nil }
         webView.layoutIfNeeded()
-        if webView.safeAreaInsets.right >= 70 { return "right" }
-        if webView.safeAreaInsets.left >= 70 { return "left" }
+        let rtl = webView.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        if webView.safeAreaInsets.right >= 70 { return rtl ? "leading" : "trailing" }
+        if webView.safeAreaInsets.left >= 70 { return rtl ? "trailing" : "leading" }
         return nil
     }
 
     private func verticalBarInset(for edge: String?) -> CGFloat {
         guard let edge, let webView = bridge?.webView else { return 0 }
         webView.layoutIfNeeded()
-        return edge == "left" ? webView.safeAreaInsets.left : webView.safeAreaInsets.right
+        let rtl = webView.effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let physicalRight = (edge == "trailing") != rtl
+        return physicalRight ? webView.safeAreaInsets.right : webView.safeAreaInsets.left
     }
 
     private func verticalBarPlacement() -> JSObject {
@@ -229,8 +232,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 let status: String?
                 switch update.hinge?.status {
                 case .closed: status = "closed"
-                case .partiallyOpen: status = "partially-open"
-                case .fullyOpen: status = "fully-open"
+                case .partiallyOpen: status = "partiallyOpen"
+                case .fullyOpen: status = "fullyOpen"
                 default: status = nil
                 }
                 guard status != self?.hingeStatus else { return }

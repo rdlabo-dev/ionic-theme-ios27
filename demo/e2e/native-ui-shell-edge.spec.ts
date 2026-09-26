@@ -54,8 +54,8 @@ const mockNative = async (page: Page) => {
       },
       async getDeviceLayout() {
         return {
-          placement: { edge: 'right' as const, inset: 84 },
-          hingeStatus: 'unavailable' as const,
+          placement: { edge: 'trailing' as const, inset: 84 },
+          hingeStatus: null,
           webViewMetrics: { radius: 0 },
         };
       },

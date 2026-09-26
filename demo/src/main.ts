@@ -28,10 +28,10 @@ void bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations()))
     await IonicNativeUIShell.startDeviceLayoutMonitoring();
     await IonicNativeUIShell.addListener('deviceLayoutChange', ({ placement }) => {
       const app = document.querySelector('ion-app.ios-theme-vertical-bars');
-      if (app)
-        setVerticalControlAreaPlacement(
-          placement.edge ? placement : app.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right',
-        );
+      if (!app) return;
+      const rtl = app.closest('[dir]')?.getAttribute('dir') === 'rtl';
+      const current = app.classList.contains('ios-theme-vertical-bars-left') !== rtl ? 'leading' : 'trailing';
+      setVerticalControlAreaPlacement(placement.edge ? placement : current);
     });
   })
   .catch((err) => console.error(err));

@@ -3,23 +3,31 @@ import { enableNativeUIShell, setVerticalControlAreaPlacement } from '../../src/
 
 test('placement requires ion-app and clears it when disabled', () => {
   document.body.replaceChildren();
-  expect(() => setVerticalControlAreaPlacement('right')).toThrow('requires ion-app');
+  expect(() => setVerticalControlAreaPlacement('trailing')).toThrow('requires ion-app');
   document.body.innerHTML = '<ion-app></ion-app>';
   const app = document.querySelector('ion-app')!;
 
-  setVerticalControlAreaPlacement('left');
+  setVerticalControlAreaPlacement('leading');
   expect(app.classList.contains('ios-theme-vertical-bars-left')).toBe(true);
   expect(app.style.getPropertyValue('--ios-theme-vertical-bars-native-inset')).toBe('');
 
-  setVerticalControlAreaPlacement({ edge: 'right', inset: 64 });
+  setVerticalControlAreaPlacement({ edge: 'trailing', inset: 64 });
   expect(app.classList.contains('ios-theme-vertical-bars-left')).toBe(false);
   expect(app.style.getPropertyValue('--ios-theme-vertical-bars-native-inset')).toBe('64px');
+
+  // Logical edges resolve through the document direction: trailing is the physical left in RTL.
+  app.setAttribute('dir', 'rtl');
+  setVerticalControlAreaPlacement('trailing');
+  expect(app.classList.contains('ios-theme-vertical-bars-left')).toBe(true);
+  app.removeAttribute('dir');
+  setVerticalControlAreaPlacement('trailing', true);
+  expect(app.classList.contains('ios-theme-vertical-bars-left')).toBe(true);
 
   setVerticalControlAreaPlacement(null);
   expect(app.classList.contains('ios-theme-vertical-bars')).toBe(false);
   expect(app.style.getPropertyValue('--ios-theme-vertical-bars-native-inset')).toBe('');
 
-  setVerticalControlAreaPlacement('right');
+  setVerticalControlAreaPlacement('trailing');
   expect(app.classList.contains('ios-theme-vertical-bars')).toBe(true);
   setVerticalControlAreaPlacement(null);
   document.body.replaceChildren();
