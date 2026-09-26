@@ -127,6 +127,40 @@ test('a builder without navigation options remains usable', () => {
   expect(builder).toHaveBeenCalledExactlyOnceWith(document.body, undefined);
 });
 
+test('connecting before runtime startup does not prevent later native integration', async () => {
+  const doc = document.implementation.createHTMLDocument();
+  const entering = doc.createElement('main');
+  const leaving = doc.createElement('main');
+  const animation = {
+    onFinish: vi.fn(),
+    play: vi.fn(async () => {}),
+    progressStart: vi.fn(),
+    progressStep: vi.fn(),
+    progressEnd: vi.fn(),
+    destroy: vi.fn(),
+  } as unknown as Animation;
+  const wrapped = withNativeUIShellTransition(() => animation);
+  const options = { enteringEl: entering, leavingEl: leaving };
+  wrapped(entering, options);
+  const play = animation.play;
+  expect(animation.onFinish).toHaveBeenCalledTimes(1);
+  const resume = vi.fn();
+  const suspend = vi.fn(async () => resume);
+  setNativeUIShellIntegration(doc, { suspend });
+  try {
+    wrapped(entering, options);
+    wrapped(entering, options);
+    expect(animation.onFinish).toHaveBeenCalledTimes(2);
+    expect(animation.play).not.toBe(play);
+    await animation.play();
+    expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving]);
+    expect(resume).toHaveBeenCalledExactlyOnceWith(false);
+  } finally {
+    animation.destroy();
+    setNativeUIShellIntegration(doc);
+  }
+});
+
 test('the built-in iOS transition uses the adapter once even when wrapped again', async () => {
   const doc = document.implementation.createHTMLDocument();
   const nav = doc.createElement('ion-nav');

@@ -68,7 +68,7 @@ const configureNavigation = (existingTransition: AnimationBuilder) => ({
 });
 ```
 
-Apply the returned configuration before Ionic initializes. Use this adapter only for navigation, not modal or popover animations. It uses Ionic's `enteringEl` and `leavingEl` options and returns the original `Animation`. Keep lifecycle events for control registration and transitions without animation. If your custom builder animates a horizontal back button separately, exclude that effect while `.ios-theme-vertical-bars` is active; the adapter preserves your animation targets. The built-in `iosTransitionAnimation` already uses this adapter and handles that exclusion.
+Apply the returned configuration before Ionic initializes. Use this adapter only for navigation, not modal or popover animations. It uses Ionic's `enteringEl` and `leavingEl` options and returns the original `Animation`. The builder must return a fresh `Animation` for each navigation; Ionic destroys it after the transition. Keep lifecycle events for control registration and transitions without animation. If your custom builder animates a horizontal back button separately, exclude that effect while `.ios-theme-vertical-bars` is active; the adapter preserves your animation targets. The built-in `iosTransitionAnimation` already uses this adapter and handles that exclusion.
 
 ### 4. Start the controls after the app root is mounted
 
