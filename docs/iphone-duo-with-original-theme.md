@@ -54,22 +54,6 @@ const ionicConfig = {
 
 Merge this option into your existing Ionic configuration for `ios` mode before initialization: pass it to Angular's `provideIonicAngular()`, React's `setupIonicReact()`, or Vue's `IonicVue` plugin options. Keep your existing `md` animation configuration. Importing the JavaScript entry point does not load the iOS 27 theme stylesheets.
 
-#### Keep your existing transition (unreleased)
-
-The next release adds `withNativeUIShellTransition()` to the `/vertical-bars` entry point. It wraps your existing Ionic navigation animation builder, preserving its effects, duration, and easing while coordinating native retirement, interactive progress, and cancellation. This API is not available in `1.2.0-0`; use the setup above with that release.
-
-```ts
-import type { AnimationBuilder } from '@ionic/core';
-import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27/vertical-bars';
-
-// Pass the animation builder your app already uses.
-const configureNavigation = (existingTransition: AnimationBuilder) => ({
-  navAnimation: withNativeUIShellTransition(existingTransition),
-});
-```
-
-Apply the returned configuration before Ionic initializes. Use this adapter only for navigation, not modal or popover animations. It uses Ionic's `enteringEl` and `leavingEl` options and returns the original `Animation`. Keep lifecycle events for control registration and transitions without animation. If your custom builder animates a horizontal back button separately, exclude that effect while `.ios-theme-vertical-bars` is active; the adapter preserves your animation targets. The built-in `iosTransitionAnimation` already uses this adapter and handles that exclusion.
-
 ### 4. Start the controls after the app root is mounted
 
 Call this once from your application startup after `ion-app` exists in the DOM:
