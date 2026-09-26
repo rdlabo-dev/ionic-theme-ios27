@@ -37,3 +37,27 @@ test('toolbar opt-out leaves an otherwise eligible verticalBars back button unde
 
   await handle.destroy();
 });
+
+test('a back button inside an ion-buttons group is projected only through the back slot', async () => {
+  document.body.innerHTML = `
+    <ion-app class="ios-theme-vertical-bars">
+      <main class="ion-page">
+        <ion-header><ion-toolbar class="ios"><ion-buttons slot="start" class="ios"><ion-back-button class="ios"></ion-back-button></ion-buttons></ion-toolbar></ion-header>
+      </main>
+    </ion-app>`;
+  const button = document.querySelector('ion-back-button') as HTMLElement;
+  button.style.display = 'block';
+  button.style.visibility = 'visible';
+  button.getBoundingClientRect = () => ({ width: 44, height: 44 }) as DOMRect;
+  setVerticalBarsPlacement(button, true);
+
+  const handle = createVerticalBarsWebProjection(document, {});
+  try {
+    await nextFrame();
+    expect(handle.getStatus().projected).toBe(1);
+    expect(document.querySelectorAll('.ios-theme-vertical-bars-back-button-projection')).toHaveLength(1);
+    expect(document.querySelector('.ios-theme-vertical-bars-toolbar-projection')).toBeNull();
+  } finally {
+    await handle.destroy();
+  }
+});

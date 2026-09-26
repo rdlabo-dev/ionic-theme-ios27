@@ -181,9 +181,12 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         let nativeEdge: VerticalBarEdge = null;
         const nativeVerticalBars = () => {
           const root = document.querySelector('ion-app.ios-theme-vertical-bars');
-          return (
-            nativeEdge !== null && !!root && nativeEdge === (root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right')
-          );
+          if (!root) return false;
+          // The trait stays unspecified when the OS cannot report a rail — for
+          // example an app linked against an SDK older than 27.1 — so the DOM
+          // class is trusted there. When the OS does report an edge, the native
+          // rail only takes over once the app has applied the matching class.
+          return nativeEdge === null || nativeEdge === (root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right');
         };
         await plugin.startDeviceLayoutMonitoring();
         monitoring = true;

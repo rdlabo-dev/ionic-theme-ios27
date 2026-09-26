@@ -62,6 +62,8 @@ Monitoring is reference-counted: each consumer pairs `startDeviceLayoutMonitorin
 
 The plugin reports device facts and never applies them to the DOM. The application decides what each value means for its layout — this boundary keeps the native values easy to mock in tests and keeps the theme's responsibility limited to the stylesheets and runtime below.
 
+**Build requirement:** iOS only enables the vertical bar for apps linked against the iOS 27.1 SDK or later — build with Xcode 27.1 or newer. Apps built with an older SDK run in backward-compatibility mode on iPhone Duo: the system reserves no rail, `placement.edge` stays `null`, `inset` stays `0`, and `hingeStatus` stays `unavailable`. Everything else still works in that state — the opt-in classes reserve the DOM strip and the rail follows whatever placement the application applies — so the compat build remains usable and testable; only the real system rail, its measured inset and hinge posture require the newer toolchain.
+
 ## Reserve the vertical rail
 
 Add `.ios-theme-vertical-bars` to `ion-app` to reserve the rail region on the physical right, or add `.ios-theme-vertical-bars-left` as well to use the physical left:

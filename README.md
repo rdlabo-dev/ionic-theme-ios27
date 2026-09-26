@@ -123,7 +123,7 @@ Use this markup to preview the inset grouped list look. For the list structure t
 
 ### Support iPhone Duo without the iOS 27 theme
 
-Import only `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, add `ios-theme-vertical-bars` to `ion-app`, and call `enableVerticalControlArea()` from `@rdlabo/ionic-theme-ios27/vertical-bars` at startup. This uses Ionic's standard appearance outside the Vertical Control Area; on supported iOS, only controls moved into that area are projected natively. To read only the hinge posture — for example to adapt an `ion-split-pane` — subscribe to the plugin's `deviceLayoutChange` event without starting any runtime. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup.
+Import only `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, add `ios-theme-vertical-bars` to `ion-app`, and call `enableVerticalControlArea()` from `@rdlabo/ionic-theme-ios27/vertical-bars` at startup. This uses Ionic's standard appearance outside the Vertical Control Area; on supported iOS, only controls moved into that area are projected natively. To read only the hinge posture — for example to adapt an `ion-split-pane` — subscribe to the plugin's `deviceLayoutChange` event without starting any runtime. iOS enables the real system rail only for apps built with Xcode 27.1 or later; older toolchains run in compatibility mode and keep the DOM-driven rail instead. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup.
 
 ### Use only the iOS 27 theme
 

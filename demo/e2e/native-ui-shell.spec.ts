@@ -20,8 +20,8 @@ interface ShellMock extends ShellMockCore {
   retirementDetails: { path: string; tabs: string }[];
 }
 
-const mockNative = async (page: Page, fail = false, verticalBars = true) => {
-  const script = ([fail, verticalBars]: readonly [boolean, boolean]) => {
+const mockNative = async (page: Page, fail = false, nativeEdge: 'left' | 'right' | null = 'right') => {
+  const script = ([fail, nativeEdge]: readonly [boolean, 'left' | 'right' | null]) => {
     const mock = {
       updates: [] as ShellSnapshot[],
       sequence: 0,
@@ -48,14 +48,14 @@ const mockNative = async (page: Page, fail = false, verticalBars = true) => {
       },
       async configure(options: { verticalBarsOnly?: boolean }) {
         this.configuredWith = options;
-        return { supported: true, verticalBars };
+        return { supported: true, verticalBars: nativeEdge !== null };
       },
       async getWebViewMetrics() {
         return { radius: 0 };
       },
       async getDeviceLayout() {
         return {
-          placement: { edge: verticalBars ? ('right' as const) : null, inset: verticalBars ? 84 : 0 },
+          placement: { edge: nativeEdge, inset: nativeEdge ? 84 : 0 },
           hingeStatus: 'unavailable' as const,
           webViewMetrics: { radius: 0 },
         };
@@ -106,7 +106,7 @@ const mockNative = async (page: Page, fail = false, verticalBars = true) => {
       },
     });
   };
-  await page.addInitScript(script, [fail, verticalBars] as const);
+  await page.addInitScript(script, [fail, nativeEdge] as const);
 };
 
 const activate = (page: Page, label: string, duplicate = false) =>
@@ -796,9 +796,11 @@ test('verticalBars rail remains native while its Ionic menu is open', async ({ p
   await expect(morphedCancel).toBeVisible();
 });
 
-test('verticalBars controls stay operable on Web when the native side rail is unavailable', async ({ page }) => {
+// An OS-reported edge that disagrees with the DOM strip is the only supported
+// "native rail unavailable" state; the Web fallback then owns the rail.
+test('verticalBars controls stay operable on Web when the reported rail edge differs', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await mockNative(page, false, false);
+  await mockNative(page, false, 'left');
   await page.goto('/main/index/native-ui-shell');
   await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
@@ -849,6 +851,28 @@ test('verticalBars controls stay operable on Web when the native side rail is un
   await projection.click();
   await expect(page).toHaveURL(/\/main\/index$/);
   expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).verticalBarsBackCloneMoved)).toBe(false);
+});
+
+// Apps linked against an SDK older than 27.1 never get a trait-reported edge;
+// the DOM strip still owns the layout, so the native rail follows it.
+test('verticalBars controls project natively when the OS reports no rail edge', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockNative(page, false, null);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('app-native-ui-shell ion-menu-button').evaluate((element: HTMLIonMenuButtonElement) => (element.autoHide = false));
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)
+          ?.controls.some((control: ShellControl) => control.placement === 'vertical-bars'),
+      ),
+    )
+    .toBe(true);
+  await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toHaveCount(0);
+  await expect(page.locator('ion-app > ion-menu-button.ios-theme-vertical-bars-toolbar-projection')).toHaveCount(0);
+  await expect(page.locator('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection[aria-label=Save]')).toHaveCount(0);
 });
 
 test('native click preserves external form submit, disabled, and duplicate protection', async ({ page }) => {

@@ -180,7 +180,8 @@ export const verticalBarsBackCandidate = (element: HTMLElement): boolean =>
   !element.closest(overlays);
 
 export const verticalBarsToolbarActions = (element: HTMLElement): HTMLElement[] =>
-  childElements(element).filter((child) => isVerticalBarsToolbarAction(child));
+  // Back buttons use the dedicated rail slot; they are never toolbar actions.
+  childElements(element).filter((child) => !child.matches('ion-back-button') && isVerticalBarsToolbarAction(child));
 
 export const isVerticalBarsToolbarGroup = (element: HTMLElement): boolean => {
   return (

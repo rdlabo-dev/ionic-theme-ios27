@@ -168,10 +168,17 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             switch webView.traitCollection.verticalBarEdge {
             case .leading: return rtl ? "right" : "left"
             case .trailing: return rtl ? "left" : "right"
-            default: return nil
+            default: break
             }
         }
         #endif
+        // Toolchains older than the verticalBarEdge trait still expose the rail
+        // as a deep safe-area inset on the physical edge (iPhone Duo reserves
+        // ~80pt; ordinary iPhones stay below 70pt even in landscape).
+        guard let webView = bridge?.webView else { return nil }
+        webView.layoutIfNeeded()
+        if webView.safeAreaInsets.right >= 70 { return "right" }
+        if webView.safeAreaInsets.left >= 70 { return "left" }
         return nil
     }
 
