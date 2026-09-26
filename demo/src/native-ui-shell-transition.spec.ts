@@ -1,4 +1,5 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+import { withNativeUIShellTransition } from '../../src/vertical-bars';
 import {
   connectNativeUIShellTransition,
   VERTICAL_BARS_TRANSITION_CANCELED,
@@ -8,6 +9,7 @@ import {
 } from '../../src/native-integration';
 import type { Animation } from '@ionic/core';
 import { configureNativeTransition, enableNativeUIShell } from '../../src/native';
+import { iosTransitionAnimation } from '../../src/transition/ios.transition';
 
 const fixture = () => {
   const doc = {} as Document;
@@ -49,7 +51,10 @@ const fixture = () => {
       return animation;
     },
   } as unknown as Animation;
-  connectNativeUIShellTransition(animation, page);
+  const builder = vi.fn(() => animation);
+  const wrapped = withNativeUIShellTransition(withNativeUIShellTransition(builder));
+  expect(wrapped(page, { enteringEl: page })).toBe(animation);
+  expect(builder).toHaveBeenCalledExactlyOnceWith(page, { enteringEl: page });
   return { animation, calls, ready, finish: (step: 0 | 1) => finish(step, animation) };
 };
 
@@ -91,6 +96,67 @@ test('without native enablement the animation remains untouched', () => {
   const play = animation.play;
   connectNativeUIShellTransition(animation, { ownerDocument: {} } as HTMLElement);
   expect(animation.play).toBe(play);
+});
+
+test('the adapter preserves builder options and animation settings without a runtime', () => {
+  const entering = document.createElement('main');
+  const leaving = document.createElement('main');
+  const animation = {
+    onFinish: vi.fn(),
+    play: vi.fn(),
+    duration: vi.fn(),
+    easing: vi.fn(),
+  } as unknown as Animation;
+  const builder = vi.fn(() => animation);
+  const options = { enteringEl: entering, leavingEl: leaving, direction: 'back', duration: 123 };
+  const play = animation.play;
+  const wrapped = withNativeUIShellTransition(builder);
+  expect(wrapped(entering, options)).toBe(animation);
+  expect(builder).toHaveBeenCalledExactlyOnceWith(entering, options);
+  expect(animation.duration).not.toHaveBeenCalled();
+  expect(animation.easing).not.toHaveBeenCalled();
+  expect(animation.play).toBe(play);
+  withNativeUIShellTransition(wrapped)(entering, options);
+  expect(animation.onFinish).toHaveBeenCalledTimes(1);
+});
+
+test('a builder without navigation options remains usable', () => {
+  const animation = {} as Animation;
+  const builder = vi.fn(() => animation);
+  expect(withNativeUIShellTransition(builder)(document.body)).toBe(animation);
+  expect(builder).toHaveBeenCalledExactlyOnceWith(document.body, undefined);
+});
+
+test('the built-in iOS transition uses the adapter once even when wrapped again', async () => {
+  const doc = document.implementation.createHTMLDocument();
+  const nav = doc.createElement('ion-nav');
+  const entering = doc.createElement('main');
+  const leaving = doc.createElement('main');
+  nav.append(entering, leaving);
+  doc.body.append(nav);
+  let ready!: () => void;
+  const pending = new Promise<void>((resolve) => (ready = resolve));
+  const resume = vi.fn();
+  const suspend = vi.fn(async () => {
+    await pending;
+    return resume;
+  });
+  setNativeUIShellIntegration(doc, { suspend });
+  const animation = withNativeUIShellTransition(iosTransitionAnimation)(nav, {
+    enteringEl: entering,
+    leavingEl: leaving,
+    duration: 123,
+    easing: 'linear',
+  });
+  expect(animation.getDuration()).toBe(123);
+  expect(animation.getEasing()).toBe('linear');
+  const played = animation.play();
+  expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving]);
+  animation.destroy();
+  ready();
+  await played;
+  expect(resume).toHaveBeenCalledExactlyOnceWith(true);
+  setNativeUIShellIntegration(doc);
 });
 
 test('a canceled Web transition releases the still-active leaving page', () => {
