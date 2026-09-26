@@ -8,7 +8,7 @@ title: Migration
 
 Use `withNativeUIShellTransition()` to keep your existing Ionic navigation animation while coordinating Native UI Shell controls.
 
-- If you already use this package's `iosTransitionAnimation`, no configuration change is needed. It now uses the shared adapter internally; do not add another wrapper.
+- If you already import `iosTransitionAnimation` from `@rdlabo/ionic-theme-ios27`, keep the [package animation setup](./iphone-duo-with-original-theme.md#use-this-package%27s-ios-animation); no configuration change is needed. It now uses the shared adapter internally; do not add another wrapper.
 - If you use Ionic's default animation without a `navAnimation` option, follow [Keep Ionic's default animation](./iphone-duo-with-original-theme.md#keep-ionic%27s-default-animation). The example selects Ionic's standard iOS or MD builder from the transition mode.
 - If you use a custom navigation animation with Native UI Shell or the standalone Vertical Control Area, wrap your existing builder when configuring Ionic:
 

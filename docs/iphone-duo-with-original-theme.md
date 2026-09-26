@@ -62,9 +62,23 @@ const ionicConfig = {
 
 Merge this option into your existing Ionic configuration before initialization: pass it to Angular's `provideIonicAngular()`, React's `setupIonicReact()`, or Vue's `IonicVue` plugin options. Keep your existing theme stylesheet imports. No iOS 27 theme stylesheet is required.
 
+#### Use this package's iOS animation
+
+If you already use the iOS 27 transition, keep this configuration. It includes the native adapter and excludes the horizontal back-button effect in vertical layouts; no additional wrapper is needed. Importing this JavaScript entry point does not load the theme stylesheets.
+
+```ts
+import { iosTransitionAnimation } from '@rdlabo/ionic-theme-ios27';
+
+const ionicConfig = {
+  navAnimation: iosTransitionAnimation,
+};
+```
+
+Apply this option to your existing iOS-mode configuration and keep your MD configuration.
+
 #### Keep your custom animation
 
-If your app already configures `navAnimation`, wrap that builder instead:
+If your app uses another builder for `navAnimation`, wrap it:
 
 ```ts
 import type { AnimationBuilder } from '@ionic/core';
