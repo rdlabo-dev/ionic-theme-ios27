@@ -137,7 +137,8 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             const snapshotPrefix = 'demo/e2e';
-            const snapshotDirectories = ['screenshot.spec.ts-snapshots', 'adaptive-tab-bar.spec.ts-snapshots'];
+            const snapshotDirectories = ['screenshot.spec.ts-snapshots'];
+            if (process.env.EXPECTED_BASE_REF === 'main') snapshotDirectories.push('adaptive-tab-bar.spec.ts-snapshots');
             const artifactDirectory = 'updated-screenshots';
             const expectedHeadSha = process.env.EXPECTED_HEAD_SHA;
             const expectedHeadRef = process.env.EXPECTED_HEAD_REF;
