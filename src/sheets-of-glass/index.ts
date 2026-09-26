@@ -4,6 +4,7 @@ import type { Animation, Gesture, GestureDetail } from '@ionic/core';
 import { changeSelectedElement, cloneElement, getStep } from '../utils';
 import { isNativeUIShell } from '../native-integration';
 import {
+  animationRect,
   createMoveAnimation,
   createPreMoveAnimation,
   createTabBarDragAnimation,
@@ -21,6 +22,7 @@ export const registerEffect = (
   effectTagName: string,
   selectedClassName: string,
   scales: EffectScales,
+  vertical = false,
 ): registeredEffect | undefined => {
   if (!targetElement.classList.contains('ios')) {
     return undefined;
@@ -42,6 +44,7 @@ export const registerEffect = (
   let destroyed = false;
   const originalTabBarScale = targetElement.style.getPropertyValue('--ios27-tab-bar-scale');
   const effectElement = cloneElement(effectTagName, false);
+  if (vertical) effectElement.classList.add('ios27-vertical-tab-effect');
   const stopTabPress = () => {
     if (!tabPressAnimation) return;
     const native = effectElement.shadowRoot!.querySelector<HTMLElement>('[part="native"]')!;
@@ -122,17 +125,30 @@ export const registerEffect = (
   };
   targetElement.addEventListener('pointerdown', onPointerDown);
 
+  const axisDetail = (detail: GestureDetail): GestureDetail =>
+    vertical
+      ? {
+          ...detail,
+          currentX: detail.currentY,
+          currentY: detail.currentX,
+          startX: detail.startY,
+          startY: detail.startX,
+          velocityX: detail.velocityY,
+          velocityY: detail.velocityX,
+        }
+      : detail;
   const createAnimationGesture = () => {
     targetElement.classList.add(GESTURE_NAME);
     gesture = createGesture({
       el: targetElement,
       threshold: 0,
+      direction: vertical ? 'y' : 'x',
       gestureName: `${GESTURE_NAME}_${effectTagName}_${crypto.randomUUID()}`,
-      onStart: (event) => onStartGesture(event),
-      onMove: (event) => onMoveGesture(event),
+      onStart: (event) => onStartGesture(axisDetail(event)),
+      onMove: (event) => onMoveGesture(axisDetail(event)),
       onEnd: (detail) => {
         // Ionic coalesces moves; consume the release coordinate before committing a drag.
-        if (effectTagName === 'ion-tab-button' && tabDragging) onMoveGesture(detail);
+        if (effectTagName === 'ion-tab-button' && tabDragging) onMoveGesture(axisDetail(detail));
         onEndGesture().then();
       },
     });
@@ -160,34 +176,48 @@ export const registerEffect = (
     if (isNativeUIShell(targetElement)) return false;
     currentTouchedElement = ((detail.event.target as HTMLElement).closest(effectTagName) as HTMLElement) || undefined;
     const tabSelectedElement = targetElement.querySelector(`${effectTagName}.${selectedClassName}`);
-    if (currentTouchedElement === undefined || tabSelectedElement === null) {
+    if (
+      currentTouchedElement === undefined ||
+      currentTouchedElement.parentElement !== targetElement ||
+      (currentTouchedElement as HTMLIonTabButtonElement).disabled ||
+      tabSelectedElement === null
+    ) {
+      currentTouchedElement = undefined;
       return false;
     }
     selectedElementBeforeGesture = tabSelectedElement as HTMLElement;
     if (effectTagName === 'ion-tab-button') {
       // UIKit expands the platter by 14.14pt at both two- and four-tab widths.
-      targetElement.style.setProperty('--ios27-tab-bar-scale', String(1 + 14.14 / targetElement.offsetWidth));
+      targetElement.style.setProperty(
+        '--ios27-tab-bar-scale',
+        String(1 + 14.14 / (vertical ? targetElement.offsetHeight : targetElement.offsetWidth)),
+      );
     }
     animationPosition = {
-      minPositionX: targetElement.getBoundingClientRect().left,
-      maxPositionX: targetElement.getBoundingClientRect().right - tabSelectedElement.clientWidth,
-      width: tabSelectedElement.clientWidth,
-      positionY: tabSelectedElement.getBoundingClientRect().top,
+      minPositionX: animationRect(targetElement, vertical).left,
+      maxPositionX:
+        animationRect(targetElement, vertical).right - (vertical ? tabSelectedElement.clientHeight : tabSelectedElement.clientWidth),
+      width: vertical ? tabSelectedElement.clientHeight : tabSelectedElement.clientWidth,
+      positionY: animationRect(tabSelectedElement, vertical).top,
     };
     targetElement.classList.add(ANIMATED_NAME);
     changeSelectedElement(targetElement, currentTouchedElement, effectTagName, selectedClassName);
 
     if (effectTagName === 'ion-tab-button') {
-      moveAnimation = createMoveAnimation(effectElement, detail, tabSelectedElement, animationPosition);
+      moveAnimation = createMoveAnimation(effectElement, detail, tabSelectedElement, animationPosition, vertical);
       moveAnimation.progressStart(
         true,
-        getStep(tabSelectedElement.getBoundingClientRect().left + tabSelectedElement.clientWidth / 2, animationPosition),
+        getStep(
+          animationRect(tabSelectedElement, vertical).left + animationRect(tabSelectedElement, vertical).width / 2,
+          animationPosition,
+        ),
       );
       tabPressAnimation = createTabBarPressAnimation(
         effectElement,
         tabSelectedElement as HTMLElement,
         currentTouchedElement,
         targetElement,
+        vertical,
       );
       tabPressStartedAt = performance.now();
       void tabPressAnimation.play();
@@ -225,7 +255,7 @@ export const registerEffect = (
       if (Math.abs(detail.currentX - detail.startX) < 3 && !tabDragging) return;
       tabDragging = true;
       stopTabPress();
-      tabPressAnimation = createTabBarDragAnimation(effectElement, targetElement, detail.velocityX);
+      tabPressAnimation = createTabBarDragAnimation(effectElement, targetElement, detail.velocityX, vertical);
       void tabPressAnimation.play();
     } else if (scaleAnimationPromise === undefined) {
       if (Math.abs(detail.velocityX) > maxVelocity) {
@@ -249,11 +279,19 @@ export const registerEffect = (
     }
 
     const currentX = detail.currentX;
-    const previousY = targetElement.getBoundingClientRect().top + targetElement.getBoundingClientRect().height / 2;
-    const nextEl = (targetElement.getRootNode() as Document | ShadowRoot).elementFromPoint(currentX, previousY);
+    const previousY = animationRect(targetElement, vertical).top + animationRect(targetElement, vertical).height / 2;
+    const nextEl = (targetElement.getRootNode() as Document | ShadowRoot).elementFromPoint(
+      vertical ? previousY : currentX,
+      vertical ? currentX : previousY,
+    );
     const latestTouchedElement = (nextEl?.closest(effectTagName) as HTMLElement) || undefined;
 
-    if (latestTouchedElement && currentTouchedElement !== latestTouchedElement) {
+    if (
+      latestTouchedElement &&
+      latestTouchedElement.parentElement === targetElement &&
+      !(latestTouchedElement as HTMLIonTabButtonElement).disabled &&
+      currentTouchedElement !== latestTouchedElement
+    ) {
       currentTouchedElement = latestTouchedElement;
       changeSelectedElement(targetElement, currentTouchedElement, effectTagName, selectedClassName);
     }
@@ -317,6 +355,7 @@ export const registerEffect = (
               distance: Math.abs(tabs.indexOf(currentTouchedElement) - tabs.indexOf(selectedElementBeforeGesture!)),
             }
           : undefined,
+        vertical,
       );
       currentTouchedElement.classList.remove('ion-activated');
       releaseAnimation = releasing;

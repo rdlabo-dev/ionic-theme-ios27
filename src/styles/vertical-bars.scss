@@ -152,6 +152,10 @@ ion-app.ios-theme-vertical-bars
   top: auto;
   bottom: calc(var(--ion-safe-area-bottom, 0px) + var(--ios-theme-side-tab-bar-gap));
 
+  &.ios27-enable-gesture {
+    touch-action: pan-x pinch-zoom;
+  }
+
   > ion-tab-button:not(.ion-cloned-element) {
     display: block;
     flex: none;
@@ -162,6 +166,7 @@ ion-app.ios-theme-vertical-bars
     border-radius: 23px;
     &::part(native) {
       justify-content: center;
+      min-height: 52px;
     }
     ion-label {
       position: absolute;
@@ -338,5 +343,14 @@ ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left {
   > :is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     right: auto;
     left: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-left-resolved) - 46px) / 2));
+  }
+}
+
+// The lens is attached to body, outside the rail selectors.
+ion-tab-button.ios.ion-cloned-element.ios27-vertical-tab-effect {
+  border-radius: 23px;
+  &::part(native) {
+    min-height: 0;
+    height: 100%;
   }
 }

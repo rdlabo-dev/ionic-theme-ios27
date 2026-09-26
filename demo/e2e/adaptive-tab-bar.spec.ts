@@ -26,7 +26,13 @@ test('verticalBars mode moves tabs into the right rail and reveals labels while 
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 4 });
   await expect.poll(() => buttons.first().evaluate((element) => element.matches(':active'))).toBe(true);
 
-  await expect(page).toHaveScreenshot('vertical-bars-tab-drag-labels.png', { animations: 'disabled' });
+  await expect(buttons.nth(1)).toHaveClass(/ion-activated/);
+  // Keep the scrubbed lens at the pointer; finishing its animation moves it to the last tab.
+  await page.locator('body > ion-tab-button.ion-cloned-element [part="native"]').evaluate(async (el) => {
+    await Promise.all(el.getAnimations().map((animation) => animation.finished));
+  });
+  // The glass edge has small subpixel differences depending on the sampled drag velocity.
+  await expect(page).toHaveScreenshot('vertical-bars-tab-drag-labels.png', { animations: 'allow', maxDiffPixels: 100 });
   await page.mouse.up();
 
   const overlayDirection = await page.evaluate(async () => {
