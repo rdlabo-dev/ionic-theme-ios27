@@ -14,14 +14,16 @@ Available in `1.2.0-0` as an **experimental** feature. APIs and supported behavi
 
 ### 1. Install and load the standalone stylesheet
 
+This guide assumes an existing Ionic app with Ionic `>=8.8.1 <10` and Capacitor Core `>=8 <9`. Keep your existing Capacitor 8 installation. If your app uses another Capacitor major, migrate its Core, CLI, and platform packages together before following this guide. For a Web-only app without Capacitor, also install `@capacitor/core@^8`; the JavaScript entry point needs it even in Chrome.
+
 ```bash
-npm install @rdlabo/ionic-theme-ios27@1.2.0-0 @capacitor/core@^8
+npm install @rdlabo/ionic-theme-ios27@1.2.0-0
 ```
 
 Keep your existing theme imports. Add this to your global Sass file:
 
 ```scss
-@use @rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css;
+@use '@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css';
 ```
 
 The standalone JavaScript entry point needs `@capacitor/core` even in Chrome. The iOS 27 theme stylesheets are not required.
@@ -43,7 +45,7 @@ The preview reserves `80px` on the physical right. To preview the left side, als
 Call this once from your application startup after `ion-app` exists in the DOM:
 
 ```ts
-import { enableVerticalControlArea } from @rdlabo/ionic-theme-ios27/vertical-bars;
+import { enableVerticalControlArea } from '@rdlabo/ionic-theme-ios27/vertical-bars';
 
 const rail = await enableVerticalControlArea();
 ```
@@ -69,15 +71,15 @@ For Capacitor iOS, run `npx cap sync ios`. Build with Xcode 27.1 or newer and li
 Replace the browser-only startup above with this after `ion-app` is mounted:
 
 ```ts
-import { Capacitor, type PluginListenerHandle } from @capacitor/core;
-import { enableVerticalControlArea, IonicNativeUIShell } from @rdlabo/ionic-theme-ios27/vertical-bars;
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { enableVerticalControlArea, IonicNativeUIShell } from '@rdlabo/ionic-theme-ios27/vertical-bars';
 
 const rail = await enableVerticalControlArea();
 let layoutListener: PluginListenerHandle | undefined;
 
-if (Capacitor.getPlatform() === ios) {
+if (Capacitor.getPlatform() === 'ios') {
   // The runtime already monitors device layout; only subscribe.
-  layoutListener = await IonicNativeUIShell.addListener(deviceLayoutChange, ({ placement }) =>
+  layoutListener = await IonicNativeUIShell.addListener('deviceLayoutChange', ({ placement }) =>
     rail.setPlacement(placement),
   );
   rail.setPlacement((await IonicNativeUIShell.getDeviceLayout()).placement);
@@ -90,7 +92,7 @@ const stopVerticalArea = async () => {
 };
 ```
 
-`setPlacement()` applies the measured inset and resolves the logical edge through the document direction. A `null` edge restores the ordinary layout on devices without a rail. Older toolchains retain DOM-based compatibility support, without the real system rail or hinge measurements.
+`setPlacement()` applies the measured inset and resolves the logical edge through the document direction. A `null` edge restores the ordinary layout. Devices without a rail and apps built with older SDKs report `null`, so this example restores the ordinary layout there. To deliberately preview a DOM rail on such an iOS build, have your application choose a fixed edge with `rail.setPlacement('trailing')` instead of applying that null placement. This simulates the layout; it does not provide a real system rail or hinge measurements.
 
 On supported iOS, controls in the rail use the system SwiftUI appearance; your custom Web styling still applies to ordinary content and horizontal controls. Web and Android use Web clones.
 

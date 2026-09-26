@@ -96,17 +96,24 @@ The mode is component-mode independent: an app can keep Ionic `mode: 'md'` on iO
 Start the standalone runtime once at application startup:
 
 ```ts
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { enableVerticalControlArea, IonicNativeUIShell } from '@rdlabo/ionic-theme-ios27/vertical-bars';
 
 // Start on Chrome too; the Web projection stays idle until the class is present.
 const rail = await enableVerticalControlArea();
+let layoutListener: PluginListenerHandle | undefined;
 
 if (Capacitor.getPlatform() === 'ios') {
   // The runtime already monitors device layout; only subscribe.
-  await IonicNativeUIShell.addListener('deviceLayoutChange', ({ placement }) => rail.setPlacement(placement));
+  layoutListener = await IonicNativeUIShell.addListener('deviceLayoutChange', ({ placement }) => rail.setPlacement(placement));
   rail.setPlacement((await IonicNativeUIShell.getDeviceLayout()).placement);
 }
+
+// Call when the application owner is disposed.
+const stopVerticalArea = async () => {
+  await layoutListener?.remove();
+  await rail.destroy();
+};
 ```
 
 `setPlacement` on the handle and the exported `setVerticalControlAreaPlacement` are the same function; either applies the application's chosen placement to the CSS layout and both projections. It requires a mounted `ion-app` — call it after the app root exists.
