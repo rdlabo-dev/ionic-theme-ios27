@@ -56,7 +56,8 @@ for (const edge of ['left', 'right']) {
   });
 }
 
-test('vertical touch dragging survives browser panning and cancellation restores selection', async ({ page }) => {
+test('vertical touch dragging survives browser panning and cancellation restores selection', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Touch input injection requires CDP');
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto('/main/index');
   await page.locator('ion-app').evaluate((el) => el.classList.add('ios-theme-vertical-bars'));
@@ -116,10 +117,14 @@ for (const disabledClass of ['ios-theme-disabled', 'ios26-disabled']) {
   });
 }
 
-test('a bar outside the direct ion-tabs child scope keeps horizontal gestures', async ({ page }) => {
+test('moving a bar out of and back into ion-tabs updates its gesture axis', async ({ page }) => {
   await page.goto('/main/index');
   const bar = page.locator('#tab-bar-bottom');
+  const lens = page.locator('body > ion-tab-button.ion-cloned-element');
+  await page.locator('ion-app').evaluate((el) => el.classList.add('ios-theme-vertical-bars'));
+  await expect(lens).toHaveClass(/ios27-vertical-tab-effect/);
   await bar.evaluate((el) => {
+    el.parentElement!.id = 'original-tab-parent';
     const app = el.closest('ion-app')!;
     const wrapper = document.createElement('div');
     // Exercise a standalone bar above the routed page, outside ion-tabs.
@@ -127,15 +132,29 @@ test('a bar outside the direct ion-tabs child scope keeps horizontal gestures', 
     el.style.pointerEvents = 'auto';
     app.append(wrapper);
     wrapper.append(el);
-    app.classList.add('ios-theme-vertical-bars');
   });
-  const lens = page.locator('body > ion-tab-button.ion-cloned-element');
   await expect(bar).toHaveCSS('flex-direction', 'row');
   await expect(lens).not.toHaveClass(/ios27-vertical-tab-effect/);
+  const horizontalTarget = (await bar.locator('ion-tab-button').nth(2).boundingBox())!;
   await bar.locator('ion-tab-button').nth(1).hover();
   await page.mouse.down();
   await expect(lens).toBeVisible();
+  await page.mouse.move(horizontalTarget.x + horizontalTarget.width / 2, horizontalTarget.y + horizontalTarget.height / 2, {
+    steps: 8,
+  });
+  await expect(bar.locator('ion-tab-button').nth(2)).toHaveClass(/ion-activated/);
   await page.mouse.up();
-  await expect(bar.locator('ion-tab-button').nth(1)).toHaveClass(/tab-selected/);
+  await expect(bar.locator('ion-tab-button').nth(2)).toHaveClass(/tab-selected/);
+  await expect(lens).toBeHidden();
+  await bar.evaluate((el) => document.querySelector('#original-tab-parent')!.append(el));
+  await expect(bar).toHaveCSS('flex-direction', 'column');
+  await expect(lens).toHaveClass(/ios27-vertical-tab-effect/);
+  const first = (await bar.locator('ion-tab-button').first().boundingBox())!;
+  await bar.locator('ion-tab-button').nth(1).hover();
+  await page.mouse.down();
+  await page.mouse.move(first.x + first.width / 2, first.y + first.height / 2, { steps: 8 });
+  await expect(bar.locator('ion-tab-button').first()).toHaveClass(/ion-activated/);
+  await page.mouse.up();
+  await expect(bar.locator('ion-tab-button').first()).toHaveClass(/tab-selected/);
   await expect(lens).toBeHidden();
 });

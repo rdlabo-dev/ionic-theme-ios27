@@ -53,8 +53,18 @@ export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffe
   };
   update();
   reducedMotion.addEventListener('change', update);
-  const placementObserver = new win.MutationObserver(update);
-  if (verticalBarsRoot) placementObserver.observe(verticalBarsRoot, { attributes: true, attributeFilter: ['class'] });
+  const placementObserver = new win.MutationObserver((records) => {
+    if (
+      records.some((record) =>
+        record.type === 'attributes'
+          ? record.target === targetElement || record.target === verticalBarsRoot
+          : [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some((node) => node.contains(targetElement)),
+      )
+    )
+      update();
+  });
+  if (verticalBarsRoot)
+    placementObserver.observe(verticalBarsRoot, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
   placementObserver.observe(targetElement, { attributes: true, attributeFilter: ['class'] });
   return {
     destroy: () => {
