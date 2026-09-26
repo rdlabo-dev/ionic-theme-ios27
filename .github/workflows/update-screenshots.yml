@@ -105,7 +105,9 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: updated-screenshots
-          path: demo/e2e/screenshot.spec.ts-snapshots/*.png
+          path: |
+            demo/e2e/screenshot.spec.ts-snapshots/*.png
+            demo/e2e/adaptive-tab-bar.spec.ts-snapshots/*.png
           if-no-files-found: error
 
   commit-screenshots:
@@ -134,7 +136,9 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            const snapshotPrefix = 'demo/e2e/screenshot.spec.ts-snapshots';
+            const snapshotPrefix = 'demo/e2e';
+            const snapshotDirectories = ['screenshot.spec.ts-snapshots'];
+            if (process.env.EXPECTED_BASE_REF === 'main') snapshotDirectories.push('adaptive-tab-bar.spec.ts-snapshots');
             const artifactDirectory = 'updated-screenshots';
             const expectedHeadSha = process.env.EXPECTED_HEAD_SHA;
             const expectedHeadRef = process.env.EXPECTED_HEAD_REF;
@@ -158,10 +162,19 @@ jobs:
               return;
             }
 
-            const filenames = fs.readdirSync(artifactDirectory).sort();
-            if (filenames.length === 0 || filenames.some((filename) => !/^[A-Za-z0-9._-]+\.png$/.test(filename))) {
-              core.setFailed('The screenshot artifact contains an unexpected file.');
+            const directories = fs.readdirSync(artifactDirectory).sort();
+            if (directories.join('\n') !== [...snapshotDirectories].sort().join('\n')) {
+              core.setFailed('The screenshot artifact contains missing or unexpected directories.');
               return;
+            }
+            const filenames = [];
+            for (const directory of directories) {
+              const files = fs.readdirSync(path.join(artifactDirectory, directory)).sort();
+              if (files.length === 0 || files.some((filename) => !/^[A-Za-z0-9._-]+\.png$/.test(filename))) {
+                core.setFailed('The screenshot artifact contains missing or unexpected files.');
+                return;
+              }
+              filenames.push(...files.map((filename) => `${directory}/${filename}`));
             }
 
             const commit = await github.rest.git.getCommit({
@@ -181,7 +194,7 @@ jobs:
             const tree = currentTree.data.tree
               .filter((entry) =>
                 entry.type === 'blob' &&
-                entry.path.startsWith(`${snapshotPrefix}/`) &&
+                snapshotDirectories.some((directory) => entry.path.startsWith(`${snapshotPrefix}/${directory}/`)) &&
                 !uploadedPaths.has(entry.path)
               )
               .map((entry) => ({ path: entry.path, mode: '100644', type: 'blob', sha: null }));
