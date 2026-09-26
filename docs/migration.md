@@ -6,7 +6,7 @@ title: Migration
 
 ## From the iOS 26 theme
 
-For an app using `@rdlabo/ionic-theme-ios26`, the recommended migration keeps that package and adds `@rdlabo/ionic-theme-ios27`. The [README setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27#get-started) selects iOS 27 or iOS 26 styles by browser capability and leaves Ionic's default iOS appearance on older browsers.
+For an app using `@rdlabo/ionic-theme-ios26`, the recommended migration keeps that package and adds `@rdlabo/ionic-theme-ios27`. The [README setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/readme#get-started) selects iOS 27 or iOS 26 styles by browser capability and leaves Ionic's default iOS appearance on older browsers.
 
 ### 1. Add the new package
 
@@ -104,7 +104,7 @@ To switch entirely to iOS 27, remove the iOS 26 package and replace its styleshe
 + @use '@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect.scss';
 ```
 
-Change the animation import from `@rdlabo/ionic-theme-ios26` to `@rdlabo/ionic-theme-ios27`; the existing `isPlatform('ios')` configuration can stay. See the README's [iOS 27-only setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27#use-only-the-ios-27-theme). Unconditional imports apply the new styles on every browser using Ionic iOS mode.
+Change the animation import from `@rdlabo/ionic-theme-ios26` to `@rdlabo/ionic-theme-ios27`; the existing `isPlatform('ios')` configuration can stay. See the README's [iOS 27-only setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/readme#use-only-the-ios-27-theme). Unconditional imports apply the new styles on every browser using Ionic iOS mode.
 
 ## iOS 27 naming
 

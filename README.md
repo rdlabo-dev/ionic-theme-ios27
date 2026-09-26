@@ -30,7 +30,7 @@ On Capacitor iOS, the optional, experimental [Native UI Shell](https://docs.rdla
 
 ### Follow the user's device
 
-Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [default setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27#get-started) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
+Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [default setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/readme#get-started) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
 
 ## Get started
 
