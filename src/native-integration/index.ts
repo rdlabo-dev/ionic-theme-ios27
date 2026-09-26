@@ -44,8 +44,12 @@ export const isNativeUIShell = (element: HTMLElement) => element.hasAttribute('d
 export const suspendNativeUIShell = async (scopes: HTMLElement[]): Promise<(canceled?: boolean) => void> =>
   (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes)) ?? (() => {});
 
+const connectedTransitions = new WeakSet<Animation>();
+
 /** Ionic write hooks cannot await the bridge. Gate playback, including interactive playback. */
 export const connectNativeUIShellTransition = (animation: Animation, entering: HTMLElement, leaving?: HTMLElement) => {
+  if (connectedTransitions.has(animation)) return;
+  connectedTransitions.add(animation);
   if (leaving)
     animation.onFinish((step) => {
       if (step === 0) leaving.dispatchEvent(new CustomEvent(VERTICAL_BARS_TRANSITION_CANCELED, { bubbles: true, detail: { entering } }));
