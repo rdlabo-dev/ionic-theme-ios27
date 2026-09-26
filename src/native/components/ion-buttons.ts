@@ -1,6 +1,6 @@
 import { createCandidate, appendItem } from '../shared/candidate';
 import type { Candidate, Identify } from '../shared/candidate';
-import { verticalBarsToolbarActions, inFixedToolbar, isVerticalBarsToolbarGroup } from '../shared/dom';
+import { childElements, verticalBarsToolbarActions, inFixedToolbar, isVerticalBarsToolbarGroup } from '../shared/dom';
 import * as menuButton from './ion-menu-button';
 
 export const tag = 'ion-buttons';
@@ -8,7 +8,7 @@ export const tracksMotion = true;
 
 export const read = (element: HTMLElement, id: Identify): Candidate | undefined => {
   if (!inFixedToolbar(element)) return;
-  let children = Array.from(element.children) as HTMLElement[];
+  let children = childElements(element);
   if (children.length === 1) return menuButton.read(element, id);
   const verticalBars = !element.closest('ion-menu, ion-modal, ion-popover') && !!element.closest('ion-app.ios-theme-vertical-bars');
   if (verticalBars && !isVerticalBarsToolbarGroup(element)) return;
@@ -24,7 +24,7 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
   )
     return;
   const candidate = createCandidate(element, tag, id);
-  if (verticalBars && children.length !== element.children.length) candidate.sources = children;
+  if (verticalBars && children.length !== childElements(element).length) candidate.sources = children;
   for (const child of children) {
     const supported = child.matches(menuButton.tag)
       ? menuButton.append(candidate, child as HTMLIonMenuButtonElement, id)

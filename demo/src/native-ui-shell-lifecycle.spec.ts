@@ -31,3 +31,15 @@ test('a second startup cannot silently replace the active configuration', async 
   await expect(enableNativeUIShell({ controls: { toolbar: true } })).rejects.toThrow('different controls');
   await first.destroy();
 });
+
+test('a new activation survives the previous runtime finishing its destroy', async () => {
+  const options = { controls: { toolbar: true }, verticalBarsOnly: true } as const;
+  const first = await enableNativeUIShell(options);
+  const disabling = enableNativeUIShell({ enabled: false });
+  const second = await enableNativeUIShell(options);
+  expect(second).not.toBe(first);
+  await disabling;
+  // The stale destroy must not clear the newer activation's shared slot.
+  await enableNativeUIShell({ enabled: false });
+  expect(second.getStatus().state).toBe('stopped');
+});

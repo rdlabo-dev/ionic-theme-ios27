@@ -341,7 +341,7 @@ export const createVerticalBarsWebProjection = (
 
   return {
     getStatus: (): NativeUIShellStatus => ({
-      state: 'web',
+      state: stopped ? 'stopped' : 'web',
       projected: Number(!!backSource) + toolbarProjections.reduce((count, group) => count + group.actions.length, 0),
       updates,
     }),

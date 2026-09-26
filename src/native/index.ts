@@ -64,6 +64,8 @@ const manage = (
   lifecycle: {
     reason?: string;
     suspend?: () => (() => void) | undefined;
+    /** Runs after teardown; clears the shared slot only while this activation owns it. */
+    release?: () => void;
     destroy?: () => void | Promise<void>;
   } = {},
 ): NativeUIShellHandle => {
@@ -87,8 +89,7 @@ const manage = (
         await handle.destroy();
       } finally {
         await lifecycle.destroy?.();
-        active = undefined;
-        activeConfiguration = undefined;
+        lifecycle.release?.();
       }
     },
   };
@@ -148,56 +149,69 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     return Promise.reject(
       new Error('Native UI Shell is already running with different controls; destroy it before changing configuration.'),
     );
+  if (active) return active;
   activeConfiguration = configuration;
   const prehide =
-    !active && (options.controls === undefined || options.controls.toolbar === true)
-      ? prehideVerticalBarsToolbarSources(document)
-      : undefined;
+    options.controls === undefined || options.controls.toolbar === true ? prehideVerticalBarsToolbarSources(document) : undefined;
+  // A slow destroy of a superseded activation must not release a newer one.
+  let start: Promise<NativeUIShellHandle>;
+  const release = () => {
+    if (active === start) {
+      active = undefined;
+      activeConfiguration = undefined;
+    }
+  };
   const fallback = (reason: string) =>
     manage(createVerticalBarsWebProjection(document, options), {
       reason,
       suspend: () => prehide?.suspend(),
       destroy: () => prehide?.stop(),
+      release,
     });
-  return (active ??= (async () => {
-    if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
-    let runtime: NativeUIShellHandle | undefined;
-    let placementListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
-    let monitoring = false;
-    try {
-      if (!options.verticalBarsOnly) await configureNativeTransition().catch(() => undefined);
-      const capabilities = await plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true });
-      if (!capabilities.supported) return fallback('Requires iOS 26 or later');
-      let nativeEdge: VerticalBarEdge = null;
-      const nativeVerticalBars = () => {
-        const root = document.querySelector('ion-app.ios-theme-vertical-bars');
-        return nativeEdge !== null && !!root && nativeEdge === (root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right');
-      };
-      await plugin.startDeviceLayoutMonitoring();
-      monitoring = true;
-      placementListener = await plugin.addListener('deviceLayoutChange', ({ placement, webViewMetrics }) => {
-        nativeEdge = placement.edge;
-        if (!options.verticalBarsOnly) setConfig({ radius: webViewMetrics.radius });
-        document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
-      });
-      nativeEdge = (await plugin.getDeviceLayout()).placement.edge;
-      runtime = combine(
-        await createRuntime(document, plugin, options, nativeVerticalBars, options.verticalBarsOnly === true),
-        createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars()),
-      );
-      return manage(runtime, {
-        suspend: () => prehide?.suspend(),
-        destroy: async () => {
-          await placementListener?.remove().catch(() => {});
-          if (monitoring) await plugin.stopDeviceLayoutMonitoring().catch(() => {});
-          prehide?.stop();
-        },
-      });
-    } catch (error) {
-      await runtime?.destroy();
-      await placementListener?.remove().catch(() => {});
-      if (monitoring) await plugin.stopDeviceLayoutMonitoring().catch(() => {});
-      return fallback(error instanceof Error ? error.message : String(error));
-    }
-  })());
+  return (start = active =
+    (async () => {
+      if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
+      let runtime: NativeUIShellHandle | undefined;
+      let placementListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
+      let monitoring = false;
+      try {
+        if (!options.verticalBarsOnly) await configureNativeTransition().catch(() => undefined);
+        const capabilities = await plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true });
+        if (!capabilities.supported) return fallback('Requires iOS 26 or later');
+        let nativeEdge: VerticalBarEdge = null;
+        const nativeVerticalBars = () => {
+          const root = document.querySelector('ion-app.ios-theme-vertical-bars');
+          return (
+            nativeEdge !== null && !!root && nativeEdge === (root.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right')
+          );
+        };
+        await plugin.startDeviceLayoutMonitoring();
+        monitoring = true;
+        placementListener = await plugin.addListener('deviceLayoutChange', ({ placement, webViewMetrics }) => {
+          nativeEdge = placement.edge;
+          if (!options.verticalBarsOnly) setConfig({ radius: webViewMetrics.radius });
+          document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+        });
+        nativeEdge = (await plugin.getDeviceLayout()).placement.edge;
+        const native = await createRuntime(document, plugin, options, nativeVerticalBars, options.verticalBarsOnly === true);
+        runtime = combine(
+          native,
+          createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars() || native.getStatus().state === 'stopped'),
+        );
+        return manage(runtime, {
+          suspend: () => prehide?.suspend(),
+          release,
+          destroy: async () => {
+            await placementListener?.remove().catch(() => {});
+            if (monitoring) await plugin.stopDeviceLayoutMonitoring().catch(() => {});
+            prehide?.stop();
+          },
+        });
+      } catch (error) {
+        await runtime?.destroy();
+        await placementListener?.remove().catch(() => {});
+        if (monitoring) await plugin.stopDeviceLayoutMonitoring().catch(() => {});
+        return fallback(error instanceof Error ? error.message : String(error));
+      }
+    })());
 };

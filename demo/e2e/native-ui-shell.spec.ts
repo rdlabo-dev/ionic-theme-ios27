@@ -417,6 +417,37 @@ test('standalone Vertical Control Area never snapshots ordinary Native UI Shell 
     .toBe(true);
 });
 
+test('standalone vertical bars keep searchable tabs usable on the Web', async ({ page }) => {
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/album?verticalBarsOnly=1');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)
+          ?.controls.some((control: ShellControl) => control.placement === 'vertical-bars'),
+      ),
+    )
+    .toBe(true);
+  // The rail has no search surface, so no control may carry a search payload.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)!
+          .controls.every((control: ShellControl) => !control.search),
+      ),
+    )
+    .toBe(true);
+  // The Web search trigger and footer stay visible and interactive.
+  const fab = page.locator('app-album-page ion-fab');
+  await expect(fab).toBeVisible();
+  await expect(fab).not.toHaveAttribute('data-native-ui-shell');
+  await expect(page.locator('app-album-page ion-footer')).toBeVisible();
+});
+
 test('verticalBars back navigation and toolbar slots request native rail placement', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');

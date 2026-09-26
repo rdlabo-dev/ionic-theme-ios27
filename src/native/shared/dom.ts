@@ -3,6 +3,14 @@ import { fadeMarker } from './crossfade';
 import type { Frame } from '../definitions';
 
 export const marker = 'data-native-ui-shell';
+// Scoped runtimes (Stencil slot emulation) patch child accessors on upgraded
+// elements and may report none before hydration; the prototype getter still
+// reports the real light DOM.
+const childNodesGet = typeof Node === 'undefined' ? undefined : Object.getOwnPropertyDescriptor(Node.prototype, 'childNodes')?.get;
+export const childNodesOf = (element: Element): Node[] =>
+  childNodesGet ? Array.from(childNodesGet.call(element)) : Array.from(element.childNodes);
+export const childElements = (element: Element): HTMLElement[] =>
+  childNodesOf(element).filter((node) => node.nodeType === 1) as HTMLElement[];
 export const prehiddenClass = 'ios-theme-native-ui-shell-prehidden';
 export const prehideRootClass = 'ios-theme-native-ui-shell-prehide';
 export const rejectedClass = 'ios-theme-native-ui-shell-rejected';
@@ -62,8 +70,9 @@ export const createVerticalBarsPageState = () => {
       return !!page && departed.has(page) && !!element.closest('ion-app.ios-theme-vertical-bars');
     },
     lifecycle(event: Event): void {
-      const page = event.target;
-      if (!(page instanceof HTMLElement) || !page.matches('.ion-page')) return;
+      // Avoid instanceof so stale listeners stay safe after global teardown.
+      const page = event.target && (event.target as Node).nodeType === 1 ? (event.target as HTMLElement) : undefined;
+      if (!page?.matches('.ion-page')) return;
       const entering = event.type === 'ionViewWillEnter';
       if (entering || event.type === 'ionViewDidEnter') departed.delete(page);
       else if (event.type === 'ionViewWillLeave' || event.type === 'ionViewDidLeave') departed.add(page);
@@ -134,7 +143,7 @@ export const isVerticalBarsToolbarActionShape = (element: HTMLElement): boolean 
   element.matches('ion-menu-button') ||
   (element.matches('ion-button') &&
     !!element.querySelector('ion-icon, svg') &&
-    !Array.from(element.childNodes).some((node) => node.nodeType === Node.TEXT_NODE && !!node.textContent?.trim()) &&
+    !childNodesOf(element).some((node) => node.nodeType === 3 && !!node.textContent?.trim()) &&
     !element.matches('.ion-color, [color]') &&
     ['default', 'clear'].includes((element as HTMLIonButtonElement).fill ?? element.getAttribute('fill') ?? 'default'));
 
@@ -171,7 +180,7 @@ export const verticalBarsBackCandidate = (element: HTMLElement): boolean =>
   !element.closest(overlays);
 
 export const verticalBarsToolbarActions = (element: HTMLElement): HTMLElement[] =>
-  Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement && isVerticalBarsToolbarAction(child));
+  childElements(element).filter((child) => isVerticalBarsToolbarAction(child));
 
 export const isVerticalBarsToolbarGroup = (element: HTMLElement): boolean => {
   return (
@@ -242,8 +251,8 @@ export const frame = (rect: DOMRect, origin?: DOMRect): Frame => ({
 
 export const text = (element: Element): string => {
   if (element.matches('ion-icon, svg, ion-badge, .ios27-segment-lens, .ion-cloned-element')) return '';
-  return Array.from(element.childNodes)
-    .map((node) => (node.nodeType === Node.TEXT_NODE ? node.textContent : node instanceof Element ? text(node) : ''))
+  return childNodesOf(element)
+    .map((node) => (node.nodeType === 3 ? node.textContent : node.nodeType === 1 ? text(node as Element) : ''))
     .join('')
     .replace(/\s+/g, ' ')
     .trim();

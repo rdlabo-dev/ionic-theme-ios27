@@ -1,6 +1,9 @@
-import { LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER } from '@ionic/core';
+import { LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE } from '@ionic/core';
+import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration';
 import {
+  childElements,
   clearVerticalBarsPlacement,
+  createVerticalBarsPageState,
   verticalBarsActionCandidate,
   verticalBarsBackCandidate,
   verticalBarsBackWebClass,
@@ -16,6 +19,10 @@ import {
 
 const overlays = 'ion-menu, ion-modal, ion-popover';
 const sourceSelector = 'ion-back-button, ion-menu-button, ion-buttons, ion-button';
+// Realm- and teardown-safe: globals such as Element/HTMLElement may be gone
+// when a queued mutation microtask or a stale listener still runs.
+const isHtmlElement = (node: unknown): node is HTMLElement => !!node && (node as Node).nodeType === 1;
+const asElement = (node: Node | EventTarget | null): HTMLElement | undefined => (isHtmlElement(node) ? node : undefined);
 const backSupported = (element: HTMLElement): boolean => {
   const back = element as HTMLIonBackButtonElement;
   return back.icon === undefined && back.color === undefined && !!back.shadowRoot;
@@ -29,6 +36,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
   const scopes = new Map<HTMLElement, Set<HTMLElement>>();
   const owner = new WeakMap<HTMLElement, HTMLElement>();
   const pendingBacks = new Map<HTMLElement, { scope: HTMLElement; timer: ReturnType<typeof setTimeout> }>();
+  const verticalBarsPages = createVerticalBarsPageState();
   const listeners = new AbortController();
   const root = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   let suspended = 0;
@@ -52,7 +60,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
     scopes.delete(scope);
   };
   const capture = (scope: HTMLElement) => {
-    if (!root()?.contains(scope) || scope.closest(overlays)) return;
+    if (!root()?.contains(scope) || scope.closest(overlays) || verticalBarsPages.isDeparted(scope)) return;
     const owned = scopes.get(scope) ?? new Set<HTMLElement>();
     const place = (element: HTMLElement, rail: boolean) => {
       if (owned.has(element)) return;
@@ -67,7 +75,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
     sources.forEach((element) => {
       if (element.closest(overlays) || (scope.matches('.ion-page') && routedPage(element) !== scope)) return;
       if (element.matches('ion-buttons')) {
-        const children = Array.from(element.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
+        const children = childElements(element);
         const actions = children.filter((child) => eligible(child) && isVerticalBarsToolbarActionShape(child));
         const group =
           eligible(element) &&
@@ -142,7 +150,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
         const groupOwnsChildren =
           element.parentElement?.matches('ion-buttons') &&
           verticalBarsOwned(element.parentElement) &&
-          Array.from(element.parentElement.children).every((child) => child instanceof HTMLElement && verticalBarsOwned(child));
+          childElements(element.parentElement).every((child) => verticalBarsOwned(child));
         const hide =
           !suspended &&
           verticalBarsOwned(element) &&
@@ -152,33 +160,45 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
           !isPermanentlyExcluded(element) &&
           !isShellDisabled(element) &&
           (!element.matches('ion-back-button') || backSupported(element) || !element.classList.contains('hydrated')) &&
-          (!element.matches('ion-buttons') ||
-            Array.from(element.children).every((child) => child instanceof HTMLElement && verticalBarsOwned(child)));
+          (!element.matches('ion-buttons') || childElements(element).every((child) => verticalBarsOwned(child)));
         element.classList.toggle(prehiddenClass, hide);
         if (element.matches('ion-back-button')) element.classList.toggle(verticalBarsBackWebClass, !hide);
       }
     }
   };
   const onWillEnter = (event: Event) => {
-    const page = event.target;
-    if (page instanceof HTMLElement && page.matches('.ion-page')) {
+    const page = asElement(event.target);
+    if (page?.matches('.ion-page')) {
+      verticalBarsPages.lifecycle(event);
       release(page); // Cached pages begin a new placement epoch.
       capture(page);
       reconcile();
     }
   };
-  const onDidLeave = (event: Event) => {
-    const page = event.target;
-    if (page instanceof HTMLElement) release(page);
+  const onPageLifecycle: EventListener = (event) => {
+    verticalBarsPages.lifecycle(event);
+    if (event.type !== LIFECYCLE_DID_LEAVE) return;
+    const page = asElement(event.target);
+    if (page) release(page);
+  };
+  // A canceled transition keeps the leaving page active and abandons the entering one.
+  const onTransitionCanceled: EventListener = (event) => {
+    const leaving = asElement(event.target);
+    if (!leaving) return;
+    const entering = (event as CustomEvent<{ entering?: HTMLElement }>).detail?.entering;
+    verticalBarsPages.cancel(entering, leaving);
+    reconcile();
   };
   doc.addEventListener(LIFECYCLE_WILL_ENTER, onWillEnter, { capture: true, signal: listeners.signal });
-  doc.addEventListener(LIFECYCLE_DID_LEAVE, onDidLeave, { capture: true, signal: listeners.signal });
+  for (const name of [LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE])
+    doc.addEventListener(name, onPageLifecycle, { capture: true, signal: listeners.signal });
+  doc.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, onTransitionCanceled, { capture: true, signal: listeners.signal });
   reconcile();
   const mutationRelevant = (record: MutationRecord) => {
     if (record.type === 'childList')
       return [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(
         (node) =>
-          node instanceof Element &&
+          isHtmlElement(node) &&
           (node.matches(`${sourceSelector}, .ion-page, ion-toolbar`) || !!node.querySelector(`${sourceSelector}, .ion-page, ion-toolbar`)),
       );
     if (record.attributeName !== 'class') return true;
@@ -193,11 +213,11 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
   };
   let scheduled = false;
   const observer = new (doc.defaultView?.MutationObserver ?? MutationObserver)((records) => {
-    if (scheduled || !records.some(mutationRelevant)) return;
+    if (scheduled || stopped || !records.some(mutationRelevant)) return;
     scheduled = true;
     queueMicrotask(() => {
       scheduled = false;
-      reconcile();
+      if (!stopped) reconcile();
     });
   });
   observer.observe(doc.documentElement, {

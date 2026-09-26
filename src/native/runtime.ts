@@ -283,6 +283,8 @@ export const createRuntime = async (
     reason = error instanceof Error ? error.message : String(error);
     console.warn('[Native UI Shell] Returning to Web:', reason);
     await handle.destroy();
+    // The Web fallback re-evaluates eligibility once native projection is stopped.
+    win.dispatchEvent(new Event('nativeUIShellRefresh'));
   };
   const sync = async () => {
     frame = 0;

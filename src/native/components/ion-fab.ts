@@ -1,5 +1,5 @@
 import type { Candidate } from '../shared/candidate';
-import { excluded, isDark, text } from '../shared/dom';
+import { childElements, excluded, isDark, text } from '../shared/dom';
 import { iconSource } from '../shared/icons';
 import type { ShellItem } from '../definitions';
 
@@ -13,12 +13,12 @@ const hasHostMotion = (style: CSSStyleDeclaration): boolean =>
 // and resolved artwork, without inventing layout for display:none descendants.
 export const read = (fab: HTMLElement, id: (element: HTMLElement) => string): Candidate | undefined => {
   if (fab.slot !== 'fixed' || !fab.parentElement?.matches('ion-content') || fab.contains(fab.ownerDocument.activeElement)) return;
-  const children = Array.from(fab.children);
+  const children = childElements(fab);
   const main = children.filter((child) => child.matches('ion-fab-button'));
   const lists = children.filter((child) => child.matches('ion-fab-list'));
   if (main.length !== 1 || main.length + lists.length !== children.length) return;
-  if (lists.some((list) => list.closest(excluded) || Array.from(list.children).some((child) => !child.matches('ion-fab-button')))) return;
-  const buttons = [main[0], ...lists.flatMap((list) => Array.from(list.children))] as HTMLIonFabButtonElement[];
+  if (lists.some((list) => list.closest(excluded) || childElements(list).some((child) => !child.matches('ion-fab-button')))) return;
+  const buttons = [main[0], ...lists.flatMap((list) => childElements(list))] as HTMLIonFabButtonElement[];
   const style = getComputedStyle(fab);
   if (hasHostMotion(style)) return;
   const transform = new DOMMatrixReadOnly(style.transform);
