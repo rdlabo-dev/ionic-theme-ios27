@@ -106,6 +106,6 @@ export class IndexPageComponent {
     if (!event.detail.checked) return setVerticalControlAreaPlacement(null);
     const placement =
       Capacitor.getPlatform() === 'ios' ? (await IonicNativeUIShell.getDeviceLayout()).placement : ({ edge: null, inset: 0 } as const);
-    setVerticalControlAreaPlacement(placement.edge ? placement : 'right');
+    setVerticalControlAreaPlacement(placement.edge ? placement : 'trailing');
   }
 }
