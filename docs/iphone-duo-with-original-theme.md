@@ -40,7 +40,21 @@ Add the class to your existing app root and keep the content inside it:
 
 The preview reserves `80px` on the physical right. To preview the left side, also add `ios-theme-vertical-bars-left`.
 
-### 3. Start the controls after the app root is mounted
+### 3. Configure page transitions before Ionic initializes
+
+Import the page transition and register it as Ionic's `navAnimation`. Starting the rail runtime does not register this option. The animation coordinates native control retirement before navigation and avoids animating the horizontal back button in the vertical layout. Your existing theme styles remain in use, but iOS page transitions use this package's animation.
+
+```ts
+import { iosTransitionAnimation } from '@rdlabo/ionic-theme-ios27';
+
+const ionicConfig = {
+  navAnimation: iosTransitionAnimation,
+};
+```
+
+Merge this option into your existing Ionic configuration for `ios` mode before initialization: pass it to Angular's `provideIonicAngular()`, React's `setupIonicReact()`, or Vue's `IonicVue` plugin options. Keep your existing `md` animation configuration. Importing the JavaScript entry point does not load the iOS 27 theme stylesheets.
+
+### 4. Start the controls after the app root is mounted
 
 Call this once from your application startup after `ion-app` exists in the DOM:
 
