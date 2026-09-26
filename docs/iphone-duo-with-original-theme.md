@@ -4,56 +4,95 @@ title: iPhone Duo with your existing theme (experimental)
 
 # iPhone Duo with your existing theme (experimental)
 
-Keep your application's existing Ionic theme and add only iPhone Duo support. This setup is experimental, like [Native UI Shell](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell); its APIs and supported behavior may change.
+Add a vertical navigation area to your Ionic app while keeping its existing theme. Tabs and supported toolbar actions move to the side of the screen; your content and horizontal controls keep their current appearance. Both Ionic `ios` and `md` modes are supported.
 
-The standalone Vertical Control Area does not require the iOS 27 theme stylesheets or the full Native UI Shell. Ordinary content and horizontal controls retain your existing theme. On supported Capacitor iOS, eligible controls in the vertical area use the system's native SwiftUI appearance. This does not reproduce your custom Web theme in native controls. Web clones provide the fallback on Web, Android, and when native projection is unavailable.
+**Try it in Chrome first.** You can preview the layout with Web controls before setting up an iPhone Duo or an iOS build. On supported Capacitor iOS, the same Ionic markup supplies native SwiftUI controls in the system rail.
 
-## Install the standalone support
+Available in `1.2.0-0` as an **experimental** feature. APIs and supported behavior may change.
 
-Install the prerelease and its Capacitor peer dependency:
+## Try it in your existing Ionic app
+
+### 1. Install and load the standalone stylesheet
 
 ```bash
 npm install @rdlabo/ionic-theme-ios27@1.2.0-0 @capacitor/core@^8
 ```
 
-Keep your existing theme imports. Add only this stylesheet to your global Sass file:
+Keep your existing theme imports. Add this to your global Sass file:
 
 ```scss
-@use '@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css';
+@use @rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css;
 ```
 
-It is independent of the normal theme stylesheets and requires opt-in classes. The `/vertical-bars` entry point imports `@capacitor/core` even for Web-only use. Stylesheet-only use needs no runtime or Capacitor dependency.
+The standalone JavaScript entry point needs `@capacitor/core` even in Chrome. The iOS 27 theme stylesheets are not required.
 
-For Capacitor iOS, run `npx cap sync ios`. The plugin uses Swift Package Manager; see [Native UI Shell setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell#enable-the-shell) for existing CocoaPods apps. The real system rail and hinge reporting require Xcode 27.1 or newer and linking against the iOS 27.1 SDK or later. Older toolchains retain the DOM-driven compatibility layout, without native rail measurements or hinge posture.
+### 2. Opt your app into the side layout
 
-## Enable the vertical area
-
-Opt the app into the rail layout:
+Add the class to your existing app root and keep the content inside it:
 
 ```html
-<ion-app class="ios-theme-vertical-bars">...</ion-app>
+<ion-app class="ios-theme-vertical-bars">
+  <!-- Keep your existing pages, tabs, and toolbar controls here. -->
+</ion-app>
 ```
 
-The class reserves the physical right side; also add `ios-theme-vertical-bars-left` for the physical left. Without a native measurement, it reserves `80px` for development. The runtime's `setPlacement()` resolves the plugin's logical edge through the document's direction and applies the measured inset. Passing `null` restores the ordinary layout.
+The preview reserves `80px` on the physical right. To preview the left side, also add `ios-theme-vertical-bars-left`.
 
-After `ion-app` is mounted, start the runtime once and apply device placement:
+### 3. Start the controls after the app root is mounted
+
+Call this once from your application startup after `ion-app` exists in the DOM:
 
 ```ts
-import { Capacitor } from '@capacitor/core';
-import { enableVerticalControlArea, IonicNativeUIShell } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { enableVerticalControlArea } from @rdlabo/ionic-theme-ios27/vertical-bars;
 
 const rail = await enableVerticalControlArea();
-
-if (Capacitor.getPlatform() === 'ios') {
-  // The runtime already monitors device layout; only subscribe.
-  await IonicNativeUIShell.addListener('deviceLayoutChange', ({ placement }) => rail.setPlacement(placement));
-  rail.setPlacement((await IonicNativeUIShell.getDeviceLayout()).placement);
-}
 ```
 
-Keep one application owner for the runtime and remove the listener and call `rail.destroy()` when that owner is disposed. Do not start `enableNativeUIShell()` as well. If your app already uses the full shell, keep that runtime and use `setVerticalControlAreaPlacement()` instead.
+**What you should see:** your existing tab bar moves to the side, and supported icon-based fixed-toolbar actions appear there too. Content keeps its existing theme and leaves room for the controls. The Web tab rail displays icons; pressing and dragging reveals tab labels.
 
-The vertical area supports eligible tabs, back navigation, menu buttons, and icon-based fixed-toolbar actions. Text-only actions remain in the horizontal toolbar. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it there. This mode works with both Ionic `ios` and `md` component modes; it does not require changing your existing mode.
+Use your existing Ionic click handlers and routing. Text-only toolbar actions remain horizontal. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep an action in the horizontal toolbar.
+
+When the application owner is disposed, call `await rail.destroy()` to restore the original controls and release the runtime. If you already use `enableNativeUIShell()`, keep that runtime and follow the [shared placement guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo#project-controls-into-the-rail).
+
+### If the preview does not appear
+
+| What you see | What to check |
+| --- | --- |
+| No space at the side | Load `vertical-bars.css` and put the class on `ion-app`. |
+| Space appears, but controls stay horizontal | Start `enableVerticalControlArea()` after mounting the app root. Use existing tabs or supported icon-based actions in a fixed toolbar. |
+| One action stays horizontal | Text-only actions, custom fills, and explicitly excluded controls keep their original presentation. See [control requirements](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo#project-controls-into-the-rail). |
+
+## Connect an iPhone Duo
+
+For Capacitor iOS, run `npx cap sync ios`. Build with Xcode 27.1 or newer and link against the iOS 27.1 SDK or later to receive the actual rail edge, safe-area inset, and hinge posture. The plugin uses Swift Package Manager; existing CocoaPods apps can follow [Native UI Shell setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell#enable-the-shell).
+
+Replace the browser-only startup above with this after `ion-app` is mounted:
+
+```ts
+import { Capacitor, type PluginListenerHandle } from @capacitor/core;
+import { enableVerticalControlArea, IonicNativeUIShell } from @rdlabo/ionic-theme-ios27/vertical-bars;
+
+const rail = await enableVerticalControlArea();
+let layoutListener: PluginListenerHandle | undefined;
+
+if (Capacitor.getPlatform() === ios) {
+  // The runtime already monitors device layout; only subscribe.
+  layoutListener = await IonicNativeUIShell.addListener(deviceLayoutChange, ({ placement }) =>
+    rail.setPlacement(placement),
+  );
+  rail.setPlacement((await IonicNativeUIShell.getDeviceLayout()).placement);
+}
+
+// Call when the application owner is disposed.
+const stopVerticalArea = async () => {
+  await layoutListener?.remove();
+  await rail.destroy();
+};
+```
+
+`setPlacement()` applies the measured inset and resolves the logical edge through the document direction. A `null` edge restores the ordinary layout on devices without a rail. Older toolchains retain DOM-based compatibility support, without the real system rail or hinge measurements.
+
+On supported iOS, controls in the rail use the system SwiftUI appearance; your custom Web styling still applies to ordinary content and horizontal controls. Web and Android use Web clones.
 
 ## Use hinge posture without projecting controls
 

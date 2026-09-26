@@ -49,7 +49,7 @@ These classes do not reposition a separate `ion-fab`; leave room for it when cho
 
 ## Support iPhone Duo (experimental)
 
-iPhone Duo support is experimental. It is planned for release alongside Native UI Shell. Its APIs and supported behavior may change.
+iPhone Duo support is experimental. It is available in the `1.2.0-0` prerelease alongside Native UI Shell. Its APIs and supported behavior may change.
 
 iPhone Duo support — the vertical system rail, hinge posture, and the posture-driven split-pane layout — is independent of the iOS 27 theme and the full Native UI Shell. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including device-layout monitoring without a projection runtime.
 

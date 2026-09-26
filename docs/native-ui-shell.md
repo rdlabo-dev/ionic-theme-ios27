@@ -169,7 +169,7 @@ The native material and control appearance follow the running iOS version; an iO
 
 ## Support iPhone Duo (experimental)
 
-iPhone Duo support is experimental, including standalone use without Native UI Shell. It is planned for release alongside Native UI Shell. Its APIs and supported behavior may change.
+iPhone Duo support is experimental, including standalone use without Native UI Shell. It is available in the `1.2.0-0` prerelease alongside Native UI Shell. Its APIs and supported behavior may change.
 
 The standalone Vertical Control Area entry point (`@rdlabo/ionic-theme-ios27/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 

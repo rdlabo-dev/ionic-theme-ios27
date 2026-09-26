@@ -123,9 +123,9 @@ Use this markup to preview the inset grouped list look. For the list structure t
 
 ### Support iPhone Duo without the iOS 27 theme (experimental)
 
-iPhone Duo support is experimental. It is planned for release alongside Native UI Shell. Its APIs and supported behavior may change.
+Keep your existing Ionic theme and move tabs and supported toolbar actions into a vertical side area. **Start in Chrome** with one stylesheet, an app class, and `enableVerticalControlArea()`; then connect the layout to iPhone Duo device events for the system rail and hinge posture.
 
-Import only `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, add `ios-theme-vertical-bars` to `ion-app`, and call `enableVerticalControlArea()` from `@rdlabo/ionic-theme-ios27/vertical-bars` at startup. This uses Ionic's standard appearance outside the Vertical Control Area; on supported iOS, only controls moved into that area are projected natively. To read only the hinge posture — for example to adapt an `ion-split-pane` — subscribe to the plugin's `deviceLayoutChange` event without starting any runtime. iOS enables the real system rail only for apps built with Xcode 27.1 or later; older toolchains run in compatibility mode and keep the DOM-driven rail instead. See [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme) for the complete setup.
+Follow [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme) for the browser preview and iOS setup. For shared layout rules and APIs, see [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo). Available in `1.2.0-0` as an experimental feature; APIs and supported behavior may change.
 
 ### Use only the iOS 27 theme
 
