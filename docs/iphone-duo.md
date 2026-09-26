@@ -24,7 +24,8 @@ To keep your existing theme and add only the standalone support, follow [iPhone 
 
 | Goal                                             | Stylesheet          | Runtime                                                            |
 | ------------------------------------------------ | ------------------- | ------------------------------------------------------------------ |
-| Hinge posture only (split pane, layout switches) | `vertical-bars.css` | none — subscribe to the plugin directly                            |
+| Hinge posture only (layout switches) | none | none — subscribe to the plugin directly |
+| Posture-driven split-pane width | `vertical-bars.css` | none — subscribe to the plugin directly |
 | Vertical rail for tabs and toolbar actions       | `vertical-bars.css` | `enableVerticalControlArea()`                                      |
 | Native shell plus the rail                       | `vertical-bars.css` | `enableNativeUIShell()` — already includes rail and posture support |
 
