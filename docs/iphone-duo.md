@@ -12,6 +12,8 @@ This package provides three independent pieces for that hardware. Each works **w
 - `enableVerticalControlArea()` — moves eligible tabs and toolbar controls into the reserved area. On Capacitor iOS they are rendered by a native SwiftUI `TabView` and toolbar; everywhere else the same controls appear as Web clones.
 - Device-layout reporting — the bundled Capacitor plugin reports rail placement, hinge status and the WebView corner radius through `getDeviceLayout()` and the `deviceLayoutChange` event.
 
+The pieces map to distinct responsibilities. The plugin reports **device facts** and never touches the DOM. The **application** decides what each value means for its layout. The **stylesheet and runtime** apply that decision — reserving space, projecting controls and adapting the split pane. Keeping these boundaries separate makes the native values easy to mock in tests and keeps the theme's own responsibility small.
+
 ## Choose what to adopt
 
 | Goal                                             | Stylesheet          | Runtime                                                            |
@@ -58,9 +60,9 @@ if (Capacitor.getPlatform() === 'ios') {
 | `hingeStatus`           | `HingeStatus.Closed`, `PartiallyOpen`, or `FullyOpen`; `null` when the device reports no hinge             |
 | `webViewMetrics.radius` | the WebView's effective top-left corner radius in points                                                   |
 
-Monitoring is reference-counted: each consumer pairs `startDeviceLayoutMonitoring()` with `stopDeviceLayoutMonitoring()`, and events stop when the last consumer releases it. `getDeviceLayout()` also works without monitoring for a one-shot read. While `enableVerticalControlArea()` or `enableNativeUIShell()` has native projection active it already holds a monitoring reference, so those users only add a listener and read the initial value — no extra start/stop pair.
+`edge` is a **logical** direction: `'leading'` is where a reader starts a line — the physical left in LTR and the physical right in RTL. This is the same vocabulary as UIKit's `verticalBarEdge` trait and `@erkamyaman/capacitor-foldable`'s `getBarPlacement()`, so values from that plugin can be applied as-is without conversion.
 
-The plugin reports device facts and never applies them to the DOM. The application decides what each value means for its layout — this boundary keeps the native values easy to mock in tests and keeps the theme's responsibility limited to the stylesheets and runtime below.
+Monitoring is reference-counted: each consumer pairs `startDeviceLayoutMonitoring()` with `stopDeviceLayoutMonitoring()`, and events stop when the last consumer releases it. `getDeviceLayout()` also works without monitoring for a one-shot read. While `enableVerticalControlArea()` or `enableNativeUIShell()` has native projection active it already holds a monitoring reference, so those users only add a listener and read the initial value — no extra start/stop pair.
 
 **Build requirement:** iOS only enables the vertical bar for apps linked against the iOS 27.1 SDK or later — build with Xcode 27.1 or newer. Apps built with an older SDK run in backward-compatibility mode on iPhone Duo: the system reserves no rail, `placement.edge` stays `null`, `inset` stays `0`, and `hingeStatus` stays `null`. Everything else still works in that state — the opt-in classes reserve the DOM strip and the rail follows whatever placement the application applies — so the compat build remains usable and testable; only the real system rail, its measured inset and hinge posture require the newer toolchain.
 
@@ -71,6 +73,8 @@ Add `.ios-theme-vertical-bars` to `ion-app` to reserve the rail region on the ph
 ```html
 <ion-app class="ios-theme-vertical-bars">...</ion-app>
 ```
+
+The classes are physical — `-left` always means the physical left edge — because CSS and the native renderer work in physical coordinates. `setPlacement` (below) is the usual way to apply them: it accepts the logical `placement.edge` reported by the plugin and resolves it through the document's direction, so an RTL app does not need its own conversion.
 
 For Chrome development, no native plugin is needed — the class alone reserves `80px` to simulate iPhone Duo. When `setPlacement` receives a native placement, the measured UIKit inset replaces the simulated width, even when that inset is less than `80px`. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
 
@@ -98,7 +102,11 @@ if (Capacitor.getPlatform() === 'ios') {
 }
 ```
 
-`setPlacement` on the handle and the exported `setVerticalControlAreaPlacement` are the same function; either applies the application's chosen placement to the CSS layout and both projections. Passing `null` restores the ordinary layout. It requires a mounted `ion-app` — call it after the app root exists. The device-layout listener reports what iOS chose; the application decides whether to apply it. An app that wants to keep its own fixed edge can ignore `placement.edge` and pass `'leading'` or `'trailing'` — the logical edge resolves to a physical side through the nearest `dir` attribute, or through an explicit `rtl` argument.
+`setPlacement` on the handle and the exported `setVerticalControlAreaPlacement` are the same function; either applies the application's chosen placement to the CSS layout and both projections. It requires a mounted `ion-app` — call it after the app root exists.
+
+- Pass the `placement` object from `getDeviceLayout()`/`deviceLayoutChange`, or just a logical edge: `'leading'` or `'trailing'`. The logical edge resolves to a physical side through the nearest `dir` attribute, or through an explicit `rtl` second argument when the app already knows its direction.
+- Pass `null` to restore the ordinary layout.
+- The device-layout listener reports what iOS chose; the application decides whether to apply it. An app that wants a fixed edge regardless of the report can simply pass its own `'leading'` or `'trailing'`.
 
 Start either `enableVerticalControlArea()` or the full `enableNativeUIShell()` — not both. Repeating the same configuration returns the shared runtime; starting a different configuration while it is active throws an error. The application should have one owner responsible for destroying that runtime. If the app already uses `enableNativeUIShell()`, keep that single runtime and call `setVerticalControlAreaPlacement(placement)` from its listener.
 
@@ -155,7 +163,7 @@ The generated reference below documents the handle returned by `enableVerticalCo
 ### setPlacement(...)
 
 ```typescript
-setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean) => void
+setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean | undefined) => void
 ```
 
 Applies the application's chosen placement to both Web and native controls.
@@ -163,7 +171,7 @@ Applies the application's chosen placement to both Web and native controls.
 | Param           | Type                                                                                                                    |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | **`placement`** | <code><a href="#verticalbaredge">VerticalBarEdge</a> \| <a href="#verticalbarplacement">VerticalBarPlacement</a></code> |
-| **`rtl`**       | <code>boolean</code>                                                                                                   |
+| **`rtl`**       | <code>boolean</code>                                                                                                    |
 
 --------------------
 
@@ -210,9 +218,9 @@ Stops synchronization, restores Web controls and releases native resources.
 
 #### VerticalBarPlacement
 
-| Prop        | Type                                                        | Description                                                         |
-| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
-| **`edge`**  | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> |                                                                     |
+| Prop        | Type                                                        | Description                                                |
+| ----------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
+| **`edge`**  | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> |                                                            |
 | **`inset`** | <code>number</code>                                         | UIKit safe-area inset on the vertical-bar edge, in points. |
 
 
@@ -237,6 +245,8 @@ Stops synchronization, restores Web controls and releases native resources.
 
 
 #### VerticalBarEdge
+
+Logical edge in the reading direction, matching UIVerticalBarEdge and capacitor-foldable.
 
 <code>'leading' | 'trailing' | null</code>
 
