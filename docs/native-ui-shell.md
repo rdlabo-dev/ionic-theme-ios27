@@ -179,6 +179,8 @@ The SwiftUI surface is clipped and hit-tested to the system rail. Web content re
 
 This mode accepts standard `fill="default"` and `fill="clear"` fixed-toolbar buttons because SwiftUI determines their compact representation. Solid, outline, custom-color, scrolling, and explicitly opted-out controls remain on the Web. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep it in the horizontal Web toolbar. On Web, Android, older iOS, or when native projection is unavailable during setup, the Web projection remains the fallback.
 
+For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme).
+
 ## Native UI Shell API
 
 The generated reference below documents the handle returned by `enableNativeUIShell()`. The underlying Capacitor bridge and its control-snapshot protocol are implementation details.

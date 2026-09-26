@@ -18,6 +18,8 @@ The pieces map to distinct responsibilities. The plugin reports **device facts**
 
 ## Choose what to adopt
 
+To keep your existing theme and add only the standalone support, follow [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme). This page covers the shared device-layout rules and API.
+
 | Goal                                             | Stylesheet          | Runtime                                                            |
 | ------------------------------------------------ | ------------------- | ------------------------------------------------------------------ |
 | Hinge posture only (split pane, layout switches) | `vertical-bars.css` | none — subscribe to the plugin directly                            |
