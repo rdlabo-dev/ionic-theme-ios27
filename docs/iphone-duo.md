@@ -1,8 +1,10 @@
 ---
-title: iPhone Duo support
+title: iPhone Duo support (experimental)
 ---
 
-# iPhone Duo support
+# iPhone Duo support (experimental)
+
+iPhone Duo support is experimental, including the Vertical Control Area, device-layout reporting, and posture-driven split-pane layout. It is planned for release alongside Native UI Shell. Its APIs and supported behavior may change.
 
 iPhone Duo folds along a hinge and reserves a physical system rail on one side of the display. On iOS 27.1 and later, the system reports both facts to the app: the rail's edge with its safe-area inset, and the hinge posture while the device opens and closes.
 

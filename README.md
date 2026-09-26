@@ -121,7 +121,9 @@ Use this markup to preview the inset grouped list look. For the list structure t
 
 ## Optional setups
 
-### Support iPhone Duo without the iOS 27 theme
+### Support iPhone Duo without the iOS 27 theme (experimental)
+
+iPhone Duo support is experimental. It is planned for release alongside Native UI Shell. Its APIs and supported behavior may change.
 
 Import only `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, add `ios-theme-vertical-bars` to `ion-app`, and call `enableVerticalControlArea()` from `@rdlabo/ionic-theme-ios27/vertical-bars` at startup. This uses Ionic's standard appearance outside the Vertical Control Area; on supported iOS, only controls moved into that area are projected natively. To read only the hinge posture — for example to adapt an `ion-split-pane` — subscribe to the plugin's `deviceLayoutChange` event without starting any runtime. iOS enables the real system rail only for apps built with Xcode 27.1 or later; older toolchains run in compatibility mode and keep the DOM-driven rail instead. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup.
 
@@ -211,7 +213,7 @@ For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/
 - [ESLint](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/eslint) — check list structure with ESLint rules.
 - [Features](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/features) — CSS variables, Liquid Glass, selective imports, and dark mode.
 - [Native UI Shell (Experimental)](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) — project supported Ionic controls, text, and icons into UIKit.
-- [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) — vertical system rail, hinge posture, and split-pane layout; usable without the theme or the shell.
+- [iPhone Duo support (experimental)](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) — vertical system rail, hinge posture, and split-pane layout; usable without the theme or the shell.
 - [Animation](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/animation) — tab, segment, and searchable effects.
 - [Migration from iOS 26](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/migration) — upgrade an existing app, including stylesheet, class, and CSS variable changes.
 - [iOS 26 migration history](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration) — earlier major-version changes for the previous package.
