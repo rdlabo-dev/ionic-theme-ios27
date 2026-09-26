@@ -34,11 +34,11 @@ ion-list.list-inset.ios:not(.ios-theme-disabled, .ios26-disabled) {
       --inner-padding-end: 0;
 
       &::part(native) {
-        padding-right: calc(var(--ion-safe-area-right, 0px) + 18px);
+        padding-inline-end: calc(var(--ion-safe-area-right, 0px) + 18px);
       }
 
       &:dir(rtl)::part(native) {
-        padding-left: calc(var(--ion-safe-area-left, 0px) + 18px);
+        padding-inline-end: calc(var(--ion-safe-area-left, 0px) + 18px);
       }
 
       --min-height: 52px;
