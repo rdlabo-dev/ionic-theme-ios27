@@ -64,21 +64,10 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     // Wire stays active+focused; local session drives chrome (idle / presented / focused).
     private enum Session: Equatable { case idle, presented, focused }
 
-    private final class IdleBarDelegate: NSObject, UITabBarDelegate {
-        var select: ((String) -> Void)?
-        func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-            guard item.isEnabled, let id = item.accessibilityIdentifier else { return }
-            select?(id)
-        }
-    }
-
     let surface = ShellSearchHost()
-    /// Ordinary `UITabBar` chrome while searchable is registered but the session is idle.
-    /// Matches `ShellTabBar.fit` so Index/Album resting tabs do not jump.
-    private let idleBar = UITabBar()
-    private let idleBarDelegate = IdleBarDelegate()
-    /// Resting search trigger pinned to the Web FAB while `available && !active`.
-    private var searchTrigger: UIButton?
+    private var restingBarFrame: CGRect?
+    private var restingBarAnchor: ShellTabBar.Anchor?
+    private var fittingTabBar = false
     private let search = UISearchController(searchResultsController: nil)
     private let inputDelegate = ShellSearchInputDelegate()
     private var searchTab: UISearchTab!
@@ -88,8 +77,6 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     private var closing = false
     private var editingSequence = 0
     private var valueVersion = -1
-    private var lastLayout = ""
-    private var layoutItems: [ShellItemContent] = []
     private var lockedWebFrame: CGRect? // frozen while search is active (width changes re-lock)
     private var session: Session = .idle
     private var focusWork: DispatchWorkItem?
@@ -109,14 +96,6 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         delegate = self
         mode = .tabBar
         ShellTabBar.configureLayout(tabBar)
-        ShellTabBar.configureLayout(idleBar)
-        // Must not use self as idleBar.delegate — UITabBarController asserts item↔VC pairing.
-        idleBar.delegate = idleBarDelegate
-        idleBarDelegate.select = { [weak self] id in
-            self?.armPendingSelection(id)
-            self?.activate?(id)
-        }
-        idleBar.isHidden = true
         search.obscuresBackgroundDuringPresentation = false
         search.hidesNavigationBarDuringPresentation = false
         search.searchBar.delegate = self
@@ -206,10 +185,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             self.pendingExpiryWork = nil
             guard let pending = self.pendingSelection, CFAbsoluteTimeGetCurrent() >= pending.until else { return }
             self.pendingSelection = nil
-            // No later apply: revert idle chrome + controller selection to the last DOM selected id.
-            if let item = self.idleBar.items?.first(where: { $0.accessibilityIdentifier == self.selectedID }) {
-                self.idleBar.selectedItem = item
-            }
+            // Revert to the last DOM selection if Ionic did not accept the action.
             if let selected = self.ordinary[self.selectedID], self.selectedTab !== selected {
                 self.selectedTab = selected
             }
@@ -244,7 +220,6 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         parent.addChild(self)
         container.addSubview(surface)
         surface.addSubview(view)
-        if idleBar.superview !== surface { surface.addSubview(idleBar) }
         didMove(toParent: parent)
     }
 
@@ -254,9 +229,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         clearPendingSelection()
         applySession(.idle, selectingSearchTab: false)
         willMove(toParent: nil)
-        idleBar.removeFromSuperview()
-        searchTrigger?.removeFromSuperview()
-        searchTrigger = nil
+        restingBarFrame = nil
         surface.removeFromSuperview()
         view.removeFromSuperview()
         removeFromParent()
@@ -270,18 +243,12 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             editingSequence = 0
             valueVersion = -1
         }
-        let previousAvailable = self.configuration?.available
         let wasActive = self.configuration.map { $0.available && $0.active } ?? false
         self.configuration = configuration
         let available = configuration.available
         let active = available && configuration.active
         let wanted = wantedSession(active: active, focused: configuration.focused)
         let items = snapshot.items
-        let content = items.map(\.content)
-        if layoutItems != content {
-            layoutItems = content
-            lastLayout = ""
-        }
         let ids = items.map(\.id)
         for id in Array(ordinary.keys) where !ids.contains(id) { ordinary.removeValue(forKey: id) }
         for item in items {
@@ -304,10 +271,8 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         searchTab.image = rendering.image(trigger.content)
         searchTab.isEnabled = !configuration.disabled
         let requested = ids.compactMap { ordinary[$0] } + (available ? [searchTab!] : [])
-        if !active, wasActive || tabs.isEmpty || tabs.map(\.identifier) != requested.map(\.identifier) {
-            // Leave / availability flips rebuild tabs (UISearchTab morph cleanup when leaving).
+        if !active, tabs.isEmpty || tabs.map(\.identifier) != requested.map(\.identifier) {
             tabs = requested
-            lastLayout = ""
         }
         for item in items {
             if let nativeItem = ordinary[item.id]?.viewController?.tabBarItem {
@@ -316,6 +281,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
                 ShellTabBar.applyBadge(item.content.badge, to: nativeItem, rendering: rendering)
             }
         }
+        searchTab.viewController?.tabBarItem.accessibilityLabel = trigger.content.accessibilityLabel
         let prominent = NSSelectorFromString("setProminentTabIdentifier:")
         if responds(to: prominent) { setValue(available ? searchTab.identifier : nil, forKey: "prominentTabIdentifier") }
         let field = configuration.field
@@ -334,7 +300,6 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             inputDelegate.original = search.searchBar.searchTextField.delegate
             search.searchBar.searchTextField.delegate = inputDelegate
         }
-        let layout = "\(webFrame):\(barFrame):\(triggerFrame):\(available):\(snapshot.rtl)"
         // Resting keeps closing=true so hidden UISearchBar noise cannot emit; clear it while active.
         closing = !active
         surface.isHidden = false
@@ -344,17 +309,8 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             if tabs.isEmpty || tabs.map(\.identifier) != requested.map(\.identifier) {
                 tabs = requested
             }
-            let reveal = {
-                self.idleBar.isHidden = true
-                self.searchTrigger?.isHidden = true
-                self.view.isHidden = false
-                self.view.frame = self.surface.bounds
-            }
-            if !wasActive {
-                UIView.transition(with: surface, duration: 0.35, options: [.transitionCrossDissolve, .beginFromCurrentState], animations: reveal)
-            } else {
-                reveal()
-            }
+            restingBarFrame = nil
+            view.frame = surface.bounds
             let nextLock = surface.bounds.isEmpty ? webFrame : surface.frame
             if let locked = lockedWebFrame, abs(locked.width - webFrame.width) > 0.5 {
                 // Rotation / size-class change: adopt the new width while still ignoring keyboard shrink.
@@ -370,51 +326,56 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
 
         surface.frame = webFrame
         view.semanticContentAttribute = snapshot.rtl ? .forceRightToLeft : .forceLeftToRight
-        idleBar.semanticContentAttribute = snapshot.rtl ? .forceRightToLeft : .forceLeftToRight
+        tabBar.semanticContentAttribute = snapshot.rtl ? .forceRightToLeft : .forceLeftToRight
+        tabBar.accessibilityIdentifier = snapshot.id
         if lockedWebFrame != nil {
             lockedWebFrame = nil
-            lastLayout = ""
         }
         applySession(.idle, selectingSearchTab: false)
 
-        // Resting chrome: ordinary UITabBar (+ FAB trigger when available). UISearchTab stays off-screen.
-        if idleBar.superview !== surface { surface.addSubview(idleBar) }
-        let localBar = surface.convert(barFrame, from: surface.superview)
-        let localTrigger = surface.convert(triggerFrame, from: surface.superview)
-        // Apply optimistic selection to the visible idle bar before reconciling the hidden controller.
-        ShellTabBar.update(idleBar, node: snapshot, rendering: rendering, pendingSelection: &pendingSelection)
+        view.frame = surface.bounds
         resolveOrdinarySelection(items, fallback: requested.first)
-        if !available {
-            searchTrigger?.removeFromSuperview()
-            searchTrigger = nil
-        } else {
-            let triggerButton = ShellButton.render(configuration.trigger.content, glass: true, existing: searchTrigger, rendering: rendering) { [weak self] id in
-                self?.activate?(id)
-            }
-            if searchTrigger !== triggerButton {
-                searchTrigger?.removeFromSuperview()
-                searchTrigger = triggerButton
-                surface.addSubview(triggerButton)
-            }
-            triggerButton.frame = localTrigger
-        }
+        restingBarFrame = surface.convert(barFrame, from: surface.superview)
+        restingBarAnchor = snapshot.tabBarAnchor
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        return fitRestingTabBar()
+    }
 
-        let revealResting = {
-            self.view.isHidden = true
-            self.idleBar.isHidden = false
-            self.idleBar.overrideUserInterfaceStyle = snapshot.dark ? .dark : .light
-            self.searchTrigger?.isHidden = !available
-            self.searchTrigger?.overrideUserInterfaceStyle = snapshot.dark ? .dark : .light
-        }
-        let animateChrome = wasActive || (previousAvailable != nil && previousAvailable != available)
-        if animateChrome {
-            UIView.transition(with: surface, duration: 0.35, options: [.transitionCrossDissolve, .beginFromCurrentState], animations: revealResting)
-        } else {
-            revealResting()
-        }
-        if lastLayout != layout {
-            guard ShellTabBar.fit(idleBar, node: snapshot, bounds: localBar) else { return false }
-            lastLayout = layout
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if session == .idle { _ = fitRestingTabBar() }
+    }
+
+    /// Match the ordinary tab platter to the source ion-tab-bar by resizing
+    /// the controller's view, so UIKit can keep managing its tab bar through
+    /// search expansion and dismissal.
+    private func fitRestingTabBar() -> Bool {
+        guard let bounds = restingBarFrame, !fittingTabBar else { return true }
+        fittingTabBar = true
+        defer { fittingTabBar = false }
+        tabBar.layoutIfNeeded()
+        for _ in 0..<2 {
+            let contents = ShellTabBar.contentFrames(tabBar)
+            guard let content = contents.max(by: { $0.width < $1.width }) else { return false }
+            let measured = tabBar.convert(content, to: surface)
+            let width = bounds.width - measured.width
+            let x = bounds.minX + (bounds.width - measured.width) * (restingBarAnchor?.x ?? 0) - measured.minX
+            let y = bounds.minY + (bounds.height - measured.height) * (restingBarAnchor?.y ?? 0) - measured.minY
+            // UIKit rounds the platter frame; a subpoint difference must not
+            // keep invalidating its layout during search transitions.
+            if abs(width) <= 0.5 && abs(x) <= 0.5 && abs(y) <= 0.5 { break }
+            var frame = view.frame
+            // The controller also contains the separate search button. Include
+            // that space in its width limit without enlarging capped tab groups.
+            let searchWidth = contents.filter { $0 != content }.reduce(CGFloat(0)) { $0 + $1.width }
+            frame.size.width = min(frame.width + width, surface.bounds.width + searchWidth)
+            frame.origin.x += x
+            frame.origin.y += y
+            if abs(frame.width - view.frame.width) <= 0.5 && abs(x) <= 0.5 && abs(y) <= 0.5 { break }
+            view.frame = frame
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
         }
         return true
     }
@@ -422,6 +383,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
         guard let configuration else { return false }
         if tab === searchTab {
+            restingBarFrame = nil
             clearPendingSelection()
             activate?(configuration.trigger.id)
             return true
