@@ -85,6 +85,8 @@ All fills (`default`, `clear`, `solid`, and `outline`) and Ionic colors follow t
 
 The rule applies to individual buttons and buttons inside `ion-buttons`, on ordinary pages and in the topmost full-width modal. Centered modals, menus, and popovers keep their own toolbar layout. Add `.ios-theme-horizontal-only` to a group or individual button to keep it horizontal. Placement is chosen when a routed page enters; changing an existing button's content or icon slot does not move it between the toolbar and rail until the page leaves and re-enters.
 
+A toolbar whose element content has all moved into the rail collapses while projection is active. Toolbars containing a title, other content or a horizontal-only control remain visible. Removing projection restores the original toolbar.
+
 ### Choose button appearance
 
 `buttonProjection` and the local projection settings below are available in `1.2.0`.
@@ -100,7 +102,7 @@ For native vertical `ion-button` and `ion-menu-button` actions, choose who contr
 const rail = await enableVerticalControlArea({ buttonProjection: 'source' });
 ```
 
-Both `enableVerticalControlArea()` and `enableNativeUIShell()` accept the option. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
+Both `enableVerticalControlArea()` and `enableNativeUIShell()` accept the option. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. Disabled icons use the native disabled appearance. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
 
 **Migration from the experimental releases:** the default changes from source styling to `system`. Set `buttonProjection: 'source'` to retain the previous projection behavior.
 

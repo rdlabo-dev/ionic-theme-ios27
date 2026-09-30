@@ -92,6 +92,14 @@ ion-app.ios-theme-vertical-bars
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
 
+  // Collapse only toolbars whose entire element content has moved to the rail.
+  // Titles, custom content and horizontal-only controls keep the toolbar visible.
+  &:has(> [data-native-ui-shell], > ion-buttons > [data-native-ui-shell]):not(:has(> :not(ion-buttons, [data-native-ui-shell]))):not(
+      :has(> ion-buttons:not([data-native-ui-shell]) > :not([data-native-ui-shell]))
+    ) {
+    display: none;
+  }
+
   // Collapse headers already sit inside the padded ion-content scroll area.
   &:not(:where(ion-header.header-collapse-condense *, ion-footer.footer-collapse-fade *)) {
     &::part(container) {

@@ -56,3 +56,33 @@ test('Vertical Control Area works in md mode with Ionic CSS and no iOS 27 theme'
   await back.click();
   await expect(page).toHaveURL(/\/main\/index$/);
 });
+
+for (const placement of ['Separate', 'Grouped']) {
+  test(`empty ${placement.toLowerCase()} toolbar collapses only while its controls are projected`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await page.goto('/main/index/button-projection');
+    await page.locator('app-button-projection ion-select').evaluate((element, value) => {
+      element.dispatchEvent(new CustomEvent('ionChange', { bubbles: true, detail: { value } }));
+    }, placement);
+    const toolbars = page.locator('app-button-projection ion-header > ion-toolbar');
+    const actions = toolbars.nth(1);
+    await expect(actions).toBeVisible();
+    await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+    await expect(page.locator('ion-app > .ios-theme-vertical-bars-toolbar-projection').first()).toBeVisible();
+    await expect(actions).toBeHidden();
+    await expect(toolbars.first()).toBeVisible();
+
+    // Retain a toolbar as soon as the application adds non-projected content.
+    await actions.evaluate((element) => {
+      const title = document.createElement('ion-title');
+      title.textContent = 'Actions';
+      element.append(title);
+    });
+    await expect(actions).toBeVisible();
+    await actions.locator('ion-title').evaluate((element) => element.remove());
+    await expect(actions).toBeHidden();
+    await page.locator('ion-app').evaluate((element) => element.classList.remove('ios-theme-vertical-bars'));
+    await expect(actions).toBeVisible();
+    await expect(actions.locator('ion-button').first()).toBeVisible();
+  });
+}

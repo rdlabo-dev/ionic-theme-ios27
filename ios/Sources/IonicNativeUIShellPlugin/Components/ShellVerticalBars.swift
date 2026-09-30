@@ -45,9 +45,11 @@ final class ShellVerticalBarsModel: ObservableObject {
     func apply(_ controls: [ShellControl], rendering: ShellRendering,
                now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
         func item(_ source: ShellItem) -> Item {
-            Item(id: source.id, label: source.content.label,
+            let image = rendering.image(source.content)
+            return Item(id: source.id, label: source.content.label,
                  accessibilityLabel: source.content.accessibilityLabel,
-                 image: rendering.image(source.content),
+                 // UIKit toolbar extraction uses the UIImage's rendering mode.
+                 image: source.content.disabled ? image?.withRenderingMode(.alwaysTemplate) : image,
                  clear: source.content.buttonFill == .clear,
                  background: source.content.backgroundColor.map { Color(uiColor: rendering.color($0)) },
                  borderColor: source.content.borderColor.map { Color(uiColor: rendering.color($0)) },
