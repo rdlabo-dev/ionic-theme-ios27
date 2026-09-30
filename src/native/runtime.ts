@@ -722,7 +722,7 @@ export const createRuntime = async (
       candidate?.control.search && [candidate.control.search.trigger.id, candidate.control.search.closeId].includes(event.id);
     if (!searchAction && (!item || item.disabled || item.visible === false)) return;
     // The original Ionic host owns form submission, routerLink and selection events.
-    activateProjectedElement(element);
+    activateProjectedElement(element, event.projectionFrame);
     lastSnapshot = ''; // Reconcile even if Ionic rejects the proposed native selection.
     schedule();
   };

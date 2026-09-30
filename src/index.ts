@@ -1,10 +1,9 @@
 import { registeredEffect } from './sheets-of-glass/interfaces';
 import { registerEffect } from './sheets-of-glass';
 export * from './sheets-of-glass/interfaces';
-export {
-  iosPopoverEnterAnimation as popoverEnterAnimation,
-  iosPopoverLeaveAnimation as popoverLeaveAnimation,
-} from '@rdlabo/ionic-theme-utils';
+export { iosPopoverLeaveAnimation as popoverLeaveAnimation } from '@rdlabo/ionic-theme-utils';
+export { popoverEnterAnimation } from './projection/popover';
+export type { ProjectedClickEvent } from './projection/click';
 export * from './tab-bar-searchable';
 export * from './searchbar';
 export * from './transition/ios.transition';

@@ -173,6 +173,8 @@ export interface ShellActivation {
   revision: number;
   id: string;
   sequence: number;
+  /** Final projected control bounds in Web viewport CSS pixels, when available. */
+  projectionFrame?: Frame;
 }
 
 export interface WebViewMetrics {

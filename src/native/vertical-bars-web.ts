@@ -241,7 +241,7 @@ export const createVerticalBarsWebProjection = (
           (event) => {
             event.preventDefault();
             event.stopImmediatePropagation();
-            if (isCurrentToolbarAction(source)) activateProjectedElement(source);
+            if (isCurrentToolbarAction(source)) activateProjectedElement(source, clone.getBoundingClientRect());
           },
           { capture: true },
         );

@@ -20,6 +20,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private let rendering = ShellRendering()
     private var revision = 0
     private var sequence = 0
+    private var projectionScale: CGFloat = 1
     private var keyboardVisible = false
     private var pendingTabSelections: [String: ShellTabBar.PendingSelection] = [:]
     private var pendingTabExpiryWorks: [String: DispatchWorkItem] = [:]
@@ -203,6 +204,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 call.resolve(["revision": next]); return
             }
             let scale = webView.bounds.width / width
+            self.projectionScale = scale
             let retained = Set(snapshots.map(\.id))
             for id in Array(self.controls.keys) where !retained.contains(id) {
                 self.removeControl(id, duration: duration)
@@ -390,7 +392,24 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
 
     private func activate(_ id: String) {
         sequence += 1
-        notifyListeners("activate", data: ["id": id, "revision": revision, "sequence": sequence])
+        var data: JSObject = ["id": id, "revision": revision, "sequence": sequence]
+        if let frame = projectedFrame(id) { data["projectionFrame"] = frame }
+        notifyListeners("activate", data: data)
+    }
 
+    private func projectedFrame(_ id: String) -> JSObject? {
+        guard let webView = bridge?.webView else { return nil }
+        func find(_ view: UIView) -> UIView? {
+            if view.accessibilityIdentifier == id { return view }
+            for child in view.subviews {
+                if let match = find(child) { return match }
+            }
+            return nil
+        }
+        let roots = (verticalBars.map { [$0.view] } ?? []) + Array(controls.values)
+        guard let button = roots.lazy.compactMap({ find($0) }).first else { return nil }
+        let frame = webView.convert(button.bounds, from: button)
+        return ["x": Double(frame.minX / projectionScale), "y": Double(frame.minY / projectionScale),
+                "width": Double(frame.width / projectionScale), "height": Double(frame.height / projectionScale)]
     }
 }

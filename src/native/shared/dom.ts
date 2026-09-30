@@ -1,5 +1,6 @@
 import { fadeMarker } from './crossfade';
 import { modalUsesVerticalBars } from './modal';
+import { projectedClick } from '../../projection/click';
 
 import type { Frame } from '../definitions';
 
@@ -207,11 +208,12 @@ export const syncToolbarText = (doc: Document): void => {
   }
 };
 
-export const activateProjectedElement = (element: HTMLElement): void => {
+export const activateProjectedElement = (element: HTMLElement, frame?: Frame): void => {
   const target = element.matches('ion-button, ion-back-button, ion-menu-button')
     ? element.shadowRoot?.querySelector<HTMLElement>('[part~="native"]')
     : undefined;
-  (target ?? element).click();
+  if (frame) projectedClick(target ?? element, frame);
+  else (target ?? element).click();
 };
 
 export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): T => {
