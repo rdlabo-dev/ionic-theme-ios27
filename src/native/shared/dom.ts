@@ -193,6 +193,20 @@ export const isVerticalBarsToolbarGroup = (element: HTMLElement): boolean => {
   );
 };
 
+export const toolbarTextMarker = 'data-native-ui-shell-toolbar-text';
+
+export const syncToolbarText = (doc: Document): void => {
+  for (const toolbar of Array.from(
+    doc.querySelectorAll<HTMLElement>(`ion-app.ios-theme-vertical-bars ion-toolbar, ion-toolbar[${toolbarTextMarker}]`),
+  )) {
+    toolbar.toggleAttribute(
+      toolbarTextMarker,
+      !!toolbar.closest('ion-app.ios-theme-vertical-bars') &&
+        childNodesOf(toolbar).some((node) => node.nodeType === Node.TEXT_NODE && !!node.textContent?.trim()),
+    );
+  }
+};
+
 export const activateProjectedElement = (element: HTMLElement): void => {
   const target = element.matches('ion-button, ion-back-button, ion-menu-button')
     ? element.shadowRoot?.querySelector<HTMLElement>('[part~="native"]')

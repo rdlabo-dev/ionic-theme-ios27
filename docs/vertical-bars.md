@@ -85,7 +85,7 @@ All fills (`default`, `clear`, `solid`, and `outline`) and Ionic colors follow t
 
 The rule applies to individual buttons and buttons inside `ion-buttons`, on ordinary pages and in the topmost full-width modal. Centered modals, menus, and popovers keep their own toolbar layout. Add `.ios-theme-horizontal-only` to a group or individual button to keep it horizontal. Placement is chosen when a routed page enters; changing an existing button's content or icon slot does not move it between the toolbar and rail until the page leaves and re-enters.
 
-A toolbar whose element content has all moved into the rail collapses while projection is active. Toolbars containing a title, other content or a horizontal-only control remain visible. Removing projection restores the original toolbar.
+A toolbar whose content has all moved into the rail collapses while projection is active. Toolbars containing a title, direct text, other content or a horizontal-only control remain visible. Removing projection restores the original toolbar.
 
 ### Choose button appearance
 

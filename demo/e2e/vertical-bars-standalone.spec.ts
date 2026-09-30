@@ -72,6 +72,26 @@ for (const placement of ['Separate', 'Grouped']) {
     await expect(actions).toBeHidden();
     await expect(toolbars.first()).toBeVisible();
 
+    // Direct text is slotted toolbar content too; whitespace alone is not.
+    await actions.evaluate((element) => element.append('Draft'));
+    await expect(actions).toBeVisible();
+    await actions.evaluate((element) => {
+      const text = Array.from(element.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && node.textContent === 'Draft')!;
+      text.textContent = ' ';
+    });
+    await expect(actions).toBeHidden();
+    await actions.evaluate((element) => {
+      const text = Array.from(element.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && node.textContent === ' ')!;
+      text.textContent = 'Saved';
+    });
+    await expect(actions).toBeVisible();
+    await actions.evaluate((element) => {
+      Array.from(element.childNodes)
+        .find((node) => node.nodeType === Node.TEXT_NODE && node.textContent === 'Saved')!
+        .remove();
+    });
+    await expect(actions).toBeHidden();
+
     // Retain a toolbar as soon as the application adds non-projected content.
     await actions.evaluate((element) => {
       const title = document.createElement('ion-title');

@@ -3257,6 +3257,15 @@ for (const projection of ['source', 'system'] as const) {
             .filter((item) => ['Omitted', 'Clear', 'Solid', 'Outline'].includes(item.accessibilityLabel ?? '')) ?? [],
       );
     await expect.poll(async () => (await items()).length).toBe(4);
+    const toolbar = page.locator('app-button-projection ion-header > ion-toolbar').nth(1);
+    await expect(toolbar).toBeHidden();
+    await toolbar.evaluate((element) => element.append('Draft'));
+    await expect(toolbar).toBeVisible();
+    await toolbar.evaluate((element) => {
+      Array.from(element.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && node.textContent === 'Draft')!.textContent = '';
+    });
+    await expect(toolbar).toBeHidden();
+
     await expect
       .poll(async () => (await items()).map((item) => item.buttonFill))
       .toEqual(projection === 'source' ? ['clear', 'clear', 'solid', 'outline'] : [undefined, undefined, undefined, undefined]);

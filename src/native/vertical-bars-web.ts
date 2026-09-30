@@ -15,6 +15,8 @@ import {
   preferredVerticalBarsBack,
   verticalBarsOwned,
   marker,
+  syncToolbarText,
+  toolbarTextMarker,
   prehideOnlyMutation,
   prehiddenClass,
   unprojected,
@@ -271,6 +273,7 @@ export const createVerticalBarsWebProjection = (
   };
   const performUpdate = () => {
     frame = 0;
+    syncToolbarText(doc);
     const currentRoot = verticalBarsRoot();
     if (observingVerticalBars !== !!currentRoot) {
       observingVerticalBars = !!currentRoot;
@@ -278,6 +281,7 @@ export const createVerticalBarsWebProjection = (
       observer.observe(doc.documentElement, {
         subtree: true,
         childList: true,
+        characterData: observingVerticalBars,
         attributes: true,
         attributeOldValue: true,
         attributeFilter: observingVerticalBars ? undefined : ['class'],
@@ -335,7 +339,13 @@ export const createVerticalBarsWebProjection = (
     );
     if (
       (observingVerticalBars &&
-        records.some((record) => record.attributeName !== marker && !prehideOnlyMutation(record) && !insideProjection(record.target))) ||
+        records.some(
+          (record) =>
+            record.attributeName !== marker &&
+            record.attributeName !== toolbarTextMarker &&
+            !prehideOnlyMutation(record) &&
+            !insideProjection(record.target),
+        )) ||
       (!observingVerticalBars && verticalBarsChanged && records.some((record) => !prehideOnlyMutation(record)))
     )
       schedule();
