@@ -23,8 +23,12 @@ export const popoverEnterAnimation: typeof iosPopoverEnterAnimation = (baseEl, o
   try {
     // Ionic pages can contain fixed elements; account for their offset in the viewport.
     const placed = anchor.getBoundingClientRect();
-    anchor.style.left = `${frame.x + (frame.x - placed.x)}px`;
-    anchor.style.top = `${frame.y + (frame.y - placed.y)}px`;
+    const scaleX = placed.width / frame.width;
+    const scaleY = placed.height / frame.height;
+    anchor.style.left = `${frame.x + (frame.x - placed.x) / scaleX}px`;
+    anchor.style.top = `${frame.y + (frame.y - placed.y) / scaleY}px`;
+    anchor.style.width = `${frame.width / scaleX}px`;
+    anchor.style.height = `${frame.height / scaleY}px`;
     return iosPopoverEnterAnimation(baseEl, { ...opts, trigger: anchor });
   } finally {
     anchor.remove();

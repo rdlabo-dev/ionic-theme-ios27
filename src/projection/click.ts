@@ -6,6 +6,7 @@ export interface ProjectedClickEvent extends MouseEvent {
 }
 
 export const projectedClick = (target: HTMLElement, frame: Frame): void => {
+  if (target.matches(':disabled')) return;
   const win = target.ownerDocument.defaultView!;
   const event = new win.MouseEvent('click', {
     bubbles: true,

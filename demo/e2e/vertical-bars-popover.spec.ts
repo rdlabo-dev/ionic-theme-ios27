@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-for (const { edge, offset } of [
-  { edge: 'left', offset: false },
-  { edge: 'right', offset: false },
-  { edge: 'right', offset: true },
+for (const { edge, offset, scale } of [
+  { edge: 'left', offset: false, scale: 1 },
+  { edge: 'right', offset: false, scale: 1 },
+  { edge: 'right', offset: true, scale: 1 },
+  { edge: 'right', offset: true, scale: 0.8 },
 ]) {
   for (const reference of ['trigger', 'event']) {
-    test(`popover uses its ${edge} rail action with ${reference} positioning${offset ? ' in an offset pane' : ''}`, async ({ page }) => {
+    test(`popover uses its ${edge} rail action with ${reference} positioning${offset ? ' in an offset pane' : ''}${scale !== 1 ? ' with scale' : ''}`, async ({
+      page,
+    }) => {
       await page.setViewportSize({ width: 700, height: 900 });
       await page.goto('/main/index/popover');
       const popover = page.locator('ion-popover[trigger="click-trigger-right-buttons"]');
@@ -16,6 +19,12 @@ for (const { edge, offset } of [
           element.style.left = '160px';
           element.style.top = '40px';
         });
+      }
+      if (scale !== 1) {
+        await page.locator('app-popover').evaluate((element: HTMLElement, value) => {
+          element.style.transformOrigin = '0 0';
+          element.style.transform = `scale(${value})`;
+        }, scale);
       }
       await popover.evaluate((element: HTMLIonPopoverElement, value) => (element.reference = value), reference as 'trigger' | 'event');
       await page.locator('ion-app').evaluate((element, value) => {
@@ -44,10 +53,45 @@ for (const { edge, offset } of [
       );
       expect(content.y).toBeGreaterThan(anchor.y);
       expect(content.y).toBeLessThan(anchor.y + anchor.height + 20);
-      if (edge === 'right') expect(content.x).toBeGreaterThan(400);
+      // A scaled pane can clamp the surface inward; its animation must still originate at the rail action.
+      await expect
+        .poll(() =>
+          popover.evaluate((element, anchor) => {
+            const content = element.shadowRoot!.querySelector<HTMLElement>('[part~="content"]')!;
+            const [x, y] = getComputedStyle(content).transformOrigin.split(' ').map(parseFloat);
+            const bounds = content.getBoundingClientRect();
+            return Math.max(Math.abs(bounds.x + x - anchor.x - anchor.width / 2), Math.abs(bounds.y + y - anchor.y - anchor.height / 2));
+          }, anchor),
+        )
+        .toBeLessThan(1);
+      if (edge === 'right') expect(content.x).toBeGreaterThan(scale === 1 ? 400 : 300);
       else expect(content.x).toBeLessThan(100);
       await popover.evaluate((element: HTMLIonPopoverElement) => element.dismiss());
       await expect(action).toBeVisible();
     });
   }
 }
+
+test('a projected action respects source disabled state before its clone resynchronizes', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.goto('/main/index/popover');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+  await expect(page.locator('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection')).toBeVisible();
+  const counts = await page.locator('#click-trigger-right-buttons ion-button').evaluate((source: HTMLIonButtonElement) => {
+    let clicks = 0;
+    source.addEventListener('click', () => clicks++);
+    const clone = document.querySelector<HTMLElement>('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection')!;
+    source.disabled = true;
+    clone.click();
+    const hostDisabled = clicks;
+    source.disabled = false;
+    const native = source.shadowRoot!.querySelector<HTMLButtonElement>('[part~="native"]')!;
+    native.disabled = true;
+    clone.click();
+    const nativeDisabled = clicks;
+    native.disabled = false;
+    clone.click();
+    return [hostDisabled, nativeDisabled, clicks];
+  });
+  expect(counts).toEqual([0, 0, 1]);
+});

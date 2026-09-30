@@ -209,6 +209,7 @@ export const syncToolbarText = (doc: Document): void => {
 };
 
 export const activateProjectedElement = (element: HTMLElement, frame?: Frame): void => {
+  if ((element as HTMLElement & { disabled?: boolean }).disabled) return;
   const target = element.matches('ion-button, ion-back-button, ion-menu-button')
     ? element.shadowRoot?.querySelector<HTMLElement>('[part~="native"]')
     : undefined;
