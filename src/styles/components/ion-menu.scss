@@ -41,7 +41,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
         }
       }
       ion-footer ion-toolbar {
-        --padding-start: var(--ios-theme-menu-width, var(--ios26-menu-width));
+        --padding-start: calc(var(--ios-theme-menu-width, var(--ios26-menu-width)) + var(--ios-theme-searchable-padding-start, 0px));
       }
       ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled):not(:where(.ios-theme-vertical-bars *)) {
         &[slot='bottom'] {
@@ -75,7 +75,7 @@ ion-split-pane.ios:not(.ios-theme-disabled, .ios26-disabled).split-pane-visible:
         }
       }
       ion-footer ion-toolbar {
-        --padding-end: var(--ios-theme-menu-width, var(--ios26-menu-width));
+        --padding-end: calc(var(--ios-theme-menu-width, var(--ios26-menu-width)) + var(--ios-theme-searchable-padding-end, 0px));
       }
     }
   }

@@ -1,0 +1,80 @@
+// UISearchTab keeps a compact selected-tab button until editing starts.
+ion-footer.ios.ios-theme-searchable:not(.ios-theme-disabled, .ios26-disabled):has(
+    ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled, .searchbar-classic)
+  ) {
+  > ion-toolbar {
+    --ios-theme-searchable-padding-start: 16px;
+    --ios-theme-searchable-padding-end: 20px;
+    --padding-start: var(--ios-theme-searchable-padding-start);
+    --padding-end: var(--ios-theme-searchable-padding-end);
+  }
+
+  ion-buttons[slot='start'],
+  .ios-theme-searchable-dismiss {
+    margin-inline: 0;
+
+    ion-button {
+      width: 48px;
+      height: 48px;
+      --border-radius: 50%;
+      margin: 0;
+    }
+  }
+
+  &.ios-theme-searchable-editing {
+    > ion-toolbar {
+      // Searchbar padding (8px) and container margin (4px) complete the 16px tab-bar inset.
+      --ios-theme-searchable-padding-start: 4px;
+      --ios-theme-searchable-padding-end: 8px;
+    }
+
+    ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled, .searchbar-classic) {
+      padding-inline: 8px 12px;
+    }
+
+    ion-buttons[slot='start'] {
+      display: none;
+    }
+
+    .ios-theme-searchable-dismiss {
+      display: flex !important;
+    }
+  }
+
+  ion-searchbar.ios:not(.ios-theme-disabled, .ios26-disabled, .searchbar-classic) {
+    --border-radius: 24px;
+    padding-inline: 12px;
+
+    input.searchbar-input {
+      min-height: 48px;
+      padding-inline-end: 40px;
+    }
+
+    // Clear edits the value; the separate close button dismisses without clearing.
+    .searchbar-clear-button {
+      position: absolute;
+      inset-inline-end: 12px;
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      min-height: 20px;
+      background: none;
+      box-shadow: none;
+      backdrop-filter: none;
+
+      ion-icon {
+        width: 20px;
+        height: 20px;
+      }
+    }
+  }
+}
+
+// The hidden trigger's container must not cover the focused dismissal button.
+ion-fab.ios-theme-searchable-trigger {
+  pointer-events: none;
+
+  > ion-fab-button {
+    pointer-events: auto;
+  }
+}
