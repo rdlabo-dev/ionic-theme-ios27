@@ -207,12 +207,15 @@ enum ShellTabBar {
     }
 
     static func contentFrames(_ tabBar: UITabBar) -> [CGRect] {
+        contentViews(tabBar).map { $0.frame }
+    }
+
+    static func contentViews(_ tabBar: UITabBar) -> [UIView] {
         func containsControl(_ view: UIView) -> Bool {
             view is UIControl || view.subviews.contains(where: containsControl)
         }
         return tabBar.subviews
             .filter { !$0.isHidden && $0.alpha > 0 && containsControl($0) }
-            .map { $0.frame }
-            .filter { !$0.isEmpty }
+            .filter { !$0.frame.isEmpty }
     }
 }

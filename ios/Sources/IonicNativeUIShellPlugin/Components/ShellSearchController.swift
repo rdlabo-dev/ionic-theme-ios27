@@ -356,8 +356,20 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         defer { fittingTabBar = false }
         tabBar.layoutIfNeeded()
         for _ in 0..<2 {
-            let contents = ShellTabBar.contentFrames(tabBar)
-            guard let content = contents.max(by: { $0.width < $1.width }) else { return false }
+            let regions = ShellTabBar.contentViews(tabBar)
+            func controlCount(_ view: UIView) -> Int {
+                (view is UIControl ? 1 : 0) + view.subviews.reduce(0) { $0 + controlCount($1) }
+            }
+            // Ordinary tabs contain their item controls; Search contains one.
+            // For a single tab, UIKit places ordinary tabs at the leading edge.
+            let rtl = tabBar.effectiveUserInterfaceLayoutDirection == .rightToLeft
+            guard let region = regions.max(by: {
+                let lhs = controlCount($0), rhs = controlCount($1)
+                if lhs != rhs { return lhs < rhs }
+                return rtl ? $0.frame.midX < $1.frame.midX : $0.frame.midX > $1.frame.midX
+            }) else { return false }
+            let content = region.frame
+            let contents = regions.map { $0.frame }
             let measured = tabBar.convert(content, to: surface)
             let width = bounds.width - measured.width
             let x = bounds.minX + (bounds.width - measured.width) * (restingBarAnchor?.x ?? 0) - measured.minX
