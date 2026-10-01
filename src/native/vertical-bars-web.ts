@@ -369,8 +369,9 @@ export const createVerticalBarsWebProjection = (
   for (const name of ['ionViewWillEnter', 'ionViewWillLeave', 'ionViewDidEnter', 'ionViewDidLeave'])
     doc.addEventListener(name, pageLifecycle, { capture: true, signal: listeners.signal });
   doc.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, pageLifecycle, { capture: true, signal: listeners.signal });
-  for (const name of ['ionModalWillPresent', 'ionModalDidDismiss'])
-    doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
+  for (const overlay of ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'])
+    for (const name of [`ion${overlay}WillPresent`, `ion${overlay}DidDismiss`])
+      doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
   win.addEventListener('resize', schedule, { signal: listeners.signal });
   win.addEventListener('nativeUIShellRefresh', schedule, { signal: listeners.signal });
   schedule();

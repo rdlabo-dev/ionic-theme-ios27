@@ -47,7 +47,7 @@ export const createRuntime = async (
   options: NativeUIShellOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
-): Promise<NativeUIShellHandle> => {
+): Promise<NativeUIShellHandle & { isOverlayOpen(): boolean }> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
@@ -637,7 +637,8 @@ export const createRuntime = async (
     on(win.visualViewport, 'resize', refreshLayout);
     on(win.visualViewport, 'scroll');
   }
-  const handle: NativeUIShellHandle = {
+  const handle: NativeUIShellHandle & { isOverlayOpen(): boolean } = {
+    isOverlayOpen: () => overlayOpen(false, true),
     getStatus: (): NativeUIShellStatus => ({
       state: stopped ? 'stopped' : sources.size ? 'native' : 'web',
       projected: sources.size,

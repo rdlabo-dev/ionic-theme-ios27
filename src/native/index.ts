@@ -259,7 +259,11 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         const native = await createRuntime(document, plugin, options, nativeVerticalBars, options.verticalBarsOnly === true);
         runtime = combine(
           native,
-          createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars() || native.getStatus().state === 'stopped'),
+          createVerticalBarsWebProjection(
+            document,
+            options,
+            () => !nativeVerticalBars() || native.getStatus().state === 'stopped' || native.isOverlayOpen(),
+          ),
         );
         return manage(runtime, {
           suspend: () => prehide?.suspend(),

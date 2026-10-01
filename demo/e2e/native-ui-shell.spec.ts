@@ -1715,6 +1715,34 @@ test('all demo pages keep projection consistent through consecutive navigation',
   expect(errors).toEqual([]);
 });
 
+test('a native rail popover hands toolbar controls to Web and returns them after dismissal', async ({ page }) => {
+  await page.setViewportSize({ width: 440, height: 636 });
+  await mockNative(page);
+  await page.goto('/main/index?verticalBarsOnly');
+  await page.getByText('iPhone Duo Mode', { exact: true }).click();
+  await page.getByText('popover', { exact: true }).click();
+  const source = page.locator('#click-trigger-right-buttons ion-button');
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  const action = page.locator('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection');
+  await expect(action).toHaveCount(0);
+  await activate(page, 'Open popover');
+  const popover = page.locator('ion-popover[trigger="click-trigger-right-buttons"]');
+  await expect(popover.getByText('Hello World!')).toBeVisible();
+  await expect(action).toBeVisible();
+  await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
+  await expect(source.locator('..')).toBeHidden();
+  await expect(page.locator('app-popover > ion-header > ion-toolbar').nth(1)).toBeHidden();
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls.length))
+    .toBe(0);
+  await popover.evaluate((element: HTMLIonPopoverElement) => element.dismiss());
+  await expect(action).toHaveCount(0);
+  await expect(source).toHaveAttribute('data-native-ui-shell', '');
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls.length))
+    .toBeGreaterThan(0);
+});
+
 test('demo overlay variants retire native controls and restore them after dismissal', async ({ page }) => {
   test.setTimeout(180000);
   await mockNative(page);
