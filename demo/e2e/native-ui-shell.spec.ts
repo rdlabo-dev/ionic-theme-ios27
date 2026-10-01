@@ -1751,7 +1751,12 @@ test('a native rail popover hands toolbar controls to Web and returns them after
   await expect(popover.locator('[part~="content"]')).toHaveCSS('opacity', '1');
   const content = (await popover.locator('[part~="content"]').boundingBox())!;
   expect(content.y + content.height / 2).toBeCloseTo(frames.action.y + frames.action.height / 2, 0);
-  expect(content.x + content.width).toBeLessThanOrEqual(frames.action.x + 1);
+  await expect
+    .poll(async () => {
+      const bounds = (await popover.locator('[part~="content"]').boundingBox())!;
+      return bounds.x + bounds.width;
+    })
+    .toBeLessThanOrEqual(frames.action.x + 1);
   await expect(source.locator('..')).toBeHidden();
   await expect(page.locator('app-popover > ion-header > ion-toolbar').nth(1)).toBeHidden();
   await expect

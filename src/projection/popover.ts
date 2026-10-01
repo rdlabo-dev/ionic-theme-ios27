@@ -33,7 +33,13 @@ export const popoverEnterAnimation: typeof iosPopoverEnterAnimation = (baseEl, o
     anchor.style.top = `${frame.y + (frame.y - placed.y) / scaleY}px`;
     anchor.style.width = `${frame.width / scaleX}px`;
     anchor.style.height = `${frame.height / scaleY}px`;
-    return iosPopoverEnterAnimation(baseEl, { ...opts, trigger: anchor, side, align: side !== opts.side ? 'center' : opts.align });
+    return iosPopoverEnterAnimation(baseEl, {
+      ...opts,
+      trigger: anchor,
+      side,
+      align: side !== opts.side ? 'center' : opts.align,
+      preserveHorizontalAlignment: !!edge,
+    });
   } finally {
     anchor.remove();
   }
