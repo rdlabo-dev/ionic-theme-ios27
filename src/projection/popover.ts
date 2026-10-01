@@ -38,7 +38,7 @@ export const popoverEnterAnimation: typeof iosPopoverEnterAnimation = (baseEl, o
       trigger: anchor,
       side,
       align: side !== opts.side ? 'center' : opts.align,
-      preserveHorizontalAlignment: !!edge,
+      verticalOffset: edge && (side === 'left' || side === 'right' || side === 'start' || side === 'end') ? 0 : opts.verticalOffset,
     });
   } finally {
     anchor.remove();
