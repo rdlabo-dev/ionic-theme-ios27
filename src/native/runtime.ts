@@ -10,6 +10,7 @@ import type {
   NativeUIShellOptions,
   NativeUIShellPlugin,
   NativeUIShellStatus,
+  Frame,
 } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector, isVerticalBarsCandidate } from './components';
 import {
@@ -47,7 +48,7 @@ export const createRuntime = async (
   options: NativeUIShellOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
-): Promise<NativeUIShellHandle & { isOverlayOpen(): boolean }> => {
+): Promise<NativeUIShellHandle & { isOverlayOpen(): boolean; projectionFrame(element: HTMLElement): Frame | undefined }> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
@@ -65,6 +66,7 @@ export const createRuntime = async (
   const observed = new Set<Element | ShadowRoot>();
   const listeners = new AbortController();
   let actions = new Map<string, HTMLElement>();
+  let projectionFrames = new WeakMap<HTMLElement, Frame>();
   let nextId = 0;
   let revision = 0;
   let acceptedRevision = 0;
@@ -587,6 +589,7 @@ export const createRuntime = async (
     });
     on(doc, `ion${name}DidDismiss`, (event) => {
       presented.delete(event.target as HTMLElement);
+      if (!overlayOpen(false, true)) projectionFrames = new WeakMap();
       schedule();
     });
   }
@@ -637,8 +640,9 @@ export const createRuntime = async (
     on(win.visualViewport, 'resize', refreshLayout);
     on(win.visualViewport, 'scroll');
   }
-  const handle: NativeUIShellHandle & { isOverlayOpen(): boolean } = {
+  const handle: NativeUIShellHandle & { isOverlayOpen(): boolean; projectionFrame(element: HTMLElement): Frame | undefined } = {
     isOverlayOpen: () => overlayOpen(false, true),
+    projectionFrame: (element) => (overlayOpen(false, true) ? projectionFrames.get(element) : undefined),
     getStatus: (): NativeUIShellStatus => ({
       state: stopped ? 'stopped' : sources.size ? 'native' : 'web',
       projected: sources.size,
@@ -722,6 +726,11 @@ export const createRuntime = async (
     const searchAction =
       candidate?.control.search && [candidate.control.search.trigger.id, candidate.control.search.closeId].includes(event.id);
     if (!searchAction && (!item || item.disabled || item.visible === false)) return;
+    projectionFrames = new WeakMap();
+    for (const [id, frame] of Object.entries(event.projectionFrames ?? {})) {
+      const source = actions.get(id);
+      if (source) projectionFrames.set(source, frame);
+    }
     // The original Ionic host owns form submission, routerLink and selection events.
     activateProjectedElement(element, event.projectionFrame);
     lastSnapshot = ''; // Reconcile even if Ionic rejects the proposed native selection.

@@ -213,8 +213,14 @@ export const activateProjectedElement = (element: HTMLElement, frame?: Frame): v
   const target = element.matches('ion-button, ion-back-button, ion-menu-button')
     ? element.shadowRoot?.querySelector<HTMLElement>('[part~="native"]')
     : undefined;
-  if (frame) projectedClick(target ?? element, frame);
-  else (target ?? element).click();
+  if (frame) {
+    const edge = isVerticalBarsSource(element)
+      ? element.closest('ion-app')?.classList.contains('ios-theme-vertical-bars-left')
+        ? 'left'
+        : 'right'
+      : undefined;
+    projectedClick(target ?? element, frame, edge);
+  } else (target ?? element).click();
 };
 
 export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): T => {

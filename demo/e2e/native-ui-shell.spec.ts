@@ -1725,11 +1725,33 @@ test('a native rail popover hands toolbar controls to Web and returns them after
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
   const action = page.locator('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection');
   await expect(action).toHaveCount(0);
-  await activate(page, 'Open popover');
+  const frames = { action: { x: 390, y: 235, width: 38, height: 38 }, back: { x: 390, y: 170, width: 38, height: 38 } };
+  await page.evaluate((frames) => {
+    const mock = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+    const snapshot = mock.updates.at(-1)!;
+    const action = snapshot.controls.flatMap((control) => control.items).find((item) => item.accessibilityLabel === 'Open popover')!;
+    const back = snapshot.controls.find((control) => control.kind === 'ion-back-button')!.items[0];
+    mock.notifyListeners('activate', {
+      id: action.id,
+      revision: snapshot.revision,
+      sequence: ++mock.sequence,
+      projectionFrame: frames.action,
+      projectionFrames: { [action.id]: frames.action, [back.id]: frames.back },
+    });
+  }, frames);
   const popover = page.locator('ion-popover[trigger="click-trigger-right-buttons"]');
   await expect(popover.getByText('Hello World!')).toBeVisible();
   await expect(action).toBeVisible();
   await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
+  await expect.poll(() => action.boundingBox()).toEqual(frames.action);
+  await expect.poll(() => action.locator('[part~="native"]').boundingBox()).toEqual(frames.action);
+  await expect
+    .poll(() => page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection').boundingBox())
+    .toEqual(frames.back);
+  await expect(popover.locator('[part~="content"]')).toHaveCSS('opacity', '1');
+  const content = (await popover.locator('[part~="content"]').boundingBox())!;
+  expect(content.y + content.height / 2).toBeCloseTo(frames.action.y + frames.action.height / 2, 0);
+  expect(content.x + content.width).toBeLessThanOrEqual(frames.action.x + 1);
   await expect(source.locator('..')).toBeHidden();
   await expect(page.locator('app-popover > ion-header > ion-toolbar').nth(1)).toBeHidden();
   await expect

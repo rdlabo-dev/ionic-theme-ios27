@@ -91,7 +91,9 @@ A toolbar whose content has all moved into the rail collapses while projection i
 
 Configure this package's `popoverEnterAnimation` as Ionic's `popoverEnter` animation, as shown in the [setup example](../README.md#configure-animations). It positions a popover opened by a projected toolbar button using the visible button's bounds, for both `reference="trigger"` and `reference="event"`.
 
-The forwarded click still targets the original button. When the final projection's bounds are available, its `ProjectedClickEvent.projectionFrame` contains `x`, `y`, `width` and `height` in Web viewport CSS pixels. If the bounds cannot be obtained, the existing click behavior is retained. Stock Ionic animations and custom animations do not automatically consume this additional information.
+The default bottom placement opens toward the page from a rail button, with the arrow aligned to the button. Other explicit sides are retained. While the overlay hides native controls, their Web replacements keep the last native button bounds; dismissal restores native projection.
+
+The forwarded click still targets the original button. When the final projection's bounds are available, its `ProjectedClickEvent.projectionFrame` contains `x`, `y`, `width` and `height` in Web viewport CSS pixels. Rail actions also supply `projectionEdge` (`left` or `right`, in physical coordinates). If the bounds cannot be obtained, the existing click behavior is retained. Stock Ionic animations and custom animations do not automatically consume this additional information.
 
 ### Choose button appearance
 

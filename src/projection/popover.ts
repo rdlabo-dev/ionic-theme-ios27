@@ -18,6 +18,10 @@ export const popoverEnterAnimation: typeof iosPopoverEnterAnimation = (baseEl, o
     height: `${frame.height}px`,
   });
   const source = opts.trigger ?? opts.event?.target;
+  const edge = (opts.event as ProjectedClickEvent).projectionEdge;
+  // A default callout below an edge control cannot keep its arrow on the button.
+  // Open into the page instead, using the existing side/align positioning API.
+  const side = edge && (!opts.side || opts.side === 'bottom') ? (edge === 'left' ? 'right' : 'left') : opts.side;
   const pane = source?.closest?.('.ion-page, ion-content, ion-menu');
   (pane ?? baseEl.ownerDocument.body).append(anchor);
   try {
@@ -29,7 +33,7 @@ export const popoverEnterAnimation: typeof iosPopoverEnterAnimation = (baseEl, o
     anchor.style.top = `${frame.y + (frame.y - placed.y) / scaleY}px`;
     anchor.style.width = `${frame.width / scaleX}px`;
     anchor.style.height = `${frame.height / scaleY}px`;
-    return iosPopoverEnterAnimation(baseEl, { ...opts, trigger: anchor });
+    return iosPopoverEnterAnimation(baseEl, { ...opts, trigger: anchor, side, align: side !== opts.side ? 'center' : opts.align });
   } finally {
     anchor.remove();
   }

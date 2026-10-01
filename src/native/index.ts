@@ -263,6 +263,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
             document,
             options,
             () => !nativeVerticalBars() || native.getStatus().state === 'stopped' || native.isOverlayOpen(),
+            native.projectionFrame,
           ),
         );
         return manage(runtime, {

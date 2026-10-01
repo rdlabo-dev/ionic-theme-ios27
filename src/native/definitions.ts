@@ -175,6 +175,8 @@ export interface ShellActivation {
   sequence: number;
   /** Final projected control bounds in Web viewport CSS pixels, when available. */
   projectionFrame?: Frame;
+  /** Native action bounds retained by the Web rail while an overlay is open. */
+  projectionFrames?: Record<string, Frame>;
 }
 
 export interface WebViewMetrics {

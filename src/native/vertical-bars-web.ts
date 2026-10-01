@@ -1,6 +1,7 @@
 import { createVerticalBarsWebSearch, searchProjectionClass } from './vertical-bars-web-search';
 import { inVerticalBarsSurface, topModal } from './shared/modal';
-import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
+import type { Frame, NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
+import { placeProjection } from './shared/projection-frame';
 import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration';
 import {
   activateProjectedElement,
@@ -44,6 +45,7 @@ export const createVerticalBarsWebProjection = (
   doc: Document,
   options: NativeUIShellOptions,
   enabled: () => boolean = () => true,
+  nativeFrame: (source: HTMLElement) => Frame | undefined = () => undefined,
 ): NativeUIShellHandle => {
   const win = doc.defaultView!;
   const toolbarEnabled = options.controls === undefined || options.controls.toolbar === true;
@@ -293,11 +295,34 @@ export const createVerticalBarsWebProjection = (
     const projectionRoot = topModal(doc) ?? currentRoot;
     search.update(projectionRoot);
     if (!nextBack && !groups.length && !search.source) return restore();
-    if (root === (topModal(doc) ?? currentRoot) && sameSources(nextBack, groups)) return syncExisting();
-    restore();
-    project(nextBack, groups);
-    search.update(projectionRoot);
-    updates++;
+    if (root === (topModal(doc) ?? currentRoot) && sameSources(nextBack, groups)) syncExisting();
+    else {
+      restore();
+      project(nextBack, groups);
+      search.update(projectionRoot);
+      updates++;
+    }
+    if (backSource && backProjection) {
+      const frame = nativeFrame(backSource);
+      if (frame) placeProjection(backProjection, frame);
+    }
+    for (const { projection, actions } of toolbarProjections) {
+      const frames = actions.map(({ source }) => nativeFrame(source));
+      if (!frames.every((frame): frame is Frame => !!frame)) continue;
+      const x = Math.min(...frames.map((frame) => frame.x));
+      const y = Math.min(...frames.map((frame) => frame.y));
+      placeProjection(projection, {
+        x,
+        y,
+        width: Math.max(...frames.map((frame) => frame.x + frame.width)) - x,
+        height: Math.max(...frames.map((frame) => frame.y + frame.height)) - y,
+      });
+      if (actions.length > 1)
+        actions.forEach(({ projection: child }, index) => {
+          const frame = frames[index];
+          placeProjection(child, { ...frame, x: frame.x - x, y: frame.y - y }, 'absolute');
+        });
+    }
   };
   const update = () => {
     try {

@@ -39,6 +39,7 @@ for (const { edge, offset, scale } of [
       await action.click();
       await expect(popover).toBeVisible();
       await expect(popover.getByText('Hello World!')).toBeVisible();
+      await expect(popover.locator('[part~="content"]')).toHaveCSS('opacity', '1');
       await expect
         .poll(() =>
           popover.evaluate((element) => {
@@ -51,8 +52,7 @@ for (const { edge, offset, scale } of [
       const content = await popover.evaluate((element) =>
         element.shadowRoot!.querySelector<HTMLElement>('[part~="content"]')!.getBoundingClientRect().toJSON(),
       );
-      expect(content.y).toBeGreaterThan(anchor.y);
-      expect(content.y).toBeLessThan(anchor.y + anchor.height + 20);
+      expect(Math.abs(content.y + content.height / 2 - anchor.y - anchor.height / 2)).toBeLessThan(1);
       // A scaled pane can clamp the surface inward; its animation must still originate at the rail action.
       await expect
         .poll(() =>
@@ -64,8 +64,9 @@ for (const { edge, offset, scale } of [
           }, anchor),
         )
         .toBeLessThan(1);
-      if (edge === 'right') expect(content.x).toBeGreaterThan(scale === 1 ? 400 : 300);
-      else expect(content.x).toBeLessThan(100);
+      if (edge === 'right')
+        expect(content.x + content.width).toBeLessThanOrEqual(anchor.x + (reference === 'event' ? anchor.width / 2 : 0) + 1);
+      else expect(content.x).toBeGreaterThanOrEqual(anchor.x + (reference === 'event' ? anchor.width / 2 : anchor.width) - 1);
       await popover.evaluate((element: HTMLIonPopoverElement) => element.dismiss());
       await expect(action).toBeVisible();
     });

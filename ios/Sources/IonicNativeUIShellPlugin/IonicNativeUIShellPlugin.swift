@@ -393,23 +393,25 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private func activate(_ id: String) {
         sequence += 1
         var data: JSObject = ["id": id, "revision": revision, "sequence": sequence]
-        if let frame = projectedFrame(id) { data["projectionFrame"] = frame }
+        let frames = projectedFrames()
+        if let frame = frames[id] { data["projectionFrame"] = frame }
+        data["projectionFrames"] = frames
         notifyListeners("activate", data: data)
     }
 
-    private func projectedFrame(_ id: String) -> JSObject? {
-        guard let webView = bridge?.webView else { return nil }
-        func find(_ view: UIView) -> UIView? {
-            if view.accessibilityIdentifier == id { return view }
-            for child in view.subviews {
-                if let match = find(child) { return match }
+    private func projectedFrames() -> JSObject {
+        guard let webView = bridge?.webView else { return [:] }
+        var frames: JSObject = [:]
+        func collect(_ view: UIView) {
+            if let id = view.accessibilityIdentifier, frames[id] == nil {
+                let frame = webView.convert(view.bounds, from: view)
+                frames[id] = ["x": Double(frame.minX / projectionScale), "y": Double(frame.minY / projectionScale),
+                              "width": Double(frame.width / projectionScale), "height": Double(frame.height / projectionScale)]
             }
-            return nil
+            view.subviews.forEach(collect)
         }
         let roots = (verticalBars.map { [$0.view] } ?? []) + Array(controls.values)
-        guard let button = roots.lazy.compactMap({ find($0) }).first else { return nil }
-        let frame = webView.convert(button.bounds, from: button)
-        return ["x": Double(frame.minX / projectionScale), "y": Double(frame.minY / projectionScale),
-                "width": Double(frame.width / projectionScale), "height": Double(frame.height / projectionScale)]
+        roots.forEach(collect)
+        return frames
     }
 }

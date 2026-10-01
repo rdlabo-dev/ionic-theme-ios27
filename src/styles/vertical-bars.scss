@@ -279,6 +279,14 @@ ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left
   left: calc(24px + (48px - var(--ios-theme-side-tab-bar-width)) / 2);
 }
 
+// Native-sized replacements must not retain Ionic's fixed icon-button size.
+.ion-cloned-element[data-native-ui-shell-frame]::part(native) {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+
 .ios-theme-native-ui-shell-prehidden {
   position: absolute !important;
   visibility: hidden !important;
