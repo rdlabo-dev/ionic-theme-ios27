@@ -11,6 +11,7 @@ import type {
   WebViewMetrics,
 } from './definitions';
 import { createRuntime } from './runtime';
+import { createOverlayController } from './overlays/controller';
 import { createVerticalBarsWebProjection } from './vertical-bars-web';
 import { prehideVerticalBarsToolbarSources } from './prehide';
 import { observeVerticalBarsModals } from './shared/modal';
@@ -64,7 +65,7 @@ const manage = (
   handle: NativeUIShellHandle,
   lifecycle: {
     reason?: string;
-    suspend?: () => (() => void) | undefined;
+    suspend?: () => (() => void) | undefined | Promise<(() => void) | undefined>;
     /** Runs after teardown; clears the shared slot only while this activation owns it. */
     release?: () => void;
     destroy?: () => void | Promise<void>;
@@ -75,7 +76,7 @@ const manage = (
     getStatus: () => (lifecycle.reason ? { ...handle.getStatus(), reason: lifecycle.reason } : handle.getStatus()),
     async suspend() {
       const lease = await handle.suspend();
-      const resume = lifecycle.suspend?.();
+      const resume = await lifecycle.suspend?.();
       return {
         async resume() {
           await lease.resume();
@@ -203,6 +204,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     // Local source overrides can use this even when the startup projection is system.
     options.buttonDefaultFill ?? null,
     ...(['tabs', 'toolbar', 'segment', 'fab'] as const).map((component) => !controls || controls[component] === true),
+    controls?.modal === true,
   ]);
   if (active && activeConfiguration !== configuration)
     return Promise.reject(
@@ -235,6 +237,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     (async () => {
       if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
       let runtime: NativeUIShellHandle | undefined;
+      let overlays: ReturnType<typeof createOverlayController> | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
       let stopVerticalBarsLayout: (() => void) | undefined;
       try {
@@ -261,10 +264,19 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
           native,
           createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars() || native.getStatus().state === 'stopped'),
         );
+        if (controls?.modal === true) overlays = createOverlayController(document, plugin);
         return manage(runtime, {
-          suspend: () => prehide?.suspend(),
+          suspend: async () => {
+            const restorePrehide = prehide?.suspend();
+            const resumeOverlays = await overlays?.suspend();
+            return () => {
+              restorePrehide?.();
+              resumeOverlays?.();
+            };
+          },
           release,
           destroy: async () => {
+            await overlays?.destroy();
             await metricsListener?.remove().catch(() => {});
             stopVerticalBarsLayout?.();
             prehide?.stop();
@@ -272,6 +284,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
           },
         });
       } catch (error) {
+        await overlays?.destroy();
         await runtime?.destroy();
         await metricsListener?.remove().catch(() => {});
         stopVerticalBarsLayout?.();

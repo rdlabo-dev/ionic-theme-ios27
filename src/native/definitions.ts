@@ -47,6 +47,8 @@ export interface NativeUIShellControls {
   segment?: boolean;
   /** Projects floating action buttons. */
   fab?: boolean;
+  /** Preview: relays Modal content into a native-hosted WebView. Defaults to false. */
+  modal?: boolean;
 }
 
 export interface NativeUIShellHandle {
@@ -183,6 +185,10 @@ export interface WebViewMetrics {
 export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
+  prepareOverlay(options: { id: string }): Promise<void>;
+  presentOverlay(options: { id: string }): Promise<void>;
+  closeOverlay(options: { id: string }): Promise<void>;
+  stopOverlays(): Promise<void>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;

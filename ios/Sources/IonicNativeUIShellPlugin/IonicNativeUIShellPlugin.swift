@@ -10,8 +10,13 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "prepareOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "presentOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "closeOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopOverlays", returnType: CAPPluginReturnPromise)
     ]
+    private var overlays: ShellOverlayController?
     private var host: ShellHost?
     private var verticalBars: ShellVerticalBarsControlling?
     private var controls: [String: UIView] = [:]
@@ -72,6 +77,45 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
 
     deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    @objc func prepareOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let id = call.getString("id"),
+                  let webView = self.bridge?.webView, let owner = self.bridge?.viewController else {
+                call.reject("Overlay source unavailable"); return
+            }
+            if self.overlays == nil { self.overlays = ShellOverlayController(source: webView, owner: owner) }
+            guard self.overlays?.prepare(id) == true else { call.reject("An overlay window is already pending"); return }
+            call.resolve()
+        }
+    }
+
+    @objc func presentOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let overlays = self?.overlays, let id = call.getString("id") else {
+                call.reject("Overlay not prepared"); return
+            }
+            overlays.present(id) { presented in
+                if presented { call.resolve() } else { call.reject("Overlay presenter unavailable") }
+            }
+        }
+    }
+
+    @objc func closeOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let overlays = self?.overlays, let id = call.getString("id") else { call.resolve(); return }
+            overlays.close(id) { closed in
+                if closed { call.resolve() } else { call.reject("Dismiss the child overlay first") }
+            }
+        }
+    }
+
+    @objc func stopOverlays(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let overlays = self.overlays else { call.resolve(); return }
+            overlays.stop { self.overlays = nil; call.resolve() }
+        }
     }
 
     private func webViewMetrics() -> JSObject? {

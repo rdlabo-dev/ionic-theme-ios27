@@ -154,7 +154,23 @@ const shell = await enableNativeUIShell({
 const disabledShell = await enableNativeUIShell({ enabled: false });
 ```
 
-Omitting `controls` enables every supported control for backward compatibility. When `controls` is present, only entries set to `true` are native-eligible. Available entries are `tabs`, `toolbar`, `segment`, and `fab`.
+Omitting `controls` enables `tabs`, `toolbar`, `segment`, and `fab` for backward compatibility. Preview overlay projection defaults to `false`. When `controls` is present, only entries set to `true` are native-eligible. Available entries are `tabs`, `toolbar`, `segment`, `fab`, and `modal`.
+
+### Modal content relay (preview)
+
+Opt in with `controls.modal: true`. Keep calling Ionic's `ModalController` or using inline `ion-modal`; no separate controller is needed in application code:
+
+```ts
+await enableNativeUIShell({
+  controls: { tabs: true, toolbar: true, segment: true, fab: true, modal: true },
+});
+```
+
+Ionic keeps the original overlay host, controller registry, lifecycle and dismissal. Its content moves into a native-hosted WebView, preserving the existing component instance and application state. The relay manages styles, focus and cleanup. Omitting `modal`, or setting it to `false`, keeps ordinary Web rendering.
+
+The native overlay controller appears above the existing Native UI Shell. Controls inside relayed content, including toolbars and tabs, remain Web-rendered; the relay does not create another Native UI Shell inside the overlay.
+
+This preview currently relays Modal content only. It mirrors Ionic's geometry rather than replacing it with native Card or Sheet APIs. Sheet modals and `--height: auto` modals keep Web rendering because their gestures and content-driven sizing depend on the original content tree. Queries beneath the original overlay cannot find content while it is relayed. Unsupported nested overlays return active relays to the source WebView for the rest of that presentation. Suspending or destroying the shell also restores the content.
 
 For a custom modal or overlay that Native UI Shell cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
 
