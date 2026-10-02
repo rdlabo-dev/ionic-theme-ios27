@@ -161,6 +161,8 @@ export interface ShellSearchEvent extends ShellActivation {
 }
 
 export interface ShellSnapshot {
+  /** Internal projection destination; omitted for the Capacitor WebView. */
+  overlayId?: string;
   revision: number;
   transitionDuration?: number;
   viewportWidth: number;
@@ -172,6 +174,7 @@ export interface ShellSnapshot {
 }
 
 export interface ShellActivation {
+  overlayId?: string;
   revision: number;
   id: string;
   sequence: number;
@@ -185,13 +188,32 @@ export interface WebViewMetrics {
 export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
-  prepareOverlay(options: { id: string }): Promise<void>;
+  prepareOverlay(options: { id: string; presentation?: ShellModalPresentation }): Promise<void>;
   presentOverlay(options: { id: string }): Promise<void>;
+  setOverlayBreakpoint(options: { id: string; breakpoint: number }): Promise<void>;
+  dismissOverlay(options: { id: string; animated: boolean; gesture: boolean }): Promise<void>;
   closeOverlay(options: { id: string }): Promise<void>;
   stopOverlays(): Promise<void>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
-  clear(options: { revision: number }): Promise<void>;
+  clear(options: { revision: number; overlayId?: string }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
   addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'overlay', listener: (event: ShellOverlayEvent) => void): Promise<PluginListenerHandle>;
+}
+
+export interface ShellModalPresentation {
+  kind: 'normal' | 'card' | 'sheet';
+  animated: boolean;
+  breakpoints?: number[];
+  initialBreakpoint?: number;
+  backdropBreakpoint?: number;
+  expandToScroll?: boolean;
+  handle?: boolean;
+}
+
+export interface ShellOverlayEvent {
+  id: string;
+  action: 'dismiss' | 'breakpoint';
+  breakpoint?: number;
 }

@@ -45,7 +45,8 @@ export const createRuntime = async (
   options: NativeUIShellOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
-): Promise<NativeUIShellHandle> => {
+  overlayId?: string,
+): Promise<NativeUIShellHandle & { retain: () => () => void }> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
@@ -75,6 +76,7 @@ export const createRuntime = async (
   let dirty = false;
   let pending = false;
   let stopped = false;
+  let retentions = 0;
   /** True while a tab-switch handoff should skip crossfade. */
   let tabSwitchHandoff = false;
   /** Keep instant updates until this time — DidLeave often precedes the retire sync. */
@@ -302,6 +304,7 @@ export const createRuntime = async (
     handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalPresentHandoff || win.performance.now() < handoffUntil;
     modalPresentHandoff = false;
     try {
+      if (retentions && !manualSuspensions.size) return;
       const size = `${win.innerWidth}:${win.innerHeight}`;
       // WebKit can resize before Ionic's fixed DOM positions catch up.
       // Measure on the next frame instead of retiring a valid native search.
@@ -323,7 +326,7 @@ export const createRuntime = async (
           );
         }
       }
-      if (stopped || dirty) return;
+      if (stopped || dirty || (retentions && !manualSuspensions.size)) return;
       const retained = new Set(candidates.flatMap(candidateSources));
       const removed = Array.from(sources.keys()).filter((element) => !retained.has(element));
       if (removed.length) {
@@ -352,13 +355,13 @@ export const createRuntime = async (
       };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
-      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
+      const snapshot: ShellSnapshot = { ...data, overlayId, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
       updates++;
       updatingRevision = snapshot.revision;
       const result = await bounded(plugin.update(snapshot));
-      if (stopped) return;
+      if (stopped || (retentions && !manualSuspensions.size)) return;
       if (result.revision !== snapshot.revision) throw new Error('Native UI Shell revision mismatch');
       if (`${win.innerWidth}:${win.innerHeight}` !== size) {
         lastSnapshot = '';
@@ -633,7 +636,15 @@ export const createRuntime = async (
     on(win.visualViewport, 'resize', refreshLayout);
     on(win.visualViewport, 'scroll');
   }
-  const handle: NativeUIShellHandle = {
+  const handle: NativeUIShellHandle & { retain: () => () => void } = {
+    // A native overlay covers this surface; keep its controls and Web ownership intact.
+    retain() {
+      retentions++;
+      return () => {
+        retentions--;
+        schedule();
+      };
+    },
     getStatus: (): NativeUIShellStatus => ({
       state: stopped ? 'stopped' : sources.size ? 'native' : 'web',
       projected: sources.size,
@@ -671,9 +682,10 @@ export const createRuntime = async (
       search.destroy();
       crossfade.destroy();
       restoreAll();
-      if (!doc.hidden) await painted();
+      // A relayed surface closes with its native controller, not a Web crossfade.
+      if (!doc.hidden && !overlayId) await painted();
       try {
-        await bounded(plugin.clear({ revision: ++revision }));
+        await bounded(plugin.clear({ revision: ++revision, overlayId }));
       } catch {
         /* Always restore the Web, even after bridge loss. */
       }
@@ -694,6 +706,7 @@ export const createRuntime = async (
     if (
       stopped ||
       doc.hidden ||
+      event.overlayId !== overlayId ||
       event.revision < acceptedRevision ||
       event.revision > revision ||
       event.sequence <= lastSequence ||
@@ -726,7 +739,15 @@ export const createRuntime = async (
     listener = await bounded(plugin.addListener('activate', activate));
     searchListener = await bounded(
       plugin.addListener('search', (event) => {
-        if (stopped || doc.hidden || event.revision < acceptedRevision || event.revision > revision || overlayOpen()) return;
+        if (
+          event.overlayId !== overlayId ||
+          stopped ||
+          doc.hidden ||
+          event.revision < acceptedRevision ||
+          event.revision > revision ||
+          overlayOpen()
+        )
+          return;
         search.event(event);
       }),
     );
