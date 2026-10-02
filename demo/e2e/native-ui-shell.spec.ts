@@ -46,6 +46,11 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       notifyListeners(eventName: string, data: unknown) {
         for (const listener of this.listeners[eventName] ?? []) listener(data as never);
       },
+      async prepareOverlay() {
+        throw new Error('Native overlay unavailable');
+      },
+      async closeOverlay() {},
+      async stopOverlays() {},
       async configure(options: { verticalBarsOnly?: boolean }) {
         this.configuredWith = options;
         return { supported: true, verticalBars: nativeEdge !== null };
