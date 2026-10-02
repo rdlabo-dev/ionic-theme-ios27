@@ -92,11 +92,18 @@ ion-app.ios-theme-vertical-bars
   --ion-safe-area-left: 0px;
   --ion-safe-area-right: 0px;
 
-  // Collapse only toolbars whose entire element content has moved to the rail.
+  // Reserve the final layout before a page transition, using the same prehide
+  // decision as its controls. Confirmed projection keeps the toolbar collapsed.
   // Titles, custom content and horizontal-only controls keep the toolbar visible.
-  &:not([data-native-ui-shell-toolbar-text]):has(> [data-native-ui-shell], > ion-buttons > [data-native-ui-shell]):not(
-      :has(> :not(ion-buttons, [data-native-ui-shell]))
-    ):not(:has(> ion-buttons:not([data-native-ui-shell]) > :not([data-native-ui-shell]))) {
+  &:not([data-native-ui-shell-toolbar-text]):has(
+      > :is([data-native-ui-shell], .ios-theme-native-ui-shell-prehidden),
+      > ion-buttons > :is([data-native-ui-shell], .ios-theme-native-ui-shell-prehidden)
+    ):not(:has(> :not(ion-buttons, [data-native-ui-shell], .ios-theme-native-ui-shell-prehidden))):not(
+      :has(
+        > ion-buttons:not([data-native-ui-shell], .ios-theme-native-ui-shell-prehidden)
+          > :not([data-native-ui-shell], .ios-theme-native-ui-shell-prehidden)
+      )
+    ) {
     display: none;
   }
 

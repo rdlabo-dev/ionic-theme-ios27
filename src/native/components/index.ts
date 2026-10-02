@@ -6,7 +6,7 @@ import * as menuButton from './ion-menu-button';
 import * as tabBar from './ion-tab-bar';
 import * as segment from './ion-segment';
 import * as fab from './ion-fab';
-import { isDisabledButtonGroupChild, isVerticalBarsSource, visible } from '../shared/dom';
+import { isDisabledButtonGroupChild, isVerticalBarsSource, visible, withoutPrehide } from '../shared/dom';
 import type { Candidate, Identify } from '../shared/candidate';
 
 // Static composition only. Each component declares its own tag, discovery and reader.
@@ -48,5 +48,6 @@ export const readCandidate = (element: HTMLElement, id: Identify, options: Verti
   )
     return;
   if (element.contains(element.ownerDocument.activeElement)) return;
-  return components.find((component) => component.tag === element.localName)?.read(element, id, options);
+  // Read icon and control geometry before restoring prehide, which can collapse the toolbar.
+  return withoutPrehide(element, () => components.find((component) => component.tag === element.localName)?.read(element, id, options));
 };

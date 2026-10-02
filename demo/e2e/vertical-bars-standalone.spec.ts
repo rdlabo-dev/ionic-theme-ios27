@@ -120,7 +120,14 @@ for (const placement of ['Separate', 'Grouped']) {
     const toolbars = page.locator('app-button-projection ion-header > ion-toolbar');
     const actions = toolbars.nth(1);
     await expect(actions).toBeVisible();
-    await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+    const beforeProjection = await page.locator('ion-app').evaluate(async (element) => {
+      element.classList.add('ios-theme-vertical-bars');
+      // Flush prehide's mutation microtask, before the projection's animation frame.
+      await new Promise<void>((resolve) => queueMicrotask(() => queueMicrotask(resolve)));
+      const toolbar = element.querySelectorAll('app-button-projection ion-header > ion-toolbar')[1];
+      return { display: getComputedStyle(toolbar).display, projected: toolbar.querySelector('[data-native-ui-shell]') !== null };
+    });
+    expect(beforeProjection).toEqual({ display: 'none', projected: false });
     await expect(page.locator('ion-app > .ios-theme-vertical-bars-toolbar-projection').first()).toBeVisible();
     await expect(actions).toBeHidden();
     await expect(toolbars.first()).toBeVisible();
