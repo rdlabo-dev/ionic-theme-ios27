@@ -791,6 +791,19 @@ test('verticalBars toolbar sources are hidden before ownership and restored with
   await expect(source).toHaveCSS('visibility', 'visible');
 });
 
+test('verticalBars preserve toolbar layout around horizontal native controls and titles', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+  await expect(page.locator('app-native-ui-shell ion-segment')).toHaveAttribute('data-native-ui-shell', '');
+  const toolbars = page.locator('app-native-ui-shell ion-header > ion-toolbar');
+  for (const toolbar of await toolbars.all()) {
+    await expect(toolbar).toBeVisible();
+    expect(await toolbar.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThan(40);
+  }
+  await expect(page.locator('app-native-ui-shell ion-title').last()).toHaveText('Actions: 0 / 0');
+});
+
 test('rejected verticalBars control returns to an operable Web source', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui-shell');
