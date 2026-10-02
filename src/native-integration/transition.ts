@@ -1,4 +1,4 @@
-import type { AnimationBuilder } from '@ionic/core';
+import type { AnimationBuilder } from '@ionic/core/components';
 import { connectNativeUIShellTransition } from './index';
 
 /**

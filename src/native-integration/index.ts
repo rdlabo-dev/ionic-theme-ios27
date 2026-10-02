@@ -1,5 +1,5 @@
 /// <reference lib="es2021.weakref" />
-import type { Animation } from '@ionic/core';
+import type { Animation } from '@ionic/core/components';
 
 export interface NativeUIShellIntegration {
   suspend(scopes: HTMLElement[]): Promise<(canceled?: boolean) => void>;

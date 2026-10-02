@@ -1,4 +1,4 @@
-import { createAnimation } from '@ionic/core';
+import { createAnimation } from '@ionic/core/components/index.js';
 import { addSearchDismissButton } from './dismiss-button';
 import {
   ANIMATION_DELAY_BASE,

@@ -1,5 +1,5 @@
 import { createIosTransitionAnimation, shadow } from '@rdlabo/ionic-theme-utils';
-import type { Animation } from '@ionic/core';
+import type { Animation } from '@ionic/core/components';
 import type { TransitionOptions } from './index';
 import { getIonPageElement } from './index';
 import { withNativeUIShellTransition } from '../native-integration/transition';

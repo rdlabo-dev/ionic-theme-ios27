@@ -102,6 +102,17 @@ ion-app.ios-theme-vertical-bars
 
   // Collapse headers already sit inside the padded ion-content scroll area.
   &:not(:where(ion-header.header-collapse-condense *, ion-footer.footer-collapse-fade *)) {
+    // Ionic's centered iOS title is absolute and does not follow container padding.
+    // Center it within the same foreground width as the page content.
+    > ion-title.ios.title-default:not(.ios-theme-disabled, .ios26-disabled) {
+      inset-inline-start: var(--ios-theme-vertical-bars-safe-area-left-resolved);
+      width: calc(100% - var(--ios-theme-vertical-bars-safe-area-left-resolved) - var(--ios-theme-vertical-bars-safe-area-right-resolved));
+
+      &:dir(rtl) {
+        inset-inline-start: var(--ios-theme-vertical-bars-safe-area-right-resolved);
+      }
+    }
+
     &::part(container) {
       padding-inline-start: calc(var(--padding-start, 0px) + var(--ios-theme-vertical-bars-safe-area-left-resolved));
       padding-inline-end: calc(var(--padding-end, 0px) + var(--ios-theme-vertical-bars-safe-area-right-resolved));

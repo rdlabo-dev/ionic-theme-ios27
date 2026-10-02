@@ -4,6 +4,59 @@ import { compile } from 'sass';
 
 const verticalBars = compile(resolve(__dirname, '../../src/styles/vertical-bars.scss')).css;
 
+for (const direction of ['ltr', 'rtl']) {
+  for (const edge of ['left', 'right']) {
+    test(`iOS title centers in the remaining foreground with a ${edge} rail in ${direction}`, async ({ page }) => {
+      await page.setViewportSize({ width: 700, height: 900 });
+      await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1');
+      await page.addStyleTag({ content: verticalBars });
+      const app = page.locator('ion-app');
+      const title = page.locator('app-native-ui-shell ion-header ion-title').first();
+      await expect(title).toBeVisible();
+      await app.evaluate(
+        (element, placement) => {
+          document.documentElement.dir = placement.direction;
+          element.classList.add('ios-theme-vertical-bars');
+          element.classList.toggle('ios-theme-vertical-bars-left', placement.edge === 'left');
+        },
+        { direction, edge },
+      );
+
+      for (const inset of [0, 64, 80, 112]) {
+        await app.evaluate((element, value) => element.style.setProperty('--ios-theme-vertical-bars-native-inset', `${value}px`), inset);
+        await expect
+          .poll(() =>
+            title.evaluate(
+              (element, placement) => {
+                const toolbar = element.closest('ion-toolbar')!.getBoundingClientRect();
+                const range = document.createRange();
+                range.selectNodeContents(element);
+                const text = range.getBoundingClientRect();
+                const expected = toolbar.x + toolbar.width / 2 + (placement.edge === 'left' ? placement.inset : -placement.inset) / 2;
+                return Math.abs(text.x + text.width / 2 - expected);
+              },
+              { edge, inset },
+            ),
+          )
+          .toBeLessThan(0.5);
+      }
+
+      await app.evaluate((element) => element.classList.remove('ios-theme-vertical-bars'));
+      await expect
+        .poll(() =>
+          title.evaluate((element) => {
+            const toolbar = element.closest('ion-toolbar')!.getBoundingClientRect();
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            const text = range.getBoundingClientRect();
+            return Math.abs(text.x + text.width / 2 - toolbar.x - toolbar.width / 2);
+          }),
+        )
+        .toBeLessThan(0.5);
+    });
+  }
+}
+
 test('Vertical Control Area works in md mode with Ionic CSS and no iOS 27 theme', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
   await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1&ionicMode=md');
