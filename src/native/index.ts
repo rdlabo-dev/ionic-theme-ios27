@@ -90,8 +90,11 @@ const manage = (
       try {
         await handle.destroy();
       } finally {
-        await lifecycle.destroy?.();
-        lifecycle.release?.();
+        try {
+          await lifecycle.destroy?.();
+        } finally {
+          lifecycle.release?.();
+        }
       }
     },
   };

@@ -1,15 +1,15 @@
 import UIKit
 import WebKit
 
-/// Intercepts only a prepared blank window. All other UI-delegate requests keep Capacitor's behavior.
+/// Intercepts only a prepared blank window. Other requests keep Capacitor's behavior.
 final class ShellOverlayController: NSObject, WKUIDelegate {
     private weak var source: WKWebView?
     private weak var owner: UIViewController?
     private let original: WKUIDelegate?
     private let automaticallyOpensWindows: Bool
     private var prepared: String?
-    private var hosts: [String: ShellOverlayHost] = [:]
-    private var order: [String] = []
+    private var id: String?
+    private var host: ShellOverlayHost?
 
     init(source: WKWebView, owner: UIViewController) {
         self.source = source
@@ -17,7 +17,6 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         original = source.uiDelegate
         automaticallyOpensWindows = source.configuration.preferences.javaScriptCanOpenWindowsAutomatically
         super.init()
-        source.configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
         source.uiDelegate = self
     }
 
@@ -30,43 +29,47 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
     }
 
     func prepare(_ id: String) -> Bool {
-        guard prepared == nil, hosts[id] == nil else { return false }
+        guard prepared == nil, host == nil else { return false }
         prepared = id
+        source?.configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
         return true
     }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        guard let id = prepared, navigationAction.targetFrame == nil,
-              navigationAction.request.url?.absoluteString == "about:blank" else {
+        guard webView === source, navigationAction.sourceFrame.isMainFrame,
+              let prepared, navigationAction.targetFrame == nil,
+              navigationAction.request.url?.absoluteString == "about:blank#\(prepared)" else {
             return original?.webView?(webView, createWebViewWith: configuration,
                                       for: navigationAction, windowFeatures: windowFeatures)
         }
-        prepared = nil
+        self.prepared = nil
+        source?.configuration.preferences.javaScriptCanOpenWindowsAutomatically = automaticallyOpensWindows
+        id = prepared
         let host = ShellOverlayHost(configuration: configuration)
         host.webView.uiDelegate = self
         host.webView.frame = source?.bounds ?? .zero
-        hosts[id] = host
+        self.host = host
         return host.webView
     }
 
     func present(_ id: String, completion: @escaping (Bool) -> Void) {
-        guard let host = hosts[id], !order.contains(id),
-              let presenter = order.last.flatMap({ hosts[$0] }) ?? owner,
-              presenter.presentedViewController == nil else { completion(false); return }
-        order.append(id)
-        presenter.present(host, animated: false) { completion(true) }
+        guard self.id == id, let host, let owner,
+              owner.presentedViewController == nil else { completion(false); return }
+        owner.present(host, animated: false) { completion(true) }
     }
 
-    func close(_ id: String, completion: @escaping (Bool) -> Void) {
-        if prepared == id { prepared = nil; completion(true); return }
-        guard let host = hosts[id] else { completion(true); return }
-        guard !order.contains(id) || order.last == id else { completion(false); return }
+    func close(_ id: String, completion: @escaping () -> Void) {
+        if prepared == id {
+            prepared = nil
+            source?.configuration.preferences.javaScriptCanOpenWindowsAutomatically = automaticallyOpensWindows
+        }
+        guard self.id == id, let host else { completion(); return }
         let finish = { [self] in
-            hosts.removeValue(forKey: id)
-            order.removeAll { $0 == id }
             host.webView.uiDelegate = nil
-            completion(true)
+            self.host = nil
+            self.id = nil
+            completion()
         }
         if host.presentingViewController == nil { finish() }
         else { host.dismiss(animated: false, completion: finish) }
@@ -75,17 +78,13 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
     func stop(completion: @escaping () -> Void) {
         let finish = { [self] in
             prepared = nil
-            hosts.values.forEach { $0.webView.uiDelegate = nil }
-            hosts.removeAll()
-            order.removeAll()
             if let source, source.uiDelegate === self {
                 source.uiDelegate = original
                 source.configuration.preferences.javaScriptCanOpenWindowsAutomatically = automaticallyOpensWindows
             }
             completion()
         }
-        if let first = order.first.flatMap({ hosts[$0] }), first.presentingViewController != nil {
-            first.dismiss(animated: false, completion: finish)
-        } else { finish() }
+        if let id { close(id, completion: finish) }
+        else { finish() }
     }
 }

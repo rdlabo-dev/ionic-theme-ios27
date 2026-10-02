@@ -1,4 +1,5 @@
 import { moveContent } from './styles';
+import { activeElement } from './focus';
 
 /** Keep Ionic's host and animation wrapper in the source document. */
 export const relayModal = (
@@ -14,10 +15,16 @@ export const relayModal = (
   if (!wrapper || !slot) throw new Error('Modal content is not mounted');
   const content = slot.assignedElements().filter((element): element is HTMLElement => element.nodeType === 1);
   const shell = target.createElement('div');
+  shell.tabIndex = -1;
   shell.style.position = 'absolute';
   shell.style.overflow = 'hidden';
   destination.append(shell);
   const sync = () => {
+    for (const name of ['role', 'aria-modal', 'aria-label', 'aria-labelledby', 'aria-describedby']) {
+      const value = wrapper.getAttribute(name);
+      if (value === null) shell.removeAttribute(name);
+      else shell.setAttribute(name, value);
+    }
     const rect = wrapper.getBoundingClientRect();
     const css = win.getComputedStyle(wrapper);
     for (const name of Array.from(css)) if (name.startsWith('--')) shell.style.setProperty(name, css.getPropertyValue(name));
@@ -31,6 +38,7 @@ export const relayModal = (
     });
   };
   sync();
+  const focus = activeElement(doc) as HTMLElement | null;
   const restore = moveContent(content, shell);
   const visibility = wrapper.style.visibility;
   wrapper.style.visibility = 'hidden';
@@ -55,6 +63,10 @@ export const relayModal = (
     if (!event.composedPath().includes(shell) && overlay.backdropDismiss) void overlay.dismiss(undefined, 'backdrop');
   };
   target.addEventListener('click', backdrop);
+  const escape = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && overlay.backdropDismiss) void overlay.dismiss(undefined, 'backdrop');
+  };
+  target.addEventListener('keydown', escape);
   const resize = new ResizeObserver(sync);
   resize.observe(wrapper);
   const theme = new MutationObserver(sync);
@@ -64,10 +76,12 @@ export const relayModal = (
   palette.addEventListener('change', sync);
   target.defaultView!.addEventListener('resize', sync);
   if (presenting) track();
+  (focus?.isConnected && focus.ownerDocument === target ? focus : shell).focus({ preventScroll: true });
   return {
     root: shell,
     stop() {
       target.removeEventListener('click', backdrop);
+      target.removeEventListener('keydown', escape);
       win.cancelAnimationFrame(frame);
       resize.disconnect();
       theme.disconnect();

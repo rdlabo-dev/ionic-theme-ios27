@@ -105,9 +105,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     @objc func closeOverlay(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
             guard let overlays = self?.overlays, let id = call.getString("id") else { call.resolve(); return }
-            overlays.close(id) { closed in
-                if closed { call.resolve() } else { call.reject("Dismiss the child overlay first") }
-            }
+            overlays.close(id) { call.resolve() }
         }
     }
 
