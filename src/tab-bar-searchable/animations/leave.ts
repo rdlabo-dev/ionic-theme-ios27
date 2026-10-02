@@ -1,4 +1,5 @@
-import { Animation, createAnimation } from '@ionic/core';
+import type { Animation } from '@ionic/core/components';
+import { createAnimation } from '@ionic/core/components/index.js';
 import { ANIMATION_DELAY_CLOSE_BUTTONS, OPACITY_TRANSITION, type ElementReferences, type ElementSizes } from '@rdlabo/ionic-theme-utils';
 import { cloneElement } from '../../utils';
 

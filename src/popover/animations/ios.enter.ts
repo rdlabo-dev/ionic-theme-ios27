@@ -1,5 +1,5 @@
-import { createAnimation } from '@ionic/core';
-import type { Animation } from '@ionic/core';
+import { createAnimation } from '@ionic/core/components/index.js';
+import type { Animation } from '@ionic/core/components';
 import {
   calculateWindowAdjustment,
   createCalloutSurface,

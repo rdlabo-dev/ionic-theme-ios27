@@ -1,6 +1,6 @@
-import type { Animation, AnimationKeyFrames } from '@ionic/core';
+import type { Animation, AnimationKeyFrames, GestureDetail } from '@ionic/core/components';
 import { AnimationPosition, EffectScales } from './interfaces';
-import { createAnimation, GestureDetail } from '@ionic/core';
+import { createAnimation } from '@ionic/core/components/index.js';
 import { getStep } from '../utils';
 
 export const getScaleAnimation = (effectElement: Element): Animation => {
