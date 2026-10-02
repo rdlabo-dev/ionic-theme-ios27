@@ -240,7 +240,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     (async () => {
       if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
       let runtime: NativeUIShellHandle | undefined;
-      let overlays: ReturnType<typeof createOverlayController> | undefined;
+      let overlays: Awaited<ReturnType<typeof createOverlayController>> | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
       let stopVerticalBarsLayout: (() => void) | undefined;
       try {
@@ -267,7 +267,8 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
           native,
           createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars() || native.getStatus().state === 'stopped'),
         );
-        if (controls?.modal === true) overlays = createOverlayController(document, plugin);
+        if (controls?.modal === true)
+          overlays = await createOverlayController(document, plugin, options, native.retain, nativeVerticalBars);
         return manage(runtime, {
           suspend: async () => {
             const restorePrehide = prehide?.suspend();

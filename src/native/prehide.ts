@@ -138,7 +138,8 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
       Array.from(scopes.keys()).forEach(release);
       return;
     }
-    for (const scope of scopes.keys()) if (!scope.isConnected || !modalUsesVerticalBars(scope)) release(scope);
+    for (const scope of scopes.keys())
+      if (scope.ownerDocument !== doc || !scope.isConnected || !modalUsesVerticalBars(scope)) release(scope);
     for (const [element, pending] of pendingBacks) if (element.shadowRoot || element.classList.contains('hydrated')) capture(pending.scope);
     // Ionic inserts the destination as invisible before WillEnter. Hide its
     // sources in that same mutation microtask; capture new DOM identities on active pages too.

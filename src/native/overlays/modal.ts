@@ -1,20 +1,30 @@
-import { moveContent } from './styles';
+import type { ShellModalPresentation } from '../definitions';
+import { moveContent } from './content';
 import { activeElement } from './focus';
 
 /** Keep Ionic's host and animation wrapper in the source document. */
 export const relayModal = (
   overlay: HTMLIonModalElement,
   destination: HTMLElement,
-  presenting = true,
+  kind: ShellModalPresentation['kind'],
 ): { root: HTMLElement; stop: () => void } => {
+  const fillsViewport = kind !== 'normal';
   const doc = overlay.ownerDocument;
   const win = doc.defaultView!;
   const target = destination.ownerDocument;
   const wrapper = overlay.shadowRoot?.querySelector<HTMLElement>('.modal-wrapper');
+  const shadow = overlay.shadowRoot?.querySelector<HTMLElement>('.modal-shadow');
   const slot = wrapper?.querySelector('slot');
   if (!wrapper || !slot) throw new Error('Modal content is not mounted');
   const content = slot.assignedElements().filter((element): element is HTMLElement => element.nodeType === 1);
   const shell = target.createElement('div');
+  const shadowSurface = !fillsViewport && shadow ? target.createElement('div') : null;
+  if (shadowSurface) {
+    shadowSurface.style.position = 'absolute';
+    shadowSurface.style.pointerEvents = 'none';
+    shadowSurface.setAttribute('aria-hidden', 'true');
+    destination.append(shadowSurface);
+  }
   shell.tabIndex = -1;
   shell.style.position = 'absolute';
   shell.style.overflow = 'hidden';
@@ -27,38 +37,43 @@ export const relayModal = (
     }
     const rect = wrapper.getBoundingClientRect();
     const css = win.getComputedStyle(wrapper);
-    for (const name of Array.from(css)) if (name.startsWith('--')) shell.style.setProperty(name, css.getPropertyValue(name));
+    for (const name of Array.from(css))
+      if (name.startsWith('--') && !(fillsViewport && name.startsWith('--ion-safe-area-')))
+        shell.style.setProperty(name, css.getPropertyValue(name));
     Object.assign(shell.style, {
-      left: `${rect.x}px`,
-      top: `${rect.y}px`,
-      width: `${rect.width}px`,
-      height: `${rect.height}px`,
-      borderRadius: css.borderRadius,
+      left: fillsViewport ? '0' : `${rect.x}px`,
+      top: fillsViewport ? '0' : `${rect.y}px`,
+      width: fillsViewport ? '100%' : `${rect.width}px`,
+      height: fillsViewport ? '100%' : `${rect.height}px`,
+      borderRadius: fillsViewport ? '0' : css.borderRadius,
+      boxShadow: fillsViewport ? 'none' : css.boxShadow,
+      // UIKit owns the sheet outline. Keep Web backdrop filters inside its
+      // content viewport so the native outer shadow cannot bleed into headers.
+      clipPath: fillsViewport ? 'inset(0)' : css.clipPath,
       background: css.backgroundColor,
     });
+    if (shadowSurface) {
+      // Keep the shadow outside the clipped surface, as Ionic does. Otherwise
+      // translucent headers sample the shadow and acquire a dark inner edge.
+      Object.assign(shadowSurface.style, {
+        left: shell.style.left,
+        top: shell.style.top,
+        width: shell.style.width,
+        height: shell.style.height,
+        borderRadius: shell.style.borderRadius,
+        boxShadow: win.getComputedStyle(shadow!).boxShadow,
+      });
+    }
   };
   sync();
+  // Ionic limits the page to the visible Web sheet fraction. UIKit has already
+  // sized this viewport to that fraction, so applying it again leaves a gap.
+  const sheetPage = kind === 'sheet' && !overlay.expandToScroll ? overlay.querySelector<HTMLElement>('.ion-page') : null;
+  const maxHeight = sheetPage?.style.getPropertyValue('max-height') ?? '';
+  const maxHeightPriority = sheetPage?.style.getPropertyPriority('max-height') ?? '';
+  sheetPage?.style.setProperty('max-height', '100%', 'important');
   const focus = activeElement(doc) as HTMLElement | null;
   const restore = moveContent(content, shell);
-  const visibility = wrapper.style.visibility;
-  wrapper.style.visibility = 'hidden';
-  let frame = 0;
-  const tick = () => {
-    sync();
-    frame = win.requestAnimationFrame(tick);
-  };
-  const track = () => {
-    win.cancelAnimationFrame(frame);
-    frame = win.requestAnimationFrame(tick);
-  };
-  const settle = () => {
-    win.cancelAnimationFrame(frame);
-    sync();
-  };
-  // Follow Ionic's transitions rather than guessing their duration.
-  overlay.addEventListener('ionModalWillDismiss', track);
-  overlay.addEventListener('ionModalDidPresent', settle);
-  overlay.addEventListener('ionModalDidDismiss', settle);
   const backdrop = (event: MouseEvent) => {
     if (!event.composedPath().includes(shell) && overlay.backdropDismiss) void overlay.dismiss(undefined, 'backdrop');
   };
@@ -75,24 +90,20 @@ export const relayModal = (
   const palette = win.matchMedia('(prefers-color-scheme: dark)');
   palette.addEventListener('change', sync);
   target.defaultView!.addEventListener('resize', sync);
-  if (presenting) track();
   (focus?.isConnected && focus.ownerDocument === target ? focus : shell).focus({ preventScroll: true });
   return {
     root: shell,
     stop() {
       target.removeEventListener('click', backdrop);
       target.removeEventListener('keydown', escape);
-      win.cancelAnimationFrame(frame);
       resize.disconnect();
       theme.disconnect();
       palette.removeEventListener('change', sync);
       target.defaultView!.removeEventListener('resize', sync);
-      overlay.removeEventListener('ionModalWillDismiss', track);
-      overlay.removeEventListener('ionModalDidPresent', settle);
-      overlay.removeEventListener('ionModalDidDismiss', settle);
-      wrapper.style.visibility = visibility;
+      sheetPage?.style.setProperty('max-height', maxHeight, maxHeightPriority);
       restore();
       shell.remove();
+      shadowSurface?.remove();
     },
   };
 };
