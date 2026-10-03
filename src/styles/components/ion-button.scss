@@ -444,6 +444,7 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     ) {
     font-size: 1rem;
     font-weight: 400;
+    // TODO(v2.0.0): Remove .back-button-has-icon-only; Ionic only adds it to ion-back-button.
     &:not(.button-has-icon-only, .back-button-has-icon-only) {
       --padding-start: 16px;
       --padding-end: 16px;
