@@ -478,8 +478,8 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
         --padding-start: 12px;
         --padding-end: 12px;
         &.button-has-icon-only {
-          --padding-start: 4px;
-          --padding-end: 4px;
+          --padding-start: 2px;
+          --padding-end: 2px;
           &::part(native) {
             width: 36px;
           }
