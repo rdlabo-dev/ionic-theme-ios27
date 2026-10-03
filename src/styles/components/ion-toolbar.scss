@@ -19,9 +19,7 @@ ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
 }
 
 @media (min-width: 768px) and (min-height: 600px) {
-  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled),
-  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card,
-  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled):not(.modal-sheet) {
     ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
       // Centered system dialogs retain a 10px top inset.
       padding-top: 0;
@@ -120,10 +118,13 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
   // Same-slot actions share the 12px gap without doubling their outer margins.
   @each $slot in start, end, primary, secondary {
-    > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']:has(~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']) {
+    > :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}']:has(
+        ~ :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}']
+      ) {
       margin-inline-end: 6px;
     }
-    > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] ~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] {
+    > :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}']
+      ~ :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}'] {
       margin-inline-start: 6px;
     }
   }
