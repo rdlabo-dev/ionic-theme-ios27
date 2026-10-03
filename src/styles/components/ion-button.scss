@@ -452,10 +452,8 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(
       :has(ion-back-button, ion-button:not(.button-clear), ion-menu-button.menu-button-hidden, .button-small, .button-large)
     ) {
-    box-sizing: border-box;
     height: 44px;
     padding-inline: 3.5px;
-    gap: 16px;
 
     ion-button.ios:not(.ios-theme-disabled, .ios26-disabled).button-clear {
       // Keep the action's hit area through the group's height, while the
@@ -471,8 +469,8 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
         min-height: 36px;
       }
     }
-    // A single toolbar item keeps its standalone padding. Groups reduce that
-    // padding and add spacing between independent actions.
+    // A single toolbar item keeps its standalone padding;
+    // grouped actions use the compact padding.
     &:not(:has(ion-button ~ ion-button, ion-menu-button)) {
       ion-button.ios:not(.ios-theme-disabled, .ios26-disabled).button-clear {
         --padding-start: 12px;
