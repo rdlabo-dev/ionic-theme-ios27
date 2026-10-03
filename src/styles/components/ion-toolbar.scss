@@ -13,22 +13,27 @@ ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar:not(.ios-th
 ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card,
 ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
   ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
-    padding-top: 0;
+    // The system's modal safe area places the 44px control 16px below the
+    // content edge, with or without a sheet drag indicator.
+    padding-top: 6px;
     padding-bottom: 0;
     --min-height: 64px;
-    --padding-start: 3px;
-    --padding-end: 3px;
+    --padding-start: 4px;
+    --padding-end: 4px;
   }
 }
 
 @media (min-width: 768px) and (min-height: 600px) {
-  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled),
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card,
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
     ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
+      // Centered system dialogs retain a 10px top inset.
       padding-top: 0;
       padding-bottom: 0;
       --min-height: 64px;
-      --padding-start: 3px;
-      --padding-end: 3px;
+      --padding-start: 4px;
+      --padding-end: 4px;
     }
   }
 }
@@ -105,5 +110,19 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
   ion-buttons > ion-back-button {
     margin-inline: 0;
+  }
+
+  // Keep the outer inset for individual actions too. Adjacent actions in the
+  // same slot share a 12px gap rather than adding two outer margins together.
+  > ion-button:not(.ios-theme-disabled, .ios26-disabled) {
+    margin-inline: 12px;
+  }
+  @each $slot in start, end, primary, secondary {
+    > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']:has(~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']) {
+      margin-inline-end: 6px;
+    }
+    > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] ~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] {
+      margin-inline-start: 6px;
+    }
   }
 }

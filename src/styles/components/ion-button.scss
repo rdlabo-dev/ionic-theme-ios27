@@ -436,3 +436,56 @@ ion-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
 ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   @include theme-button($is-back-button: true);
 }
+
+// Toolbar typography and spacing follow system toolbar controls. Keep the
+// back button's optional title; only its layout shares these defaults.
+ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
+  :is(ion-button, ion-back-button).ios:not(.ios-theme-disabled, .ios26-disabled):not(.button-small, .button-large) {
+    font-size: 1rem;
+    font-weight: 400;
+    &:not(.button-has-icon-only, .back-button-has-icon-only) {
+      --padding-start: 16px;
+      --padding-end: 16px;
+    }
+  }
+
+  ion-buttons.ios:not(.ios-theme-disabled, .ios26-disabled):not(
+      :has(ion-back-button, ion-button:not(.button-clear), ion-menu-button.menu-button-hidden, .button-small, .button-large)
+    ) {
+    box-sizing: border-box;
+    height: 44px;
+    padding-inline: 3.5px;
+    gap: 16px;
+
+    ion-menu-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
+      width: 36px;
+      height: 100%;
+    }
+
+    ion-button.ios:not(.ios-theme-disabled, .ios26-disabled).button-clear {
+      // Keep the action's hit area through the group's height, while the
+      // inner plain control follows the system's 36px visual layout.
+      height: 100%;
+      display: inline-flex;
+      align-items: center;
+      --padding-start: 7px;
+      --padding-end: 7px;
+      &::part(native) {
+        width: auto;
+        height: 36px;
+        min-height: 36px;
+      }
+    }
+    // A single toolbar item keeps its standalone padding. Groups reduce that
+    // padding and add spacing between independent actions.
+    &:not(:has(ion-button ~ ion-button, ion-menu-button)) {
+      ion-button.ios:not(.ios-theme-disabled, .ios26-disabled).button-clear {
+        --padding-start: 12px;
+        --padding-end: 12px;
+        &.button-has-icon-only::part(native) {
+          width: 36px;
+        }
+      }
+    }
+  }
+}
