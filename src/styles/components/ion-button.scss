@@ -477,13 +477,6 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       ion-button.ios:not(.ios-theme-disabled, .ios26-disabled).button-clear {
         --padding-start: 12px;
         --padding-end: 12px;
-        &.button-has-icon-only {
-          --padding-start: 2px;
-          --padding-end: 2px;
-          &::part(native) {
-            width: 36px;
-          }
-        }
       }
     }
   }
