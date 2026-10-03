@@ -463,6 +463,8 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     ) {
     height: 44px;
     padding-inline: 3.5px;
+    // SwiftUI toolbar items share glass with 16pt between their inner controls.
+    gap: 16px;
 
     ion-button.ios:not(.ios-theme-disabled, .ios26-disabled).button-clear {
       // Keep the action's hit area through the group's height, while the

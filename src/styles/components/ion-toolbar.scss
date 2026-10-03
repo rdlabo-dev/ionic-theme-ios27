@@ -111,16 +111,28 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   > ion-button:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline: 12px;
   }
+  // Rail sources leave toolbar layout; ordinary native projection retains it.
+  $action: ':is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden], .ios-theme-native-ui-shell-prehidden, [data-native-ui-shell][data-native-ui-shell-vertical-bars])';
   @each $slot in start, end, primary, secondary {
     // Keep standalone margins when the slot includes an opted-out action.
-    &:not(:has(> :is(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}'])) {
-      > :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']:has(
-          ~ :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']
-        ) {
+    &:not(:has(> #{$action}:is(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}'])) {
+      > #{$action}[slot='#{$slot}']:has(~ #{$action}[slot='#{$slot}']) {
         margin-inline-end: 6px;
       }
-      > :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']
-        ~ :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}'] {
+      > #{$action}[slot='#{$slot}'] ~ #{$action}[slot='#{$slot}'] {
+        margin-inline-start: 6px;
+      }
+    }
+  }
+  // Ionic orders these slots together, independently of their DOM order.
+  @each $first, $second in (start, secondary), (primary, end) {
+    &:has(> #{$action}[slot='#{$first}']):has(> #{$action}[slot='#{$second}']):not(
+        :has(> #{$action}:is(.ios-theme-disabled, .ios26-disabled):is([slot='#{$first}'], [slot='#{$second}']))
+      ) {
+      > #{$action}[slot='#{$first}']:not(:has(~ #{$action}[slot='#{$first}'])) {
+        margin-inline-end: 6px;
+      }
+      > #{$action}[slot='#{$second}']:not(#{$action}[slot='#{$second}'] ~ #{$action}[slot='#{$second}']) {
         margin-inline-start: 6px;
       }
     }
