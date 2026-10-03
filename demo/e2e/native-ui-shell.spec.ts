@@ -3412,3 +3412,33 @@ test('tab visibility ignores query parameters and fragments', async ({ page }) =
   await page.goto('/main/index?verticalBarsOnly&buttonDefaultFill=solid#comparison');
   await expect(page.locator('ion-tab-bar')).not.toHaveClass(/tab-bar-hidden/);
 });
+
+for (const kind of ['popover', 'alert'] as const) {
+  test(`native ${kind} relay preserves live handlers after blank navigation and closes its window`, async ({ page }) => {
+    await mockNative(page);
+    await page.goto(`/main/index/${kind}`);
+    await page.evaluate(() => {
+      Object.assign(Capacitor.registerPlugin('IonicNativeUIShell'), {
+        async prepareOverlay() {},
+        async presentOverlay() {},
+        async dismissOverlay() {},
+      });
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const opened = page.waitForEvent('popup');
+      await page.getByRole('button', { name: kind === 'popover' ? 'Compact controller popover' : 'Input alert', exact: true }).click();
+      const relay = await opened;
+      if (kind === 'popover') {
+        await relay.getByRole('button', { name: 'Increment', exact: true }).click();
+        await expect(relay.getByText('Count: 1', { exact: true })).toBeVisible();
+        await relay.evaluate(() => (document.querySelector('ion-popover') as HTMLIonPopoverElement).dismiss());
+      } else {
+        await relay.getByPlaceholder('Your name').fill('Relay');
+        await relay.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(page.getByText('Saved input: Relay', { exact: true })).toBeVisible();
+      }
+      await expect.poll(() => relay.isClosed()).toBe(true);
+      await expect(page.locator(`ion-${kind}:not(.overlay-hidden)`)).toHaveCount(0);
+    }
+  });
+}

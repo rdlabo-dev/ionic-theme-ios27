@@ -1,3 +1,4 @@
+import { projectionIds } from './shared/projection-id';
 import { inVerticalBarsSurface, topModal, modalUsesVerticalBars, modalVerticalBarFrame } from './shared/modal';
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core';
@@ -108,6 +109,7 @@ export const createRuntime = async (
     if (!value) {
       value = `shell-${++nextId}`;
       ids.set(element, value);
+      projectionIds.set(element, value);
     }
     return value;
   };

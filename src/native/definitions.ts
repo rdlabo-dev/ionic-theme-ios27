@@ -49,6 +49,10 @@ export interface NativeUIShellControls {
   fab?: boolean;
   /** Preview: relays Modal content into a native-hosted WebView. Defaults to false. */
   modal?: boolean;
+  /** Preview: relays Popover content into a native popover. Defaults to false. */
+  popover?: boolean;
+  /** Preview: relays Alert content above Native UI Shell. Defaults to false. */
+  alert?: boolean;
 }
 
 export interface NativeUIShellHandle {
@@ -188,7 +192,7 @@ export interface WebViewMetrics {
 export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
-  prepareOverlay(options: { id: string; presentation?: ShellModalPresentation }): Promise<void>;
+  prepareOverlay(options: { id: string; presentation?: ShellOverlayPresentation }): Promise<void>;
   presentOverlay(options: { id: string }): Promise<void>;
   setOverlayBreakpoint(options: { id: string; breakpoint: number }): Promise<void>;
   dismissOverlay(options: { id: string; animated: boolean; gesture: boolean }): Promise<void>;
@@ -211,6 +215,20 @@ export interface ShellModalPresentation {
   expandToScroll?: boolean;
   handle?: boolean;
 }
+
+export interface ShellPopoverPresentation {
+  kind: 'popover';
+  animated: boolean;
+  dark: boolean;
+  anchorId?: string;
+  anchor: Frame;
+  width: number;
+  height: number;
+  backgroundColor: string;
+  backdropDismiss: boolean;
+}
+
+export type ShellOverlayPresentation = ShellModalPresentation | ShellPopoverPresentation | { kind: 'alert'; animated: boolean };
 
 export interface ShellOverlayEvent {
   id: string;

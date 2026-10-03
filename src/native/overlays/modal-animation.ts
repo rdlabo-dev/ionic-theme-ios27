@@ -1,5 +1,5 @@
 import type { ShellModalPresentation } from '../definitions';
-import { createAnimation } from '@ionic/core';
+import { dismissAnimation } from './dismiss-animation';
 import { preserveModalBackground } from './modal-background';
 
 /** Keep Ionic's gesture setup, but let UIKit animate the relayed presentation. */
@@ -21,15 +21,7 @@ export const nativeModalAnimation = (
   for (const { element } of surfaces) element.style.visibility = 'hidden';
   const dismiss = (event: Event) => {
     const closing = close((event as CustomEvent).detail.role === 'gesture');
-    overlay.leaveAnimation = () => {
-      const animation = createAnimation();
-      const play = animation.play;
-      animation.play = async (options) => {
-        await closing;
-        await play(options);
-      };
-      return animation;
-    };
+    overlay.leaveAnimation = () => dismissAnimation(closing);
   };
   overlay.addEventListener('ionModalWillDismiss', dismiss);
   return {

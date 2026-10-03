@@ -106,7 +106,25 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             guard let overlays = self?.overlays, let id = call.getString("id") else {
                 call.reject("Overlay not prepared"); return
             }
-            overlays.present(id) { presented in
+            overlays.present(id, anchored: { [weak self] anchor, host, completion in
+                guard #available(iOS 26.0, *), let self else { return false }
+                if self.verticalBars?.presentPopover(host, for: anchor, completion: completion) == true { return true }
+                func findButton(in view: UIView) -> UIButton? {
+                    if view.accessibilityIdentifier == anchor, let button = view as? UIButton { return button }
+                    for child in view.subviews { if let button = findButton(in: child) { return button } }
+                    return nil
+                }
+                guard let button = self.controls.values.compactMap({ findButton(in: $0) }).first,
+                      let owner = self.bridge?.viewController else { return false }
+                host.modalPresentationStyle = .popover
+                guard let popover = host.popoverPresentationController else { return false }
+                popover.delegate = host
+                popover.sourceView = button
+                popover.sourceRect = button.bounds
+                popover.backgroundColor = ShellRendering().color(host.options?["backgroundColor"] as? String)
+                owner.present(host, animated: host.options?["animated"] as? Bool ?? false, completion: completion)
+                return true
+            }) { presented in
                 if presented { call.resolve() } else { call.reject("Overlay presenter unavailable") }
             }
         }

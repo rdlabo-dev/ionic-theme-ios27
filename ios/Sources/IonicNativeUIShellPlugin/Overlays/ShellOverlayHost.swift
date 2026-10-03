@@ -2,7 +2,7 @@ import UIKit
 import WebKit
 
 /// Ionic owns dismissal permission; UIKit owns modal presentation.
-final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDelegate {
+final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDelegate, UIPopoverPresentationControllerDelegate {
     let webView: WKWebView
     let options: [String: Any]?
     let event: (String, Double?) -> Void
@@ -11,13 +11,24 @@ final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDel
     var projectionSequence = 0
     private var dismissalSnapshot: UIView?
 
+    var dismissAnchored: (() -> Void)?
+    var anchoredVisible = false
+    var anchoredDidDismiss: (() -> Void)?
+
     init(configuration: WKWebViewConfiguration, options: [String: Any]?, event: @escaping (String, Double?) -> Void) {
         webView = WKWebView(frame: .zero, configuration: configuration)
         self.options = options
         self.event = event
         super.init(nibName: nil, bundle: nil)
-        modalPresentationStyle = options == nil || options?["kind"] as? String == "normal" ? .overFullScreen : .pageSheet
-        isModalInPresentation = true
+        let kind = options?["kind"] as? String
+        modalPresentationStyle = kind == "popover" && options?["anchorId"] == nil ? .popover : (kind == "card" || kind == "sheet" ? .pageSheet : .overFullScreen)
+        if kind == "popover" {
+            overrideUserInterfaceStyle = options?["dark"] as? Bool == true ? .dark : .light
+            preferredContentSize = CGSize(width: options?["width"] as? Double ?? 280, height: options?["height"] as? Double ?? 200)
+        }
+        if kind == "alert" { modalTransitionStyle = .crossDissolve }
+        isModalInPresentation = kind != "popover"
+        if modalPresentationStyle == .popover { popoverPresentationController?.delegate = self }
         configureSheet()
     }
 
@@ -29,12 +40,36 @@ final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDel
         webView.scrollView.backgroundColor = .clear
         view = UIView(frame: webView.frame)
         view.backgroundColor = .clear
-        webView.frame = view.bounds
-        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(webView)
+        if options?["kind"] as? String == "popover" {
+            webView.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                webView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+                webView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
+                webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+                webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+            ])
+        } else {
+            webView.frame = view.bounds
+            webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        }
+    }
+
+    func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle { .none }
+
+    func popoverPresentationControllerShouldDismissPopover(_ popoverPresentationController: UIPopoverPresentationController) -> Bool {
+        options?["backdropDismiss"] as? Bool != false
+    }
+
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        if options?["kind"] as? String == "popover" { event("dismiss", nil) }
     }
 
     func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
+        if options?["kind"] as? String == "popover" {
+            if options?["backdropDismiss"] as? Bool != false { event("dismiss", nil) }
+            return
+        }
         let breakpoints = options?["breakpoints"] as? [Double] ?? []
         if options?["kind"] as? String == "card" || breakpoints.contains(0) {
             // Ionic skips its leave animation for the gesture role and may immediately destroy its content.

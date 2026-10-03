@@ -2,9 +2,11 @@ import UIKit
 
 extension ShellOverlayHost {
     func configureSheet() {
-        guard #available(iOS 16.0, *), let options, let sheet = sheetPresentationController else { return }
+        guard #available(iOS 16.0, *), let options,
+              let kind = options["kind"] as? String, kind == "card" || kind == "sheet",
+              let sheet = sheetPresentationController else { return }
         sheet.delegate = self
-        if options["kind"] as? String == "card" {
+        if kind == "card" {
             sheet.detents = [.large()]
             return
         }

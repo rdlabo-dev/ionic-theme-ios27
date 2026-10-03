@@ -48,7 +48,10 @@ const buttonProjection = new URLSearchParams(window.location.search).get('button
 void startShell({
   buttonProjection,
   buttonDefaultFill,
-  controls: startShell === enableNativeUIShell ? { tabs: true, toolbar: true, segment: true, fab: true, modal: true } : undefined,
+  controls:
+    startShell === enableNativeUIShell
+      ? { tabs: true, toolbar: true, segment: true, fab: true, modal: true, popover: true, alert: true }
+      : undefined,
 }).then((handle) => {
   const app = document.querySelector('ion-app');
   if (app) Object.assign(app, { nativeUIShell: handle });

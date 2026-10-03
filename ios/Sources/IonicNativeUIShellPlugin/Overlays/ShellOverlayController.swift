@@ -57,15 +57,33 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         return host.webView
     }
 
-    func present(_ id: String, completion: @escaping (Bool) -> Void) {
+    func present(_ id: String, anchored: (String, ShellOverlayHost, @escaping () -> Void) -> Bool,
+                 completion: @escaping (Bool) -> Void) {
         guard self.id == id, let host, let owner,
               owner.presentedViewController == nil else { completion(false); return }
+        if host.options?["kind"] as? String == "popover", let anchor = host.options?["anchorId"] as? String {
+            if !anchored(anchor, host, { completion(true) }) { completion(false) }
+            return
+        }
+        if let popover = host.popoverPresentationController,
+           let anchor = host.options?["anchor"] as? [String: Double] {
+            popover.sourceView = source
+            popover.sourceRect = CGRect(x: anchor["x"] ?? 0, y: anchor["y"] ?? 0,
+                                        width: anchor["width"] ?? 1, height: anchor["height"] ?? 1)
+            popover.backgroundColor = ShellRendering().color(host.options?["backgroundColor"] as? String)
+        }
         owner.present(host, animated: host.options?["animated"] as? Bool ?? false) { completion(true) }
     }
 
     // Keep the WebView alive until JavaScript has restored the adopted nodes and listeners.
     func dismiss(_ id: String, animated: Bool, gesture: Bool, completion: @escaping () -> Void) {
-        guard self.id == id, let host, host.presentingViewController != nil else { completion(); return }
+        guard self.id == id, let host else { completion(); return }
+        if let dismiss = host.dismissAnchored {
+            if host.anchoredVisible { host.anchoredDidDismiss = completion; dismiss() }
+            else { completion() }
+            return
+        }
+        guard host.presentingViewController != nil else { completion(); return }
         if gesture { host.showDismissalSnapshot() }
         host.dismiss(animated: animated, completion: completion)
     }
@@ -83,7 +101,8 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
             self.id = nil
             completion()
         }
-        if host.presentingViewController == nil { finish() }
+        if let dismiss = host.dismissAnchored, host.anchoredVisible { host.anchoredDidDismiss = finish; dismiss() }
+        else if host.presentingViewController == nil { finish() }
         else { host.dismiss(animated: false, completion: finish) }
     }
 

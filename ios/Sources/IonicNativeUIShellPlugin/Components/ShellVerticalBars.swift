@@ -7,6 +7,7 @@ protocol ShellVerticalBarsControlling: AnyObject {
     func attach(to owner: UIViewController, in parent: UIView)
     @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
     var ownsKeyboardChrome: Bool { get }
+    func presentPopover(_ host: ShellOverlayHost, for id: String, completion: @escaping () -> Void) -> Bool
     func detach()
 }
 
@@ -38,6 +39,7 @@ final class ShellVerticalBarsModel: ObservableObject {
     @Published var tabs: [Item] = []
     @Published var selection = ""
     var activate: (String) -> Void = { _ in }
+    @Published var popover: ShellAnchoredPopover?
     private var domSelection = ""
     private var pendingSelection: ShellTabBar.PendingSelection?
     private var pendingExpiryWork: DispatchWorkItem?
@@ -116,6 +118,17 @@ private func verticalBarsButton(_ item: ShellVerticalBarsModel.Item, model: Shel
         .disabled(item.disabled)
         .accessibilityLabel(item.accessibilityLabel)
         .accessibilityIdentifier(item.id)
+        .popover(item: Binding(
+            get: { model.popover?.id == item.id ? model.popover : nil },
+            set: { value in
+                if value == nil, let popover = model.popover, popover.id == item.id {
+                    model.popover = nil
+                    popover.host.event("dismiss", nil)
+                }
+            }
+        )) { popover in
+            ShellOverlayPopover(presentation: popover)
+        }
     if let background = item.background {
         button.buttonStyle(.glassProminent).tint(background)
     } else {
@@ -384,6 +397,13 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     private let changed: (String, ShellSearchPhase, String, Bool, Int) -> Int
 
     var view: UIView { container }
+
+    func presentPopover(_ host: ShellOverlayHost, for id: String, completion: @escaping () -> Void) -> Bool {
+        guard model.groups.contains(where: { $0.items.contains(where: { $0.id == id }) }) else { return false }
+        host.dismissAnchored = { [weak model] in model?.popover = nil }
+        model.popover = ShellAnchoredPopover(id: id, host: host, presented: completion)
+        return true
+    }
 
     var ownsKeyboardChrome: Bool { model.search?.ownsKeyboardChrome == true }
 

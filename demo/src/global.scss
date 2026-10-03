@@ -228,3 +228,10 @@ app-settings-page {
     }
   }
 }
+
+ion-popover.demo-compact-popover {
+  --height: 64px;
+}
+ion-popover.demo-scrollable-popover {
+  --height: 240px;
+}

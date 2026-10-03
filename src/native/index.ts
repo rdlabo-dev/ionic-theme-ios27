@@ -208,6 +208,8 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     options.buttonDefaultFill ?? null,
     ...(['tabs', 'toolbar', 'segment', 'fab'] as const).map((component) => !controls || controls[component] === true),
     controls?.modal === true,
+    controls?.popover === true,
+    controls?.alert === true,
   ]);
   if (active && activeConfiguration !== configuration)
     return Promise.reject(
@@ -267,7 +269,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
           native,
           createVerticalBarsWebProjection(document, options, () => !nativeVerticalBars() || native.getStatus().state === 'stopped'),
         );
-        if (controls?.modal === true)
+        if (controls?.modal === true || controls?.popover === true || controls?.alert === true)
           overlays = await createOverlayController(document, plugin, options, native.retain, nativeVerticalBars);
         return manage(runtime, {
           suspend: async () => {

@@ -1,6 +1,5 @@
 import type { ShellModalPresentation } from '../definitions';
 import { moveContent } from './content';
-import { activeElement } from './focus';
 
 /** Keep Ionic's host and animation wrapper in the source document. */
 export const relayModal = (
@@ -72,7 +71,6 @@ export const relayModal = (
   const maxHeight = sheetPage?.style.getPropertyValue('max-height') ?? '';
   const maxHeightPriority = sheetPage?.style.getPropertyPriority('max-height') ?? '';
   sheetPage?.style.setProperty('max-height', '100%', 'important');
-  const focus = activeElement(doc) as HTMLElement | null;
   const restore = moveContent(content, shell);
   const backdrop = (event: MouseEvent) => {
     if (!event.composedPath().includes(shell) && overlay.backdropDismiss) void overlay.dismiss(undefined, 'backdrop');
@@ -90,7 +88,6 @@ export const relayModal = (
   const palette = win.matchMedia('(prefers-color-scheme: dark)');
   palette.addEventListener('change', sync);
   target.defaultView!.addEventListener('resize', sync);
-  (focus?.isConnected && focus.ownerDocument === target ? focus : shell).focus({ preventScroll: true });
   return {
     root: shell,
     stop() {

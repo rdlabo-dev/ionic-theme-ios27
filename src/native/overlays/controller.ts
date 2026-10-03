@@ -3,13 +3,21 @@ import { isPermanentlyExcluded, isShellDisabled } from '../shared/dom';
 import { relayVerticalBars } from './vertical-bars';
 import { activeElement, trapFocus } from './focus';
 import { relayModal } from './modal';
+import { relayPopover, popoverPresentation } from './popover';
+import { relayAlert } from './alert';
+import { nativeDialogAnimation } from './dialog-animation';
 import { relayStyles } from './styles';
 import { modalPresentation, syncModalBreakpoint } from './modal-presentation';
 import { nativeModalAnimation } from './modal-animation';
 
+type Presentation = ShellModalPresentation | { kind: 'popover'; animated: boolean } | { kind: 'alert'; animated: boolean };
+type Overlay = HTMLIonModalElement | HTMLIonPopoverElement | HTMLIonAlertElement;
+const lifecycle = (overlay: Overlay, phase: string) =>
+  `ion${overlay.localName.slice(4, 5).toUpperCase()}${overlay.localName.slice(5)}${phase}`;
+
 interface Connection {
   id: string;
-  overlay: HTMLIonModalElement;
+  overlay: Overlay;
   dismissed: boolean;
   win?: Window;
   focus: Element | null;
@@ -67,7 +75,7 @@ export const createOverlayController = async (
     if (current) await release(current);
   };
   const excluded = (overlay: HTMLElement) => isPermanentlyExcluded(overlay) || isShellDisabled(overlay);
-  const connect = async (connection: Connection, ready: Promise<void>, presentation: ShellModalPresentation) => {
+  const connect = async (connection: Connection, ready: Promise<void>, presentation: Presentation) => {
     const { overlay } = connection;
     // Ionic initializes its gestures after didPresent. Let that turn finish before adopting their content.
     await ready;
@@ -78,7 +86,11 @@ export const createOverlayController = async (
       return;
     }
     try {
-      await plugin.prepareOverlay({ id: connection.id, presentation });
+      const nativePresentation =
+        presentation.kind === 'popover'
+          ? { ...popoverPresentation(overlay as HTMLIonPopoverElement), animated: presentation.animated }
+          : presentation;
+      await plugin.prepareOverlay({ id: connection.id, presentation: nativePresentation });
       if (current !== connection || stopped || suspensions.size || connection.dismissed || excluded(overlay)) {
         await release(connection);
         return;
@@ -86,6 +98,14 @@ export const createOverlayController = async (
       const win = doc.defaultView!.open(`about:blank#${connection.id}`, '_blank');
       if (!win) throw new Error('Native overlay window unavailable');
       connection.win = win;
+      // The requested blank page replaces the initial document created by window.open.
+      // Adopt nodes only after that navigation; otherwise WebKit discards the relay.
+      if (win.document.URL !== `about:blank#${connection.id}` || win.document.readyState !== 'complete')
+        await new Promise<void>((resolve) => win.addEventListener('load', () => resolve(), { once: true }));
+      if (current !== connection || stopped || connection.dismissed || !overlay.isConnected) {
+        await release(connection);
+        return;
+      }
       connection.stopChildEvents = observe(win.document);
       const verticalBars = nativeVerticalBars() && overlay.classList.contains('ios-theme-vertical-bars-modal');
       const environment = relayStyles(doc, win.document, overlay, verticalBars);
@@ -94,7 +114,13 @@ export const createOverlayController = async (
         await release(connection);
         return;
       }
-      const content = relayModal(overlay, environment.destination, presentation.kind);
+      const focused = activeElement(doc) as HTMLElement | null;
+      const content =
+        presentation.kind === 'popover'
+          ? relayPopover(overlay as HTMLIonPopoverElement, environment.destination)
+          : presentation.kind === 'alert'
+            ? relayAlert(overlay as HTMLIonAlertElement, environment.destination)
+            : relayModal(overlay as HTMLIonModalElement, environment.destination, presentation.kind);
       connection.stopContent = content.stop;
       // Release the source document's captured placement before the relay takes ownership.
       doc.defaultView!.dispatchEvent(new Event('nativeUIShellRefresh'));
@@ -112,25 +138,36 @@ export const createOverlayController = async (
       connection.stopExclusions = () => exclusions.disconnect();
       connection.stopFocus = trapFocus(
         content.root,
-        () => !connection.dismissed && overlay.focusTrap !== false && !overlay.classList.contains('ion-disable-focus-trap'),
+        () =>
+          !connection.dismissed &&
+          (!('focusTrap' in overlay) || overlay.focusTrap !== false) &&
+          !overlay.classList.contains('ion-disable-focus-trap'),
       );
       const close = () => {
         void release(connection).catch(console.error);
       };
-      overlay.addEventListener('ionModalDidDismiss', close, { once: true });
-      const stopBreakpoint = presentation.kind === 'sheet' ? syncModalBreakpoint(overlay, plugin, connection.id) : undefined;
+      const escape = (event: KeyboardEvent) => {
+        if (event.key === 'Escape' && overlay.localName !== 'ion-modal' && overlay.backdropDismiss)
+          void overlay.dismiss(undefined, 'backdrop');
+      };
+      win.document.addEventListener('keydown', escape);
+      overlay.addEventListener(lifecycle(overlay, 'DidDismiss'), close, { once: true });
+      const stopBreakpoint =
+        presentation.kind === 'sheet' ? syncModalBreakpoint(overlay as HTMLIonModalElement, plugin, connection.id) : undefined;
       connection.stopEvents = () => {
-        overlay.removeEventListener('ionModalDidDismiss', close);
+        win.document.removeEventListener('keydown', escape);
+        overlay.removeEventListener(lifecycle(overlay, 'DidDismiss'), close);
         stopBreakpoint?.();
       };
       await plugin.presentOverlay({ id: connection.id });
+      (focused?.isConnected && focused.ownerDocument === win.document ? focused : content.root).focus({ preventScroll: true });
     } catch (error) {
       await release(connection);
       console.error('Native overlay projection failed; keeping Ionic content in the source WebView.', error);
     }
   };
   const present = (event: Event) => {
-    const overlay = event.target as HTMLIonModalElement;
+    const overlay = event.target as Overlay;
     const autoHeight =
       overlay.localName === 'ion-modal' && doc.defaultView!.getComputedStyle(overlay).getPropertyValue('--height').trim() === 'auto';
     if (current) {
@@ -142,18 +179,27 @@ export const createOverlayController = async (
       connection.stopAnimation?.();
       connection.stopAnimation = undefined;
     }
-    if (stopped || suspensions.size || overlay.localName !== 'ion-modal' || autoHeight || excluded(overlay)) {
+    const enabled =
+      (overlay.localName === 'ion-modal' && options.controls?.modal === true) ||
+      (overlay.localName === 'ion-popover' && options.controls?.popover === true) ||
+      (overlay.localName === 'ion-alert' && options.controls?.alert === true);
+    if (stopped || suspensions.size || !enabled || autoHeight || excluded(overlay)) {
       opening = opening.then(restoreWeb).catch(console.error);
       return;
     }
     const connection: Connection = { id: `ios-theme-overlay-${++sequence}`, overlay, dismissed: false, focus: activeElement(doc) };
-    const presentation = modalPresentation(overlay);
+    const presentation: Presentation =
+      overlay.localName === 'ion-modal'
+        ? modalPresentation(overlay as HTMLIonModalElement)
+        : overlay.localName === 'ion-alert'
+          ? { kind: 'alert', animated: overlay.animated }
+          : { kind: 'popover', animated: overlay.animated };
     current = connection;
     connection.releaseProjection = retainProjection();
     const closed = () => {
       connection.dismissed = true;
     };
-    overlay.addEventListener('ionModalDidDismiss', closed, { once: true });
+    overlay.addEventListener(lifecycle(overlay, 'DidDismiss'), closed, { once: true });
     let resolveReady!: () => void;
     const readyPromise = new Promise<void>((resolve) => {
       resolveReady = resolve;
@@ -161,20 +207,21 @@ export const createOverlayController = async (
     const ready = () => {
       resolveReady();
     };
-    const animation = nativeModalAnimation(
-      overlay,
-      connection.id,
-      presentation.kind,
-      (gesture) => (connection.nativeClosing ??= plugin.dismissOverlay({ id: connection.id, animated: presentation.animated, gesture })),
-    );
-    connection.stopAnimation = () => animation.stop(connection.dismissed);
-    overlay.addEventListener('ionModalDidPresent', ready, { once: true });
-    connection.stopLifecycle = () => overlay.removeEventListener('ionModalDidDismiss', closed);
+    const closeNative = (gesture = false) =>
+      (connection.nativeClosing ??= plugin.dismissOverlay({ id: connection.id, animated: presentation.animated, gesture }));
+    if (presentation.kind === 'popover' || presentation.kind === 'alert') {
+      connection.stopAnimation = nativeDialogAnimation(overlay as HTMLIonPopoverElement | HTMLIonAlertElement, closeNative);
+    } else {
+      const animation = nativeModalAnimation(overlay as HTMLIonModalElement, connection.id, presentation.kind, closeNative);
+      connection.stopAnimation = () => animation.stop(connection.dismissed);
+    }
+    overlay.addEventListener(lifecycle(overlay, 'DidPresent'), ready, { once: true });
+    connection.stopLifecycle = () => overlay.removeEventListener(lifecycle(overlay, 'DidDismiss'), closed);
     opening = opening
       .then(() => connect(connection, readyPromise, presentation))
       .catch(console.error)
       .finally(() => {
-        overlay.removeEventListener('ionModalDidPresent', ready);
+        overlay.removeEventListener(lifecycle(overlay, 'DidPresent'), ready);
       });
   };
   const observe = (target: Document) => {
@@ -185,8 +232,12 @@ export const createOverlayController = async (
   };
   const listener = await plugin.addListener('overlay', (event) => {
     if (event.id !== current?.id) return;
-    if (event.action === 'dismiss') void current.overlay.dismiss(undefined, 'gesture').catch(console.error);
-    else if (event.breakpoint !== undefined) void current.overlay.setCurrentBreakpoint(event.breakpoint).catch(console.error);
+    if (event.action === 'dismiss') {
+      const popover = current.overlay.localName === 'ion-popover';
+      if (!popover || current.overlay.backdropDismiss)
+        void current.overlay.dismiss(undefined, popover ? 'backdrop' : 'gesture').catch(console.error);
+    } else if (event.breakpoint !== undefined && current.overlay.localName === 'ion-modal')
+      void (current.overlay as HTMLIonModalElement).setCurrentBreakpoint(event.breakpoint).catch(console.error);
   });
   const stopEvents = observe(doc);
   return {
