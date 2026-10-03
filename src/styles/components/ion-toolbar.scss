@@ -13,6 +13,7 @@ ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar:not(.ios-th
 ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card,
 ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
   ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
+    // A 44px control is centered 16px below the content edge.
     padding-top: 6px;
     --min-height: 64px;
   }
@@ -116,17 +117,46 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   > ion-button:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline: 12px;
   }
-  // Same-slot actions share the 12px gap without doubling their outer margins.
+  // Only visible actions participate in toolbar spacing.
+  $visible: ':not([hidden], ion-menu-button.menu-button-hidden, ion-back-button:not(.show-back-button))';
+  $button: ':is(ion-button, ion-back-button)#{$visible}';
+  $group: 'ion-buttons#{$visible}';
+  $action: ':is(#{$button}, #{$group}:has(> #{$visible}))';
+  $optOut: ':is(.ios-theme-disabled, .ios26-disabled)';
+
+  > ion-buttons:not(:has(> #{$visible})) {
+    display: none;
+  }
+
   @each $slot in start, end, primary, secondary {
-    // Keep standalone margins when the slot includes an opted-out action.
-    &:not(:has(> :is(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}'])) {
-      > :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']:has(
-          ~ :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']
-        ) {
+    // Keep standalone margins when the slot includes a visible opted-out action.
+    &:not(:has(> #{$button}#{$optOut}[slot='#{$slot}'], > #{$group}#{$optOut}[slot='#{$slot}'] > #{$visible})) {
+      > #{$action}[slot='#{$slot}'] {
+        margin-inline: 6px;
+      }
+      > :nth-child(1 of #{$action}[slot='#{$slot}']) {
+        margin-inline-start: 12px;
+      }
+      > :nth-last-child(1 of #{$action}[slot='#{$slot}']) {
+        margin-inline-end: 12px;
+      }
+    }
+  }
+  // Ionic orders these slots together, independently of their DOM order.
+  @each $first, $second in (start, secondary), (primary, end) {
+    &:has(> #{$button}[slot='#{$first}'], > #{$group}[slot='#{$first}'] > #{$visible}):has(
+        > #{$button}[slot='#{$second}'],
+        > #{$group}[slot='#{$second}'] > #{$visible}
+      ):not(
+        :has(
+          > #{$button}#{$optOut}:is([slot='#{$first}'], [slot='#{$second}']),
+          > #{$group}#{$optOut}:is([slot='#{$first}'], [slot='#{$second}']) > #{$visible}
+        )
+      ) {
+      > :nth-last-child(1 of #{$action}[slot='#{$first}']) {
         margin-inline-end: 6px;
       }
-      > :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']
-        ~ :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}'] {
+      > :nth-child(1 of #{$action}[slot='#{$second}']) {
         margin-inline-start: 6px;
       }
     }
