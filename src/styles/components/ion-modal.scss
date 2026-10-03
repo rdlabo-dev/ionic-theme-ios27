@@ -12,13 +12,6 @@ ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled) {
     padding-left: var(--ion-safe-area-left);
   }
 
-  &.modal-sheet {
-    ion-toolbar {
-      padding-right: calc(var(--ion-safe-area-right) + 4px);
-      padding-left: calc(var(--ion-safe-area-left) + 4px);
-    }
-  }
-
   &.modal-card {
     /**
      * IonicでCardModalのborder-radiusはハードコーディングされています。
