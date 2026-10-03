@@ -437,10 +437,9 @@ ion-back-button.ios:not(.ios-theme-disabled, .ios26-disabled) {
   @include theme-button($is-back-button: true);
 }
 
-// Toolbar typography and spacing follow system toolbar controls. Keep the
-// back button's optional title; only its layout shares these defaults.
+// Toolbar button typography and spacing follow system toolbar controls.
 ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
-  :is(ion-button, ion-back-button).ios:not(.ios-theme-disabled, .ios26-disabled):not(.button-small, .button-large) {
+  ion-button.ios:not(.ios-theme-disabled, .ios26-disabled):not(.button-small, .button-large) {
     font-size: 1rem;
     font-weight: 400;
     &:not(.button-has-icon-only, .back-button-has-icon-only) {

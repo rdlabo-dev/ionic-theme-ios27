@@ -112,14 +112,16 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline: 12px;
   }
   @each $slot in start, end, primary, secondary {
-    > :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}']:has(
-        ~ :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}']
-      ) {
-      margin-inline-end: 6px;
-    }
-    > :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}']
-      ~ :is(ion-buttons, ion-button, ion-back-button):not(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}'] {
-      margin-inline-start: 6px;
+    // Keep standalone margins when the slot includes an opted-out action.
+    &:not(:has(> :is(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}'])) {
+      > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']:has(
+          ~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']
+        ) {
+        margin-inline-end: 6px;
+      }
+      > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] ~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] {
+        margin-inline-start: 6px;
+      }
     }
   }
 }
