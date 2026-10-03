@@ -120,12 +120,13 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   @each $slot in start, end, primary, secondary {
     // Keep standalone margins when the slot includes an opted-out action.
     &:not(:has(> :is(.ios-theme-disabled, .ios26-disabled)[slot='#{$slot}'])) {
-      > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']:has(
-          ~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}']
+      > :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']:has(
+          ~ :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']
         ) {
         margin-inline-end: 6px;
       }
-      > :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] ~ :is(ion-buttons, ion-button, ion-back-button)[slot='#{$slot}'] {
+      > :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}']
+        ~ :is(ion-buttons, ion-button, ion-back-button.show-back-button):not([hidden])[slot='#{$slot}'] {
         margin-inline-start: 6px;
       }
     }
