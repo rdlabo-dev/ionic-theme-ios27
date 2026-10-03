@@ -22,8 +22,8 @@ ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
 @media (min-width: 768px) and (min-height: 600px) {
   ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled):not(.modal-sheet) {
     ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
-      // Centering a 44px control in the 64px toolbar gives a 10px top inset.
-      padding-top: 0;
+      // Center a 44px control at 10px, retaining the safe area in fullscreen modals.
+      padding-top: max(calc(var(--ion-safe-area-top, 0px) - 10px), 0px);
       --min-height: 64px;
     }
   }
@@ -130,7 +130,7 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
 
   @each $slot in start, end, primary, secondary {
     // Keep standalone margins when the slot includes a visible opted-out action.
-    &:not(:has(> #{$button}#{$optOut}[slot='#{$slot}'], > #{$group}#{$optOut}[slot='#{$slot}'] > #{$visible})) {
+    &:not(.toolbar-searchbar):not(:has(> #{$button}#{$optOut}[slot='#{$slot}'], > #{$group}#{$optOut}[slot='#{$slot}'] > #{$visible})) {
       > #{$action}[slot='#{$slot}'] {
         margin-inline: 6px;
       }
@@ -144,7 +144,7 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
   // Ionic orders these slots together, independently of their DOM order.
   @each $first, $second in (start, secondary), (primary, end) {
-    &:has(> #{$button}[slot='#{$first}'], > #{$group}[slot='#{$first}'] > #{$visible}):has(
+    &:not(.toolbar-searchbar):has(> #{$button}[slot='#{$first}'], > #{$group}[slot='#{$first}'] > #{$visible}):has(
         > #{$button}[slot='#{$second}'],
         > #{$group}[slot='#{$second}'] > #{$visible}
       ):not(
