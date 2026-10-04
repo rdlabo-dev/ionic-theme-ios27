@@ -13,6 +13,29 @@ const markup = `
     </main>
   </ion-app>`;
 
+test('releases controls adopted into another document and recaptures them on return', async () => {
+  document.body.innerHTML = markup;
+  const app = document.querySelector('ion-app')!;
+  const page = document.querySelector<HTMLElement>('.ion-page')!;
+  const group = document.querySelector<HTMLElement>('ion-buttons')!;
+  const destination = document.implementation.createHTMLDocument();
+  const prehide = prehideVerticalBarsToolbarSources(document);
+  try {
+    expect(group.classList.contains(prehiddenClass)).toBe(true);
+    destination.body.append(destination.adoptNode(page));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(page.isConnected).toBe(true);
+    expect(group.classList.contains(prehiddenClass)).toBe(false);
+
+    app.append(document.adoptNode(page));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(group.classList.contains(prehiddenClass)).toBe(true);
+  } finally {
+    prehide.stop();
+    document.body.innerHTML = '';
+  }
+});
+
 test('a departed page is not recaptured before Ionic hides it', async () => {
   document.documentElement.className = '';
   document.body.innerHTML = markup;

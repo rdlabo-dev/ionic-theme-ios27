@@ -10,8 +10,15 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "prepareOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "presentOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setOverlayBreakpoint", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "dismissOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "closeOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopOverlays", returnType: CAPPluginReturnPromise)
     ]
+    private var overlays: ShellOverlayController?
     private var host: ShellHost?
     private var verticalBars: ShellVerticalBarsControlling?
     private var controls: [String: UIView] = [:]
@@ -74,6 +81,86 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
+    @objc func prepareOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let id = call.getString("id"),
+                  let webView = self.bridge?.webView, let owner = self.bridge?.viewController else {
+                call.reject("Overlay source unavailable"); return
+            }
+            if self.overlays == nil {
+                self.overlays = ShellOverlayController(source: webView, owner: owner) { [weak self] id, action, breakpoint in
+                    var data: JSObject = ["id": id, "action": action]
+                    if let breakpoint { data["breakpoint"] = breakpoint }
+                    self?.notifyListeners("overlay", data: data)
+                }
+            }
+            guard self.overlays?.prepare(id, options: call.getObject("presentation")) == true else {
+                call.reject("An overlay window is already pending"); return
+            }
+            call.resolve()
+        }
+    }
+
+    @objc func presentOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let overlays = self?.overlays, let id = call.getString("id") else {
+                call.reject("Overlay not prepared"); return
+            }
+            overlays.present(id, anchored: { [weak self] anchor, host, completion in
+                guard #available(iOS 26.0, *), let self else { return false }
+                if self.verticalBars?.presentPopover(host, for: anchor, completion: completion) == true { return true }
+                func findButton(in view: UIView) -> UIButton? {
+                    if view.accessibilityIdentifier == anchor, let button = view as? UIButton { return button }
+                    for child in view.subviews { if let button = findButton(in: child) { return button } }
+                    return nil
+                }
+                guard let button = self.controls.values.compactMap({ findButton(in: $0) }).first,
+                      let owner = self.bridge?.viewController else { return false }
+                host.modalPresentationStyle = .popover
+                guard let popover = host.popoverPresentationController else { return false }
+                popover.delegate = host
+                popover.sourceView = button
+                popover.sourceRect = button.bounds
+                popover.backgroundColor = ShellRendering().color(host.options?["backgroundColor"] as? String)
+                owner.present(host, animated: host.options?["animated"] as? Bool ?? false, completion: completion)
+                return true
+            }) { presented in
+                if presented { call.resolve() } else { call.reject("Overlay presenter unavailable") }
+            }
+        }
+    }
+
+    @objc func dismissOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let overlays = self?.overlays, let id = call.getString("id") else { call.resolve(); return }
+            overlays.dismiss(id, animated: call.getBool("animated") ?? false, gesture: call.getBool("gesture") ?? false) { call.resolve() }
+        }
+    }
+
+    @objc func closeOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let overlays = self?.overlays, let id = call.getString("id") else { call.resolve(); return }
+            overlays.close(id) { call.resolve() }
+        }
+    }
+
+    @objc func setOverlayBreakpoint(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let id = call.getString("id"), let value = call.getDouble("breakpoint") else {
+                call.reject("Overlay breakpoint unavailable"); return
+            }
+            self?.overlays?.setBreakpoint(id, value: value)
+            call.resolve()
+        }
+    }
+
+    @objc func stopOverlays(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let overlays = self.overlays else { call.resolve(); return }
+            overlays.stop { self.overlays = nil; call.resolve() }
+        }
+    }
+
     private func webViewMetrics() -> JSObject? {
         guard #available(iOS 26.0, *), let webView = bridge?.webView else { return nil }
         webView.layoutIfNeeded()
@@ -120,6 +207,10 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         DispatchQueue.main.async { [weak self] in
             guard let self else { call.resolve(); return }
             let next = call.getInt("revision") ?? 0
+            if let overlayId = call.getString("overlayId") {
+                self.overlays?.projectionHost(overlayId)?.clearBars(revision: next)
+                call.resolve(); return
+            }
             if next >= self.revision {
                 self.revision = next
                 self.restoreTopEdge?()
@@ -181,6 +272,16 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         DispatchQueue.main.async { [weak self] in
             guard let self else { call.reject("Plugin released"); return }
             guard #available(iOS 26.0, *) else { call.reject("Requires iOS 26"); return }
+            if let overlayId = call.getString("overlayId") {
+                guard let host = self.overlays?.projectionHost(overlayId),
+                      let snapshot = try? call.decode(ShellSnapshot.self), snapshot.isValid else {
+                    call.reject("Invalid overlay projection"); return
+                }
+                let rejected = host.updateBars(snapshot, rendering: self.rendering) { [weak self] id, revision, sequence in
+                    self?.notifyListeners("activate", data: ["overlayId": overlayId, "id": id, "revision": revision, "sequence": sequence])
+                }
+                call.resolve(["revision": host.projectionRevision, "rejectedControls": rejected]); return
+            }
             let next = call.getInt("revision") ?? 0
             guard next > self.revision else { call.resolve(["revision": self.revision]); return }
             guard let webView = self.bridge?.webView, let parent = webView.superview else {

@@ -154,7 +154,39 @@ const shell = await enableNativeUIShell({
 const disabledShell = await enableNativeUIShell({ enabled: false });
 ```
 
-Omitting `controls` enables every supported control for backward compatibility. When `controls` is present, only entries set to `true` are native-eligible. Available entries are `tabs`, `toolbar`, `segment`, and `fab`.
+Omitting `controls` enables `tabs`, `toolbar`, `segment`, and `fab` for backward compatibility. Preview overlay projection defaults to `false`. When `controls` is present, only entries set to `true` are native-eligible. Available entries are `tabs`, `toolbar`, `segment`, `fab`, `modal`, `popover`, and `alert`.
+
+### Modal content relay (preview)
+
+Opt in with `controls.modal: true`. Keep calling Ionic's `ModalController` or using inline `ion-modal`; no separate controller is needed in application code:
+
+```ts
+await enableNativeUIShell({
+  controls: { tabs: true, toolbar: true, segment: true, fab: true, modal: true },
+});
+```
+
+Ionic keeps the original overlay host, controller registry, lifecycle and dismissal. Its content moves into a native-hosted WebView, preserving the existing component instance and application state. The relay manages styles, focus and cleanup. Omitting `modal`, or setting it to `false`, keeps ordinary Web rendering.
+
+The native overlay controller appears above the existing Native UI Shell. The covered page keeps its native projections throughout presentation and dismissal. Ordinary toolbars and tabs inside relayed content remain Web-rendered. On full-width modals using native Vertical Bars, eligible toolbar buttons continue to project into the modal’s native rail, using the same placement, appearance and disabled rules as the page.
+
+All relayed modals use UIKit's opening and closing animations. Standard modals retain Ionic's geometry and use a full-screen native controller; Card modals (`presentingElement`) and Sheet modals use UIKit's sheet presentation, including the backing-page effect. Sheet `breakpoints` map to fractions of UIKit's available sheet height; `setCurrentBreakpoint()` and native dragging synchronize with Ionic. A zero breakpoint permits drag-to-dismiss, subject to the original `canDismiss` check. `animated: false` also disables the native transition. Custom Web enter/leave animations do not replace UIKit's transitions.
+
+This preview currently relays one overlay at a time. `--height: auto` modals keep Web rendering. Any nested overlay, including another Modal, returns the relay to the source WebView for the rest of that presentation. Suspending or destroying the shell also restores the content and its Web animation settings. Ionic's `didPresent` reports initialization of the source modal; native presentation follows that initialization.
+
+The original modal host is not copied into the destination. DOM queries beneath it cannot find relayed content, and CSS selectors that depend on that host (such as `ion-modal.my-modal ion-button` or `.my-modal .field`) do not match. Accessible label references must point into the relayed content; references to elements left in the source document cannot resolve in the destination.
+
+Standard HTML `form="id"` associations cannot cross documents. If relayed native HTML controls depend on a form outside the Modal, keep that Modal on the Web with `data-shell="disabled"`. This does not exclude Ionic's `[form]="formRef"` pattern or a form and its controls that move together inside the Modal.
+
+### Popover and Alert content relay (preview)
+
+Opt in separately with `controls.popover: true` and `controls.alert: true`; both default to `false`. Continue using Ionic controllers or inline components. `data-shell="disabled"` keeps an individual overlay on the Web.
+
+Ordinary Popover presentations relay Ionic's content into a UIKit popover anchored to the original trigger. Native UI Shell buttons retain their existing size and position; their `UIButton` is the `sourceView`, with its bounds as `sourceRect`. They use the standard arrow popover rather than a button-to-popover morph. Vertical Bars uses SwiftUI's standard toolbar popover and lets the system control its transition and arrow. The native presentation owns its arrow, corners and outline; its initial size and background come from Ionic.
+
+Alert keeps Ionic's rendered input fields, buttons and handlers in a native-hosted WebView above Native UI Shell. It is not translated into `UIAlertController`.
+
+The same single-overlay restriction applies: opening a nested overlay restores the existing relay to the Web. Native presentation follows Ionic's `didPresent`. Queries under the source overlay cannot find content while it is relayed.
 
 For a custom modal or overlay that Native UI Shell cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
 
