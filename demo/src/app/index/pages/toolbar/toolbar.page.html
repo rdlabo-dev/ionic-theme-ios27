@@ -106,6 +106,85 @@
     <ion-title>Menu Button</ion-title>
   </ion-toolbar>
 
+  <ion-list [inset]="true">
+    <ion-item-group>
+      <ion-item>
+        <ion-label>
+          <h2>Toolbar spacing</h2>
+          <p>Compare the outer inset and spacing between visible actions.</p>
+        </ion-label>
+      </ion-item>
+    </ion-item-group>
+  </ion-list>
+
+  @for (slot of ['start', 'end']; track slot) {
+    <ion-item lines="none"
+      ><ion-label>{{ slot }}: single group</ion-label></ion-item
+    >
+    <ion-toolbar>
+      <ion-buttons [slot]="slot"><ion-button>Save</ion-button></ion-buttons>
+    </ion-toolbar>
+
+    <ion-item lines="none"
+      ><ion-label>{{ slot }}: two groups</ion-label></ion-item
+    >
+    <ion-toolbar>
+      <ion-buttons [slot]="slot"><ion-button>Save</ion-button></ion-buttons>
+      <ion-buttons [slot]="slot"><ion-button>Edit</ion-button></ion-buttons>
+    </ion-toolbar>
+
+    <ion-item lines="none"
+      ><ion-label>{{ slot }}: standalone button and group</ion-label></ion-item
+    >
+    <ion-toolbar>
+      <ion-button [slot]="slot" fill="clear">Save</ion-button>
+      <ion-buttons [slot]="slot"><ion-button>Edit</ion-button></ion-buttons>
+    </ion-toolbar>
+
+    <ion-item lines="none"
+      ><ion-label>{{ slot }}: hidden menu group and visible group</ion-label></ion-item
+    >
+    <ion-toolbar>
+      <ion-buttons [slot]="slot"><ion-menu-button menu="toolbar-spacing-missing-menu"></ion-menu-button></ion-buttons>
+      <ion-buttons [slot]="slot"><ion-button>Save</ion-button></ion-buttons>
+    </ion-toolbar>
+
+    <ion-item lines="none"
+      ><ion-label>{{ slot }}: hidden child and visible child</ion-label></ion-item
+    >
+    <ion-toolbar>
+      <ion-buttons [slot]="slot">
+        <ion-menu-button menu="toolbar-spacing-missing-menu"></ion-menu-button>
+        <ion-button>Save</ion-button>
+      </ion-buttons>
+      <ion-buttons [slot]="slot"><ion-button>Edit</ion-button></ion-buttons>
+    </ion-toolbar>
+
+    <ion-item lines="none"
+      ><ion-label>{{ slot }}: empty group between visible groups</ion-label></ion-item
+    >
+    <ion-toolbar>
+      <ion-buttons [slot]="slot"><ion-button>Save</ion-button></ion-buttons>
+      <ion-buttons [slot]="slot"></ion-buttons>
+      <ion-buttons [slot]="slot"><ion-button>Edit</ion-button></ion-buttons>
+    </ion-toolbar>
+  }
+  @for (
+    slots of [
+      ['start', 'secondary'],
+      ['primary', 'end'],
+    ];
+    track slots[0]
+  ) {
+    <ion-item lines="none"
+      ><ion-label>{{ slots[0] }} / {{ slots[1] }}</ion-label></ion-item
+    >
+    <ion-toolbar>
+      <ion-buttons [slot]="slots[0]"><ion-button>Save</ion-button></ion-buttons>
+      <ion-buttons [slot]="slots[1]"><ion-button>Edit</ion-button></ion-buttons>
+    </ion-toolbar>
+  }
+
   <ion-toolbar>
     <ion-searchbar></ion-searchbar>
   </ion-toolbar>

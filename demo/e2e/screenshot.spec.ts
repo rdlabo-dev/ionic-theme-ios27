@@ -51,6 +51,16 @@ const routes = [
 const prepareScreenShot = async (page: Page, routeName: string) => {
   await page.waitForTimeout(1000);
   await page.waitForSelector('ion-content[role="main"]', { timeout: 10000 });
+  await expect
+    .poll(() =>
+      page
+        .locator('ion-content[role="main"] img')
+        .evaluateAll((images) =>
+          images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0),
+        ),
+    )
+    .toBe(true);
+
   if (!routeName.includes(':')) {
     const scrollHeight = await page.locator('ion-content[role="main"]').evaluate(async (el: any) => {
       const scrollEl = await el.getScrollElement();
