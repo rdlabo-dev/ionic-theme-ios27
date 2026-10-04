@@ -15,22 +15,34 @@ ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
   ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
     // A 44px control is centered 16px below the content edge.
     padding-top: 6px;
+    padding-bottom: 0;
     --min-height: 64px;
   }
 }
 
 @media (min-width: 768px) and (min-height: 600px) {
-  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled):not(.modal-sheet) {
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled) {
     ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
       // Center a 44px control at 10px, retaining the safe area in fullscreen modals.
       padding-top: max(calc(var(--ion-safe-area-top, 0px) - 10px), 0px);
+      padding-bottom: 0;
       --min-height: 64px;
     }
   }
-  // Ionic keeps the root safe area in card modals, including centered dialogs.
-  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card {
+  // iPad card and sheet toolbars use the centered 10px system inset.
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled):is(.modal-card, .modal-sheet) {
+    &.modal-card {
+      container-name: ios-theme-modal;
+    }
     ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
       padding-top: 0;
+    }
+  }
+  @container ios-theme-modal style(--height: 100%) or style(--height: 100vh) or style(--height: 100dvh) {
+    ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card
+      ion-header.ios:not(.ios-theme-disabled, .ios26-disabled)
+      ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
+      padding-top: max(calc(var(--ion-safe-area-top, 0px) - 10px), 0px);
     }
   }
 }

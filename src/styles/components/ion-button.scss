@@ -159,7 +159,6 @@ $scaleup-large-icon-only: 1.22;
   }
 }
 
-// TODO(v2.0.0): Remove .back-button-has-icon-only compatibility selectors; Ionic only adds it to ion-back-button.
 @mixin theme-button($is-back-button: false) {
   font-weight: 400;
   max-height: inherit;
