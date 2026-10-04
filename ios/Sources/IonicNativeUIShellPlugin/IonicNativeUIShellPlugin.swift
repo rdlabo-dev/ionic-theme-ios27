@@ -12,7 +12,9 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prepareOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "snapshotOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "presentOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "revealOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setOverlayBreakpoint", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "dismissOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "closeOverlay", returnType: CAPPluginReturnPromise),
@@ -101,12 +103,29 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         }
     }
 
+    @objc func snapshotOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            func rect(_ key: String) -> CGRect? {
+                guard let value = call.getObject(key) else { return nil }
+                return CGRect(x: value["x"] as? Double ?? 0, y: value["y"] as? Double ?? 0,
+                              width: value["width"] as? Double ?? 0, height: value["height"] as? Double ?? 0)
+            }
+            guard let overlays = self?.overlays, let id = call.getString("id"),
+                  let source = rect("source"), let destination = rect("destination") else {
+                call.resolve(); return
+            }
+            overlays.snapshot(id, options: call.getObject("presentation"), source: source, destination: destination) { _ in
+                call.resolve()
+            }
+        }
+    }
+
     @objc func presentOverlay(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
             guard let overlays = self?.overlays, let id = call.getString("id") else {
                 call.reject("Overlay not prepared"); return
             }
-            overlays.present(id, anchored: { [weak self] anchor, host, completion in
+            overlays.present(id, options: call.getObject("presentation"), anchored: { [weak self] anchor, host, completion in
                 guard #available(iOS 26.0, *), let self else { return false }
                 if self.verticalBars?.presentPopover(host, for: anchor, completion: completion) == true { return true }
                 func findButton(in view: UIView) -> UIButton? {
@@ -127,6 +146,13 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }) { presented in
                 if presented { call.resolve() } else { call.reject("Overlay presenter unavailable") }
             }
+        }
+    }
+
+    @objc func revealOverlay(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let overlays = self?.overlays, let id = call.getString("id") else { call.resolve(); return }
+            overlays.reveal(id) { call.resolve() }
         }
     }
 

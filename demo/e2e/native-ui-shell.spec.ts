@@ -3420,7 +3420,9 @@ for (const kind of ['popover', 'alert'] as const) {
     await page.evaluate(() => {
       Object.assign(Capacitor.registerPlugin('IonicNativeUIShell'), {
         async prepareOverlay() {},
+        async snapshotOverlay() {},
         async presentOverlay() {},
+        async revealOverlay() {},
         async dismissOverlay() {},
       });
     });
@@ -3451,7 +3453,9 @@ test('opening an Ionic menu restores a relayed modal to the source WebView', asy
   await page.evaluate(() => {
     Object.assign(Capacitor.registerPlugin('IonicNativeUIShell'), {
       async prepareOverlay() {},
+      async snapshotOverlay() {},
       async presentOverlay() {},
+      async revealOverlay() {},
       async dismissOverlay() {},
     });
   });

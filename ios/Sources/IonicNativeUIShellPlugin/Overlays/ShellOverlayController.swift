@@ -58,10 +58,39 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         return host.webView
     }
 
-    func present(_ id: String, anchored: (String, ShellOverlayHost, @escaping () -> Void) -> Bool,
+    /// Capture the rendered overlay so the host can cover itself with identical
+    /// pixels while the relayed document finishes its first paint.
+    func snapshot(_ id: String, options: [String: Any]?, source sourceRect: CGRect, destination destRect: CGRect,
+                  completion: @escaping (Bool) -> Void) {
+        guard self.id == id, let host, let source else { completion(false); return }
+        host.apply(options)
+        let configuration = WKSnapshotConfiguration()
+        configuration.rect = sourceRect
+        source.takeSnapshot(with: configuration) { image, error in
+            // A missing image still presents; the hosted WebView paints on its own.
+            if let image, error == nil {
+                let view = UIImageView(image: image)
+                view.frame = destRect
+                host.placeholder = view
+                host.view.addSubview(view)
+            }
+            completion(true)
+        }
+    }
+
+    /// Lift the frozen cover once the hosted document has painted. The hosted
+    /// pixels match the image, so removal is instant rather than a crossfade.
+    func reveal(_ id: String, completion: @escaping () -> Void) {
+        guard self.id == id, let host else { completion(); return }
+        host.placeholder = nil
+        completion()
+    }
+
+    func present(_ id: String, options: [String: Any]?, anchored: (String, ShellOverlayHost, @escaping () -> Void) -> Bool,
                  completion: @escaping (Bool) -> Void) {
         guard self.id == id, let host, let owner,
               owner.presentedViewController == nil else { completion(false); return }
+        host.apply(options)
         if host.options?["kind"] as? String == "popover", let anchor = host.options?["anchorId"] as? String {
             if !anchored(anchor, host, { completion(true) }) { completion(false) }
             return
@@ -98,6 +127,7 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         let finish = { [self] in
             host.verticalBars?.detach()
             host.webView.uiDelegate = nil
+            host.placeholder = nil
             self.host = nil
             self.id = nil
             completion()

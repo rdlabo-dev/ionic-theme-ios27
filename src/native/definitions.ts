@@ -193,7 +193,9 @@ export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   prepareOverlay(options: { id: string; presentation?: ShellOverlayPresentation }): Promise<void>;
-  presentOverlay(options: { id: string }): Promise<void>;
+  snapshotOverlay(options: { id: string; presentation?: ShellOverlayPresentation; source: Frame; destination: Frame }): Promise<void>;
+  presentOverlay(options: { id: string; presentation?: ShellOverlayPresentation }): Promise<void>;
+  revealOverlay(options: { id: string }): Promise<void>;
   setOverlayBreakpoint(options: { id: string; breakpoint: number }): Promise<void>;
   dismissOverlay(options: { id: string; animated: boolean; gesture: boolean }): Promise<void>;
   closeOverlay(options: { id: string }): Promise<void>;

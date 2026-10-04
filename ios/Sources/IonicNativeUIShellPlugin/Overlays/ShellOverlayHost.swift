@@ -4,11 +4,16 @@ import WebKit
 /// Ionic owns dismissal permission; UIKit owns modal presentation.
 final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDelegate, UIPopoverPresentationControllerDelegate {
     let webView: WKWebView
-    let options: [String: Any]?
+    private(set) var options: [String: Any]?
     let event: (String, Double?) -> Void
     var verticalBars: ShellVerticalBarsControlling?
     var projectionRevision = 0
     var projectionSequence = 0
+    /// Frozen cover that keeps the presented surface identical while the relayed
+    /// document finishes its first paint inside the hosted WebView.
+    var placeholder: UIView? {
+        didSet { oldValue?.removeFromSuperview() }
+    }
     private var dismissalSnapshot: UIView?
 
     var dismissAnchored: (() -> Void)?
@@ -20,19 +25,26 @@ final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDel
         self.options = options
         self.event = event
         super.init(nibName: nil, bundle: nil)
-        let kind = options?["kind"] as? String
-        modalPresentationStyle = kind == "popover" && options?["anchorId"] == nil ? .popover : (kind == "card" || kind == "sheet" ? .pageSheet : .overFullScreen)
+        apply(options)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// Presentation details can arrive after the host exists; apply them before use.
+    func apply(_ options: [String: Any]?) {
+        guard let options else { return }
+        self.options = options
+        let kind = options["kind"] as? String
+        modalPresentationStyle = kind == "popover" && options["anchorId"] == nil ? .popover : (kind == "card" || kind == "sheet" ? .pageSheet : .overFullScreen)
         if kind == "popover" {
-            overrideUserInterfaceStyle = options?["dark"] as? Bool == true ? .dark : .light
-            preferredContentSize = CGSize(width: options?["width"] as? Double ?? 280, height: options?["height"] as? Double ?? 200)
+            overrideUserInterfaceStyle = options["dark"] as? Bool == true ? .dark : .light
+            preferredContentSize = CGSize(width: options["width"] as? Double ?? 280, height: options["height"] as? Double ?? 200)
         }
         if kind == "alert" { modalTransitionStyle = .crossDissolve }
         isModalInPresentation = kind != "popover"
         if modalPresentationStyle == .popover { popoverPresentationController?.delegate = self }
         configureSheet()
     }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override func loadView() {
         webView.isOpaque = false
