@@ -240,7 +240,10 @@ export const createOverlayController = async (
           ? { kind: 'alert', animated: overlay.animated }
           : { kind: 'popover', animated: overlay.animated };
     current = connection;
-    connection.releaseProjection = retainProjection();
+    // A covering overlay lets the page projections retire at willPresent as
+    // usual; only a popover keeps them — its page stays visible and the morph
+    // needs the projected anchor alive.
+    if (presentation.kind === 'popover') connection.releaseProjection = retainProjection();
     const closed = () => {
       connection.dismissed = true;
     };

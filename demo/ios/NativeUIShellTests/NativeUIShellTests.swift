@@ -240,8 +240,8 @@ final class NativeUIShellTests: XCTestCase {
             XCTAssertTrue(segment.waitForNonExistence(timeout: 5), app.debugDescription)
             modalClose.tap()
         } else {
-            // The relayed overlay keeps covered controls projected but obscured; its
-            // content lives in a hosted WebView that XCTest cannot hit-test directly.
+            // A covering overlay retires page projections like the Web path; the
+            // relayed content lives in a hosted WebView XCTest cannot hit-test.
             expectation(for: NSPredicate(format: "hittable == false"), evaluatedWith: segment)
             waitForExpectations(timeout: 5)
             modalClose.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
