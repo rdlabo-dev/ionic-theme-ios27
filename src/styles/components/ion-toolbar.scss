@@ -30,6 +30,12 @@ ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-sheet {
       --min-height: 64px;
     }
   }
+  // Ionic keeps the root safe area in card modals, including centered dialogs.
+  ion-modal.ios:not(.ios-theme-disabled, .ios26-disabled).modal-card {
+    ion-header.ios:not(.ios-theme-disabled, .ios26-disabled) ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled):first-of-type {
+      padding-top: 0;
+    }
+  }
 }
 
 ion-header.ios.header-collapse-condense:not(.ios-theme-disabled, .ios26-disabled)
