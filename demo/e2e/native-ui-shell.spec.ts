@@ -3442,3 +3442,28 @@ for (const kind of ['popover', 'alert'] as const) {
     }
   });
 }
+
+test('opening an Ionic menu restores a relayed modal to the source WebView', async ({ page }) => {
+  // Collapse the demo's split pane so its menu presents as an overlay.
+  await page.setViewportSize({ width: 400, height: 800 });
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.evaluate(() => {
+    Object.assign(Capacitor.registerPlugin('IonicNativeUIShell'), {
+      async prepareOverlay() {},
+      async presentOverlay() {},
+      async dismissOverlay() {},
+    });
+  });
+  const opened = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Open modal', exact: true }).click();
+  const relay = await opened;
+  await expect(relay.getByRole('button', { name: 'Close modal', exact: true })).toBeVisible();
+  await page.evaluate(() => document.querySelector('ion-menu')!.open());
+  await expect.poll(() => relay.isClosed()).toBe(true);
+  const modal = page.locator('ion-modal:not(.overlay-hidden)');
+  await expect(modal).toHaveCount(1);
+  await page.evaluate(() => document.querySelector('ion-menu')!.close());
+  await modal.getByRole('button', { name: 'Close modal', exact: true }).click();
+  await expect(modal).toHaveCount(0);
+});

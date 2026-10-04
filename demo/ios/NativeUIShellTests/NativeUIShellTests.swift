@@ -208,13 +208,15 @@ final class NativeUIShellTests: XCTestCase {
         app.webViews.buttons["Parent hidden: true"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
+        // A disabled ion-buttons group releases the group projection but its
+        // direct children are still projected individually.
         app.webViews.buttons["Theme disabled: false"].tap()
-        XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(native.waitForExistence(timeout: 5))
         app.webViews.buttons["Theme disabled: true"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
         app.webViews.buttons["fill: clear"].tap()
-        XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(native.waitForExistence(timeout: 5))
         app.webViews.buttons["fill: default"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
@@ -231,8 +233,19 @@ final class NativeUIShellTests: XCTestCase {
         app.webViews.buttons["Select One programmatically"].tap()
 
         app.webViews.buttons["Open modal"].tap()
-        XCTAssertTrue(segment.waitForNonExistence(timeout: 5), app.debugDescription)
-        app.webViews.buttons["Close modal"].tap()
+        let modalClose = app.webViews.buttons["Close modal"]
+        XCTAssertTrue(modalClose.waitForExistence(timeout: 5), app.debugDescription)
+        if modalClose.isHittable {
+            // Without the native relay, a presented overlay leaves covered controls unprojected.
+            XCTAssertTrue(segment.waitForNonExistence(timeout: 5), app.debugDescription)
+            modalClose.tap()
+        } else {
+            // The relayed overlay keeps covered controls projected but obscured; its
+            // content lives in a hosted WebView that XCTest cannot hit-test directly.
+            expectation(for: NSPredicate(format: "hittable == false"), evaluatedWith: segment)
+            waitForExpectations(timeout: 5)
+            modalClose.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
         XCTAssertTrue(segment.waitForExistence(timeout: 5), app.debugDescription)
 
         app.swipeUp()
