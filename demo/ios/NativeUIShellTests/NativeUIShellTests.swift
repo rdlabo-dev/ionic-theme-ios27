@@ -613,6 +613,49 @@ final class NativeUIShellTests: XCTestCase {
         capture("morph-popover-dismissed")
     }
 
+    func testFirstLaunchPopoverChromeShadow() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        openPage(app, name: "popover")
+        // Tap the controller-section close button as early as possible after
+        // launch. The first popover presentation used to keep an unresolved
+        // chrome — flat surface, no shadow — until a second presentation.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.611)).tap()
+        let popoverText = app.webViews.staticTexts["Hello World!"].firstMatch
+        XCTAssertTrue(popoverText.waitForExistence(timeout: 10), app.debugDescription)
+        capture("firstlaunch-popover-chrome")
+        XCTAssertTrue(popoverChromeHasShadow(XCUIScreen.main.screenshot().image,
+                                             below: popoverText.frame,
+                                             pointsWidth: app.frame.width),
+                      "first-launch popover chrome rendered without a shadow")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+        Thread.sleep(forTimeInterval: 0.8)
+    }
+
+    /// The popover chrome must cast a shadow onto the page. Without it, the
+    /// tone right under the surface edge stays at the flat page background.
+    private func popoverChromeHasShadow(_ image: UIImage, below rect: CGRect, pointsWidth: CGFloat) -> Bool {
+        guard let cg = image.cgImage,
+              let data = cg.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return false }
+        let width = cg.width, height = cg.height
+        let bytesPerRow = cg.bytesPerRow, bytesPerPixel = bytesPerRow / width
+        func tone(_ x: Int, _ y: Int) -> Int { Int(bytes[y * bytesPerRow + x * bytesPerPixel]) }
+        let pxPerPoint = CGFloat(width) / pointsWidth
+        // The surface edge sits ~17pt below the text baseline; its shadow darkens
+        // the band just beneath it before the page background returns.
+        let x = Int(rect.midX * pxPerPoint)
+        let start = Int((rect.maxY + 14) * pxPerPoint)
+        let limit = min(Int((rect.maxY + 48) * pxPerPoint), height - 1)
+        var darkest = 255
+        for y in start...limit {
+            for dx in -2...2 { darkest = min(darkest, tone(x + dx, y)) }
+        }
+        return darkest < 236
+    }
+
     func testAnchoredPopoverHoldOpen() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")

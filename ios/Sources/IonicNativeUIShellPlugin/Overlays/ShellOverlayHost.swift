@@ -70,6 +70,33 @@ final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDel
         }
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        applyPopoverChrome()
+    }
+
+    /// A popover presented before its transition view finishes a first render
+    /// pass keeps an unresolved chrome: flat surface, no shadow (first launch).
+    /// Pin the same shadow the anchored morph surface uses so the fallback
+    /// chrome is identical on every presentation.
+    private func applyPopoverChrome() {
+        guard modalPresentationStyle == .popover else { return }
+        var node = view.superview
+        while let candidate = node {
+            if String(describing: type(of: candidate)).contains("PopoverView") {
+                let layer = candidate.layer
+                layer.shadowColor = UIColor.black.cgColor
+                layer.shadowOpacity = 0.18
+                layer.shadowRadius = 24
+                layer.shadowOffset = CGSize(width: 0, height: 8)
+                layer.shadowPath = UIBezierPath(roundedRect: candidate.bounds,
+                                                cornerRadius: min(16, candidate.bounds.height / 2)).cgPath
+                return
+            }
+            node = candidate.superview
+        }
+    }
+
     func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle { .none }
 
     func popoverPresentationControllerShouldDismissPopover(_ popoverPresentationController: UIPopoverPresentationController) -> Bool {
