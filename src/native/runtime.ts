@@ -34,7 +34,7 @@ const verticalBarsMarker = 'data-native-ui-shell-vertical-bars';
 const verticalBarsMemberMarker = 'data-native-ui-shell-vertical-bars-member';
 
 // A failed bridge must not leave the source inaccessible indefinitely.
-const bounded = <T>(promise: Promise<T>): Promise<T> =>
+export const bounded = <T>(promise: Promise<T>): Promise<T> =>
   new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Native UI Shell bridge timed out')), 5000);
     promise.then(resolve, reject).finally(() => clearTimeout(timer));
@@ -304,9 +304,11 @@ export const createRuntime = async (
     dirty = false;
     pending = true;
     handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalPresentHandoff || win.performance.now() < handoffUntil;
-    modalPresentHandoff = false;
     try {
+      // A retained sync performs no update; keep the modal handoff armed so the
+      // deferred retirement still runs instantly after the overlay releases.
       if (retentions && !manualSuspensions.size) return;
+      modalPresentHandoff = false;
       const size = `${win.innerWidth}:${win.innerHeight}`;
       // WebKit can resize before Ionic's fixed DOM positions catch up.
       // Measure on the next frame instead of retiring a valid native search.

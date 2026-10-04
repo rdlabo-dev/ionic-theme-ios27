@@ -40,6 +40,9 @@ final class ShellOverlayHost: UIViewController, UISheetPresentationControllerDel
         webView.scrollView.backgroundColor = .clear
         view = UIView(frame: webView.frame)
         view.backgroundColor = .clear
+        // Covered page controls stay projected during the relay; keep them out of
+        // VoiceOver while the overlay owns interaction.
+        view.accessibilityViewIsModal = true
         view.addSubview(webView)
         if options?["kind"] as? String == "popover" {
             webView.translatesAutoresizingMaskIntoConstraints = false

@@ -39,9 +39,10 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        // WebKit percent-encodes '#' inside about: URLs; compare the decoded form.
         guard webView === source, navigationAction.sourceFrame.isMainFrame,
               let prepared, navigationAction.targetFrame == nil,
-              navigationAction.request.url?.absoluteString == "about:blank#\(prepared.id)" else {
+              navigationAction.request.url?.absoluteString.removingPercentEncoding == "about:blank#\(prepared.id)" else {
             return original?.webView?(webView, createWebViewWith: configuration,
                                       for: navigationAction, windowFeatures: windowFeatures)
         }
