@@ -14,3 +14,17 @@ test('glass-background keeps positional and named argument compatibility', () =>
     compile('@use "api"; .probe { @include api.glass-background($opacity: 0.1, $blur: 0, $saturate: 120%, $include-border: false); }'),
   );
 });
+
+test('tab accessory classic preset compiles with layout variables and an rgba progress fallback', () => {
+  const css = compileString('@use "ion-tab-accessory";', {
+    loadPaths: ['../src/styles/components'],
+    style: 'compressed',
+  }).css;
+  expect(css).toContain('--ios-theme-tab-accessory-radius');
+  expect(css).toContain('--ios-theme-tab-accessory-height');
+  expect(css).toContain('--ios-theme-tab-accessory-inset');
+  expect(css).toContain('--ios-theme-tab-accessory-thumb-size');
+  expect(css).toContain('--ios-theme-tab-accessory-bottom');
+  expect(css).toContain('ios-theme-tab-accessory-classic');
+  expect(css).toMatch(/rgba\(var\(--ion-color-primary-rgb/);
+});

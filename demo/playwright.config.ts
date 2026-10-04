@@ -20,9 +20,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: 'tab-accessory.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
         // Explicitly enable headless mode for better performance in CI
+        headless: true,
+      },
+    },
+    {
+      name: 'webkit',
+      testMatch: 'tab-accessory.spec.ts',
+      use: {
+        ...devices['iPhone 13'],
+        browserName: 'webkit',
         headless: true,
       },
     },

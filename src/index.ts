@@ -6,6 +6,7 @@ export {
   iosPopoverLeaveAnimation as popoverLeaveAnimation,
 } from '@rdlabo/ionic-theme-utils';
 export * from './tab-bar-searchable';
+export * from './tab-accessory';
 export * from './searchbar';
 export * from './transition/ios.transition';
 export { withNativeUIShellTransition } from './native-integration/transition';

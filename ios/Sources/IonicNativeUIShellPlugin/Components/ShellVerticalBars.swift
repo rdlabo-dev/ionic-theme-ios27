@@ -290,21 +290,7 @@ private struct ShellVerticalBarsLegacyToolbar: ViewModifier {
     @ObservedObject var model: ShellVerticalBarsModel
 
     func body(content: Content) -> some View {
-        content.toolbar {
-            if let back = model.back {
-                ToolbarItem(placement: .navigation) {
-                    verticalBarsBackButton(back, model: model)
-                }
-            }
-            ForEach(model.groups) { group in
-                if group.id != model.groups.first?.id {
-                    ToolbarSpacer(.fixed, placement: .primaryAction)
-                }
-                ForEach(group.items) { item in
-                    ShellVerticalBarsButton(model: model, id: item.id, placement: .primaryAction)
-                }
-            }
-        }
+        content
     }
 }
 

@@ -23,7 +23,20 @@ enum ShellSearchPhase: String { case input, focus, blur, clear, commit }
 
 // A controller's empty content must not intercept the existing WebView.
 final class ShellSearchHost: UIView {
+    weak var accessoryContent: UIView?
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let accessoryContent {
+            let local = convert(point, to: accessoryContent)
+            if let hit = accessoryContent.hitTest(local, with: event) { return hit }
+            if accessoryContent.point(inside: local, with: event) { return accessoryContent }
+            if let chrome = accessoryContent.superview, chrome !== self, chrome.bounds.height > 0, chrome.bounds.height <= 120 {
+                let chromeLocal = convert(point, to: chrome)
+                if chrome.point(inside: chromeLocal, with: event) {
+                    return accessoryContent.hitTest(local, with: event) ?? accessoryContent
+                }
+            }
+        }
         guard let hit = super.hitTest(point, with: event) else { return nil }
         var ancestor: UIView? = hit
         while let current = ancestor, current !== self {
@@ -82,6 +95,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
     private var focusWork: DispatchWorkItem?
     private var pendingSelection: ShellTabBar.PendingSelection? // optimistic ordinary tab
     private var pendingExpiryWork: DispatchWorkItem?
+    private let accessory = ShellTabAccessoryBinding()
     var ownsKeyboard: Bool { search.searchBar.searchTextField.isFirstResponder }
     var ownsKeyboardChrome: Bool { session == .focused || ownsKeyboard }
     var activate: ((String) -> Void)?
@@ -116,6 +130,16 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         }
         searchTab.automaticallyActivatesSearch = false
         inputDelegate.clear = { [weak self] in self?.emit(.clear) }
+        accessory.activate = { [weak self] id in self?.activate?(id) }
+        surface.accessoryContent = accessory.content
+        registerForTraitChanges([UITraitTabAccessoryEnvironment.self]) { [weak self] (_: UITraitEnvironment, _: UITraitCollection) in
+            self?.accessory.content.setInlineLayout(self?.traitCollection.tabAccessoryEnvironment == .inline)
+        }
+    }
+
+    func applyAccessory(_ node: ShellControl?) {
+        loadViewIfNeeded()
+        accessory.apply(node, on: self)
     }
 
     deinit {
@@ -228,6 +252,7 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
         lockedWebFrame = nil
         clearPendingSelection()
         applySession(.idle, selectingSearchTab: false)
+        accessory.apply(nil, on: self)
         willMove(toParent: nil)
         restingBarFrame = nil
         surface.removeFromSuperview()

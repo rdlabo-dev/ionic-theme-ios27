@@ -32,53 +32,57 @@ ion-segment.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
 
   // UIKit uses a larger control in navigation bars, but not in content.
+  // Host scale is iOS 27 only (overflow-anchor). iOS 26 CSS keeps a stable bar; lens deforms.
   &.in-toolbar:not(.segment-expand) {
     --border-radius: 24px;
     min-height: 48px;
-    // UIKit's container spring: grow on press, then briefly shrink below rest on release.
-    transition: transform 517ms
-      linear(
-        0,
-        0.1367 6.38%,
-        0.4112 12.96%,
-        0.6945 19.34%,
-        0.9159 25.73%,
-        1 29.01%,
-        1.0912 35.4%,
-        1.1213 41.97%,
-        1.1089 48.36%,
-        1.0584 58.03%,
-        1 70.99%,
-        0.9858 83.75%,
-        1
-      );
-
-    &:not(.segment-disabled):is(
-        .ios27-segment-pressed,
-        :not(.ios27-enable-gesture):is(.segment-activated, :has(ion-segment-button.ion-activated))
-      ) {
-      transform: scale(var(--ios27-segment-scale));
-      transition: transform 367ms
-        linear(
-          0,
-          0.1656 8.99%,
-          0.4905 18.26%,
-          0.7836 27.25%,
-          0.974 36.24%,
-          1.0625 45.5%,
-          1.0802 54.5%,
-          1.0634 63.49%,
-          1.0368 72.75%,
-          1.0147 81.74%,
-          1.0005 90.74%,
-          1
-        );
-    }
 
     ion-segment-button {
       min-height: 44px;
       margin: 2px 0;
       font-size: 0.94rem;
+    }
+
+    @supports (overflow-anchor: auto) {
+      // UIKit's container spring: grow on press, then briefly shrink below rest on release.
+      transition: transform 517ms
+        linear(
+          0,
+          0.1367 6.38%,
+          0.4112 12.96%,
+          0.6945 19.34%,
+          0.9159 25.73%,
+          1 29.01%,
+          1.0912 35.4%,
+          1.1213 41.97%,
+          1.1089 48.36%,
+          1.0584 58.03%,
+          1 70.99%,
+          0.9858 83.75%,
+          1
+        );
+
+      &:not(.segment-disabled):is(
+          .ios27-segment-pressed,
+          :not(.ios27-enable-gesture):is(.segment-activated, :has(ion-segment-button.ion-activated))
+        ) {
+        transform: scale(var(--ios27-segment-scale));
+        transition: transform 367ms
+          linear(
+            0,
+            0.1656 8.99%,
+            0.4905 18.26%,
+            0.7836 27.25%,
+            0.974 36.24%,
+            1.0625 45.5%,
+            1.0802 54.5%,
+            1.0634 63.49%,
+            1.0368 72.75%,
+            1.0147 81.74%,
+            1.0005 90.74%,
+            1
+          );
+      }
     }
   }
 

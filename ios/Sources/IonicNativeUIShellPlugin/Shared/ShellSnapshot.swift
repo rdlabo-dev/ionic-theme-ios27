@@ -4,7 +4,8 @@ import CoreGraphics
 enum ShellComponent: String, Decodable {
     case button = "ion-button", buttons = "ion-buttons"
     case backButton = "ion-back-button", menuButton = "ion-menu-button"
-    case tabBar = "ion-tab-bar", segment = "ion-segment", fab = "ion-fab"
+    case tabBar = "ion-tab-bar", tabAccessory = "ion-toolbar"
+    case segment = "ion-segment", fab = "ion-fab"
 }
 
 struct ShellSnapshot: Decodable {
@@ -47,8 +48,18 @@ struct ShellControl: Decodable, Equatable {
     let rtl: Bool
     let tabBarAnchor: ShellTabBar.Anchor?
     let search: ShellSearch?
+    let title: String?
+    let subtitle: String?
+    let artworkUrl: String?
+    let progress: Double?
+    let progressColor: String?
+    let elapsed: String?
+    let duration: String?
 
-    private enum CodingKeys: String, CodingKey { case id, kind, placement, toolbarSlot, items, dark, rtl, tabBarAnchor, search }
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, placement, toolbarSlot, items, dark, rtl, tabBarAnchor, search
+        case title, subtitle, artworkUrl, progress, progressColor, elapsed, duration
+    }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -62,15 +73,24 @@ struct ShellControl: Decodable, Equatable {
         rtl = try values.decode(Bool.self, forKey: .rtl)
         tabBarAnchor = try values.decodeIfPresent(ShellTabBar.Anchor.self, forKey: .tabBarAnchor)
         search = try values.decodeIfPresent(ShellSearch.self, forKey: .search)
+        title = try values.decodeIfPresent(String.self, forKey: .title)
+        subtitle = try values.decodeIfPresent(String.self, forKey: .subtitle)
+        artworkUrl = try values.decodeIfPresent(String.self, forKey: .artworkUrl)
+        progress = try values.decodeIfPresent(Double.self, forKey: .progress)
+        progressColor = try values.decodeIfPresent(String.self, forKey: .progressColor)
+        elapsed = try values.decodeIfPresent(String.self, forKey: .elapsed)
+        duration = try values.decodeIfPresent(String.self, forKey: .duration)
     }
 
     var isValid: Bool {
         ShellComponents.supported.contains(kind) && !id.isEmpty && frame.isValid && !items.isEmpty && items.count <= 30 &&
         (!ShellButton.kinds.contains(kind) || items.count == 1) &&
+        (kind != .tabAccessory || (items.count >= 1 && items.count <= 2)) &&
         (toolbarSlot == nil || (placement == .verticalBars && [.button, .buttons, .menuButton].contains(kind))) &&
         Set(items.map(\.id)).count == items.count && items.allSatisfy(\.isValid) &&
         (tabBarAnchor.map { kind == .tabBar && $0.isValid } ?? true) &&
-        (search.map { kind == .tabBar && $0.isValid } ?? true)
+        (search.map { kind == .tabBar && $0.isValid } ?? true) &&
+        (progress.map { $0.isFinite } ?? true)
     }
 }
 

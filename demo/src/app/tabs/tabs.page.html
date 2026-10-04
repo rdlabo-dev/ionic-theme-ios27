@@ -26,6 +26,31 @@
 
   <section id="main-content">
     <ion-tabs>
+      <ion-toolbar
+        class="ios tab-accessory ios-theme-tab-accessory"
+        mode="ios"
+        [class.tab-bar-hidden]="!showAccessory"
+        [class.ios-theme-tab-accessory-classic]="classicAccessory"
+        (click)="onAccessoryActivate()"
+      >
+        <ion-thumbnail slot="start">
+          <img data-tab-accessory="artwork" src="https://picsum.photos/128/128?id=12" alt="" />
+        </ion-thumbnail>
+        <ion-label>
+          <h2 data-tab-accessory="title">Now Playing</h2>
+          <p data-tab-accessory="subtitle">Demo Artist</p>
+        </ion-label>
+        <ion-buttons slot="end">
+          <span data-tab-accessory="time">
+            <span data-tab-accessory="elapsed">1:24</span>
+            <span data-tab-accessory="duration">3:45</span>
+          </span>
+          <ion-button data-tab-accessory="play" fill="clear" (click)="togglePlay($event)" [attr.aria-label]="playing ? 'Pause' : 'Play'">
+            <ion-icon slot="icon-only" [name]="playing ? 'pause' : 'play'" aria-hidden="true"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-progress-bar value="0.4"></ion-progress-bar>
+      </ion-toolbar>
       <ion-tab-bar id="tab-bar-bottom" slot="bottom">
         <ion-tab-button tab="index" href="/main/index">
           <ion-icon aria-hidden="true" name="documents"></ion-icon>

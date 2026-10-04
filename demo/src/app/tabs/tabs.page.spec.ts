@@ -66,6 +66,36 @@ describe('TabsPage', () => {
     }
   });
 
+  it('shows the mini-player accessory on the Library tab', () => {
+    Object.defineProperty(globalThis, 'CSS', {
+      configurable: true,
+      value: { supports: () => true },
+    });
+    navigation.next(new NavigationEnd(1, '/main/album', '/main/album'));
+    expect(component.showAccessory).toBe(true);
+    expect(component.classicAccessory).toBe(false);
+  });
+
+  it('opts into the classic mini-player from ?classic=', () => {
+    Object.defineProperty(globalThis, 'CSS', {
+      configurable: true,
+      value: { supports: () => true },
+    });
+    navigation.next(new NavigationEnd(1, '/main/album?classic=', '/main/album?classic='));
+    expect(component.showAccessory).toBe(true);
+    expect(component.classicAccessory).toBe(true);
+  });
+
+  it('uses classic automatically when text-wrap: pretty is unsupported', () => {
+    Object.defineProperty(globalThis, 'CSS', {
+      configurable: true,
+      value: { supports: () => false },
+    });
+    navigation.next(new NavigationEnd(1, '/main/album', '/main/album'));
+    expect(component.showAccessory).toBe(true);
+    expect(component.classicAccessory).toBe(true);
+  });
+
   it('stops reacting to router events after the component is destroyed', () => {
     const tabBar = fixture.nativeElement.querySelector('ion-tab-bar') as HTMLElement;
     navigation.next(new NavigationEnd(1, '/main/settings', '/main/settings'));
