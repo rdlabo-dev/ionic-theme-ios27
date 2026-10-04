@@ -613,6 +613,49 @@ final class NativeUIShellTests: XCTestCase {
         capture("morph-popover-dismissed")
     }
 
+    func testPopoverTeardownLeavesNoStaleProjection() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        for round in 0..<2 {
+            openPage(app, name: "popover")
+            let trigger = nativeButton(app, label: "Open popover")
+            XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+            trigger.tap()
+            XCTAssertTrue(app.webViews.staticTexts["Toolbar popover"].waitForExistence(timeout: 10), app.debugDescription)
+            // Dismiss the morph and navigate away immediately; tearing down the
+            // page must release the retained page projections. If the release
+            // is ever skipped, later pages freeze on the stale snapshot and the
+            // popover page's ellipsis keeps drawing over them.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            let back = app.buttons["back"].firstMatch
+            if !back.waitForExistence(timeout: 5) { continue }
+            back.tap()
+            waitForWebTransition()
+            openPage(app, name: "modal")
+            capture("stalecheck-modal-page-\(round)")
+            let stale = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-' AND label == 'Open popover'"))
+            XCTAssertEqual(stale.count, 0, "popover page projections must not survive navigation")
+            // Present and dismiss a modal; covering overlays must still retire
+            // and restore the current page projections, not the stale ones.
+            let present = app.webViews.buttons["present:normal"]
+            XCTAssertTrue(present.waitForExistence(timeout: 10), app.debugDescription)
+            present.tap()
+            Thread.sleep(forTimeInterval: 1.5)
+            capture("stalecheck-modal-open-\(round)")
+            let close = app.buttons.matching(NSPredicate(format: "label IN %@", ["Close", "Done"])).firstMatch
+            XCTAssertTrue(close.waitForExistence(timeout: 10), app.debugDescription)
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            Thread.sleep(forTimeInterval: 1.0)
+            capture("stalecheck-modal-closed-\(round)")
+            XCTAssertEqual(stale.count, 0, "stale popover projections must not reappear after a modal")
+            XCTAssertTrue(app.buttons["back"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+            app.buttons["back"].firstMatch.tap()
+            waitForWebTransition()
+        }
+    }
+
     func testFirstLaunchPopoverChromeShadow() throws {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")

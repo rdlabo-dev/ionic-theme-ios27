@@ -1,6 +1,6 @@
 import type { NativeUIShellOptions, NativeUIShellPlugin, ShellModalPresentation } from '../definitions';
 import { bounded } from '../runtime';
-import { isPermanentlyExcluded, isShellDisabled } from '../shared/dom';
+import { isExcluded, isPermanentlyExcluded, isShellDisabled } from '../shared/dom';
 import { relayVerticalBars } from './vertical-bars';
 import { activeElement, trapFocus } from './focus';
 import { relayModal } from './modal';
@@ -69,8 +69,10 @@ export const createOverlayController = async (
     try {
       await bounded(plugin.closeOverlay({ id: connection.id }));
     } finally {
-      connection.win?.close();
+      // The page projections must be released even if teardown throws below.
       connection.releaseProjection?.();
+      connection.releaseProjection = undefined;
+      connection.win?.close();
       if (current === connection) current = undefined;
       const focus = connection.focus as HTMLElement | null;
       if (focus?.isConnected && focus.tabIndex >= 0) focus.focus({ preventScroll: true });
@@ -80,7 +82,7 @@ export const createOverlayController = async (
   const restoreWeb = async () => {
     if (current) await release(current);
   };
-  const excluded = (overlay: HTMLElement) => isPermanentlyExcluded(overlay) || isShellDisabled(overlay);
+  const excluded = (overlay: HTMLElement) => isPermanentlyExcluded(overlay) || isExcluded(overlay) || isShellDisabled(overlay);
   const connect = async (connection: Connection, ready: Promise<void>, presentation: Presentation) => {
     const { overlay } = connection;
     const gone = () =>
@@ -163,11 +165,17 @@ export const createOverlayController = async (
         await release(connection);
         return;
       }
+      // Ionic does not dismiss a presented overlay when its page is hidden or
+      // destroyed; without this a popover could retain the page projections
+      // forever and freeze every later control update.
       const exclusions = new MutationObserver(() => {
-        if (excluded(overlay) || isShellDisabled(content.root)) void release(connection).catch(console.error);
+        if (!overlay.isConnected || excluded(overlay) || isShellDisabled(content.root)) void release(connection).catch(console.error);
       });
       const attributes = { attributes: true, attributeFilter: ['class', 'data-shell', 'hidden', 'inert'] };
-      for (let node: HTMLElement | null = overlay; node; node = node.parentElement) exclusions.observe(node, attributes);
+      for (let node: HTMLElement | null = overlay; node; node = node.parentElement) {
+        exclusions.observe(node, attributes);
+        exclusions.observe(node, { childList: true });
+      }
       exclusions.observe(content.root, { ...attributes, subtree: true });
       connection.stopExclusions = () => exclusions.disconnect();
       connection.stopFocus = trapFocus(
