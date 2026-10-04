@@ -3,10 +3,20 @@ import { projectionIds } from '../shared/projection-id';
 import { isDark, marker } from '../shared/dom';
 import { moveContent } from './content';
 
-export const popoverPresentation = (overlay: HTMLIonPopoverElement): ShellPopoverPresentation => {
+const popoverTrigger = (overlay: HTMLIonPopoverElement): Element | undefined => {
   const event = overlay.event as MouseEvent | undefined;
   const target = (overlay.trigger ? overlay.ownerDocument.getElementById(overlay.trigger) : event?.target) as Element | undefined;
-  const trigger = target?.closest?.('ion-button,ion-fab-button,ion-item') ?? target;
+  return target?.closest?.('ion-button,ion-fab-button,ion-item') ?? target;
+};
+
+/** Resolvable before layout: only the projection id, not the geometry. */
+export const popoverAnchorId = (overlay: HTMLIonPopoverElement): string | undefined => {
+  const trigger = popoverTrigger(overlay);
+  return trigger?.closest(`[${marker}]`) ? projectionIds.get(trigger) : undefined;
+};
+
+export const popoverPresentation = (overlay: HTMLIonPopoverElement): ShellPopoverPresentation => {
+  const trigger = popoverTrigger(overlay);
   const content = overlay.shadowRoot!.querySelector<HTMLElement>('.popover-content')!;
   const rect = content.getBoundingClientRect();
   return {

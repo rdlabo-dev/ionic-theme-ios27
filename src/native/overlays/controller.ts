@@ -4,7 +4,7 @@ import { isPermanentlyExcluded, isShellDisabled } from '../shared/dom';
 import { relayVerticalBars } from './vertical-bars';
 import { activeElement, trapFocus } from './focus';
 import { relayModal } from './modal';
-import { relayPopover, popoverPresentation } from './popover';
+import { relayPopover, popoverPresentation, popoverAnchorId } from './popover';
 import { relayAlert } from './alert';
 import { nativeDialogAnimation } from './dialog-animation';
 import { overlaySnapshot } from './snapshot';
@@ -85,6 +85,10 @@ export const createOverlayController = async (
     const { overlay } = connection;
     const gone = () =>
       current !== connection || stopped || suspensions.size || connection.dismissed || !overlay.isConnected || excluded(overlay);
+    // Anchored popovers morph out of the projected control natively; the Web
+    // enter animation would only flicker underneath, so keep the source hidden.
+    const anchoredPopover = presentation.kind === 'popover' && popoverAnchorId(overlay as HTMLIonPopoverElement) !== undefined;
+    if (anchoredPopover) connection.hideAnimation?.();
     try {
       // Ionic's own enter animation covers the wait; spin up the child window
       // underneath it so the handoff is ready when didPresent lands.
@@ -128,8 +132,9 @@ export const createOverlayController = async (
       const focused = activeElement(doc) as HTMLElement | null;
       const nativePresentation = presentation.kind === 'popover' ? popoverPresentation(overlay as HTMLIonPopoverElement) : presentation;
       // Freeze the rendered overlay so the native surface can swap identical
-      // pixels in instantly instead of replaying an opening animation.
-      const snapshot = overlaySnapshot(overlay);
+      // pixels in instantly instead of replaying an opening animation. Anchored
+      // popovers morph instead; their hidden source cannot be captured anyway.
+      const snapshot = anchoredPopover ? undefined : overlaySnapshot(overlay);
       if (snapshot) {
         try {
           await bounded(plugin.snapshotOverlay({ id: connection.id, presentation: nativePresentation, ...snapshot }));
@@ -188,7 +193,13 @@ export const createOverlayController = async (
         stopBreakpoint?.();
       };
       // The Web enter animation already played; swap to the hosted window instantly.
-      await bounded(plugin.presentOverlay({ id: connection.id, presentation: { ...nativePresentation, animated: false } }));
+      // Anchored popovers play their own native morph out of the projected control.
+      await bounded(
+        plugin.presentOverlay({
+          id: connection.id,
+          presentation: { ...nativePresentation, animated: anchoredPopover ? presentation.animated : false },
+        }),
+      );
       // Let the hosted document paint one frame before uncovering the frozen image.
       await bounded(new Promise<void>((resolve) => staged.win.document.defaultView!.requestAnimationFrame(() => resolve()))).catch(
         () => {},

@@ -91,10 +91,12 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         guard self.id == id, let host, let owner,
               owner.presentedViewController == nil else { completion(false); return }
         host.apply(options)
-        if host.options?["kind"] as? String == "popover", let anchor = host.options?["anchorId"] as? String {
-            if !anchored(anchor, host, { completion(true) }) { completion(false) }
-            return
-        }
+        if host.options?["kind"] as? String == "popover",
+           let anchor = host.options?["anchorId"] as? String,
+           anchored(anchor, host, { completion(true) }) { return }
+        // Without a projected view to grow from, a popover falls back to the
+        // trigger rect the page measured before handing off.
+        if host.options?["kind"] as? String == "popover" { host.modalPresentationStyle = .popover }
         if let popover = host.popoverPresentationController,
            let anchor = host.options?["anchor"] as? [String: Double] {
             popover.sourceView = source

@@ -127,21 +127,45 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             }
             overlays.present(id, options: call.getObject("presentation"), anchored: { [weak self] anchor, host, completion in
                 guard #available(iOS 26.0, *), let self else { return false }
-                if self.verticalBars?.presentPopover(host, for: anchor, completion: completion) == true { return true }
-                func findButton(in view: UIView) -> UIButton? {
-                    if view.accessibilityIdentifier == anchor, let button = view as? UIButton { return button }
-                    for child in view.subviews { if let button = findButton(in: child) { return button } }
+                func findAnchor(in view: UIView) -> UIView? {
+                    if view.accessibilityIdentifier == anchor { return view }
+                    for child in view.subviews { if let anchor = findAnchor(in: child) { return anchor } }
                     return nil
                 }
-                guard let button = self.controls.values.compactMap({ findButton(in: $0) }).first,
-                      let owner = self.bridge?.viewController else { return false }
-                host.modalPresentationStyle = .popover
-                guard let popover = host.popoverPresentationController else { return false }
-                popover.delegate = host
-                popover.sourceView = button
-                popover.sourceRect = button.bounds
-                popover.backgroundColor = ShellRendering().color(host.options?["backgroundColor"] as? String)
-                owner.present(host, animated: host.options?["animated"] as? Bool ?? false, completion: completion)
+                // The overlay must sit above every projected surface, so it grows
+                // out of the projected view itself inside a window-level layer.
+                // Rail items live in the hosting view; controls live in the host.
+                var roots = Array(self.controls.values)
+                if let rail = self.verticalBars { roots.append(rail.view) }
+                guard let anchorView = roots.compactMap({ findAnchor(in: $0) }).first,
+                      let window = anchorView.window else { return false }
+                // Grow toward the screen middle: down from a top control, up from a
+                // bottom one, and left out of a trailing rail item.
+                let frame = anchorView.convert(anchorView.bounds, to: nil)
+                let height = window.bounds.height
+                let growth: ShellAnchoredMorph.Growth =
+                    self.verticalBars.map({ anchorView.isDescendant(of: $0.view) }) == true ? .left
+                    : frame.midY < height * 0.5 ? .down : .up
+                let morph = ShellAnchoredMorph(anchorView: anchorView, host: host, growth: growth) { [weak host] in
+                    if host?.options?["backdropDismiss"] as? Bool != false { host?.event("dismiss", nil) }
+                }
+                host.dismissAnchored = { [weak morph, weak host] in
+                    guard let morph, let host else {
+                        let done = host?.anchoredDidDismiss
+                        host?.anchoredDidDismiss = nil
+                        done?()
+                        return
+                    }
+                    morph.dismiss(host: host, animated: host.options?["animated"] as? Bool ?? true) {
+                        host.anchoredVisible = false
+                        let done = host.anchoredDidDismiss
+                        host.anchoredDidDismiss = nil
+                        done?()
+                    }
+                }
+                window.addSubview(morph)
+                host.anchoredVisible = true
+                morph.present(host: host, animated: host.options?["animated"] as? Bool ?? true, completion: completion)
                 return true
             }) { presented in
                 if presented { call.resolve() } else { call.reject("Overlay presenter unavailable") }
