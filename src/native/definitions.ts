@@ -211,6 +211,8 @@ export interface NativeUIShellPlugin {
 export interface ShellModalPresentation {
   kind: 'normal' | 'card' | 'sheet';
   animated: boolean;
+  /** Gap the card sheet leaves at the top so the shrunken page stays visible. */
+  topInset?: number;
   breakpoints?: number[];
   initialBreakpoint?: number;
   backdropBreakpoint?: number;

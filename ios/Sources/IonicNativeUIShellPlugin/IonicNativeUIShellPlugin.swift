@@ -156,7 +156,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                         done?()
                         return
                     }
-                    morph.dismiss(host: host, animated: host.options?["animated"] as? Bool ?? true) {
+                    morph.dismiss(animated: host.options?["animated"] as? Bool ?? true) {
                         host.anchoredVisible = false
                         let done = host.anchoredDidDismiss
                         host.anchoredDidDismiss = nil
@@ -165,7 +165,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 }
                 window.addSubview(morph)
                 host.anchoredVisible = true
-                morph.present(host: host, animated: host.options?["animated"] as? Bool ?? true, completion: completion)
+                morph.present(animated: host.options?["animated"] as? Bool ?? true, completion: completion)
                 return true
             }) { presented in
                 if presented { call.resolve() } else { call.reject("Overlay presenter unavailable") }

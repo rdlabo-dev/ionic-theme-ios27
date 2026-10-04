@@ -12,7 +12,18 @@ export const modalPresentation = (overlay: HTMLIonModalElement): ShellModalPrese
       handle: overlay.handle,
     };
   }
-  return { kind: overlay.presentingElement !== undefined ? 'card' : 'normal', animated: overlay.animated };
+  const kind = overlay.presentingElement !== undefined ? ('card' as const) : ('normal' as const);
+  return { kind, animated: overlay.animated, topInset: kind === 'card' ? cardInset(overlay.ownerDocument) : undefined };
+};
+
+// Mirrors Ionic's card height: `100% - max(30px, var(--ion-safe-area-top)) - 10px`.
+const cardInset = (doc: Document): number => {
+  const probe = doc.createElement('div');
+  probe.style.cssText = 'position:fixed;top:env(safe-area-inset-top);left:0;visibility:hidden;pointer-events:none';
+  doc.body.append(probe);
+  const safe = probe.getBoundingClientRect().top;
+  probe.remove();
+  return Math.max(30, safe) + 10;
 };
 
 /** Sheet detent changes stay with the modal adapter, not the document relay. */

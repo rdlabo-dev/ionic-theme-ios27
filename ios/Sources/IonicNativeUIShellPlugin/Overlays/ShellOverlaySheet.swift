@@ -7,7 +7,9 @@ extension ShellOverlayHost {
               let sheet = sheetPresentationController else { return }
         sheet.delegate = self
         if kind == "card" {
-            sheet.detents = [.large()]
+            // Leave Ionic's card gap open so the shrunken page peeks above the sheet.
+            let gap = CGFloat(options["topInset"] as? Double ?? 40)
+            sheet.detents = [.custom { context in max(context.maximumDetentValue - gap, 1) }]
             return
         }
         let breakpoints = (options["breakpoints"] as? [Double] ?? []).filter { $0 > 0 }.sorted()

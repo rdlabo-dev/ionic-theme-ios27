@@ -105,7 +105,6 @@ final class ShellAnchoredMorph: UIView {
         clip.hostedSize = size
         clip.pinY = growth == .up ? .bottom : growth == .left ? .center : .top
         clip.pinX = growth == .left ? .trailing : leadingAligned ? .leading : .trailing
-        host.view.alpha = 0
         clip.hosted = host.view
         clip.addSubview(host.view)
 
@@ -118,11 +117,10 @@ final class ShellAnchoredMorph: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     /// Expand the capsule into the popover surface.
-    func present(host: ShellOverlayHost, animated: Bool, completion: @escaping () -> Void) {
+    func present(animated: Bool, completion: @escaping () -> Void) {
         let animate = {
             self.surface.frame = self.targetFrame
             self.clip.layer.cornerRadius = Self.surfaceRadius
-            host.view.alpha = 1
         }
         guard animated else {
             animate()
@@ -135,7 +133,7 @@ final class ShellAnchoredMorph: UIView {
     }
 
     /// Collapse the surface back into the capsule before the anchor returns.
-    func dismiss(host: ShellOverlayHost, animated: Bool, completion: @escaping () -> Void) {
+    func dismiss(animated: Bool, completion: @escaping () -> Void) {
         guard !dismissStarted else { completion(); return }
         dismissStarted = true
         let finish = {
@@ -143,10 +141,11 @@ final class ShellAnchoredMorph: UIView {
             self.removeFromSuperview()
             completion()
         }
+        // The surface stays opaque while it shrinks so it reads as the capsule
+        // itself collapsing; the real anchor swaps back in once they overlap.
         let animate = {
             self.surface.frame = self.anchorFrame
             self.clip.layer.cornerRadius = self.anchorFrame.height / 2
-            self.surface.alpha = 0
         }
         guard animated else {
             animate()

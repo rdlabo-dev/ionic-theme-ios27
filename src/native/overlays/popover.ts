@@ -9,12 +9,6 @@ const popoverTrigger = (overlay: HTMLIonPopoverElement): Element | undefined => 
   return target?.closest?.('ion-button,ion-fab-button,ion-item') ?? target;
 };
 
-/** Resolvable before layout: only the projection id, not the geometry. */
-export const popoverAnchorId = (overlay: HTMLIonPopoverElement): string | undefined => {
-  const trigger = popoverTrigger(overlay);
-  return trigger?.closest(`[${marker}]`) ? projectionIds.get(trigger) : undefined;
-};
-
 export const popoverPresentation = (overlay: HTMLIonPopoverElement): ShellPopoverPresentation => {
   const trigger = popoverTrigger(overlay);
   const content = overlay.shadowRoot!.querySelector<HTMLElement>('.popover-content')!;
