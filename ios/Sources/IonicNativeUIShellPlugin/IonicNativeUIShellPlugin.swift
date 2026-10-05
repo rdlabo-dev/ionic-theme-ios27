@@ -136,17 +136,32 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 // out of the projected view itself inside a window-level layer.
                 // Rail items live in the hosting view; controls live in the host.
                 var roots = Array(self.controls.values)
-                if let rail = self.verticalBars { roots.append(rail.view) }
-                guard let anchorView = roots.compactMap({ findAnchor(in: $0) }).first,
-                      let window = anchorView.window else { return false }
+                let railView = self.verticalBars?.view
+                if let railView { roots.append(railView) }
+                var anchorView: UIView?
+                for root in roots {
+                    guard let found = findAnchor(in: root) else { continue }
+                    // Grow from the whole glass capsule, not the matched inner
+                    // item — otherwise the capsule's rim sticks out of the
+                    // surface's rounded corner. Rail items already resolve to
+                    // their own capsule view.
+                    anchorView = root is UIVisualEffectView && root !== railView ? root : found
+                    break
+                }
+                guard let anchorView, let window = anchorView.window else { return false }
                 // Grow toward the screen middle: down from a top control, up from a
                 // bottom one, and left out of a trailing rail item.
-                let frame = anchorView.convert(anchorView.bounds, to: nil)
+                // The page supplies the capsule frame: a grouped button's visible
+                // pill is its ion-buttons wrapper, wider than the projected button.
+                let nativeFrame = anchorView.convert(anchorView.bounds, to: window)
+                let frame = (host.options?["anchor"] as? [String: Double]).map({
+                    CGRect(x: $0["x"] ?? 0, y: $0["y"] ?? 0, width: $0["width"] ?? 44, height: $0["height"] ?? 44)
+                }) ?? nativeFrame
                 let height = window.bounds.height
                 let growth: ShellAnchoredMorph.Growth =
                     self.verticalBars.map({ anchorView.isDescendant(of: $0.view) }) == true ? .left
                     : frame.midY < height * 0.5 ? .down : .up
-                let morph = ShellAnchoredMorph(anchorView: anchorView, host: host, growth: growth) { [weak host] in
+                let morph = ShellAnchoredMorph(anchorView: anchorView, frame: frame, host: host, growth: growth) { [weak host] in
                     if host?.options?["backdropDismiss"] as? Bool != false { host?.event("dismiss", nil) }
                 }
                 host.dismissAnchored = { [weak morph, weak host] in

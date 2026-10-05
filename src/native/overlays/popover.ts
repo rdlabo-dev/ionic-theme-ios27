@@ -9,17 +9,27 @@ const popoverTrigger = (overlay: HTMLIonPopoverElement): Element | undefined => 
   return target?.closest?.('ion-button,ion-fab-button,ion-item') ?? target;
 };
 
+// The visible pill around a grouped button is the ion-buttons glass capsule,
+// which is one padding ring wider than the button the projection hides.
+export const popoverAnchorCapsule = (overlay: HTMLIonPopoverElement): HTMLElement | undefined => {
+  const trigger = popoverTrigger(overlay);
+  return (trigger?.closest('ion-buttons') ?? trigger) as HTMLElement | undefined;
+};
+
 export const popoverPresentation = (overlay: HTMLIonPopoverElement): ShellPopoverPresentation => {
   const trigger = popoverTrigger(overlay);
   const content = overlay.shadowRoot!.querySelector<HTMLElement>('.popover-content')!;
   const rect = content.getBoundingClientRect();
+  const anchored = !!trigger?.closest(`[${marker}]`);
   return {
     kind: 'popover',
     animated: overlay.animated,
     dark: isDark(overlay.ownerDocument.defaultView!.getComputedStyle(overlay)),
-    anchorId: trigger?.closest(`[${marker}]`) ? projectionIds.get(trigger) : undefined,
+    anchorId: anchored && trigger ? projectionIds.get(trigger) : undefined,
     anchor: (() => {
-      const box = trigger?.getBoundingClientRect() ?? rect;
+      // Morph from the capsule the user actually sees — a grouped button's pill
+      // belongs to its ion-buttons wrapper, not the button's own bounds.
+      const box = (anchored ? popoverAnchorCapsule(overlay) : trigger)?.getBoundingClientRect() ?? rect;
       return { x: box.x, y: box.y, width: box.width, height: box.height };
     })(),
     width: rect.width,

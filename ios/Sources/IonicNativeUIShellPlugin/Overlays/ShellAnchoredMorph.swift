@@ -49,11 +49,11 @@ final class ShellAnchoredMorph: UIView {
     /// Matches the theme's popover radius (34px) — small surfaces become capsules.
     private static let surfaceRadius: CGFloat = 34
 
-    init(anchorView: UIView, host: ShellOverlayHost, growth: Growth, onDismiss: @escaping () -> Void) {
+    init(anchorView: UIView, frame: CGRect, host: ShellOverlayHost, growth: Growth, onDismiss: @escaping () -> Void) {
         self.anchorView = anchorView
         self.onDismiss = onDismiss
         let window = anchorView.window
-        anchorFrame = anchorView.convert(anchorView.bounds, to: window)
+        anchorFrame = frame
         let bounds = window?.bounds ?? .zero
         let size = host.preferredContentSize
         var target = CGRect(origin: .zero, size: size)

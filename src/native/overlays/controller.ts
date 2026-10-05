@@ -4,7 +4,7 @@ import { isExcluded, isPermanentlyExcluded, isShellDisabled } from '../shared/do
 import { relayVerticalBars } from './vertical-bars';
 import { activeElement, trapFocus } from './focus';
 import { relayModal } from './modal';
-import { relayPopover, popoverPresentation } from './popover';
+import { relayPopover, popoverPresentation, popoverAnchorCapsule } from './popover';
 import { relayAlert } from './alert';
 import { nativeDialogAnimation } from './dialog-animation';
 import { overlaySnapshot } from './snapshot';
@@ -31,6 +31,7 @@ interface Connection {
   stopEvents?: () => void;
   stopChildEvents?: () => void;
   stopExclusions?: () => void;
+  stopAnchor?: () => void;
   closing?: Promise<void>;
   nativeClosing?: Promise<void>;
   stopAnimation?: () => void;
@@ -72,6 +73,7 @@ export const createOverlayController = async (
       await connection.nativeClosing?.catch((error) => {
         console.error('Native overlay dismissal did not complete; restoring the Web content anyway.', error);
       });
+      await stage('anchor', connection.stopAnchor);
       await stage('verticalBars', connection.stopVerticalBars);
       await stage('content', connection.stopContent);
       await stage('animation', connection.stopAnimation);
@@ -169,6 +171,19 @@ export const createOverlayController = async (
             ? relayAlert(overlay as HTMLIonAlertElement, staged.destination)
             : relayModal(overlay as HTMLIonModalElement, staged.destination, presentation.kind);
       connection.stopContent = content.stop;
+      // The morph covers the projected control; also hide its Web capsule —
+      // the ion-buttons backdrop-filter pill is a padding ring wider than the
+      // projected button and would peek out of the surface's rounded corner.
+      if (presentation.kind === 'popover' && (nativePresentation as { anchorId?: string }).anchorId) {
+        const capsule = popoverAnchorCapsule(overlay as HTMLIonPopoverElement);
+        if (capsule) {
+          const visibility = capsule.style.visibility;
+          capsule.style.visibility = 'hidden';
+          connection.stopAnchor = () => {
+            capsule.style.visibility = visibility;
+          };
+        }
+      }
       connection.hideAnimation?.();
       // Release the source document's captured placement before the relay takes ownership.
       doc.defaultView!.dispatchEvent(new Event('nativeUIShellRefresh'));
