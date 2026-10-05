@@ -9,6 +9,7 @@ import type { ShellMockCore, TestAppElement } from './native-shell-mock';
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
 interface ShellMock extends ShellMockCore {
+  releaseOverlay?: () => void;
   delay: number;
   hang: boolean;
   rejectInactiveSearch: boolean;
@@ -20,9 +21,19 @@ interface ShellMock extends ShellMockCore {
   retirementDetails: { path: string; tabs: string }[];
 }
 
-const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'trailing' | null | 'unreported' = 'trailing') => {
-  const script = ([fail, nativeEdge]: readonly [boolean, 'leading' | 'trailing' | null | 'unreported']) => {
+const mockNative = async (
+  page: Page,
+  fail = false,
+  nativeEdge: 'leading' | 'trailing' | null | 'unreported' = 'trailing',
+  deferOverlayPreparation = false,
+) => {
+  const script = ([fail, nativeEdge, deferOverlayPreparation]: readonly [
+    boolean,
+    'leading' | 'trailing' | null | 'unreported',
+    boolean,
+  ]) => {
     const mock = {
+      releaseOverlay: undefined as (() => void) | undefined,
       updates: [] as ShellSnapshot[],
       sequence: 0,
       delay: 0,
@@ -46,6 +57,11 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       notifyListeners(eventName: string, data: unknown) {
         for (const listener of this.listeners[eventName] ?? []) listener(data as never);
       },
+      async prepareOverlay() {
+        throw new Error('Native overlay unavailable');
+      },
+      async closeOverlay() {},
+      async stopOverlays() {},
       async configure(options: { verticalBarsOnly?: boolean }) {
         this.configuredWith = options;
         return { supported: true, verticalBars: nativeEdge !== null };
@@ -58,8 +74,8 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
         if (this.hang) await new Promise(() => {});
         return this.rejections(options);
       },
-      async clear(options: { revision: number }) {
-        this.updates.push({ revision: options.revision, viewportWidth: 0, controls: [] });
+      async clear(options: { revision: number; overlayId?: string }) {
+        this.updates.push({ ...options, viewportWidth: 0, controls: [] });
         return this.rejections(options);
       },
       async rejections(options: { revision?: number; controls?: ShellControl[] }) {
@@ -81,6 +97,14 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
         };
       },
     };
+
+    if (deferOverlayPreparation)
+      Object.assign(mock, {
+        prepareOverlay: () =>
+          new Promise<void>((_, reject) => {
+            mock.releaseOverlay = () => reject(new Error('Native overlay unavailable'));
+          }),
+      });
 
     const foldable = {
       async getBarPlacement() {
@@ -110,12 +134,12 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       },
     });
   };
-  await page.addInitScript(script, [fail, nativeEdge] as const);
+  await page.addInitScript(script, [fail, nativeEdge, deferOverlayPreparation] as const);
 };
 
-const activate = (page: Page, label: string, duplicate = false) =>
+const activate = (page: Page, label: string, duplicate = false, overlayId?: string) =>
   page.evaluate(
-    ({ label, duplicate }) => {
+    ({ label, duplicate, overlayId }) => {
       const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
       const snapshot = state.updates.findLast((value) =>
         value.controls.some((control) => control.items.some((item) => item.label === label || item.accessibilityLabel === label)),
@@ -123,11 +147,16 @@ const activate = (page: Page, label: string, duplicate = false) =>
       const item = snapshot.controls
         .flatMap((control) => control.items)
         .find((item) => item.label === label || item.accessibilityLabel === label)!;
-      const event = { id: item.id, revision: snapshot.revision, sequence: ++state.sequence };
+      const event = {
+        id: item.id,
+        revision: snapshot.revision,
+        sequence: overlayId ? state.sequence + 1000 : ++state.sequence,
+        overlayId,
+      };
       state.notifyListeners('activate', event);
       if (duplicate) state.notifyListeners('activate', event);
     },
-    { label, duplicate },
+    { label, duplicate, overlayId },
   );
 
 test('FAB keeps a complete native batch across staggered lists and measures each button', async ({ page }) => {
@@ -159,7 +188,7 @@ test('FAB keeps a complete native batch across staggered lists and measures each
   await expect(fab).toHaveAttribute('data-native-ui-shell', '');
 });
 
-test('FAB activation stays with Ionic and rejects hidden, disabled and duplicate actions', async ({ page }) => {
+test('FAB activation stays with Ionic and rejects other surfaces, hidden, disabled and duplicate actions', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/floating-action-button');
   const fab = page.locator('ion-fab[horizontal=center]');
@@ -169,6 +198,10 @@ test('FAB activation stays with Ionic and rejects hidden, disabled and duplicate
     app.fabClicks = 0;
     element.querySelector('ion-fab-list ion-fab-button')!.addEventListener('click', () => (app.fabClicks = (app.fabClicks ?? 0) + 1));
   });
+  // A relayed overlay can reuse IDs/revisions without activating the covered page
+  // or advancing its sequence guard.
+  await activate(page, 'Center FAB actions', false, 'ios-theme-overlay-1');
+  expect(await fab.evaluate((element: HTMLIonFabElement) => element.activated)).toBeFalsy();
   await activate(page, 'Up action');
   expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).fabClicks)).toBe(0);
   await activate(page, 'Center FAB actions', true);
@@ -626,7 +659,7 @@ test('native verticalBars toolbar returns with Index after a pushed page', async
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
   const hasIndexActions = () =>
     page.evaluate(() => {
-      const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls;
+      const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.controls ?? [];
       return controls.some(
         (control: ShellControl) =>
           control.placement === 'vertical-bars' && control.items.some((item: ShellItem) => item.accessibilityLabel === 'GitHub'),
@@ -3055,6 +3088,32 @@ test('verticalBars return to native projection when the requested edge matches a
   await expect(source).toHaveAttribute('data-native-ui-shell', '');
 });
 
+test('native modal preparation retains the covered projection and releases it on fallback', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await mockNative(page, false, 'trailing', true);
+  await page.goto('/main/index/modal');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  const back = page.locator('app-modal ion-back-button');
+  await expect(back).toHaveAttribute('data-native-ui-shell', '');
+  await page.evaluate(() => {
+    Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length = 0;
+  });
+  await page.getByText('present:card', { exact: true }).click();
+  await expect.poll(() => page.evaluate(() => !!Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').releaseOverlay)).toBe(true);
+  await expect(back).toHaveAttribute('data-native-ui-shell', '');
+  expect(
+    await page.evaluate(() =>
+      Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.some((snapshot) => snapshot.controls.length === 0),
+    ),
+  ).toBe(false);
+  await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').releaseOverlay!());
+  await expect(page.locator('ion-modal ion-toolbar ion-button').first()).toHaveAttribute('data-native-ui-shell', '');
+  for (const group of await page.locator('ion-modal ion-toolbar ion-buttons').all()) await expect(group).toHaveCSS('display', 'none');
+  await activate(page, 'Close');
+  await expect(page.locator('ion-modal')).toHaveCount(0);
+  await expect(back).toHaveAttribute('data-native-ui-shell', '');
+});
+
 for (const type of ['normal', 'card', 'sheet']) {
   test(`verticalBars native controls follow the foreground ${type} modal`, async ({ page }) => {
     await page.setViewportSize({ width: 700, height: 900 });
@@ -3375,4 +3434,63 @@ test('tab visibility ignores query parameters and fragments', async ({ page }) =
   }
   await page.goto('/main/index?verticalBarsOnly&buttonDefaultFill=solid#comparison');
   await expect(page.locator('ion-tab-bar')).not.toHaveClass(/tab-bar-hidden/);
+});
+
+for (const kind of ['popover', 'alert'] as const) {
+  test(`native ${kind} relay preserves live handlers after blank navigation and closes its window`, async ({ page }) => {
+    await mockNative(page);
+    await page.goto(`/main/index/${kind}`);
+    await page.evaluate(() => {
+      Object.assign(Capacitor.registerPlugin('IonicNativeUIShell'), {
+        async prepareOverlay() {},
+        async snapshotOverlay() {},
+        async presentOverlay() {},
+        async revealOverlay() {},
+        async dismissOverlay() {},
+      });
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const opened = page.waitForEvent('popup');
+      await page.getByRole('button', { name: kind === 'popover' ? 'Compact controller popover' : 'Input alert', exact: true }).click();
+      const relay = await opened;
+      if (kind === 'popover') {
+        await relay.getByRole('button', { name: 'Increment', exact: true }).click();
+        await expect(relay.getByText('Count: 1', { exact: true })).toBeVisible();
+        await relay.evaluate(() => (document.querySelector('ion-popover') as HTMLIonPopoverElement).dismiss());
+      } else {
+        await relay.getByPlaceholder('Your name').fill('Relay');
+        await relay.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(page.getByText('Saved input: Relay', { exact: true })).toBeVisible();
+      }
+      await expect.poll(() => relay.isClosed()).toBe(true);
+      await expect(page.locator(`ion-${kind}:not(.overlay-hidden)`)).toHaveCount(0);
+    }
+  });
+}
+
+test('opening an Ionic menu restores a relayed modal to the source WebView', async ({ page }) => {
+  // Collapse the demo's split pane so its menu presents as an overlay.
+  await page.setViewportSize({ width: 400, height: 800 });
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  await page.evaluate(() => {
+    Object.assign(Capacitor.registerPlugin('IonicNativeUIShell'), {
+      async prepareOverlay() {},
+      async snapshotOverlay() {},
+      async presentOverlay() {},
+      async revealOverlay() {},
+      async dismissOverlay() {},
+    });
+  });
+  const opened = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Open modal', exact: true }).click();
+  const relay = await opened;
+  await expect(relay.getByRole('button', { name: 'Close modal', exact: true })).toBeVisible();
+  await page.evaluate(() => document.querySelector('ion-menu')!.open());
+  await expect.poll(() => relay.isClosed()).toBe(true);
+  const modal = page.locator('ion-modal:not(.overlay-hidden)');
+  await expect(modal).toHaveCount(1);
+  await page.evaluate(() => document.querySelector('ion-menu')!.close());
+  await modal.getByRole('button', { name: 'Close modal', exact: true }).click();
+  await expect(modal).toHaveCount(0);
 });

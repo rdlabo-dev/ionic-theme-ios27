@@ -47,6 +47,12 @@ export interface NativeUIShellControls {
   segment?: boolean;
   /** Projects floating action buttons. */
   fab?: boolean;
+  /** Preview: relays Modal content into a native-hosted WebView. Defaults to false. */
+  modal?: boolean;
+  /** Preview: relays Popover content into a native popover. Defaults to false. */
+  popover?: boolean;
+  /** Preview: relays Alert content above Native UI Shell. Defaults to false. */
+  alert?: boolean;
 }
 
 export interface NativeUIShellHandle {
@@ -159,6 +165,8 @@ export interface ShellSearchEvent extends ShellActivation {
 }
 
 export interface ShellSnapshot {
+  /** Internal projection destination; omitted for the Capacitor WebView. */
+  overlayId?: string;
   revision: number;
   transitionDuration?: number;
   viewportWidth: number;
@@ -170,6 +178,7 @@ export interface ShellSnapshot {
 }
 
 export interface ShellActivation {
+  overlayId?: string;
   revision: number;
   id: string;
   sequence: number;
@@ -183,9 +192,50 @@ export interface WebViewMetrics {
 export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
+  prepareOverlay(options: { id: string; presentation?: ShellOverlayPresentation }): Promise<void>;
+  snapshotOverlay(options: { id: string; presentation?: ShellOverlayPresentation; source: Frame; destination: Frame }): Promise<void>;
+  presentOverlay(options: { id: string; presentation?: ShellOverlayPresentation }): Promise<void>;
+  revealOverlay(options: { id: string }): Promise<void>;
+  setOverlayBreakpoint(options: { id: string; breakpoint: number }): Promise<void>;
+  dismissOverlay(options: { id: string; animated: boolean; gesture: boolean }): Promise<void>;
+  closeOverlay(options: { id: string }): Promise<void>;
+  stopOverlays(): Promise<void>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
-  clear(options: { revision: number }): Promise<void>;
+  clear(options: { revision: number; overlayId?: string }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
   addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'overlay', listener: (event: ShellOverlayEvent) => void): Promise<PluginListenerHandle>;
+}
+
+export interface ShellModalPresentation {
+  kind: 'normal' | 'card' | 'sheet';
+  animated: boolean;
+  /** Gap the card sheet leaves at the top so the shrunken page stays visible. */
+  topInset?: number;
+  breakpoints?: number[];
+  initialBreakpoint?: number;
+  backdropBreakpoint?: number;
+  expandToScroll?: boolean;
+  handle?: boolean;
+}
+
+export interface ShellPopoverPresentation {
+  kind: 'popover';
+  animated: boolean;
+  dark: boolean;
+  anchorId?: string;
+  anchor: Frame;
+  width: number;
+  height: number;
+  backgroundColor: string;
+  backdropDismiss: boolean;
+}
+
+export type ShellOverlayPresentation = ShellModalPresentation | ShellPopoverPresentation | { kind: 'alert'; animated: boolean };
+
+export interface ShellOverlayEvent {
+  id: string;
+  action: 'dismiss' | 'breakpoint';
+  breakpoint?: number;
 }

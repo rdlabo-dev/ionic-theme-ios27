@@ -1,4 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
+
+import { PopoverContentComponent } from './popover-content.component';
 
 import { FormsModule } from '@angular/forms';
 import {
@@ -18,6 +20,7 @@ import {
   IonText,
   IonTitle,
   IonToolbar,
+  PopoverController,
 } from '@demo/ionic';
 
 @Component({
@@ -46,7 +49,17 @@ import {
   ],
 })
 export class PopoverPage implements OnInit {
-  constructor() {}
+  readonly popoverController = inject(PopoverController);
+
+  async present(event: Event, scrollable = false) {
+    const popover = await this.popoverController.create({
+      component: PopoverContentComponent,
+      componentProps: { scrollable },
+      event,
+      cssClass: scrollable ? 'demo-scrollable-popover' : 'demo-compact-popover',
+    });
+    await popover.present();
+  }
 
   ngOnInit() {}
 }
