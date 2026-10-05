@@ -789,6 +789,95 @@ final class NativeUIShellTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.7)
     }
 
+    func testRepeatedPopoverStress() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        openPage(app, name: "popover")
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        let popText = app.webViews.staticTexts["Toolbar popover"]
+        // Alternate outside-dismiss timing to hit the morph mid-present and at rest.
+        let delays: [TimeInterval] = [0.15, 0.6, 0.15, 0.6, 0.15, 0.6, 0.15, 0.6]
+        for (i, delay) in delays.enumerated() {
+            trigger.tap()
+            Thread.sleep(forTimeInterval: delay)
+            capture("stress-open-\(i)")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            Thread.sleep(forTimeInterval: 0.25)
+            capture("stress-close-\(i)")
+        }
+        Thread.sleep(forTimeInterval: 1.0)
+        capture("stress-settled")
+        // The morph trigger and the rest of the projections must still work.
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), "native trigger lost after repeated popover use\n" + app.debugDescription)
+        trigger.tap()
+        XCTAssertTrue(popText.waitForExistence(timeout: 10), "popover failed to relay after repeats\n" + app.debugDescription)
+        capture("stress-reopen")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+        Thread.sleep(forTimeInterval: 0.8)
+        // Navigate away and back; projections must keep tracking the page.
+        app.buttons["back"].firstMatch.tap()
+        waitForWebTransition()
+        openPage(app, name: "popover")
+        XCTAssertTrue(nativeButton(app, label: "Open popover").waitForExistence(timeout: 10),
+                      "projections did not survive the stress round trip\n" + app.debugDescription)
+        capture("stress-roundtrip")
+    }
+
+    func testMixedOverlayStress() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        let shellButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'"))
+        for i in 0..<3 {
+            // Anchored morph popover.
+            openPage(app, name: "popover")
+            let trigger = nativeButton(app, label: "Open popover")
+            XCTAssertTrue(trigger.waitForExistence(timeout: 10), "morph trigger lost at round \(i)\n" + app.debugDescription)
+            trigger.tap()
+            XCTAssertTrue(app.webViews.staticTexts["Toolbar popover"].waitForExistence(timeout: 10),
+                          "morph did not present at round \(i)\n" + app.debugDescription)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            Thread.sleep(forTimeInterval: 0.5)
+            capture("mixed-popover-\(i)")
+            // Unanchored controller popover via the x button.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.611)).tap()
+            let hello = app.webViews.staticTexts["Hello World!"]
+            XCTAssertTrue(hello.waitForExistence(timeout: 10), "uikit popover did not present at round \(i)\n" + app.debugDescription)
+            capture("mixed-uikit-\(i)")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            Thread.sleep(forTimeInterval: 0.5)
+            // Back to index, then modal page and a modal.
+            app.buttons["back"].firstMatch.tap()
+            waitForWebTransition()
+            openPage(app, name: "modal")
+            let present = app.webViews.buttons["present:normal"]
+            XCTAssertTrue(present.waitForExistence(timeout: 10), app.debugDescription)
+            present.tap()
+            Thread.sleep(forTimeInterval: 1.2)
+            capture("mixed-modal-\(i)")
+            XCTAssertEqual(shellButtons.count, 0, "page projections must retire under the modal at round \(i)")
+            let close = app.buttons.matching(NSPredicate(format: "label IN %@", ["Close", "Done"])).firstMatch
+            XCTAssertTrue(close.waitForExistence(timeout: 10), app.debugDescription)
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            Thread.sleep(forTimeInterval: 0.8)
+            capture("mixed-closed-\(i)")
+            app.buttons["back"].firstMatch.tap()
+            waitForWebTransition()
+        }
+        // Final sanity: projections alive, morph still works.
+        openPage(app, name: "popover")
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), "native projections died after mixed stress\n" + app.debugDescription)
+        trigger.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Toolbar popover"].waitForExistence(timeout: 10),
+                      "morph failed after mixed stress\n" + app.debugDescription)
+        capture("mixed-final")
+    }
+
     private func openPage(_ app: XCUIApplication, name: String) {
         let label = name == "native-ui-shell" ? "native-ui-shell (Preview)" : name
         let web = app.webViews
