@@ -57,6 +57,9 @@
   @include meta.load-css('../node_modules/@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect');
 }
 
+// Mini-player CSS is independent of the iOS 26/27 generation gate so Safari 15–18 can still render it.
+@include meta.load-css('../../src/styles/components/ion-tab-accessory');
+
 :root {
   --ios-theme-menu-width: 300px;
 }

@@ -1,0 +1,287 @@
+@use '../utils/api';
+
+ion-toolbar.ios.tab-accessory:not(.ios-theme-disabled, .ios26-disabled),
+ion-toolbar.ios.ios-theme-tab-accessory:not(.ios-theme-disabled, .ios26-disabled) {
+  --ios-theme-tab-accessory-radius: 28px;
+  // Web fallback only. Native UITabAccessory owns platter height (~42pt on iOS 26).
+  --ios-theme-tab-accessory-height: 64px;
+  --ios-theme-tab-accessory-padding-block: 8px;
+  --ios-theme-tab-accessory-inset: 16px;
+  --ios-theme-tab-accessory-thumb-size: 36px;
+  --ios-theme-tab-accessory-thumb-radius: 6px;
+  --ios-theme-tab-accessory-bottom: calc(
+    62px + 8px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom, env(safe-area-inset-bottom, 0px)))
+  );
+  --ios-theme-glass-background-rgb: var(--ios26-glass-background-rgb, 255, 255, 255);
+  --background: rgba(var(--ios-theme-glass-background-rgb, 255, 255, 255), 0.53);
+  --border-width: 0;
+  --padding-start: 12px;
+  --padding-end: 4px;
+  --padding-top: var(--ios-theme-tab-accessory-padding-block, 8px);
+  --padding-bottom: var(--ios-theme-tab-accessory-padding-block, 8px);
+  --min-height: 0;
+  display: flex;
+  align-items: center;
+  position: absolute;
+  left: calc(var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-left, 0px));
+  right: calc(var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-right, 0px));
+  margin-inline: auto;
+  bottom: var(--ios-theme-tab-accessory-bottom);
+  width: calc(
+    100% - (var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-left, 0px)) -
+      (var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-right, 0px))
+  );
+  max-width: 471px;
+  height: var(--ios-theme-tab-accessory-height);
+  min-height: var(--ios-theme-tab-accessory-height);
+  contain: layout style;
+  border-radius: var(--ios-theme-tab-accessory-radius);
+  overflow: hidden;
+  z-index: 3;
+  pointer-events: auto;
+
+  &.tab-bar-hidden {
+    display: none;
+  }
+
+  &::part(background) {
+    background: var(--background);
+    backdrop-filter: blur(6px) saturate(180%) brightness(1.05);
+    border-radius: inherit;
+  }
+
+  &::part(content) {
+    align-items: center;
+    align-self: center;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding-top: var(--ios-theme-tab-accessory-padding-block, 8px);
+    padding-bottom: var(--ios-theme-tab-accessory-padding-block, 8px);
+  }
+
+  ion-thumbnail,
+  [slot='start']:not(ion-buttons) {
+    --size: var(--ios-theme-tab-accessory-thumb-size);
+    --border-radius: var(--ios-theme-tab-accessory-thumb-radius);
+    width: var(--ios-theme-tab-accessory-thumb-size);
+    height: var(--ios-theme-tab-accessory-thumb-size);
+    min-width: var(--ios-theme-tab-accessory-thumb-size);
+    min-height: var(--ios-theme-tab-accessory-thumb-size);
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: var(--ios-theme-tab-accessory-thumb-radius);
+    margin-block: 0;
+    margin-inline-end: 10px;
+    align-self: center;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  [slot='start']:not(ion-buttons) ion-thumbnail,
+  [slot='start']:not(ion-buttons) .image-container {
+    --size: var(--ios-theme-tab-accessory-thumb-size);
+    --border-radius: var(--ios-theme-tab-accessory-thumb-radius);
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border-radius: inherit;
+  }
+
+  ion-label {
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 auto;
+    margin: 0;
+    margin-inline-end: 8px;
+    align-self: stretch;
+    height: 100%;
+    padding-block: var(--ios-theme-tab-accessory-padding-block, 8px);
+    overflow: hidden;
+    h2 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin: 0;
+      line-height: 1.2;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    p {
+      font-size: 0.75rem;
+      color: var(--ion-text-color-step-400, var(--ion-color-step-400, #999));
+      margin: 0;
+      line-height: 1.2;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  ion-buttons[slot='end'] {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    margin: 0;
+  }
+
+  [data-tab-accessory='time'] {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    align-self: center;
+    min-width: 4.75em;
+    margin: 0;
+    margin-inline-end: 4px;
+    padding: 0;
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    text-align: end;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  [data-tab-accessory='elapsed'] {
+    color: var(--ion-text-color-step-150, var(--ion-color-step-150, #555));
+    font-weight: 600;
+  }
+
+  [data-tab-accessory='duration'] {
+    color: var(--ion-text-color-step-400, var(--ion-color-step-400, #999));
+  }
+
+  ion-button[data-tab-accessory='play'] {
+    --padding-start: 6px;
+    --padding-end: 6px;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    margin: 0;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    align-self: center;
+    flex-shrink: 0;
+    ion-icon {
+      font-size: 1.375rem;
+      margin: 0;
+    }
+    &::part(native) {
+      align-items: center;
+      justify-content: center;
+      height: 44px;
+      min-height: 44px;
+    }
+  }
+
+  ion-progress-bar {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 3px;
+    width: auto;
+    height: 2.5px;
+    min-height: 2.5px;
+    margin: 0;
+    flex: none;
+    z-index: 5;
+    pointer-events: none;
+    --progress-background: var(--ion-color-primary, #3880ff);
+    --background: rgba(var(--ion-color-primary-rgb, 56, 128, 255), 0.28);
+    &::part(track),
+    &::part(progress) {
+      height: 2.5px;
+      border-radius: 1px;
+    }
+  }
+
+  @supports (color: color-mix(in srgb, red 22%, transparent)) {
+    ion-progress-bar {
+      --background: color-mix(in srgb, var(--progress-background) 22%, transparent);
+    }
+  }
+
+  &.ios-theme-tab-accessory-classic {
+    --ios-theme-tab-accessory-radius: 12px;
+    --ios-theme-tab-accessory-inset: 8px;
+    --background: rgba(var(--ios-theme-glass-background-rgb, var(--ion-background-color-rgb, 255, 255, 255)), 0.72);
+
+    &::part(background) {
+      box-shadow: inset 0 0 0 0.5px rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.12);
+    }
+  }
+}
+
+html.ios .accessory-slide-clip {
+  --ios-theme-tab-accessory-radius: 28px;
+  --ios-theme-tab-accessory-height: 64px;
+  --ios-theme-tab-accessory-padding-block: 8px;
+  --ios-theme-tab-accessory-inset: 16px;
+  --ios-theme-tab-accessory-bottom: calc(
+    62px + 8px + var(--ios-theme-floating-safe-area-bottom, var(--ios26-floating-safe-area-bottom, env(safe-area-inset-bottom, 0px)))
+  );
+  position: absolute;
+  left: calc(var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-left, 0px));
+  right: calc(var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-right, 0px));
+  margin-inline: auto;
+  bottom: var(--ios-theme-tab-accessory-bottom);
+  width: calc(
+    100% - (var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-left, 0px)) -
+      (var(--ios-theme-tab-accessory-inset) + var(--ion-safe-area-right, 0px))
+  );
+  max-width: 471px;
+  height: var(--ios-theme-tab-accessory-height);
+  min-height: var(--ios-theme-tab-accessory-height);
+  contain: layout style;
+  border-radius: var(--ios-theme-tab-accessory-radius);
+  overflow: hidden;
+  z-index: 3;
+  pointer-events: auto;
+
+  &.keyboardOpen,
+  &.tab-bar-hidden {
+    display: none;
+  }
+
+  &.ios-theme-tab-accessory-classic {
+    --ios-theme-tab-accessory-radius: 12px;
+    --ios-theme-tab-accessory-inset: 8px;
+  }
+
+  ion-toolbar.ios.tab-accessory:not(.ios-theme-disabled, .ios26-disabled),
+  ion-toolbar.ios.ios-theme-tab-accessory:not(.ios-theme-disabled, .ios26-disabled) {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    height: 100%;
+    min-height: 100%;
+  }
+}
+
+// In-flow iOS 15–17.3 tab bar is ~50px, not the 62px content-box island.
+@supports not (text-wrap: pretty) {
+  ion-toolbar.ios.tab-accessory.ios-theme-tab-accessory-classic:not(.ios-theme-disabled, .ios26-disabled),
+  ion-toolbar.ios.ios-theme-tab-accessory.ios-theme-tab-accessory-classic:not(.ios-theme-disabled, .ios26-disabled),
+  html.ios .accessory-slide-clip.ios-theme-tab-accessory-classic {
+    --ios-theme-tab-accessory-bottom: calc(50px + 8px + env(safe-area-inset-bottom, 0px));
+  }
+}

@@ -1,5 +1,7 @@
 import { AfterViewInit, Component, DestroyRef, ElementRef, inject, OnDestroy, OnInit, viewChild } from '@angular/core';
 import {
+  IonButton,
+  IonButtons,
   IonContent,
   IonIcon,
   IonItem,
@@ -7,10 +9,13 @@ import {
   IonLabel,
   IonList,
   IonMenu,
+  IonProgressBar,
   IonSplitPane,
   IonTabBar,
   IonTabButton,
   IonTabs,
+  IonThumbnail,
+  IonToolbar,
   ViewDidEnter,
   ViewDidLeave,
 } from '@demo/ionic';
@@ -18,7 +23,7 @@ import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { registeredEffect, registerTabBarEffect } from '../../../../src';
+import { enableTabAccessory, registeredEffect, registerTabBarEffect } from '../../../../src';
 import { applyFoldStateClasses } from '../../../../src/vertical-bars';
 import { Foldable, type FoldState } from '@erkamyaman/capacitor-foldable';
 import { Capacitor } from '@capacitor/core';
@@ -39,6 +44,11 @@ import { Capacitor } from '@capacitor/core';
     IonList,
     IonItem,
     IonItemGroup,
+    IonToolbar,
+    IonThumbnail,
+    IonButton,
+    IonButtons,
+    IonProgressBar,
     RouterLink,
   ],
 })
@@ -49,6 +59,10 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
   #hingeListener?: { remove(): Promise<void> };
   readonly #destroyRef = inject(DestroyRef);
   readonly registeredGestures: registeredEffect[] = [];
+  playing = true;
+  showAccessory = false;
+  classicAccessory = false;
+  accessoryActivated = false;
   ngOnInit() {
     this.#router.events
       .pipe(
@@ -61,11 +75,16 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
           return;
         }
         const path = params.urlAfterRedirects.split(/[?#]/, 1)[0];
-        if (['/main/settings', '/main/index/toolbar', '/main/index/button-projection'].includes(path)) {
+        const hideTabs = ['/main/settings', '/main/index/toolbar', '/main/index/button-projection'].includes(path);
+        if (hideTabs) {
           tabBar.classList.add('tab-bar-hidden');
         } else {
           tabBar.classList.remove('tab-bar-hidden');
         }
+        this.showAccessory = !hideTabs && (path === '/main/album' || /[?&]miniPlayer(?:=|$|&)/.test(params.urlAfterRedirects));
+        this.classicAccessory =
+          /[?&]classic(?:=|$|&)/.test(params.urlAfterRedirects) ||
+          !(typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('text-wrap', 'pretty'));
       });
   }
 
@@ -103,11 +122,21 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
     this.ionViewDidLeave();
   }
 
+  togglePlay(event: Event) {
+    event.stopPropagation();
+    this.playing = !this.playing;
+  }
+
+  onAccessoryActivate() {
+    this.accessoryActivated = true;
+  }
+
   ionViewDidEnter() {
     const registerGesture = registerTabBarEffect(document.querySelector<HTMLElement>('ion-tab-bar')!);
     if (registerGesture) {
       this.registeredGestures.push(registerGesture);
     }
+    this.registeredGestures.push(enableTabAccessory());
   }
 
   ionViewDidLeave() {

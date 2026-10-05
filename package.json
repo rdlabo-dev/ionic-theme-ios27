@@ -40,6 +40,7 @@
     "lint": "prettier --check \"./**/*.{scss,ts}\" &&  prettier --parser angular --check \"./**/*.html\"",
     "fmt": "prettier --write \"./**/*.{scss,ts}\" &&  prettier --parser angular --write \"./**/*.html\"",
     "release": "np --no-tests --no-publish",
+    "prepare": "npm run build:css && npm run build:ts",
     "prepublishOnly": "npm run build",
     "test:esm": "rdlabo-check-esm"
   },

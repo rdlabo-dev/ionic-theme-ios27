@@ -134,6 +134,16 @@ export interface ShellControl extends Frame {
   rtl: boolean;
   tabBarAnchor?: { x: 0 | 0.5 | 1; y: 0 | 1 };
   search?: ShellSearch;
+  /** Mini-player title projected from `ion-toolbar.tab-accessory`. */
+  title?: string;
+  subtitle?: string;
+  artworkUrl?: string;
+  /** Playback progress 0–1. Omit or pass a negative value to hide the bar. */
+  progress?: number;
+  progressColor?: string;
+  /** Elapsed / duration from `[data-tab-accessory="time"]`. */
+  elapsed?: string;
+  duration?: string;
 }
 
 export interface ShellSearch {

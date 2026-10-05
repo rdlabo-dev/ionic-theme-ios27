@@ -45,11 +45,20 @@ const releaseFrames = [
 ];
 
 /** Visual-only enhancement: Ionic retains ownership of selection, gestures and events. */
+const supportsIos27SegmentMotion = (): boolean =>
+  typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('overflow-anchor: auto');
+
 export const registerSegmentEffect = (targetElement: HTMLElement): registeredEffect | undefined => {
   const segment = targetElement as HTMLIonSegmentElement;
   const doc = segment.ownerDocument;
   const win = doc.defaultView;
-  if (!segment.classList.contains('ios') || !win || segment.matches('.ios27-enable-gesture, .ios-theme-disabled, .ios26-disabled'))
+  // iOS 26 CSS (no overflow-anchor) must not run the iOS 27 host scale — it stretches full-width bars.
+  if (
+    !segment.classList.contains('ios') ||
+    !win ||
+    !supportsIos27SegmentMotion() ||
+    segment.matches('.ios27-enable-gesture, .ios-theme-disabled, .ios26-disabled')
+  )
     return undefined;
   const reducedMotion = win.matchMedia('(prefers-reduced-motion: reduce)');
   if (reducedMotion.matches) return undefined;
