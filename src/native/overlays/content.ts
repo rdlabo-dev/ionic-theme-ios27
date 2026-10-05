@@ -33,6 +33,19 @@ export const moveContent = (content: HTMLElement[], destination: HTMLElement): (
       // Ionic may already have destroyed the Angular component on dismiss.
       if (connected) parent.insertBefore(element, next?.parentNode === parent ? next : null);
     }
-    for (const { root, sheets } of roots) root.adoptedStyleSheets = sheets;
+    for (const { root, css, sheets } of roots) {
+      // WebKit re-associates adopted sheets with the new document across
+      // adoptNode, so they may no longer match this root; fall back to the
+      // inline copy instead of aborting the remaining restore.
+      try {
+        root.adoptedStyleSheets = sheets;
+      } catch {
+        if (css) {
+          const style = root.ownerDocument.createElement('style');
+          style.textContent = css;
+          root.append(style);
+        }
+      }
+    }
   };
 };

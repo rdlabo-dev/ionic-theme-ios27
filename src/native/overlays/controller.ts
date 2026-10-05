@@ -53,26 +53,39 @@ export const createOverlayController = async (
   const suspensions = new Set<symbol>();
   const events = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'].map((name) => `ion${name}WillPresent`);
   const cleanup = async (connection: Connection) => {
-    connection.stopEvents?.();
-    connection.stopLifecycle?.();
-    connection.stopChildEvents?.();
-    connection.stopExclusions?.();
-    connection.stopFocus?.();
-    // A timed-out dismissal must not strand the relayed content in the child window.
-    await connection.nativeClosing?.catch((error) => {
-      console.error('Native overlay dismissal did not complete; restoring the Web content anyway.', error);
-    });
-    await connection.stopVerticalBars?.();
-    connection.stopContent?.();
-    connection.stopAnimation?.();
-    connection.stopStyles?.();
+    // Every teardown step is isolated and bounded: a throwing or hanging step
+    // must not strand the retained page projections or the child window.
+    const stage = async (label: string, run?: () => void | Promise<void>) => {
+      try {
+        await bounded(Promise.resolve(run?.()));
+      } catch (error) {
+        console.error(`Native overlay teardown failed at ${label}; continuing cleanup anyway.`, error);
+      }
+    };
     try {
-      await bounded(plugin.closeOverlay({ id: connection.id }));
+      await stage('events', connection.stopEvents);
+      await stage('lifecycle', connection.stopLifecycle);
+      await stage('childEvents', connection.stopChildEvents);
+      await stage('exclusions', connection.stopExclusions);
+      await stage('focus', connection.stopFocus);
+      // A timed-out dismissal must not strand the relayed content in the child window.
+      await connection.nativeClosing?.catch((error) => {
+        console.error('Native overlay dismissal did not complete; restoring the Web content anyway.', error);
+      });
+      await stage('verticalBars', connection.stopVerticalBars);
+      await stage('content', connection.stopContent);
+      await stage('animation', connection.stopAnimation);
+      await stage('styles', connection.stopStyles);
+      await stage('close', () => bounded(plugin.closeOverlay({ id: connection.id })));
     } finally {
-      // The page projections must be released even if teardown throws below.
+      // The page projections must be released even if teardown throws above.
       connection.releaseProjection?.();
       connection.releaseProjection = undefined;
-      connection.win?.close();
+      try {
+        connection.win?.close();
+      } catch (error) {
+        console.error('Native overlay window was already gone.', error);
+      }
       if (current === connection) current = undefined;
       const focus = connection.focus as HTMLElement | null;
       if (focus?.isConnected && focus.tabIndex >= 0) focus.focus({ preventScroll: true });
