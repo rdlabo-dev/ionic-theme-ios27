@@ -130,6 +130,14 @@ private func verticalBarsButton(_ item: ShellVerticalBarsModel.Item, model: Shel
 }
 
 @available(iOS 26.0, *)
+private extension View {
+    /// Xcode 26.3 prefers `toolbar(@ViewBuilder:)`, which rejects `ToolbarItem`.
+    func nativeShellToolbar<Toolbar: ToolbarContent>(@ToolbarContentBuilder content: () -> Toolbar) -> some View {
+        toolbar(content: content)
+    }
+}
+
+@available(iOS 26.0, *)
 private struct ShellVerticalBarsButton: ToolbarContent {
     @ObservedObject var model: ShellVerticalBarsModel
     let id: String
@@ -197,7 +205,7 @@ private struct ShellVerticalBarsPage: View {
     var body: some View {
         NavigationStack {
             Color.clear.modifier(ShellVerticalBarsToolbarAdapter(model: model))
-                .toolbar {
+                .nativeShellToolbar {
                     if model.search?.configuration.available == true {
                         // Let the system adapt bottom-bar search to the vertical rail.
                         DefaultToolbarItem(kind: .search, placement: .bottomBar)
@@ -255,29 +263,24 @@ private struct ShellVerticalBarsToolbar: ViewModifier {
     @ObservedObject var model: ShellVerticalBarsModel
 
     func body(content: Content) -> some View {
-        content.toolbar {
-            if let back = model.back {
-                ToolbarItem(placement: .navigation) {
+        content.nativeShellToolbar {
+            ToolbarItem(placement: .navigation) {
+                if let back = model.back {
                     verticalBarsBackButton(back, model: model)
                 }
-                .axisBehavior(.verticalPreferred)
             }
-            ForEach(model.groups.filter { $0.slot == .start }) { group in
-                if group.id != model.groups.first(where: { $0.slot == .start })?.id {
-                    ToolbarSpacer(.fixed, placement: .topBarLeading)
-                }
-                ForEach(group.items) { item in
-                    ShellVerticalBarsButton(model: model, id: item.id, placement: .topBarLeading)
-                    .axisBehavior(.verticalPreferred)
+            ToolbarItemGroup(placement: .topBarLeading) {
+                ForEach(model.groups.filter { $0.slot == .start }) { group in
+                    ForEach(group.items) { item in
+                        verticalBarsButton(item, model: model)
+                    }
                 }
             }
-            ForEach(model.groups.filter { $0.slot != .start }) { group in
-                if group.id != model.groups.first(where: { $0.slot != .start })?.id {
-                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                }
-                ForEach(group.items) { item in
-                    ShellVerticalBarsButton(model: model, id: item.id, placement: .topBarTrailing)
-                    .axisBehavior(.verticalPreferred)
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                ForEach(model.groups.filter { $0.slot != .start }) { group in
+                    ForEach(group.items) { item in
+                        verticalBarsButton(item, model: model)
+                    }
                 }
             }
         }
@@ -290,18 +293,15 @@ private struct ShellVerticalBarsLegacyToolbar: ViewModifier {
     @ObservedObject var model: ShellVerticalBarsModel
 
     func body(content: Content) -> some View {
-        content.toolbar {
-            if let back = model.back {
-                ToolbarItem(placement: .navigation) {
+        content.nativeShellToolbar {
+            ToolbarItem(placement: .navigation) {
+                if let back = model.back {
                     verticalBarsBackButton(back, model: model)
                 }
             }
-            ForEach(model.groups) { group in
-                if group.id != model.groups.first?.id {
-                    ToolbarSpacer(.fixed, placement: .primaryAction)
-                }
-                ForEach(group.items) { item in
-                    ShellVerticalBarsButton(model: model, id: item.id, placement: .primaryAction)
+            ToolbarItemGroup(placement: .primaryAction) {
+                ForEach(model.groups.flatMap(\.items)) { item in
+                    verticalBarsButton(item, model: model)
                 }
             }
         }
