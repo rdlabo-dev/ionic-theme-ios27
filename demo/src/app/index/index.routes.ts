@@ -7,6 +7,10 @@ export const routes: Routes = [
     loadComponent: () => import('../button-projection/button-projection.page').then((m) => m.ButtonProjectionPage),
   },
   {
+    path: 'native-ui-shell/child',
+    loadComponent: () => import('../native-ui-shell/native-ui-shell-child.page').then((m) => m.NativeUIShellChildPage),
+  },
+  {
     path: 'native-ui-shell',
     loadComponent: () => import('../native-ui-shell/native-ui-shell.page').then((m) => m.NativeUIShellPage),
   },

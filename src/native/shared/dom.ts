@@ -90,6 +90,7 @@ export const createVerticalBarsPageState = () => {
 };
 const disabledButtonGroup = 'ion-buttons:is(.ios-theme-disabled, .ios26-disabled)';
 const shellDisabledSelector = '.ios-theme-shell-disabled, [data-shell="disabled"]';
+const atomicSwapSelector = '.ios-theme-shell-handoff-swap, [data-shell-handoff="swap"]';
 
 export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
   element.matches('ion-button') && element.parentElement?.matches(disabledButtonGroup) === true;
@@ -141,6 +142,15 @@ export const isExcluded = (element: HTMLElement, enteringPage?: HTMLElement): bo
 // A shared native surface must not cover an opted-out descendant either.
 export const isShellDisabled = (element: Element): boolean =>
   !!element.closest(shellDisabledSelector) || !!element.querySelector(shellDisabledSelector);
+
+/** Instant Web/native swap on stack push/pop; does not skip the painted wait. */
+export const isAtomicSwap = (element: Element): boolean => !!element.closest(atomicSwapSelector);
+
+export const isAtomicSwapHandoff = (changed: readonly Element[]): boolean => changed.length > 0 && changed.every(isAtomicSwap);
+
+/** Native fade duration is 0 when every added source is atomic, or a retire-only sync is all atomic. */
+export const isAtomicSwapDuration = (removed: readonly Element[], added: readonly Element[]): boolean =>
+  added.length ? added.every(isAtomicSwap) : isAtomicSwapHandoff(removed);
 
 export const isVerticalBarsToolbarActionShape = (element: HTMLElement): boolean =>
   element.matches('ion-menu-button') ||

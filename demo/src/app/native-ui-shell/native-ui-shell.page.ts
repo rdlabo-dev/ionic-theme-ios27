@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   IonBackButton,
   IonButton,
@@ -37,6 +38,8 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NativeUIShellPage {
+  readonly #router = inject(Router);
+  readonly swap = signal(false);
   readonly saves = signal(0);
   readonly github = signal(0);
   readonly refreshes = signal(0);
@@ -54,5 +57,9 @@ export class NativeUIShellPage {
   save(event: Event) {
     event.preventDefault();
     this.saves.update((value) => value + 1);
+  }
+
+  pushChild() {
+    void this.#router.navigate(['/main/index/native-ui-shell/child']);
   }
 }

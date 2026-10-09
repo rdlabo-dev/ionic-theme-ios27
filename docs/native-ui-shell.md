@@ -64,6 +64,14 @@ Only the exact value `disabled` opts out; an empty or unknown value is ignored. 
 </ion-toolbar>
 ```
 
+Use `data-shell-handoff="swap"` (or the equivalent `ios-theme-shell-handoff-swap` class) on a projected control to skip the 180ms Web/native opacity crossfade on stack push/pop. The runtime still waits for the Web source to paint before removing the native cover, unlike tab-switch `handoffInstant`. Native `transitionDuration` is 0 when every newly added source uses this opt-in, or when a retire-only sync's removed sources all use it, so unrelated tab bars, back buttons and FABs keep the 180ms fade unless they are part of that same change set. Only the exact value `swap` enables it.
+
+```html
+<ion-segment data-shell-handoff="swap">
+  <ion-segment-button value="home"><ion-label>Home</ion-label></ion-segment-button>
+</ion-segment>
+```
+
 If a child inside a shared native surface opts out, the entire surface stays on the Web: this includes button groups, tab bars, segments and FAB lists. Opting out of the search FAB or any part of the search footer disables native search integration; the tab bar can still render natively if it remains eligible.
 
 Placement is required even when the appearance is glass. In the ordinary Native UI Shell, buttons, back buttons, menu-button groups and segments need a toolbar directly inside `ion-header` or `ion-footer`, with no `ion-content` ancestor around the control. Buttons directly inside a header/footer, standalone toolbars, and toolbars or headers nested in scrolling content stay on the Web. FABs without `slot="fixed"` also stay on the Web. Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility. When `.ios-theme-vertical-bars` is enabled, a standard `ion-back-button` can instead be projected to the Vertical Control Area from outside a fixed toolbar, including routed content or a persistent app shell. The application chooses where to enable this mode and which Ionic component mode to use; Vertical Bars projection does not require `ios` mode classes. Collapsed headers, opted-out controls and departed pages are excluded. Full-width foreground modals can participate in Vertical Bars as described below; other overlay surfaces keep their own layout.
@@ -124,7 +132,7 @@ Custom host animation or transition declarations on the FAB, list or button keep
 
 The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUIShellTransition()`, exported from both the package root and `/vertical-bars`. See [Connect your navigation animation](./iphone-duo-with-original-theme.md#3.-connect-your-navigation-animation) for the setup.
 
-Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Stack pushes and pops keep the normal 180ms handoff.
+Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Stack pushes and pops keep the normal 180ms handoff unless a control opts into `data-shell-handoff="swap"`.
 
 Standard Ionic overlays suspend native projection until dismissal. Unsupported searchable-tab configurations use the existing Web animation and share this ownership with Web glass gestures. CSS motion of supported containing surfaces also causes temporary Web rendering.
 

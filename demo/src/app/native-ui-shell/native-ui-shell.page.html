@@ -11,7 +11,11 @@
     </ion-buttons>
   </ion-toolbar>
   <ion-toolbar>
-    <ion-segment [value]="selected()" (ionChange)="selected.set($event.detail.value!); changes.update(increment)">
+    <ion-segment
+      [value]="selected()"
+      [attr.data-shell-handoff]="swap() ? 'swap' : null"
+      (ionChange)="selected.set($event.detail.value!); changes.update(increment)"
+    >
       <ion-segment-button value="one"><ion-label>One</ion-label></ion-segment-button>
       <ion-segment-button [value]="2"><ion-label>Two</ion-label></ion-segment-button>
       <ion-segment-button value="three" [disabled]="true"><ion-label>Three</ion-label></ion-segment-button>
@@ -33,28 +37,26 @@
 <ion-content [fullscreen]="true">
   <section class="controls">
     <form #formRef (submit)="save($event)">
-      <p>
-        Save count: <strong data-save-count>{{ saves() }}</strong>
-      </p>
+      <p>Save count: <strong data-save-count>{{ saves() }}</strong></p>
     </form>
     <p>Preview: On supported iOS versions, fixed glass controls are rendered natively.</p>
-    <p>
-      Selection: <strong data-selection>{{ selected() }}</strong> / Change count: <strong data-changes>{{ changes() }}</strong>
-    </p>
+    <p>Selection: <strong data-selection>{{ selected() }}</strong> / Change count: <strong data-changes>{{ changes() }}</strong></p>
     <button type="button" (click)="selected.set('one')">Select One programmatically</button>
     <button type="button" (click)="modalOpen.set(true)">Open modal</button>
     <p>Scroll the background to compare transparency and refraction in the top-right button.</p>
     <button type="button" (click)="disabled.set(!disabled())">disabled: {{ disabled() }}</button>
     <button type="button" (click)="hidden.set(!hidden())">Parent hidden: {{ hidden() }}</button>
     <button type="button" (click)="themeDisabled.set(!themeDisabled())">Theme disabled: {{ themeDisabled() }}</button>
+    <button type="button" (click)="swap.set(!swap())">swap handoff: {{ swap() }}</button>
+    <button type="button" (click)="pushChild()">Push child page</button>
     @for (value of fills; track value) {
-      <button type="button" (click)="fill.set(value)">fill: {{ value }}</button>
+    <button type="button" (click)="fill.set(value)">fill: {{ value }}</button>
     }
   </section>
   @for (band of bands; track band) {
-    <div class="band" [class.alternate]="band % 2 === 0">
-      <span>{{ band }} — GLASS / Glass / 123456789</span>
-    </div>
+  <div class="band" [class.alternate]="band % 2 === 0">
+    <span>{{ band }} — GLASS / Glass / 123456789</span>
+  </div>
   }
 </ion-content>
 <ion-modal [isOpen]="modalOpen()" (didDismiss)="modalOpen.set(false)">

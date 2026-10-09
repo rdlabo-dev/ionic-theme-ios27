@@ -2828,6 +2828,62 @@ test('native handoff crossfades visual opacity while transferring ownership once
   await expect(segment).toHaveCSS('visibility', 'hidden');
 });
 
+test('atomic swap hands off without a crossfade', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const segment = page.locator('app-native-ui-shell ion-segment');
+  const buttons = page.locator('app-native-ui-shell ion-buttons[data-glass-group]').first();
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(buttons).toHaveAttribute('data-native-ui-shell', '');
+  await segment.evaluate((el) => el.setAttribute('data-shell-handoff', 'swap'));
+  await segment.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  await expect(segment).toHaveCSS('opacity', '1');
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.transitionDuration))
+    .toBe(0);
+  await expect(buttons).toHaveAttribute('data-native-ui-shell', '');
+  await expect(buttons).not.toHaveAttribute('data-native-ui-shell-fading');
+  await segment.evaluate((el) => el.classList.remove('ios-theme-shell-disabled'));
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+  await buttons.evaluate((el) => el.classList.add('ios-theme-shell-disabled'));
+  await expect(buttons).toHaveAttribute('data-native-ui-shell-fading', '');
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.transitionDuration))
+    .toBe(180);
+  await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+  await expect(segment).not.toHaveAttribute('data-native-ui-shell-fading');
+});
+
+test.describe('stack push swap repro', () => {
+  test('default stack push keeps the 180ms native handoff', async ({ page }) => {
+    await mockNative(page);
+    await page.goto('/main/index/native-ui-shell');
+    await expect(page.locator('app-native-ui-shell ion-segment')).toHaveAttribute('data-native-ui-shell', '');
+    await page.getByRole('button', { name: 'Push child page' }).click();
+    await expect(page.locator('app-native-ui-shell-child')).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.transitionDuration))
+      .toBe(180);
+  });
+
+  test('swap on a leaving segment keeps 180ms when a non-swap back button is added', async ({ page }) => {
+    await mockNative(page);
+    await page.goto('/main/index/native-ui-shell');
+    const segment = page.locator('app-native-ui-shell ion-segment');
+    await expect(segment).toHaveAttribute('data-native-ui-shell', '');
+    await page.getByRole('button', { name: 'swap handoff: false' }).click();
+    await expect(segment).toHaveAttribute('data-shell-handoff', 'swap');
+    await page.getByRole('button', { name: 'Push child page' }).click();
+    await expect(page.locator('app-native-ui-shell-child')).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.transitionDuration))
+      .toBe(180);
+  });
+});
+
 test('reduced motion hands off without a crossfade', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await mockNative(page);

@@ -17,6 +17,8 @@ import {
   createVerticalBarsPageState,
   isVerticalBarsSource,
   preferredVerticalBarsBack,
+  isAtomicSwap,
+  isAtomicSwapDuration,
   marker,
   syncToolbarText,
   toolbarTextMarker,
@@ -75,6 +77,8 @@ export const createRuntime = async (
   let viewport = `${win.innerWidth}:${win.innerHeight}`;
   let forceRefresh = false;
   let dirty = false;
+  // A swap retire restores its sources first, so a retry sees no removed sources; remember it until sent.
+  let swapPending = false;
   let pending = false;
   let stopped = false;
   /** True while a tab-switch handoff should skip crossfade. */
@@ -129,7 +133,12 @@ export const createRuntime = async (
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    if (!stopped) crossfade.play(element, false, isVerticalBarsSource(element) ? !element.matches('ion-tab-bar') : handoffInstant);
+    if (!stopped)
+      crossfade.play(
+        element,
+        false,
+        isAtomicSwap(element) || (isVerticalBarsSource(element) ? !element.matches('ion-tab-bar') : handoffInstant),
+      );
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -329,6 +338,8 @@ export const createRuntime = async (
       if (stopped || dirty) return;
       const retained = new Set(candidates.flatMap(candidateSources));
       const removed = Array.from(sources.keys()).filter((element) => !retained.has(element));
+      const added = candidates.flatMap(candidateSources).filter((element) => !sources.has(element));
+      if (isAtomicSwapDuration(removed, added)) swapPending = true;
       if (removed.length) {
         // Restore the source and let WebKit paint before removing its native cover.
         removed.forEach(restore);
@@ -354,8 +365,16 @@ export const createRuntime = async (
         controls: candidates.map((candidate) => candidate.control),
       };
       const serialized = JSON.stringify(data);
-      if (serialized === lastSnapshot && !forceRefresh) return;
-      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
+      if (serialized === lastSnapshot && !forceRefresh) {
+        swapPending = false;
+        return;
+      }
+      const snapshot: ShellSnapshot = {
+        ...data,
+        revision: ++revision,
+        transitionDuration: crossfade.duration(handoffInstant || swapPending),
+      };
+      swapPending = false;
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
       updates++;
@@ -425,7 +444,7 @@ export const createRuntime = async (
         const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(element, true, handoffInstant || isVerticalBarsSource(element));
+          crossfade.play(element, true, handoffInstant || isVerticalBarsSource(element) || isAtomicSwap(element));
         }
         element.setAttribute(marker, '');
         element.setAttribute('aria-hidden', 'true');
