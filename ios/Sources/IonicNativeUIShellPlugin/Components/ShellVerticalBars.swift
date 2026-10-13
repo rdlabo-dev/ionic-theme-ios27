@@ -296,6 +296,7 @@ private struct ShellVerticalBarsLegacyToolbar: ViewModifier {
                     verticalBarsBackButton(back, model: model)
                 }
             }
+            #if canImport(SwiftUI, _version: 8.0)
             ForEach(model.groups) { group in
                 if group.id != model.groups.first?.id {
                     ToolbarSpacer(.fixed, placement: .primaryAction)
@@ -304,6 +305,14 @@ private struct ShellVerticalBarsLegacyToolbar: ViewModifier {
                     ShellVerticalBarsButton(model: model, id: item.id, placement: .primaryAction)
                 }
             }
+            #else
+            // Older SDKs cannot use ForEach as ToolbarContent.
+            ToolbarItemGroup(placement: .primaryAction) {
+                ForEach(model.groups.flatMap(\.items)) { item in
+                    verticalBarsButton(item, model: model)
+                }
+            }
+            #endif
         }
     }
 }
