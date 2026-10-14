@@ -45,7 +45,11 @@ const startShell =
   stockIonic || new URLSearchParams(window.location.search).has('verticalBarsOnly') ? enableVerticalControlArea : enableNativeUIShell;
 const buttonDefaultFill = stockIonic || new URLSearchParams(window.location.search).get('buttonDefaultFill') === 'solid' ? 'solid' : null;
 const buttonProjection = new URLSearchParams(window.location.search).get('buttonProjection') === 'source' ? 'source' : 'system';
-void startShell({ buttonProjection, buttonDefaultFill }).then((handle) => {
+void startShell({
+  buttonProjection,
+  buttonDefaultFill,
+  controls: { tabs: true, toolbar: true, segment: true, fab: true, popover: true },
+}).then((handle) => {
   const app = document.querySelector('ion-app');
   if (app) Object.assign(app, { nativeUIShell: handle });
 });

@@ -126,7 +126,7 @@ The built-in `iosTransitionAnimation` waits for native retirement before startin
 
 Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Stack pushes and pops keep the normal 180ms handoff.
 
-Standard Ionic overlays suspend native projection until dismissal. Unsupported searchable-tab configurations use the existing Web animation and share this ownership with Web glass gestures. CSS motion of supported containing surfaces also causes temporary Web rendering.
+Standard Ionic overlays suspend native projection until dismissal, except for the opt-in native Vertical Bars popovers described below. Unsupported searchable-tab configurations use the existing Web animation and share this ownership with Web glass gestures. CSS motion of supported containing surfaces also causes temporary Web rendering.
 
 During retirement, the source is restored and allowed to paint before its native cover is removed. During acquisition, the source is hidden only after a successful, current native response. Delayed responses are revalidated per control: existing eligible controls retain their native cover while content updates catch up. Only removed or ineligible sources return to Web; newly acquired sources require an exact acknowledgement. Ordinary page mutations never call the global clear operation. UIKit tab instances and items are retained, and equal frames/selections are not reapplied. Duplicate/stale activations are discarded. WebKit and UIKit still render separately: the implementation avoids an intentional blank frame, but does not provide an OS-level atomic compositing guarantee. Validate custom transitions and overlays on the app's supported simulators before rollout; unknown overlay systems are outside the automatic integration contract.
 
@@ -154,7 +154,23 @@ const shell = await enableNativeUIShell({
 const disabledShell = await enableNativeUIShell({ enabled: false });
 ```
 
-Omitting `controls` enables every supported control for backward compatibility. When `controls` is present, only entries set to `true` are native-eligible. Available entries are `tabs`, `toolbar`, `segment`, and `fab`.
+Omitting `controls` enables `tabs`, `toolbar`, `segment`, and `fab` for backward compatibility. When `controls` is present, only entries set to `true` are native-eligible. `popover` is opt-in and defaults to `false`.
+
+### Popovers anchored to Vertical Bars
+
+Enable `controls.popover` together with `controls.toolbar` to present popovers from accepted native Vertical Bars `ion-button` controls:
+
+```ts
+await enableNativeUIShell({
+  controls: { tabs: true, toolbar: true, segment: true, fab: true, popover: true },
+});
+```
+
+The same option is available through `enableVerticalControlArea()`. Use an `ion-popover` whose `trigger` identifies the projected button, or pass that button's click event to `PopoverController.create({ event, ... })`. The button must be accepted by native Vertical Bars; regular toolbar buttons, body controls, and missing or rejected anchors retain Ionic's Web presentation.
+
+The page's native controls stay projected throughout preparation, presentation and dismissal. The relay prepares its child WebView while Ionic initializes the content, bypasses the Web enter animation, and presents through the button's standard SwiftUI popover. It does not resize or reparent the source WebView. Ionic retains its controller, lifecycle, live application handlers and dismissal data; the live content temporarily moves into the child document and is restored during cleanup.
+
+Only one popover is relayed at a time. Opening another overlay or menu, leaving the page, suspending the shell, or losing the native layout restores Web rendering. Modal, sheet and alert relay are outside this feature. Native presentation owns the arrow, corners and animation; custom Web enter/leave animations do not replace them. Initial content dimensions come from Ionic; arbitrary cross-document CSS, document-bound queries and full VoiceOver/hardware-keyboard parity are not guaranteed. Failure to prepare or find the native anchor restores the Web popover.
 
 For a custom modal or overlay that Native UI Shell cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
 

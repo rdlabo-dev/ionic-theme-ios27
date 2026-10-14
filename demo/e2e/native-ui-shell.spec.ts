@@ -18,6 +18,7 @@ interface ShellMock extends ShellMockCore {
   lateSearch?: () => void;
   tabRetirements: number;
   retirementDetails: { path: string; tabs: string }[];
+  preparedPopovers: number;
 }
 
 const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'trailing' | null | 'unreported' = 'trailing') => {
@@ -46,6 +47,13 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       notifyListeners(eventName: string, data: unknown) {
         for (const listener of this.listeners[eventName] ?? []) listener(data as never);
       },
+      preparedPopovers: 0,
+      async prepareOverlay() {
+        this.preparedPopovers++;
+        throw new Error('Native popover unavailable');
+      },
+      async closeOverlay() {},
+      async stopOverlays() {},
       async configure(options: { verticalBarsOnly?: boolean }) {
         this.configuredWith = options;
         return { supported: true, verticalBars: nativeEdge !== null };
@@ -3375,4 +3383,95 @@ test('tab visibility ignores query parameters and fragments', async ({ page }) =
   }
   await page.goto('/main/index?verticalBarsOnly&buttonDefaultFill=solid#comparison');
   await expect(page.locator('ion-tab-bar')).not.toHaveClass(/tab-bar-hidden/);
+});
+
+for (const standalone of [false, true])
+  test(`Vertical Bars popover retains native controls and background geometry (${standalone ? 'standalone' : 'full shell'})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto(`/main/index/popover${standalone ? '?verticalBarsOnly' : ''}`);
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const trigger = page.locator('#native-popover-trigger');
+    await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+    await page.evaluate(() =>
+      Object.assign(Capacitor.registerPlugin('IonicNativeUIShell'), {
+        async prepareOverlay() {},
+        async presentOverlay() {},
+        async dismissOverlay() {},
+      }),
+    );
+    await page
+      .locator('app-popover ion-content')
+      .first()
+      .evaluate(async (content: HTMLIonContentElement) => content.scrollToPoint(0, 100));
+    const geometry = () =>
+      page
+        .locator('app-popover ion-content')
+        .first()
+        .evaluate(async (content: HTMLIonContentElement) => {
+          const rect = content.getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, scroll: (await content.getScrollElement()).scrollTop };
+        });
+    const before = await geometry();
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const updateCount = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length);
+      const opened = page.waitForEvent('popup');
+      await activate(page, 'Open popover');
+      const relay = await opened;
+      await expect(relay.getByText('Toolbar popover', { exact: true })).toBeVisible();
+      expect(await relay.evaluate(() => document.compatMode)).toBe('CSS1Compat');
+      expect((await relay.getByRole('button', { name: 'Increment', exact: true }).boundingBox())!.height).toBeLessThan(80);
+      await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+      expect(await geometry()).toEqual(before);
+      expect(
+        await page.evaluate(
+          (start) =>
+            Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+              .updates.slice(start)
+              .every((snapshot) =>
+                snapshot.controls.some(
+                  (control) =>
+                    control.placement === 'vertical-bars' && control.items.some((item) => item.accessibilityLabel === 'Open popover'),
+                ),
+              ),
+          updateCount,
+        ),
+      ).toBe(true);
+      await relay.getByRole('button', { name: 'Increment', exact: true }).click();
+      await expect(relay.getByText(`Count: ${attempt}`, { exact: true })).toBeVisible();
+      await relay.getByRole('button', { name: 'Close popover', exact: true }).click();
+      await expect.poll(() => relay.isClosed()).toBe(true);
+      await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+      expect(await geometry()).toEqual(before);
+    }
+  });
+
+test('ordinary popovers stay in the source WebView', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/popover');
+  await expect(page.locator('#native-popover-trigger')).toHaveAttribute('data-native-ui-shell', '');
+
+  await activate(page, 'Open popover');
+  await expect(page.getByText('Toolbar popover', { exact: true })).toBeVisible();
+  expect(page.context().pages()).toHaveLength(1);
+  expect(await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').preparedPopovers)).toBe(0);
+  await page.getByRole('button', { name: 'Close popover', exact: true }).click();
+});
+
+test('Vertical Bars popover preparation failure restores usable Web content and projection updates', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await mockNative(page);
+  await page.goto('/main/index/popover');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  const trigger = page.locator('#native-popover-trigger');
+  await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+  await activate(page, 'Open popover');
+  await expect(page.getByText('Toolbar popover', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Increment', exact: true }).click();
+  await expect(page.getByText('Count: 1', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close popover', exact: true }).click();
+  await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+  expect(page.context().pages()).toHaveLength(1);
 });

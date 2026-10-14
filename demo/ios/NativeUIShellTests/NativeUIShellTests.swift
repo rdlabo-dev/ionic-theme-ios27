@@ -504,6 +504,50 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(main.identifier.hasPrefix("shell-"))
     }
 
+    func testVerticalBarsPopoverKeepsBackgroundAndLiveActions() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+        openPage(app, name: "popover")
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        assertOnVerticalBars(trigger, in: app)
+        let source = app.webViews.firstMatch
+        let sourceFrame = source.frame
+        let triggerFrame = trigger.frame
+        let background = app.webViews.staticTexts["Controller"].firstMatch
+        XCTAssertTrue(background.exists, app.debugDescription)
+        let backgroundFrame = background.frame
+        capture("vertical-popover-before")
+        for attempt in 1...3 {
+            trigger.tap()
+            let title = app.webViews.staticTexts["Toolbar popover"].firstMatch
+            XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
+            // SwiftUI's modal accessibility scope hides covered controls from XCTest.
+            // Their native identities and geometry are checked again after dismissal.
+            capture("vertical-popover-open-\(attempt)")
+            let increment = app.webViews.buttons["Increment"].firstMatch
+            XCTAssertLessThan(increment.frame.height, 80, "Popover buttons must keep their intrinsic height")
+            increment.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertTrue(app.webViews.staticTexts["Count: \(attempt)"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+            if attempt == 2 {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.8)).tap()
+            } else {
+                app.webViews.buttons["Close popover"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            XCTAssertTrue(title.waitForNonExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(trigger.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertEqual(trigger.frame.minX, triggerFrame.minX, accuracy: 1)
+            XCTAssertEqual(trigger.frame.minY, triggerFrame.minY, accuracy: 1)
+            XCTAssertEqual(source.frame.minX, sourceFrame.minX, accuracy: 1)
+            XCTAssertEqual(source.frame.minY, sourceFrame.minY, accuracy: 1)
+            XCTAssertEqual(background.frame.minY, backgroundFrame.minY, accuracy: 1)
+            capture("vertical-popover-dismissed-\(attempt)")
+        }
+    }
+
     private func openPage(_ app: XCUIApplication, name: String) {
         let label = name == "native-ui-shell" ? "native-ui-shell (Preview)" : name
         let entry = app.webViews.buttons[label].exists ? app.webViews.buttons[label] : app.webViews.links[label]

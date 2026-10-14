@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { enableNativeUIShell, setVerticalControlAreaPlacement } from '../../src/native';
+import { enableNativeUIShell, enableVerticalControlArea, setVerticalControlAreaPlacement } from '../../src/native';
 
 test('placement requires ion-app and clears it when disabled', () => {
   document.body.replaceChildren();
@@ -50,4 +50,13 @@ test('a new activation survives the previous runtime finishing its destroy', asy
   // The stale destroy must not clear the newer activation's shared slot.
   await enableNativeUIShell({ enabled: false });
   expect(second.getStatus().state).toBe('stopped');
+});
+
+test('standalone Vertical Bars forwards popover opt-in into the shared runtime', async () => {
+  const handle = await enableVerticalControlArea({ controls: { popover: true } });
+  await expect(
+    enableNativeUIShell({ controls: { tabs: true, toolbar: true, popover: true }, verticalBarsOnly: true }),
+  ).resolves.toBeDefined();
+  await expect(enableVerticalControlArea()).rejects.toThrow('different controls');
+  await handle.destroy();
 });

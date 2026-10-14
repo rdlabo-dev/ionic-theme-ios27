@@ -7,6 +7,7 @@ protocol ShellVerticalBarsControlling: AnyObject {
     func attach(to owner: UIViewController, in parent: UIView)
     @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
     var ownsKeyboardChrome: Bool { get }
+    func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping () -> Void) -> Bool
     func detach()
 }
 
@@ -32,6 +33,9 @@ final class ShellVerticalBarsModel: ObservableObject {
         let slot: ShellControl.ToolbarSlot?
     }
 
+    @Published var popoverAnchor: String?
+    var popoverHost: ShellOverlayHost?
+    var popoverPresented: (() -> Void)?
     @Published var search: ShellVerticalSearchModel?
     @Published var back: Item?
     @Published var groups: [Group] = []
@@ -130,6 +134,13 @@ private func verticalBarsButton(_ item: ShellVerticalBarsModel.Item, model: Shel
 }
 
 @available(iOS 26.0, *)
+private struct ShellVerticalPopoverContent: UIViewControllerRepresentable {
+    let host: ShellOverlayHost
+    func makeUIViewController(context: Context) -> ShellOverlayHost { host }
+    func updateUIViewController(_ controller: ShellOverlayHost, context: Context) {}
+}
+
+@available(iOS 26.0, *)
 private struct ShellVerticalBarsButton: ToolbarContent {
     @ObservedObject var model: ShellVerticalBarsModel
     let id: String
@@ -138,7 +149,38 @@ private struct ShellVerticalBarsButton: ToolbarContent {
     // Observe here so same-ID updates also refresh the shared toolbar background.
     var body: some ToolbarContent {
         if let item = model.groups.lazy.flatMap(\.items).first(where: { $0.id == id }) {
-            ToolbarItem(placement: placement) { verticalBarsButton(item, model: model) }
+            ToolbarItem(placement: placement) {
+                verticalBarsButton(item, model: model)
+                    .popover(isPresented: Binding(
+                        get: { model.popoverAnchor == item.id },
+                        set: { shown in
+                            if !shown {
+                                model.popoverAnchor = nil
+                                model.popoverHost?.event("dismiss")
+                            }
+                        }
+                    )) {
+                        if let host = model.popoverHost {
+                            ShellVerticalPopoverContent(host: host)
+                                .frame(width: host.preferredContentSize.width, height: host.preferredContentSize.height)
+                                .preferredColorScheme(host.options?["dark"] as? Bool == true ? .dark : .light)
+                                .presentationCompactAdaptation(.popover)
+                                .interactiveDismissDisabled(host.options?["backdropDismiss"] as? Bool == false)
+                                .onAppear {
+                                    let completion = model.popoverPresented
+                                    model.popoverPresented = nil
+                                    completion?()
+                                }
+                                .onDisappear {
+                                    host.anchoredVisible = false
+                                    let completion = host.anchoredDidDismiss
+                                    host.anchoredDidDismiss = nil
+                                    if model.popoverHost === host { model.popoverHost = nil }
+                                    completion?()
+                                }
+                        }
+                    }
+            }
                 .sharedBackgroundVisibility(item.clear ? .hidden : .automatic)
         }
     }
@@ -424,6 +466,31 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         model.apply(controls, rendering: rendering)
         if tabsAppear { ShellCrossfade.enter(container, duration: ShellCrossfade.duration(180)) }
         controller.overrideUserInterfaceStyle = controls.contains(where: \.dark) ? .dark : .light
+    }
+
+    func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping () -> Void) -> Bool {
+        guard container.window != nil, model.popoverAnchor == nil,
+              model.groups.flatMap(\.items).contains(where: { $0.id == anchor && !$0.disabled }) else { return false }
+        model.popoverHost = host
+        model.popoverPresented = completion
+        host.anchoredVisible = true
+        host.dismissAnchored = { [weak self, weak host] in
+            guard let self, let host else { return }
+            if self.model.popoverAnchor == nil {
+                host.anchoredVisible = false
+                let completion = host.anchoredDidDismiss
+                host.anchoredDidDismiss = nil
+                completion?()
+            } else {
+                var transaction = Transaction()
+                transaction.disablesAnimations = host.options?["animated"] as? Bool == false
+                withTransaction(transaction) { self.model.popoverAnchor = nil }
+            }
+        }
+        var transaction = Transaction()
+        transaction.disablesAnimations = host.options?["animated"] as? Bool == false
+        withTransaction(transaction) { model.popoverAnchor = anchor }
+        return true
     }
 
     func detach() {

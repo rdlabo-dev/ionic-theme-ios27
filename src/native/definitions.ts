@@ -11,6 +11,8 @@ export interface NativeUIShellStatus {
 }
 
 export interface VerticalControlAreaOptions {
+  /** Opt-in popovers anchored to native Vertical Bars buttons. */
+  controls?: Pick<NativeUIShellControls, 'popover'>;
   /** Appearance of native vertical ion-button and ion-menu-button actions.
    * `system` (default) uses SwiftUI styling and template icons; `source` projects supported Ionic fill and colors.
    * Local data-projection="source|system" or ios-theme-projection-source / ios-theme-projection-system take precedence:
@@ -32,7 +34,7 @@ export interface VerticalControlAreaOptions {
 export interface NativeUIShellOptions extends VerticalControlAreaOptions {
   /** Enables Native UI Shell globally. Defaults to `true`. */
   enabled?: boolean;
-  /** Controls eligible for native projection. Omit to enable every control; when present, only `true` controls are enabled. */
+  /** Controls eligible for native projection. Omit to enable tabs, toolbar, segment and fab; popover always requires explicit opt-in. When present, only `true` controls are enabled. */
   controls?: NativeUIShellControls;
   /** Internal: limit native projection to the Vertical Control Area. */
   verticalBarsOnly?: boolean;
@@ -47,6 +49,8 @@ export interface NativeUIShellControls {
   segment?: boolean;
   /** Projects floating action buttons. */
   fab?: boolean;
+  /** Relays popovers anchored to native Vertical Bars buttons. Defaults to false. */
+  popover?: boolean;
 }
 
 export interface NativeUIShellHandle {
@@ -183,9 +187,31 @@ export interface WebViewMetrics {
 export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
+  prepareOverlay(options: { id: string }): Promise<void>;
+  presentOverlay(options: { id: string; presentation?: ShellPopoverPresentation }): Promise<void>;
+  dismissOverlay(options: { id: string; animated: boolean }): Promise<void>;
+  closeOverlay(options: { id: string }): Promise<void>;
+  stopOverlays(): Promise<void>;
   update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
   addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'overlay', listener: (event: ShellOverlayEvent) => void): Promise<PluginListenerHandle>;
+}
+
+export interface ShellPopoverPresentation {
+  kind: 'popover';
+  animated: boolean;
+  dark: boolean;
+  anchorId: string;
+  width: number;
+  height: number;
+  backgroundColor: string;
+  backdropDismiss: boolean;
+}
+
+export interface ShellOverlayEvent {
+  id: string;
+  action: 'dismiss';
 }
