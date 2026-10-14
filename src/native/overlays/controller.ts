@@ -36,7 +36,7 @@ export const createOverlayController = async (
   doc: Document,
   plugin: NativeUIShellPlugin,
   options: NativeUIShellOptions,
-  retainProjection: () => () => void,
+  retainProjection: (deferActivation?: (id: string) => boolean) => () => void,
   nativeVerticalBars: () => boolean,
 ) => {
   let current: Connection | undefined;
@@ -218,7 +218,17 @@ export const createOverlayController = async (
     const presentation: Presentation = { kind: 'popover', animated: overlay.animated };
     current = connection;
     // Retain synchronously, before the scheduled projection update can retire the rail.
-    connection.releaseProjection = retainProjection();
+    const anchorId = verticalBarsPopoverAnchor(overlay);
+    connection.releaseProjection = retainProjection(
+      (id) =>
+        id === anchorId &&
+        current === connection &&
+        !!connection.nativeClosing &&
+        !stopped &&
+        !suspensions.size &&
+        nativeVerticalBars() &&
+        !excluded(overlay),
+    );
     const closed = () => {
       connection.dismissed = true;
     };

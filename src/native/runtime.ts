@@ -48,7 +48,7 @@ export const createRuntime = async (
   options: NativeUIShellOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
-): Promise<NativeUIShellHandle & { retain: () => () => void }> => {
+): Promise<NativeUIShellHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
   const win = doc.defaultView!;
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
@@ -78,7 +78,7 @@ export const createRuntime = async (
   let dirty = false;
   let pending = false;
   let stopped = false;
-  let retentions = 0;
+  const retentions = new Set<{ accepts?: (id: string) => boolean; activation?: ShellActivation }>();
   /** True while a tab-switch handoff should skip crossfade. */
   let tabSwitchHandoff = false;
   /** Keep instant updates until this time — DidLeave often precedes the retire sync. */
@@ -309,7 +309,7 @@ export const createRuntime = async (
     try {
       // A retained sync performs no update; keep the modal handoff armed so the
       // deferred retirement still runs instantly after the overlay releases.
-      if (retentions && !manualSuspensions.size) return;
+      if (retentions.size && !manualSuspensions.size) return;
       modalPresentHandoff = false;
       const size = `${win.innerWidth}:${win.innerHeight}`;
       // WebKit can resize before Ionic's fixed DOM positions catch up.
@@ -332,7 +332,7 @@ export const createRuntime = async (
           );
         }
       }
-      if (stopped || dirty || (retentions && !manualSuspensions.size)) return;
+      if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
       const retained = new Set(candidates.flatMap(candidateSources));
       const removed = Array.from(sources.keys()).filter((element) => !retained.has(element));
       if (removed.length) {
@@ -367,7 +367,7 @@ export const createRuntime = async (
       updates++;
       updatingRevision = snapshot.revision;
       const result = await bounded(plugin.update(snapshot));
-      if (stopped || (retentions && !manualSuspensions.size)) return;
+      if (stopped || (retentions.size && !manualSuspensions.size)) return;
       if (result.revision !== snapshot.revision) throw new Error('Native UI Shell revision mismatch');
       if (`${win.innerWidth}:${win.innerHeight}` !== size) {
         lastSnapshot = '';
@@ -643,15 +643,17 @@ export const createRuntime = async (
     on(win.visualViewport, 'resize', refreshLayout);
     on(win.visualViewport, 'scroll');
   }
-  const handle: NativeUIShellHandle & { retain: () => () => void } = {
+  const handle: NativeUIShellHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void } = {
     // A native overlay covers this surface; keep its controls and Web ownership intact.
-    retain() {
-      retentions++;
-      let released = false;
+    retain(deferActivation) {
+      const retention: { accepts?: (id: string) => boolean; activation?: ShellActivation } = { accepts: deferActivation };
+      retentions.add(retention);
       return () => {
-        if (released) return;
-        released = true;
-        retentions--;
+        if (!retentions.delete(retention)) return;
+        // UIKit may already expose the anchor while Ionic is still dismissing.
+        // Replay at most one validated input after the live content is restored.
+        const activation = retention.activation;
+        if (activation && retention.accepts?.(activation.id)) win.queueMicrotask(() => activate(activation));
         schedule();
       };
     },
@@ -712,15 +714,16 @@ export const createRuntime = async (
     },
   };
   const activate = (event: ShellActivation) => {
-    if (
-      stopped ||
-      doc.hidden ||
-      event.revision < acceptedRevision ||
-      event.revision > revision ||
-      event.sequence <= lastSequence ||
-      overlayOpen(false, true)
-    )
+    if (stopped || doc.hidden || event.revision < acceptedRevision || event.revision > revision || event.sequence <= lastSequence) return;
+    if (overlayOpen(false, true)) {
+      if (!manualSuspensions.size) {
+        for (const retention of retentions) {
+          if (retention.accepts?.(event.id) && (!retention.activation || event.sequence > retention.activation.sequence))
+            retention.activation = event;
+        }
+      }
       return;
+    }
     // Native may send input before update() resolves on the JS bridge.
     // Revalidate it after ownership is accepted, using the same action path.
     if (event.revision > acceptedRevision && event.revision === updatingRevision) {

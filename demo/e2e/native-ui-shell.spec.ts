@@ -3475,3 +3475,58 @@ test('Vertical Bars popover preparation failure restores usable Web content and 
   await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
   expect(page.context().pages()).toHaveLength(1);
 });
+
+for (const disabled of [false, true])
+  test(`Vertical Bars popover handles anchor clicks during dismissal (${disabled ? 'disabled before replay' : 'reopens once'})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto('/main/index/popover');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const trigger = page.locator('#native-popover-trigger');
+    await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+    await page.evaluate(() => {
+      const plugin = Capacitor.registerPlugin<ShellMock & { finishDismiss?: () => void }>('IonicNativeUIShell');
+      Object.assign(plugin, {
+        async prepareOverlay() {},
+        async presentOverlay() {},
+        dismissOverlay: () =>
+          new Promise<void>((resolve) => {
+            plugin.finishDismiss = resolve;
+          }),
+      });
+    });
+    const opened = page.waitForEvent('popup');
+    await activate(page, 'Open popover');
+    const relay = await opened;
+    await expect(relay.getByText('Toolbar popover', { exact: true })).toBeVisible();
+    await relay.getByRole('button', { name: 'Close popover', exact: true }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => !!Capacitor.registerPlugin<ShellMock & { finishDismiss?: () => void }>('IonicNativeUIShell').finishDismiss),
+      )
+      .toBe(true);
+    // UIKit can accept the next tap while Ionic still waits for didDismiss.
+    // Repeated clicks must coalesce, and a now-disabled source must not replay.
+    for (let i = 0; i < 3; i++) await activate(page, 'Open popover');
+    if (disabled)
+      await trigger.evaluate((button: HTMLIonButtonElement) => {
+        button.disabled = true;
+      });
+    await page.evaluate(() => Capacitor.registerPlugin<ShellMock & { finishDismiss?: () => void }>('IonicNativeUIShell').finishDismiss!());
+    await expect.poll(() => relay.isClosed()).toBe(true);
+    if (disabled) {
+      await expect(trigger).toHaveJSProperty('disabled', true);
+      await expect.poll(() => page.context().pages().length).toBe(1);
+    } else {
+      await expect.poll(() => page.context().pages().length).toBe(2);
+      const reopened = page
+        .context()
+        .pages()
+        .find((candidate) => candidate !== page)!;
+      await expect(reopened.getByText('Toolbar popover', { exact: true })).toBeVisible();
+      await reopened.getByRole('button', { name: 'Increment', exact: true }).click();
+      await expect(reopened.getByText('Count: 1', { exact: true })).toBeVisible();
+    }
+  });
