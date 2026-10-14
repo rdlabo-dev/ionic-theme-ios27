@@ -521,7 +521,7 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(background.exists, app.debugDescription)
         let backgroundFrame = background.frame
         capture("vertical-popover-before")
-        for attempt in 1...3 {
+        for attempt in 1...20 {
             trigger.tap()
             let title = app.webViews.staticTexts["Toolbar popover"].firstMatch
             XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
@@ -532,7 +532,7 @@ final class NativeUIShellTests: XCTestCase {
             XCTAssertLessThan(increment.frame.height, 80, "Popover buttons must keep their intrinsic height")
             increment.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             XCTAssertTrue(app.webViews.staticTexts["Count: \(attempt)"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
-            if attempt == 2 {
+            if attempt % 2 == 0 {
                 app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.8)).tap()
             } else {
                 app.webViews.buttons["Close popover"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()

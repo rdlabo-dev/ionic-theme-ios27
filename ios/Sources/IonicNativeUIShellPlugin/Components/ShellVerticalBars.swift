@@ -154,7 +154,7 @@ private struct ShellVerticalBarsButton: ToolbarContent {
                     .popover(isPresented: Binding(
                         get: { model.popoverAnchor == item.id },
                         set: { shown in
-                            if !shown {
+                            if !shown && model.popoverAnchor == item.id {
                                 model.popoverAnchor = nil
                                 model.popoverHost?.event("dismiss")
                             }
@@ -476,12 +476,10 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         host.anchoredVisible = true
         host.dismissAnchored = { [weak self, weak host] in
             guard let self, let host else { return }
-            if self.model.popoverAnchor == nil {
-                host.anchoredVisible = false
-                let completion = host.anchoredDidDismiss
-                host.anchoredDidDismiss = nil
-                completion?()
-            } else {
+            // A backdrop tap clears the binding before SwiftUI finishes closing.
+            // Keep the live content and completion until onDisappear, including
+            // when dismissal has already started through the system binding.
+            if self.model.popoverAnchor != nil {
                 var transaction = Transaction()
                 transaction.disablesAnimations = host.options?["animated"] as? Bool == false
                 withTransaction(transaction) { self.model.popoverAnchor = nil }
