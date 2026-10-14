@@ -58,14 +58,14 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         return host.webView
     }
 
-    func present(_ id: String, options: [String: Any]?, anchored: (String, ShellOverlayHost, @escaping () -> Void) -> Bool,
+    func present(_ id: String, options: [String: Any]?, anchored: (String, ShellOverlayHost, @escaping (Bool) -> Void) -> Bool,
                  completion: @escaping (Bool) -> Void) {
         guard self.id == id, let host, let owner,
               owner.presentedViewController == nil else { completion(false); return }
         host.apply(options)
         if host.options?["kind"] as? String == "popover",
            let anchor = host.options?["anchorId"] as? String,
-           anchored(anchor, host, { completion(true) }) { return }
+           anchored(anchor, host, completion) { return }
         completion(false)
     }
 
@@ -74,7 +74,7 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         guard self.id == id, let host else { completion(); return }
         if let dismiss = host.dismissAnchored {
             if host.anchoredVisible { host.anchoredDidDismiss = completion; dismiss() }
-            else { completion() }
+            else { dismiss(); completion() }
             return
         }
         guard host.presentingViewController != nil else { completion(); return }
@@ -93,7 +93,10 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
             self.id = nil
             completion()
         }
-        if let dismiss = host.dismissAnchored, host.anchoredVisible { host.anchoredDidDismiss = finish; dismiss() }
+        if let dismiss = host.dismissAnchored {
+            if host.anchoredVisible { host.anchoredDidDismiss = finish; dismiss() }
+            else { dismiss(); finish() }
+        }
         else if host.presentingViewController == nil { finish() }
         else { host.dismiss(animated: false, completion: finish) }
     }

@@ -7,7 +7,7 @@ protocol ShellVerticalBarsControlling: AnyObject {
     func attach(to owner: UIViewController, in parent: UIView)
     @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
     var ownsKeyboardChrome: Bool { get }
-    func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping () -> Void) -> Bool
+    func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping (Bool) -> Void) -> Bool
     func detach()
 }
 
@@ -35,7 +35,7 @@ final class ShellVerticalBarsModel: ObservableObject {
 
     @Published var popoverAnchor: String?
     var popoverHost: ShellOverlayHost?
-    var popoverPresented: (() -> Void)?
+    var popoverPresented: ((Bool) -> Void)?
     @Published var search: ShellVerticalSearchModel?
     @Published var back: Item?
     @Published var groups: [Group] = []
@@ -167,9 +167,11 @@ private struct ShellVerticalBarsButton: ToolbarContent {
                                 .presentationCompactAdaptation(.popover)
                                 .interactiveDismissDisabled(host.options?["backdropDismiss"] as? Bool == false)
                                 .onAppear {
+                                    guard model.popoverHost === host else { return }
+                                    host.anchoredVisible = true
                                     let completion = model.popoverPresented
                                     model.popoverPresented = nil
-                                    completion?()
+                                    completion?(true)
                                 }
                                 .onDisappear {
                                     host.anchoredVisible = false
@@ -468,14 +470,14 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         controller.overrideUserInterfaceStyle = controls.contains(where: \.dark) ? .dark : .light
     }
 
-    func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping () -> Void) -> Bool {
+    func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping (Bool) -> Void) -> Bool {
         guard container.window != nil, model.popoverAnchor == nil,
               model.groups.flatMap(\.items).contains(where: { $0.id == anchor && !$0.disabled }) else { return false }
         model.popoverHost = host
         model.popoverPresented = completion
-        host.anchoredVisible = true
+        host.anchoredVisible = false
         host.dismissAnchored = { [weak self, weak host] in
-            guard let self, let host else { return }
+            guard let self, let host, self.model.popoverHost === host else { return }
             // A backdrop tap clears the binding before SwiftUI finishes closing.
             // Keep the live content and completion until onDisappear, including
             // when dismissal has already started through the system binding.
@@ -483,6 +485,13 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
                 var transaction = Transaction()
                 transaction.disablesAnimations = host.options?["animated"] as? Bool == false
                 withTransaction(transaction) { self.model.popoverAnchor = nil }
+            }
+            // Before onAppear there will be no onDisappear to finish cleanup.
+            if !host.anchoredVisible {
+                let completion = self.model.popoverPresented
+                self.model.popoverPresented = nil
+                self.model.popoverHost = nil
+                completion?(false)
             }
         }
         var transaction = Transaction()

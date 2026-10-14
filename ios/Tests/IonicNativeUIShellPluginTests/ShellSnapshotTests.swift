@@ -1,8 +1,35 @@
 import XCTest
+import WebKit
 import Capacitor
 @testable import IonicNativeUIShellPlugin
 
 final class ShellSnapshotTests: XCTestCase {
+    @MainActor func testVerticalPopoverCanCancelBeforeSwiftUIAppearsAndReopen() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native Vertical Bars") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let rail = ShellVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach() }
+        rail.apply(try decode([control(["placement": "vertical-bars"])]).controls,
+                   rendering: ShellRendering(), edge: "right")
+        for _ in 0..<3 {
+            let host = ShellOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+            var results: [Bool] = []
+            XCTAssertTrue(rail.presentPopover(anchor: "action", host: host, completion: { results.append($0) }))
+            // Cancel in the same runloop turn, before SwiftUI can call onAppear.
+            XCTAssertFalse(host.anchoredVisible)
+            host.dismissAnchored?()
+            XCTAssertEqual(results, [false])
+            XCTAssertFalse(host.anchoredVisible)
+            host.dismissAnchored?()
+            XCTAssertEqual(results, [false], "Cancellation must settle presentation only once")
+        }
+    }
+
     private func item(_ changes: JSObject = [:]) -> JSObject {
         var value: JSObject = ["id": "action", "x": 4.0, "y": 8.0, "width": 44.0, "height": 44.0,
             "label": "Send", "accessibilityLabel": "Send message", "disabled": false, "selected": false,
