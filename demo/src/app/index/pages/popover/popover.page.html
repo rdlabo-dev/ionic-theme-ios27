@@ -4,8 +4,16 @@
       <ion-back-button defaultHref="/main/index"></ion-back-button>
     </ion-buttons>
     <ion-title>popover</ion-title>
+    <ion-buttons slot="end">
+      <ion-button id="native-popover-trigger" aria-label="Open popover">
+        <ion-icon name="ellipsis-horizontal" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
+<ion-popover trigger="native-popover-trigger">
+  <ng-template><div class="ion-padding">Toolbar popover</div></ng-template>
+</ion-popover>
 
 <ion-content [fullscreen]="true" color="light">
   <ion-list [inset]="true">
@@ -14,12 +22,17 @@
         <ion-label>
           <ion-icon name="logo-ionic" style="background: linear-gradient(#489bfd, #2b77f4)"></ion-icon>
           <h2>popover</h2>
-          <ion-header collapse="condense">
-            <ion-toolbar></ion-toolbar>
-          </ion-header>
           <ion-text><code>This page is a component demo for &#64;rdlabo/ionic-theme-ios27.</code></ion-text>
         </ion-label>
       </ion-item>
+    </ion-item-group>
+  </ion-list>
+
+  <ion-list [inset]="true">
+    <ion-list-header><ion-label>Controller</ion-label></ion-list-header>
+    <ion-item-group>
+      <ion-item [button]="true" (click)="present($event)"><ion-label>Compact controller popover</ion-label></ion-item>
+      <ion-item [button]="true" (click)="present($event, true)"><ion-label>Scrollable controller popover</ion-label></ion-item>
     </ion-item-group>
   </ion-list>
 

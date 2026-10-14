@@ -36,6 +36,10 @@ test('placement requires ion-app and clears it when disabled', () => {
 test('a second startup cannot silently replace the active configuration', async () => {
   const first = await enableNativeUIShell({ controls: { tabs: true }, verticalBarsOnly: true });
   expect(await enableNativeUIShell({ controls: { tabs: true }, verticalBarsOnly: true })).toBe(first);
+  expect(await enableNativeUIShell({ controls: { tabs: true, modal: false }, verticalBarsOnly: true })).toBe(first);
+  await expect(enableNativeUIShell({ controls: { tabs: true, modal: true }, verticalBarsOnly: true })).rejects.toThrow(
+    'different controls',
+  );
   await expect(enableNativeUIShell({ controls: { toolbar: true } })).rejects.toThrow('different controls');
   await first.destroy();
 });

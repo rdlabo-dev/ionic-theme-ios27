@@ -208,13 +208,15 @@ final class NativeUIShellTests: XCTestCase {
         app.webViews.buttons["Parent hidden: true"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
+        // A disabled ion-buttons group releases the group projection but its
+        // direct children are still projected individually.
         app.webViews.buttons["Theme disabled: false"].tap()
-        XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(native.waitForExistence(timeout: 5))
         app.webViews.buttons["Theme disabled: true"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
         app.webViews.buttons["fill: clear"].tap()
-        XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(native.waitForExistence(timeout: 5))
         app.webViews.buttons["fill: default"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
@@ -231,8 +233,19 @@ final class NativeUIShellTests: XCTestCase {
         app.webViews.buttons["Select One programmatically"].tap()
 
         app.webViews.buttons["Open modal"].tap()
-        XCTAssertTrue(segment.waitForNonExistence(timeout: 5), app.debugDescription)
-        app.webViews.buttons["Close modal"].tap()
+        let modalClose = app.webViews.buttons["Close modal"]
+        XCTAssertTrue(modalClose.waitForExistence(timeout: 5), app.debugDescription)
+        if modalClose.isHittable {
+            // Without the native relay, a presented overlay leaves covered controls unprojected.
+            XCTAssertTrue(segment.waitForNonExistence(timeout: 5), app.debugDescription)
+            modalClose.tap()
+        } else {
+            // A covering overlay retires page projections like the Web path; the
+            // relayed content lives in a hosted WebView XCTest cannot hit-test.
+            expectation(for: NSPredicate(format: "hittable == false"), evaluatedWith: segment)
+            waitForExpectations(timeout: 5)
+            modalClose.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
         XCTAssertTrue(segment.waitForExistence(timeout: 5), app.debugDescription)
 
         app.swipeUp()
@@ -504,22 +517,393 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(main.identifier.hasPrefix("shell-"))
     }
 
+    func testToolbarAnchoredPopover() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        openPage(app, name: "popover")
+        // The toolbar's ellipsis button is a native projection that anchors the popover.
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        trigger.tap()
+        for i in 0..<5 {
+            usleep(150_000)
+            capture("anchored-popover-\(i)")
+        }
+        let text = app.webViews.staticTexts["Toolbar popover"]
+        XCTAssertTrue(text.waitForExistence(timeout: 5), app.debugDescription)
+        capture("anchored-popover-final")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)).tap()
+        XCTAssertTrue(text.waitForNonExistence(timeout: 5), app.debugDescription)
+    }
+
+    func testModalHidesPageProjections() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        openPage(app, name: "native-ui-shell")
+        let save = nativeButton(app, label: "Save")
+        XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
+        app.webViews.buttons["Open modal"].tap()
+        // Page projections must retire while the relayed modal covers the page.
+        XCTAssertTrue(save.waitForNonExistence(timeout: 5), app.debugDescription)
+        capture("modal-covering-projections-hidden")
+        let close = app.webViews.buttons["Close modal"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
+        close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        // Projections return after the overlay is gone.
+        XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
+        capture("modal-dismissed-projections-back")
+    }
+
+    func testModalKindsVisuals() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        openPage(app, name: "modal")
+        for kind in ["card", "sheet", "normal"] {
+            let trigger = app.webViews.buttons["present:" + kind]
+            XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+            trigger.tap()
+            Thread.sleep(forTimeInterval: 1.5)
+            capture("modal-kind-\(kind)")
+            let shells = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'"))
+            XCTAssertEqual(shells.count, 0, "page projections must retire while a covering \(kind) modal is open")
+            let close = app.buttons.matching(NSPredicate(format: "label IN %@", ["Close", "Done"])).firstMatch
+            let webClose = app.webViews.buttons.matching(NSPredicate(format: "label IN %@", ["Close", "Done"])).firstMatch
+            if close.exists { close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+            else if webClose.exists { webClose.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+            else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.2)).tap() }
+            Thread.sleep(forTimeInterval: 1.0)
+            capture("modal-kind-\(kind)-closed")
+        }
+    }
+
+    func testPopoverTransitionsVisuals() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        openPage(app, name: "popover")
+        // Rect-anchored (non-projected) popover: should open with UIKit's own popover animation.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.46)).tap()
+        for i in 0..<3 {
+            usleep(120_000)
+            capture("compact-popover-\(i)")
+        }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+        Thread.sleep(forTimeInterval: 0.8)
+        capture("compact-popover-dismissed")
+        // Anchored morph from the projected toolbar ellipsis.
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        trigger.tap()
+        for i in 0..<3 {
+            usleep(120_000)
+            capture("morph-popover-\(i)")
+        }
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+        for i in 0..<3 {
+            usleep(120_000)
+            capture("morph-popover-closing-\(i)")
+        }
+        capture("morph-popover-dismissed")
+    }
+
+    func testPopoverTeardownLeavesNoStaleProjection() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        for round in 0..<2 {
+            openPage(app, name: "popover")
+            let trigger = nativeButton(app, label: "Open popover")
+            XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+            trigger.tap()
+            XCTAssertTrue(app.webViews.staticTexts["Toolbar popover"].waitForExistence(timeout: 10), app.debugDescription)
+            // Dismiss the morph and navigate away immediately; tearing down the
+            // page must release the retained page projections. If the release
+            // is ever skipped, later pages freeze on the stale snapshot and the
+            // popover page's ellipsis keeps drawing over them.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            let back = app.buttons["back"].firstMatch
+            if !back.waitForExistence(timeout: 5) { continue }
+            back.tap()
+            waitForWebTransition()
+            openPage(app, name: "modal")
+            capture("stalecheck-modal-page-\(round)")
+            let stale = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-' AND label == 'Open popover'"))
+            XCTAssertEqual(stale.count, 0, "popover page projections must not survive navigation")
+            // Present and dismiss a modal; covering overlays must still retire
+            // and restore the current page projections, not the stale ones.
+            let present = app.webViews.buttons["present:normal"]
+            XCTAssertTrue(present.waitForExistence(timeout: 10), app.debugDescription)
+            present.tap()
+            Thread.sleep(forTimeInterval: 1.5)
+            capture("stalecheck-modal-open-\(round)")
+            let close = app.buttons.matching(NSPredicate(format: "label IN %@", ["Close", "Done"])).firstMatch
+            XCTAssertTrue(close.waitForExistence(timeout: 10), app.debugDescription)
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            Thread.sleep(forTimeInterval: 1.0)
+            capture("stalecheck-modal-closed-\(round)")
+            XCTAssertEqual(stale.count, 0, "stale popover projections must not reappear after a modal")
+            XCTAssertTrue(app.buttons["back"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+            app.buttons["back"].firstMatch.tap()
+            waitForWebTransition()
+        }
+    }
+
+    func testFirstLaunchPopoverChromeShadow() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        openPage(app, name: "popover")
+        // Tap the controller-section close button as early as possible after
+        // launch. The first popover presentation used to keep an unresolved
+        // chrome — flat surface, no shadow — until a second presentation.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.611)).tap()
+        let popoverText = app.webViews.staticTexts["Hello World!"].firstMatch
+        XCTAssertTrue(popoverText.waitForExistence(timeout: 10), app.debugDescription)
+        capture("firstlaunch-popover-chrome")
+        XCTAssertTrue(popoverChromeHasShadow(XCUIScreen.main.screenshot().image,
+                                             below: popoverText.frame,
+                                             pointsWidth: app.frame.width),
+                      "first-launch popover chrome rendered without a shadow")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+        Thread.sleep(forTimeInterval: 0.8)
+    }
+
+    /// The popover chrome must cast a shadow onto the page. Without it, the
+    /// tone right under the surface edge stays at the flat page background.
+    private func popoverChromeHasShadow(_ image: UIImage, below rect: CGRect, pointsWidth: CGFloat) -> Bool {
+        guard let cg = image.cgImage,
+              let data = cg.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return false }
+        let width = cg.width, height = cg.height
+        let bytesPerRow = cg.bytesPerRow, bytesPerPixel = bytesPerRow / width
+        func tone(_ x: Int, _ y: Int) -> Int { Int(bytes[y * bytesPerRow + x * bytesPerPixel]) }
+        let pxPerPoint = CGFloat(width) / pointsWidth
+        // The surface edge sits ~17pt below the text baseline; its shadow darkens
+        // the band just beneath it before the page background returns.
+        let x = Int(rect.midX * pxPerPoint)
+        let start = Int((rect.maxY + 14) * pxPerPoint)
+        let limit = min(Int((rect.maxY + 48) * pxPerPoint), height - 1)
+        var darkest = 255
+        for y in start...limit {
+            for dx in -2...2 { darkest = min(darkest, tone(x + dx, y)) }
+        }
+        return darkest < 236
+    }
+
+    func testAnchoredPopoverHoldOpen() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        openPage(app, name: "popover")
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        trigger.tap()
+        sleep(3)
+    }
+
+    func testAnchoredPopoverVerticalBars() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        // Turn on the rail (Duo mode) so toolbar projections move into the vertical bar.
+        let toggle = app.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+        toggle.tap()
+        sleep(1)
+        openPage(app, name: "popover")
+        let trigger = app.buttons["Open popover"].firstMatch
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        trigger.tap()
+        for i in 0..<4 {
+            usleep(300_000)
+            capture("rail-popover-\(i)")
+        }
+        let text = app.webViews.staticTexts["Toolbar popover"]
+        XCTAssertTrue(text.waitForExistence(timeout: 5), app.debugDescription)
+        capture("rail-popover-final")
+        // Dismiss via outside tap: the surface must collapse back into the button.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6)).tap()
+        sleep(1)
+        capture("rail-popover-dismissed")
+        XCTAssertFalse(app.webViews.staticTexts["Toolbar popover"].exists, app.debugDescription)
+        XCTAssertTrue(app.buttons["Open popover"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    func testOverlaySnapshotVisuals() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        openPage(app, name: "native-ui-shell")
+        let openModal = app.webViews.buttons["Open modal"]
+        XCTAssertTrue(openModal.waitForExistence(timeout: 10), app.debugDescription)
+        openModal.tap()
+        for i in 0..<6 {
+            usleep(120_000)
+            capture("modal-handoff-\(i)")
+        }
+        let modalClose = app.webViews.buttons["Close modal"]
+        XCTAssertTrue(modalClose.waitForExistence(timeout: 10), app.debugDescription)
+        capture("modal-relayed")
+        modalClose.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.segmentedControls.firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+        capture("modal-restored")
+        app.buttons["back"].firstMatch.tap()
+        waitForWebTransition()
+        openPage(app, name: "popover")
+        let trigger = app.webViews.descendants(matching: .any)["Compact controller popover"].firstMatch
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        trigger.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        for i in 0..<6 {
+            usleep(120_000)
+            capture("popover-handoff-\(i)")
+        }
+        let inc = app.webViews.buttons["Increment"]
+        XCTAssertTrue(inc.waitForExistence(timeout: 10), app.debugDescription)
+        capture("popover-relayed")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(inc.waitForNonExistence(timeout: 10), app.debugDescription)
+        app.buttons["back"].firstMatch.tap()
+        waitForWebTransition()
+        openPage(app, name: "alert")
+        let inputAlert = app.webViews.buttons["Input alert"]
+        XCTAssertTrue(inputAlert.waitForExistence(timeout: 10), app.debugDescription)
+        inputAlert.tap()
+        for i in 0..<6 {
+            usleep(120_000)
+            capture("alert-handoff-\(i)")
+        }
+        capture("alert-relayed")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        Thread.sleep(forTimeInterval: 0.7)
+    }
+
+    func testRepeatedPopoverStress() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        openPage(app, name: "popover")
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        let popText = app.webViews.staticTexts["Toolbar popover"]
+        // Alternate outside-dismiss timing to hit the morph mid-present and at rest.
+        let delays: [TimeInterval] = [0.15, 0.6, 0.15, 0.6, 0.15, 0.6, 0.15, 0.6]
+        for (i, delay) in delays.enumerated() {
+            trigger.tap()
+            Thread.sleep(forTimeInterval: delay)
+            capture("stress-open-\(i)")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            Thread.sleep(forTimeInterval: 0.25)
+            capture("stress-close-\(i)")
+        }
+        Thread.sleep(forTimeInterval: 1.0)
+        capture("stress-settled")
+        // The morph trigger and the rest of the projections must still work.
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), "native trigger lost after repeated popover use\n" + app.debugDescription)
+        trigger.tap()
+        XCTAssertTrue(popText.waitForExistence(timeout: 10), "popover failed to relay after repeats\n" + app.debugDescription)
+        capture("stress-reopen")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+        Thread.sleep(forTimeInterval: 0.8)
+        // Navigate away and back; projections must keep tracking the page.
+        app.buttons["back"].firstMatch.tap()
+        waitForWebTransition()
+        openPage(app, name: "popover")
+        XCTAssertTrue(nativeButton(app, label: "Open popover").waitForExistence(timeout: 10),
+                      "projections did not survive the stress round trip\n" + app.debugDescription)
+        capture("stress-roundtrip")
+    }
+
+    func testMixedOverlayStress() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15), app.debugDescription)
+        let shellButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'"))
+        for i in 0..<3 {
+            // Anchored morph popover.
+            openPage(app, name: "popover")
+            let trigger = nativeButton(app, label: "Open popover")
+            XCTAssertTrue(trigger.waitForExistence(timeout: 10), "morph trigger lost at round \(i)\n" + app.debugDescription)
+            trigger.tap()
+            XCTAssertTrue(app.webViews.staticTexts["Toolbar popover"].waitForExistence(timeout: 10),
+                          "morph did not present at round \(i)\n" + app.debugDescription)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            Thread.sleep(forTimeInterval: 0.5)
+            capture("mixed-popover-\(i)")
+            // Unanchored controller popover via the x button.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.611)).tap()
+            let hello = app.webViews.staticTexts["Hello World!"]
+            XCTAssertTrue(hello.waitForExistence(timeout: 10), "uikit popover did not present at round \(i)\n" + app.debugDescription)
+            capture("mixed-uikit-\(i)")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            Thread.sleep(forTimeInterval: 0.5)
+            // Back to index, then modal page and a modal.
+            app.buttons["back"].firstMatch.tap()
+            waitForWebTransition()
+            openPage(app, name: "modal")
+            let present = app.webViews.buttons["present:normal"]
+            XCTAssertTrue(present.waitForExistence(timeout: 10), app.debugDescription)
+            present.tap()
+            Thread.sleep(forTimeInterval: 1.2)
+            capture("mixed-modal-\(i)")
+            XCTAssertEqual(shellButtons.count, 0, "page projections must retire under the modal at round \(i)")
+            let close = app.buttons.matching(NSPredicate(format: "label IN %@", ["Close", "Done"])).firstMatch
+            XCTAssertTrue(close.waitForExistence(timeout: 10), app.debugDescription)
+            close.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            Thread.sleep(forTimeInterval: 0.8)
+            capture("mixed-closed-\(i)")
+            app.buttons["back"].firstMatch.tap()
+            waitForWebTransition()
+        }
+        // Final sanity: projections alive, morph still works.
+        openPage(app, name: "popover")
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), "native projections died after mixed stress\n" + app.debugDescription)
+        trigger.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Toolbar popover"].waitForExistence(timeout: 10),
+                      "morph failed after mixed stress\n" + app.debugDescription)
+        capture("mixed-final")
+    }
+
     private func openPage(_ app: XCUIApplication, name: String) {
         let label = name == "native-ui-shell" ? "native-ui-shell (Preview)" : name
-        let entry = app.webViews.buttons[label].exists ? app.webViews.buttons[label] : app.webViews.links[label]
-        // WebKit's isHittable does not account for a sibling native tab bar.
-        func unobscured() -> Bool {
-            entry.isHittable && entry.frame.midY > app.frame.minY + 130 && entry.frame.midY < app.frame.maxY - 120
+        let web = app.webViews
+        func find() -> XCUIElement? {
+            for query in [web.buttons[label], web.links[label], web.otherElements[label], web.staticTexts[label]] {
+                if query.exists { return query }
+            }
+            let any = web.descendants(matching: .any).matching(NSPredicate(format: "label == %@", label)).firstMatch
+            return any.exists ? any : nil
         }
-        for _ in 0..<20 {
-            if unobscured() { break }
-            let below = entry.frame.midY >= app.frame.maxY - 120
+        var entry: XCUIElement?
+        // WebKit's isHittable does not account for a sibling native tab bar, and
+        // WebKit exposes list items lazily — poll across element types while scrolling.
+        for _ in 0..<30 {
+            entry = find()
+            if let e = entry, e.frame.midY > app.frame.minY + 130, e.frame.midY < app.frame.maxY - 120 { break }
+            let below = (entry?.frame.midY ?? 0) >= app.frame.maxY - 120 || entry == nil
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.65 : 0.35))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.35 : 0.65))
             start.press(forDuration: 0.05, thenDragTo: end)
+            Thread.sleep(forTimeInterval: 0.3)
         }
-        XCTAssertTrue(unobscured(), "Cannot open " + name + "\n" + app.debugDescription)
-        entry.tap()
+        guard let e = entry, e.frame.midY > app.frame.minY + 130, e.frame.midY < app.frame.maxY - 120 else {
+            XCTFail("Cannot open " + name + "\n" + app.debugDescription); return
+        }
+        e.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         waitForWebTransition()
     }
 

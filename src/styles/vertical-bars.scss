@@ -329,8 +329,8 @@ html.ios-theme-native-ui-shell-prehide
   visibility: hidden !important;
 }
 
-ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready,
-ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-theme-vertical-bars-toolbar-ready {
+// Source layout is shared by native and Web projection; only accepted controls collapse.
+ion-app.ios-theme-vertical-bars {
   ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(
       :where(ion-menu *, ion-modal:not(.ios-theme-vertical-bars-modal) *, ion-popover *)
     )
@@ -360,6 +360,10 @@ ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-them
     ) {
     display: none;
   }
+}
+
+ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-toolbar-ready,
+ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-theme-vertical-bars-toolbar-ready {
   > ion-back-button.ios-theme-vertical-bars-back-button-projection {
     position: fixed;
     z-index: 1001;

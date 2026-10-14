@@ -1,4 +1,4 @@
-import { Component, effect, inject, OnInit } from '@angular/core';
+import { Component, effect, inject, OnInit, signal } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import {
@@ -53,6 +53,20 @@ export class AlertPage implements OnInit {
         await this.present(this.#params()?.['type']);
       }
     });
+  }
+
+  readonly inputResult = signal('');
+
+  async presentInputs() {
+    const alert = await this.overlayCtrl.create({
+      header: 'Input relay',
+      inputs: [{ name: 'name', placeholder: 'Your name', type: 'text' }],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Save', handler: (values) => this.inputResult.set(values.name) },
+      ],
+    });
+    await alert.present();
   }
 
   ngOnInit() {}
