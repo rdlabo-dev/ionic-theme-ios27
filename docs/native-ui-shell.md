@@ -124,6 +124,8 @@ Custom host animation or transition declarations on the FAB, list or button keep
 
 The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUIShellTransition()`, exported from both the package root and `/vertical-bars`. See [Connect your navigation animation](./iphone-duo-with-original-theme.md#3.-connect-your-navigation-animation) for the setup.
 
+Ordinary native/Web handoffs share a 180ms opacity crossfade, including Vertical Bars in both directions. Outgoing visuals cannot receive input or accessibility focus. Reduce Motion and modal presentation use immediate handoffs; search controllers keep their UIKit-managed transition.
+
 Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Stack pushes and pops keep the normal 180ms handoff.
 
 Standard Ionic overlays suspend ordinary native projection until dismissal. Vertical Bars use a separate policy:

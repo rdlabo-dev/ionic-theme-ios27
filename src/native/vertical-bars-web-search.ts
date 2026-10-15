@@ -10,9 +10,12 @@ export const createVerticalBarsWebSearch = (doc: Document, eligible: (element: H
   let container: HTMLIonFabElement | undefined;
   const iconObserver = new MutationObserver(refresh);
   let previousAriaHidden: string | null = null;
-  const restore = () => {
+  const restore = (retire?: (surface: HTMLElement) => void) => {
     iconObserver.disconnect();
-    container?.remove();
+    if (container) {
+      if (retire) retire(container);
+      else container.remove();
+    }
     container = undefined;
     projection = undefined;
     if (binding) {
@@ -24,6 +27,9 @@ export const createVerticalBarsWebSearch = (doc: Document, eligible: (element: H
   };
   return {
     restore,
+    get surface() {
+      return container;
+    },
     get source() {
       return binding?.trigger;
     },

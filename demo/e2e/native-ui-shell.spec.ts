@@ -2840,6 +2840,55 @@ test('native handoff crossfades visual opacity while transferring ownership once
   await expect(segment).toHaveCSS('visibility', 'hidden');
 });
 
+for (const reduced of [false, true])
+  test(`Vertical Bars use shared handoff timing and retire only visuals (${reduced ? 'reduced' : 'animated'})`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await page.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' });
+    await mockNative(page);
+    await page.goto('/main/index/alert');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const source = page.locator('app-alert ion-back-button');
+    const clone = page.locator('.ios-theme-vertical-bars-back-button-projection');
+    await expect(source).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
+    await expect(clone).toHaveCount(0);
+    await page.evaluate(() => {
+      const animate = Element.prototype.animate;
+      Element.prototype.animate = function (frames, options) {
+        const result = animate.call(this, frames, options);
+        if (this.matches('.ios-theme-vertical-bars-back-button-projection') && result.effect?.getTiming().duration === 180) {
+          result.pause();
+          result.currentTime = 90;
+        }
+        return result;
+      };
+    });
+    await page.getByText('present:button-only', { exact: true }).click();
+    await expect(clone).toHaveCount(1);
+    await expect(source).not.toHaveAttribute('data-native-ui-shell-vertical-bars');
+    if (reduced) {
+      await expect(clone).toHaveCSS('opacity', '1');
+      expect(await clone.evaluate((el) => el.getAnimations().length)).toBe(0);
+    } else {
+      await expect(clone).toHaveAttribute('data-native-ui-shell-fading', '');
+      expect(await clone.evaluate((el) => Number(getComputedStyle(el).opacity))).toBeCloseTo(0.5, 1);
+      await expect(clone).toHaveJSProperty('inert', false);
+      await clone.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
+    }
+    await page.locator('ion-alert').evaluate((alert: HTMLIonAlertElement) => alert.dismiss());
+    await expect(source).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
+    if (!reduced) {
+      await expect(clone).toHaveJSProperty('inert', true);
+      await expect(clone).toHaveAttribute('aria-hidden', 'true');
+      await expect(clone).toHaveCSS('pointer-events', 'none');
+      expect(await clone.evaluate((el) => Number(getComputedStyle(el).opacity))).toBeCloseTo(0.5, 1);
+      await clone.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
+    }
+    await expect(clone).toHaveCount(0);
+    expect(await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.transitionDuration)).toBe(
+      reduced ? 0 : 180,
+    );
+  });
+
 test('reduced motion hands off without a crossfade', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await mockNative(page);
@@ -3076,7 +3125,7 @@ for (const type of ['normal', 'card', 'sheet']) {
     await page.getByText(`present:${type}`, { exact: true }).click();
     const modal = page.locator('ion-modal');
     const close = modal.locator('ion-toolbar ion-button').first();
-    await expect(close).toHaveAttribute('data-native-ui-shell', '');
+    await expect(close).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
     await expect
       .poll(() =>
         page.evaluate(() => {
@@ -3109,7 +3158,7 @@ for (const type of ['normal', 'card', 'sheet']) {
     await activate(page, 'Close');
     await expect(modal).toBeVisible();
     await page.setViewportSize({ width: 700, height: 900 });
-    await expect(close).toHaveAttribute('data-native-ui-shell', '');
+    await expect(close).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
     await modal.evaluate((element: HTMLIonModalElement) => {
       element.canDismiss = false;
     });
@@ -3124,7 +3173,7 @@ for (const type of ['normal', 'card', 'sheet']) {
   });
 }
 
-test('vertical tab bar fades only when its Web fallback appears', async ({ page }) => {
+test('vertical tab bar skips modal presentation fade and fades back to native', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
   await mockNative(page);
   await page.goto('/main/index/modal');
@@ -3141,12 +3190,13 @@ test('vertical tab bar fades only when its Web fallback appears', async ({ page 
     };
   });
   await page.getByText('present:normal', { exact: true }).click();
-  await expect(bar).toHaveAttribute('data-fade-frames', JSON.stringify([{ opacity: 0 }, { opacity: 1 }]));
-  await expect(bar).toHaveAttribute('data-fade-count', '1');
-  await expect(page.locator('ion-modal ion-toolbar ion-button').nth(1)).toHaveAttribute('data-native-ui-shell', '');
+  await expect(bar).not.toHaveAttribute('data-fade-frames');
+  await expect(bar).not.toHaveAttribute('data-fade-count');
+  await expect(page.locator('ion-modal ion-toolbar ion-button').nth(1)).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
   await activate(page, 'Done', true);
   await expect(page.locator('ion-modal')).toHaveCount(0);
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
+  await expect(bar).toHaveAttribute('data-fade-frames', JSON.stringify([{ opacity: 1 }, { opacity: 0 }]));
   await expect(bar).toHaveAttribute('data-fade-count', '1');
 });
 

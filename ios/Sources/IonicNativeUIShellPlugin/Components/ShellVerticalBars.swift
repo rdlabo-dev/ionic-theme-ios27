@@ -5,11 +5,11 @@ import UIKit
 protocol ShellVerticalBarsControlling: AnyObject {
     var view: UIView { get }
     func measuredFrames(relativeTo webView: UIView) -> [String: CGRect]
-    func attach(to owner: UIViewController, in parent: UIView)
+    @MainActor func attach(to owner: UIViewController, in parent: UIView)
     @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
     var ownsKeyboardChrome: Bool { get }
     func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping (Bool) -> Void) -> Bool
-    func detach()
+    @MainActor func detach(duration: TimeInterval)
 }
 
 @available(iOS 26.0, *)
@@ -62,7 +62,7 @@ final class ShellVerticalBarsModel: ObservableObject {
                  badge: source.content.badge, disabled: source.content.disabled,
                  selected: source.content.selected)
         }
-        withAnimation(.smooth(duration: 0.3)) {
+        withAnimation(nil) {
             back = controls.first(where: { $0.kind == .backButton })?.items.first.map(item)
             groups = controls.compactMap { control in
                 guard [.button, .buttons, .menuButton].contains(control.kind) else { return nil }
@@ -484,7 +484,7 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         controller.layoutSearch = { [weak self] in self?.model.search?.configureField() }
     }
 
-    func attach(to owner: UIViewController, in parent: UIView) {
+    @MainActor func attach(to owner: UIViewController, in parent: UIView) {
         guard self.owner !== owner || container.superview !== parent else { return }
         detach()
         self.owner = owner
@@ -501,13 +501,11 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String) {
         container.railEdge = edge
         controller.railEdge = edge
-        let tabsAppear = model.tabs.isEmpty && controls.contains { $0.kind == .tabBar && !$0.items.isEmpty }
         if let search = controls.first(where: { $0.search != nil })?.search {
             if model.search?.configuration.id == search.id { model.search?.apply(search) }
             else { model.search = ShellVerticalSearchModel(search, in: container, activate: model.activate, changed: changed) }
         } else { model.search = nil }
         model.apply(controls, rendering: rendering)
-        if tabsAppear { ShellCrossfade.enter(container, duration: ShellCrossfade.duration(180)) }
         controller.overrideUserInterfaceStyle = controls.contains(where: \.dark) ? .dark : .light
     }
 
@@ -541,10 +539,10 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         return true
     }
 
-    func detach() {
+    @MainActor func detach(duration: TimeInterval = 0) {
         guard controller.parent != nil else { return }
         controller.willMove(toParent: nil)
-        container.removeFromSuperview()
+        ShellCrossfade.retire(container, duration: duration)
         controller.view.removeFromSuperview()
         controller.removeFromParent()
         owner = nil

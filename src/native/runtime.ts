@@ -141,7 +141,7 @@ export const createRuntime = async (
     lastSnapshot = '';
     search.release(element);
     element.removeAttribute(marker);
-    if (!stopped) crossfade.play(element, false, isVerticalBarsSource(element) ? !element.matches('ion-tab-bar') : handoffInstant);
+    if (!stopped) crossfade.play(element, false, handoffInstant || (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')));
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -250,7 +250,13 @@ export const createRuntime = async (
     if (doc.hidden || overlayOpen(false, true, railPreservingOverlays)) return [];
     if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
     const overlayVisible = overlayOpen();
-    const candidates = unprojected(sources.keys(), () =>
+    // Web rail projections also hide their originals. Measure those sources
+    // without releasing the visible clones before native acknowledges ownership.
+    const measurableSources = new Set([
+      ...sources.keys(),
+      ...Array.from(doc.querySelectorAll<HTMLElement>(`[${marker}]`)).filter(isVerticalBarsSource),
+    ]);
+    const candidates = unprojected(measurableSources, () =>
       search
         .decorate(
           Array.from(doc.querySelectorAll<HTMLElement>(selector))
@@ -383,6 +389,8 @@ export const createRuntime = async (
       if (removed.length) {
         // Restore the source and let WebKit paint before removing its native cover.
         removed.forEach(restore);
+        if (removed.some(isVerticalBarsSource))
+          win.dispatchEvent(new CustomEvent('nativeUIShellVerticalBarsRelease', { detail: { instant: handoffInstant } }));
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
         // native snapshot over the destination. Stack transitions still need the paint.
         if (!handoffInstant) {
@@ -459,7 +467,8 @@ export const createRuntime = async (
         element.removeAttribute(verticalBarsMarker);
         verticalBarsOwners.delete(element);
       }
-      if (acceptedVerticalBarsOwners.size) win.dispatchEvent(new Event('nativeUIShellVerticalBarsAcquire'));
+      if (acceptedVerticalBarsOwners.size)
+        win.dispatchEvent(new CustomEvent('nativeUIShellVerticalBarsAcquire', { detail: { instant: handoffInstant } }));
       for (const element of acceptedVerticalBarsOwners) {
         element.setAttribute(verticalBarsMarker, '');
         verticalBarsOwners.add(element);
@@ -477,7 +486,7 @@ export const createRuntime = async (
         const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
         if (!sources.has(element)) {
           sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(element, true, handoffInstant || isVerticalBarsSource(element));
+          crossfade.play(element, true, handoffInstant || (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')));
         }
         element.setAttribute(marker, '');
         element.setAttribute('aria-hidden', 'true');

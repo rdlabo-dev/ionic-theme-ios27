@@ -215,7 +215,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         Array(controls.keys).forEach { removeControl($0, duration: duration) }
         host?.removeFromSuperview()
         host = nil
-        verticalBars?.detach()
+        verticalBars?.detach(duration: duration)
         verticalBars = nil
         rendering.clear()
         pendingTabSelections.removeAll()
@@ -285,10 +285,11 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             var searches: [(ShellSearchControlling, ShellControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
             if verticalBars.isEmpty || (self.keyboardVisible && !verticalSearchActive) {
-                self.verticalBars?.detach()
+                self.verticalBars?.detach(duration: duration)
                 self.verticalBars = nil
                 if self.keyboardVisible { rejectedControls.append(contentsOf: verticalBars.map(\.id)) }
             } else if let owner = self.bridge?.viewController {
+                let entering = self.verticalBars == nil
                 let rail = self.verticalBars ?? ShellVerticalBarsController(
                     activate: { [weak self] id in self?.activate(id) },
                     changed: { [weak self] id, phase, value, composing, valueVersion in
@@ -303,6 +304,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 }
                 rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right")
                 rail.view.isHidden = false
+                if entering { ShellCrossfade.enter(rail.view, duration: duration) }
             } else {
                 rejectedControls.append(contentsOf: verticalBars.map(\.id))
             }
