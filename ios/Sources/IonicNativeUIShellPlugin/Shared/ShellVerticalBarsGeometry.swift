@@ -1,8 +1,9 @@
 import UIKit
 
 /// Reads public accessibility geometry after the system has laid out its rail.
-/// IDs bind measurements to the current DOM controls; no private class names or
-/// assumptions about toolbar placement are used.
+/// IDs bind measurements to current DOM controls without private class names.
+/// Compact square ancestors approximate the system button surface; this remains
+/// a layout heuristic and invalid measurements fall back to Web CSS.
 enum ShellVerticalBarsGeometry {
     static func measure(in root: UIView, relativeTo webView: UIView, ids: Set<String>) -> [String: CGRect] {
         guard let window = root.window, window === webView.window else { return [:] }

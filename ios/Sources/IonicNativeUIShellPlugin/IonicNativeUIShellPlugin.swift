@@ -180,7 +180,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                   webView.bounds.width > 0 else { call.resolve(["items": [:]]); return }
             let scale = width / webView.bounds.width
             let ids = Set(call.getArray("ids", String.self) ?? [])
-            let measured = ShellVerticalBarsGeometry.measure(in: rail.view, relativeTo: webView, ids: ids).merging(rail.measuredFrames(relativeTo: webView)) { _, swiftUI in swiftUI }
+            let measured = ShellVerticalBarsGeometry.measure(in: rail.view, relativeTo: webView, ids: ids).merging(rail.measuredFrames(relativeTo: webView).filter { ids.contains($0.key) }) { _, swiftUI in swiftUI }
             let items = measured.mapValues { frame in
                 ["x": frame.minX * scale, "y": frame.minY * scale,
                  "width": frame.width * scale, "height": frame.height * scale]

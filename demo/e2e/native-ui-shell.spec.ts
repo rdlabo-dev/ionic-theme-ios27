@@ -3798,34 +3798,82 @@ for (const [route, tag, trigger, keep] of [
   });
 }
 
-test('Vertical Bars Web fallback uses native geometry and invalidates on resize', async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 900 });
-  await mockNative(page);
-  await page.goto('/main/index/alert');
-  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
-  const back = page.locator('ion-back-button:not(.ion-cloned-element)').first();
-  await expect(back).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
-  await page.evaluate(() => {
-    const mock = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
-    const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'ion-tab-bar')!;
-    mock.geometry = {
-      BackButton: { x: 628, y: 176, width: 48, height: 48 },
-      __tabBar: { x: 628, y: 600, width: 48, height: 220 },
-      ...Object.fromEntries(tabs.items.map((item, index) => [item.id, { x: 632, y: 604 + index * 50, width: 40, height: 50 }])),
-    };
+for (const invalidation of ['resize', 'mode'])
+  test(`Vertical Bars Web fallback geometry invalidates on ${invalidation}`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto('/main/index/alert');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const back = page.locator('ion-back-button:not(.ion-cloned-element)').first();
+    await expect(back).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
+    await page.evaluate(() => {
+      const mock = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'ion-tab-bar')!;
+      mock.geometry = {
+        BackButton: { x: 628, y: 176, width: 48, height: 48 },
+        __tabBar: { x: 628, y: 600, width: 48, height: 220 },
+        ...Object.fromEntries(tabs.items.map((item, index) => [item.id, { x: 632, y: 604 + index * 50, width: 40, height: 50 }])),
+      };
+    });
+    await page.getByText('present:button-only', { exact: true }).click();
+    const clone = page.locator('.ios-theme-vertical-bars-back-button-projection');
+    await expect(clone).toBeVisible();
+    await expect.poll(() => clone.boundingBox()).toEqual({ x: 628, y: 176, width: 48, height: 48 });
+    await expect.poll(() => page.locator('ion-tab-bar').boundingBox()).toEqual({ x: 628, y: 600, width: 48, height: 220 });
+    if (invalidation === 'resize') await page.setViewportSize({ width: 800, height: 900 });
+    else await page.locator('ion-app').evaluate((app) => app.classList.remove('ios-theme-vertical-bars'));
+    await expect(page.locator('ion-tab-bar')).not.toHaveAttribute('data-native-rail-geometry');
+    if (invalidation === 'mode') {
+      await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+      await page.setViewportSize({ width: 800, height: 900 });
+    }
+    await expect.poll(async () => (await clone.boundingBox())?.y).toBe(220);
+    await page.locator('ion-alert').evaluate((overlay: HTMLIonAlertElement) => overlay.dismiss());
+    await expect(back).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
+    await expect(clone).toHaveCount(0);
   });
-  await page.getByText('present:button-only', { exact: true }).click();
-  const clone = page.locator('.ios-theme-vertical-bars-back-button-projection');
-  await expect(clone).toBeVisible();
-  await expect.poll(() => clone.boundingBox()).toEqual({ x: 628, y: 176, width: 48, height: 48 });
-  await expect.poll(() => page.locator('ion-tab-bar').boundingBox()).toEqual({ x: 628, y: 600, width: 48, height: 220 });
-  await page.setViewportSize({ width: 800, height: 900 });
-  await expect(page.locator('ion-tab-bar')).not.toHaveAttribute('data-native-rail-geometry');
-  await expect.poll(async () => (await clone.boundingBox())?.y).toBe(220);
-  await page.locator('ion-alert').evaluate((overlay: HTMLIonAlertElement) => overlay.dismiss());
-  await expect(back).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
-  await expect(clone).toHaveCount(0);
-});
+
+for (const partial of [false, true])
+  test(`Vertical tab geometry survives ${partial ? 'partial' : 'full'} handoff until its fade completes`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto('/main/index/alert');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const bar = page.locator('ion-tab-bar');
+    await expect(bar).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
+    await expect(bar).not.toHaveAttribute('data-native-ui-shell-fading');
+    await page.evaluate(() => {
+      const mock = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'ion-tab-bar')!;
+      mock.geometry = {
+        __tabBar: { x: 628, y: 600, width: 48, height: 220 },
+        ...Object.fromEntries(tabs.items.map((item, index) => [item.id, { x: 632, y: 604 + index * 50, width: 40, height: 50 }])),
+      };
+    });
+    if (partial) await bar.evaluate((el) => el.setAttribute('data-shell', 'disabled'));
+    else await page.getByText('present:button-only', { exact: true }).click();
+    await expect(bar).not.toHaveAttribute('data-native-ui-shell-vertical-bars');
+    await expect(bar).not.toHaveAttribute('data-native-ui-shell-fading');
+    await expect.poll(() => bar.boundingBox()).toEqual({ x: 628, y: 600, width: 48, height: 220 });
+    if (partial) await expect(page.locator('app-alert ion-back-button')).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
+    await bar.evaluate((el) => {
+      const animate = el.animate.bind(el);
+      el.animate = (frames, options) => {
+        const animation = animate(frames, options);
+        animation.pause();
+        animation.currentTime = 90;
+        return animation;
+      };
+    });
+    if (partial) await bar.evaluate((el) => el.removeAttribute('data-shell'));
+    else await page.locator('ion-alert').evaluate((el: HTMLIonAlertElement) => el.dismiss());
+    await expect(bar).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
+    await expect(bar).toHaveAttribute('data-native-ui-shell-fading', '');
+    expect(await bar.evaluate((el) => Number(getComputedStyle(el).opacity))).toBeCloseTo(0.5, 1);
+    await expect.poll(() => bar.boundingBox()).toEqual({ x: 628, y: 600, width: 48, height: 220 });
+    await bar.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
+    await expect(bar).not.toHaveAttribute('data-native-rail-geometry');
+  });
 
 test('Vertical Bars picker keeps input but cannot override a Web alert', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });

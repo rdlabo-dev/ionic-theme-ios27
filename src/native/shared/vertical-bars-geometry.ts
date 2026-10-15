@@ -3,7 +3,8 @@ import type { Frame } from '../definitions';
 const measurements = new WeakMap<Element, { frame: Frame; viewport: string }>();
 const viewport = (element: Element) => {
   const win = element.ownerDocument.defaultView!;
-  return `${win.innerWidth}:${win.innerHeight}:${element.closest('ion-app')?.classList.contains('ios-theme-vertical-bars-left')}`;
+  const classes = element.closest('ion-app')?.classList;
+  return `${win.innerWidth}:${win.innerHeight}:${classes?.contains('ios-theme-vertical-bars')}:${classes?.contains('ios-theme-vertical-bars-left')}`;
 };
 
 export const validVerticalBarFrame = (frame: Frame) =>

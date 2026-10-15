@@ -76,7 +76,7 @@ export const createRuntime = async (
   let actions = new Map<string, HTMLElement>();
   let nextId = 0;
   let revision = 0;
-  let restoreTabGeometry: (() => void) | undefined;
+  const tabGeometry = new Map<HTMLElement, () => void>();
   let acceptedRevision = 0;
   let updatingRevision: number | undefined;
   let pendingActivations: ShellActivation[] = [];
@@ -356,13 +356,13 @@ export const createRuntime = async (
         actions.forEach(forgetVerticalBarFrame);
         try {
           const geometry = await bounded(
-            plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [...actions.keys(), 'BackButton'] }),
+            plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [...actions.keys(), 'BackButton', '__tabBar'] }),
           );
           if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
           if (geometry.revision === acceptedRevision && size === `${win.innerWidth}:${win.innerHeight}`) {
-            restoreTabGeometry?.();
-            restoreTabGeometry = undefined;
             for (const tabBar of removed.filter((element) => element.matches('ion-tab-bar'))) {
+              tabGeometry.get(tabBar)?.();
+              tabGeometry.delete(tabBar);
               const items = new Map(
                 [...actions]
                   .filter(
@@ -375,7 +375,7 @@ export const createRuntime = async (
                 validVerticalBarFrame(geometry.items['__tabBar']) &&
                 items.size === tabBar.querySelectorAll('ion-tab-button').length
               )
-                restoreTabGeometry = alignVerticalTabBar(tabBar, geometry.items['__tabBar'], items);
+                tabGeometry.set(tabBar, alignVerticalTabBar(tabBar, geometry.items['__tabBar'], items));
             }
             for (const [id, element] of actions) {
               const frame = geometry.items[element.matches('ion-back-button') ? 'BackButton' : id];
@@ -492,14 +492,18 @@ export const createRuntime = async (
         element.setAttribute('aria-hidden', 'true');
         if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
       }
-      if (acceptedVerticalBarsOwners.size) {
-        restoreTabGeometry?.();
-        restoreTabGeometry = undefined;
-      }
       const received = pendingActivations;
       pendingActivations = [];
       received.forEach(activate);
       await crossfade.settled();
+      // Geometry belongs to the outgoing tab visual, not to other rail owners.
+      // Keep it until that visual has completely faded back to native.
+      for (const [tabBar, restore] of tabGeometry) {
+        if (!tabBar.isConnected || acceptedVerticalBarsOwners.has(tabBar)) {
+          restore();
+          tabGeometry.delete(tabBar);
+        }
+      }
       if (invalidated) {
         dirty = true;
         // Sources that became ineligible must paint before their cover is removed.
@@ -743,8 +747,8 @@ export const createRuntime = async (
       };
     },
     async destroy() {
-      restoreTabGeometry?.();
-      restoreTabGeometry = undefined;
+      tabGeometry.forEach((restore) => restore());
+      tabGeometry.clear();
       if (stopped) return;
       stopped = true;
       setNativeUIShellIntegration(doc);
