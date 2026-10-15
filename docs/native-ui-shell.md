@@ -126,7 +126,18 @@ The built-in `iosTransitionAnimation` waits for native retirement before startin
 
 Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Stack pushes and pops keep the normal 180ms handoff.
 
-Standard Ionic overlays suspend native projection until dismissal, except for the opt-in native Vertical Bars popovers described below. Unsupported searchable-tab configurations use the existing Web animation and share this ownership with Web glass gestures. CSS motion of supported containing surfaces also causes temporary Web rendering.
+Standard Ionic overlays suspend ordinary native projection until dismissal. Vertical Bars use a separate policy:
+
+| Surface or condition | Vertical Bars behavior |
+| --- | --- |
+| Web popover, alert, action sheet, loading or legacy picker overlay | Keep the native rail mounted and updated. Temporarily disable its input and hide it from accessibility navigation, so the Web overlay and backdrop receive interaction. |
+| Toast | Keep the native rail visible and interactive. |
+| Menu | Keep the existing native rail behavior. |
+| Full-width foreground modal | Project the modal's controls instead of the covered page's controls. |
+| Modal that cannot use Vertical Bars | Restore Web rendering. |
+| Explicit suspension, unavailable native layout, hidden document or unsupported keyboard/viewport geometry | Preserve the existing fallback behavior. |
+
+Closing one of several blocking overlays does not restore rail input until the last one closes. The opt-in native Vertical Bars popover described below keeps its own SwiftUI presentation and input handling. Unsupported searchable-tab configurations use the existing Web animation and share this ownership with Web glass gestures. CSS motion of supported containing surfaces also causes temporary Web rendering.
 
 During retirement, the source is restored and allowed to paint before its native cover is removed. During acquisition, the source is hidden only after a successful, current native response. Delayed responses are revalidated per control: existing eligible controls retain their native cover while content updates catch up. Only removed or ineligible sources return to Web; newly acquired sources require an exact acknowledgement. Ordinary page mutations never call the global clear operation. UIKit tab instances and items are retained, and equal frames/selections are not reapplied. Duplicate/stale activations are discarded. WebKit and UIKit still render separately: the implementation avoids an intentional blank frame, but does not provide an OS-level atomic compositing guarantee. Validate custom transitions and overlays on the app's supported simulators before rollout; unknown overlay systems are outside the automatic integration contract.
 

@@ -7,6 +7,7 @@ protocol ShellVerticalBarsControlling: AnyObject {
     func attach(to owner: UIViewController, in parent: UIView)
     @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
     var ownsKeyboardChrome: Bool { get }
+    func setInteractionBlocked(_ blocked: Bool)
     func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping (Bool) -> Void) -> Bool
     func detach()
 }
@@ -432,6 +433,14 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     var view: UIView { container }
 
     var ownsKeyboardChrome: Bool { model.search?.ownsKeyboardChrome == true }
+
+    func setInteractionBlocked(_ blocked: Bool) {
+        // The Web overlay and its backdrop must receive rail-area taps too.
+        // Keep the system surface mounted without changing its visual state.
+        container.isUserInteractionEnabled = !blocked
+        container.accessibilityElementsHidden = blocked
+        if blocked { container.endEditing(true) }
+    }
 
     init(activate: @escaping (String) -> Void,
          changed: @escaping (String, ShellSearchPhase, String, Bool, Int) -> Int) {

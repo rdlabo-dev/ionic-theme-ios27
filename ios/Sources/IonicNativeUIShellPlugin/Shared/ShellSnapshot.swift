@@ -13,6 +13,7 @@ struct ShellSnapshot: Decodable {
     let viewportWidth: Double
     let verticalBarFrame: ShellFrame?
     let verticalBarEdge: String?
+    let verticalBarsInteractionBlocked: Bool?
     let controls: [ShellControl]
 
     var isValid: Bool {

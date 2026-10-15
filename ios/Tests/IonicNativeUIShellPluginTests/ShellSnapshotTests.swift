@@ -4,6 +4,31 @@ import Capacitor
 @testable import IonicNativeUIShellPlugin
 
 final class ShellSnapshotTests: XCTestCase {
+    @MainActor func testWebOverlayBlocksRailInputWithoutRemovingItsSurface() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native Vertical Bars") }
+        let owner = UIViewController()
+        let parent = UIView(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
+        owner.view = parent
+        let rail = ShellVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: parent)
+        defer { rail.detach() }
+        let surface = rail.view
+        let frame = surface.frame
+        for _ in 0..<3 {
+            rail.setInteractionBlocked(true)
+            XCTAssertTrue(rail.view === surface)
+            XCTAssertTrue(surface.superview === parent)
+            XCTAssertFalse(surface.isHidden)
+            XCTAssertEqual(surface.frame, frame)
+            XCTAssertFalse(surface.isUserInteractionEnabled)
+            XCTAssertTrue(surface.accessibilityElementsHidden)
+            XCTAssertNil(surface.hitTest(CGPoint(x: 680, y: 100), with: nil))
+            rail.setInteractionBlocked(false)
+            XCTAssertTrue(surface.isUserInteractionEnabled)
+            XCTAssertFalse(surface.accessibilityElementsHidden)
+        }
+    }
+
     @MainActor func testVerticalPopoverCanCancelBeforeSwiftUIAppearsAndReopen() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native Vertical Bars") }
         let owner = UIViewController()

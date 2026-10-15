@@ -285,6 +285,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     rail.view.frame = owner.view.bounds
                 }
                 rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right")
+                rail.setInteractionBlocked(snapshot.verticalBarsInteractionBlocked == true)
                 rail.view.isHidden = false
             } else {
                 rejectedControls.append(contentsOf: verticalBars.map(\.id))

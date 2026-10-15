@@ -3611,3 +3611,175 @@ for (const nestedInRelay of [false, true])
     await page.getByRole('button', { name: 'Close popover', exact: true }).click();
     await expect(page.locator('#native-popover-trigger')).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
   });
+
+for (const standalone of [false, true]) {
+  for (const [route, tag, trigger] of [
+    ['alert', 'ion-alert', 'present:button-only'],
+    ['action-sheet', 'ion-action-sheet', 'present:button-only'],
+    ['progress-indicators', 'ion-loading', 'Show IconOnly'],
+    ['popover', 'ion-popover', '#click-trigger-button'],
+    ['toast', 'ion-toast', 'present:middle'],
+  ]) {
+    test(`Vertical Bars keep projection under Web ${tag} (${standalone ? 'standalone' : 'full shell'})`, async ({ page }) => {
+      await page.setViewportSize({ width: 700, height: 900 });
+      await mockNative(page);
+      await page.goto(`/main/index/${route}${standalone ? '?verticalBarsOnly' : ''}`);
+      await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+      const back = page.locator('ion-back-button:not(.ion-cloned-element)').first();
+      await expect(back).toHaveAttribute('data-native-ui-shell', '');
+      await back.evaluate((element) => {
+        element.setAttribute('data-clicks', '0');
+        element.setAttribute('data-retirements', '0');
+        element.addEventListener(
+          'click',
+          (event) => {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            element.setAttribute('data-clicks', String(Number(element.getAttribute('data-clicks')) + 1));
+          },
+          true,
+        );
+        element.addEventListener('nativeUIShellChange', () => {
+          if (!element.hasAttribute('data-native-ui-shell'))
+            element.setAttribute('data-retirements', String(Number(element.getAttribute('data-retirements')) + 1));
+        });
+      });
+      const before = await back.boundingBox();
+      const actionLabel = await page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)!
+            .controls.find((control) => control.kind === 'ion-back-button')!.items[0].accessibilityLabel,
+      );
+      if (trigger.startsWith('#')) await page.locator(trigger).click();
+      else await page.getByText(trigger, { exact: true }).click();
+      const overlay = page.locator(`${tag}:not(.overlay-hidden)`).last();
+      await expect(overlay).toBeVisible();
+      const blocked = tag !== 'ion-toast';
+      await expect
+        .poll(() =>
+          page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarsInteractionBlocked),
+        )
+        .toBe(blocked);
+      await expect(back).toHaveAttribute('data-native-ui-shell', '');
+      expect(await back.boundingBox()).toEqual(before);
+      await activate(page, actionLabel!);
+      await expect(back).toHaveAttribute('data-clicks', blocked ? '0' : '1');
+      // Updates remain live: retaining the rail must not freeze its labels/state.
+      await back.evaluate((button: HTMLIonBackButtonElement) => {
+        button.disabled = true;
+      });
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+                .updates.at(-1)!
+                .controls.find((control) => control.kind === 'ion-back-button')?.items[0].disabled,
+          ),
+        )
+        .toBe(true);
+      await back.evaluate((button: HTMLIonBackButtonElement) => {
+        button.disabled = false;
+      });
+      await overlay.evaluate((element: HTMLElement & { dismiss(): Promise<boolean> }) => element.dismiss());
+      await expect
+        .poll(() =>
+          page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarsInteractionBlocked),
+        )
+        .toBe(false);
+      await activate(page, actionLabel!);
+      await expect(back).toHaveAttribute('data-clicks', blocked ? '1' : '2');
+      await expect(back).toHaveAttribute('data-retirements', '0');
+    });
+  }
+}
+
+test('Vertical Bars stay blocked until every Web dialog closes and respect explicit suspension', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await mockNative(page);
+  await page.goto('/main/index/alert');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  const back = page.locator('ion-back-button:not(.ion-cloned-element)').first();
+  await expect(back).toHaveAttribute('data-native-ui-shell', '');
+  await page.getByText('present:button-only', { exact: true }).click();
+  await expect(page.locator('ion-alert')).toBeVisible();
+  await page.evaluate(async () => {
+    const second = document.createElement('ion-alert');
+    second.id = 'second-dialog';
+    second.header = 'Second dialog';
+    second.buttons = ['OK'];
+    document.querySelector('ion-app')!.append(second);
+    await second.present();
+  });
+  await page.locator('#second-dialog').evaluate(async (overlay: HTMLIonAlertElement) => overlay.dismiss());
+  await expect
+    .poll(() =>
+      page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarsInteractionBlocked),
+    )
+    .toBe(true);
+  await page.evaluate(async () => {
+    const app = document.querySelector('ion-app') as TestAppElement;
+    const release = await app.nativeUIShell!.suspend();
+    (window as Window & { releaseRail?: () => Promise<void> }).releaseRail = () => release.resume();
+  });
+  await expect(back).not.toHaveAttribute('data-native-ui-shell');
+  await page.evaluate(() => (window as Window & { releaseRail?: () => Promise<void> }).releaseRail!());
+  await expect(back).toHaveAttribute('data-native-ui-shell', '');
+  await expect
+    .poll(() =>
+      page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarsInteractionBlocked),
+    )
+    .toBe(true);
+  await page.locator('ion-alert:not(#second-dialog)').evaluate(async (overlay: HTMLIonAlertElement) => overlay.dismiss());
+  await expect
+    .poll(() =>
+      page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarsInteractionBlocked),
+    )
+    .toBe(false);
+});
+
+test('Vertical Bars tabs remain actionable under a toast', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await mockNative(page);
+  await page.goto('/main/index/toast');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-shell', '');
+  await page.getByText('present:middle', { exact: true }).click();
+  await expect(page.locator('ion-toast')).toBeVisible();
+  await activate(page, 'Settings');
+  await expect(page).toHaveURL(/\/main\/settings$/);
+});
+
+test('legacy picker lifecycle keeps Vertical Bars and blocks input until dismissal', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await mockNative(page);
+  await page.goto('/main/index/popover');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  const trigger = page.locator('#native-popover-trigger');
+  await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
+  // Modern ion-picker is inline; older Ionic emits these overlay lifecycle events.
+  await page.evaluate(() => {
+    const picker = document.createElement('ion-picker');
+    picker.id = 'legacy-picker';
+    document.querySelector('ion-app')!.append(picker);
+    picker.dispatchEvent(new CustomEvent('ionPickerWillPresent', { bubbles: true }));
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarsInteractionBlocked),
+    )
+    .toBe(true);
+  await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
+  await activate(page, 'Open popover');
+  expect(page.context().pages()).toHaveLength(1);
+  await page.locator('#legacy-picker').evaluate((picker) => {
+    picker.dispatchEvent(new CustomEvent('ionPickerDidDismiss', { bubbles: true }));
+    picker.remove();
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarsInteractionBlocked),
+    )
+    .toBe(false);
+});

@@ -31,6 +31,9 @@ import { CSS_MOTION_EVENTS } from './shared/events';
 import { createCrossfade, fadeMarker } from './shared/crossfade';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
+// Floating Web overlays do not replace the rail's foreground page.
+const floatingOverlays = 'ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast';
+const nonBlockingOverlays = 'ion-toast';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
 const verticalBarsMarker = 'data-native-ui-shell-vertical-bars';
 const verticalBarsMemberMarker = 'data-native-ui-shell-vertical-bars-member';
@@ -211,9 +214,11 @@ export const createRuntime = async (
         Array.from(pages).some((scope) => scope.contains(element)) ||
         Array.from(moving.keys()).some((surface) => surface.contains(element))));
   const painted = () => new Promise<void>((resolve) => win.requestAnimationFrame(() => win.requestAnimationFrame(() => resolve())));
-  const overlayOpen = (includeMenu = true, allowModal = false) => {
+  const overlayOpen = (includeMenu = true, allowModal = false, ignoredSelector?: string) => {
     const modal = topModal(doc);
-    const ignored = (element: Element) => allowModal && !!modal && modalUsesVerticalBars(modal) && element.matches('ion-modal');
+    const ignored = (element: Element) =>
+      (!!ignoredSelector && element.matches(ignoredSelector)) ||
+      (allowModal && !!modal && modalUsesVerticalBars(modal) && element.matches('ion-modal'));
     for (const element of presented) if (!element.isConnected) presented.delete(element);
     const presentedOverlayOpen = Array.from(presented).some(
       (element) => !ignored(element) && (includeMenu || !element.matches('ion-menu')),
@@ -236,9 +241,9 @@ export const createRuntime = async (
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
-    if (doc.hidden || overlayOpen(false, true)) return [];
+    if (doc.hidden || overlayOpen(false, true, floatingOverlays)) return [];
     if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
-    const menuOpen = overlayOpen();
+    const overlayVisible = overlayOpen();
     const candidates = unprojected(sources.keys(), () =>
       search
         .decorate(
@@ -247,7 +252,7 @@ export const createRuntime = async (
               (element) =>
                 inVerticalBarsSurface(element) &&
                 !verticalBarsPages.isDeparted(element) &&
-                (!blocked(element) || (menuOpen && isVerticalBarsSource(element))),
+                (!blocked(element) || (overlayVisible && isVerticalBarsSource(element))),
             )
             .map(readEnabledCandidate)
             .filter((candidate): candidate is Candidate => !!candidate),
@@ -265,7 +270,7 @@ export const createRuntime = async (
       (candidate) =>
         candidate.control.kind !== 'ion-back-button' || !isVerticalBarsCandidate(candidate.element) || candidate.element === back,
     );
-    return menuOpen ? selected.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : selected;
+    return overlayVisible ? selected.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : selected;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -354,6 +359,8 @@ export const createRuntime = async (
       const modal = topModal(doc);
       const verticalBarFrame = modal && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
       const data = {
+        // Keep rail identity/geometry, but let the source WebView own modal input.
+        verticalBarsInteractionBlocked: !!root && overlayOpen(false, true, nonBlockingOverlays),
         verticalBarFrame,
         viewportWidth: win.innerWidth,
         verticalBarEdge,
@@ -715,7 +722,10 @@ export const createRuntime = async (
   };
   const activate = (event: ShellActivation) => {
     if (stopped || doc.hidden || event.revision < acceptedRevision || event.revision > revision || event.sequence <= lastSequence) return;
-    if (overlayOpen(false, true)) {
+    const element = actions.get(event.id);
+    const owner = element && Array.from(sources.keys()).find((source) => source === element || source.contains(element));
+    const ignored = owner && isVerticalBarsSource(owner) ? nonBlockingOverlays : undefined;
+    if (overlayOpen(false, true, ignored)) {
       if (!manualSuspensions.size) {
         for (const retention of retentions) {
           if (retention.accepts?.(event.id) && (!retention.activation || event.sequence > retention.activation.sequence))
@@ -731,9 +741,7 @@ export const createRuntime = async (
       return;
     }
     lastSequence = event.sequence;
-    const element = actions.get(event.id);
     if (!element) return;
-    const owner = Array.from(sources.keys()).find((source) => source === element || source.contains(element));
     if (!owner || !inVerticalBarsSurface(owner)) return;
     const direct = !blocked(owner) && unprojected(sources.keys(), () => readEnabledCandidate(owner));
     const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
@@ -750,7 +758,14 @@ export const createRuntime = async (
     listener = await bounded(plugin.addListener('activate', activate));
     searchListener = await bounded(
       plugin.addListener('search', (event) => {
-        if (stopped || doc.hidden || event.revision < acceptedRevision || event.revision > revision || overlayOpen()) return;
+        if (
+          stopped ||
+          doc.hidden ||
+          event.revision < acceptedRevision ||
+          event.revision > revision ||
+          overlayOpen(true, false, nativeVerticalBars() ? nonBlockingOverlays : undefined)
+        )
+          return;
         search.event(event);
       }),
     );

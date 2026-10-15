@@ -170,6 +170,8 @@ export interface ShellSnapshot {
   verticalBarEdge?: 'left' | 'right';
   /** Visible foreground modal bounds; omitted for the full page. */
   verticalBarFrame?: Frame;
+  /** Keep the rail visible while a Web overlay owns pointer, keyboard and accessibility input. */
+  verticalBarsInteractionBlocked?: boolean;
   controls: ShellControl[];
 }
 
