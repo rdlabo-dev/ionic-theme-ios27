@@ -579,6 +579,8 @@ final class NativeUIShellTests: XCTestCase {
             trigger.tap()
             let title = app.webViews.staticTexts["Toolbar popover"].firstMatch
             XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
+            let popoverWebView = app.webViews.containing(.staticText, identifier: "Toolbar popover").firstMatch
+            XCTAssertLessThan(popoverWebView.frame.width, sourceFrame.width, "Content must be in the native popover's child WebView")
             // SwiftUI's modal accessibility scope hides covered controls from XCTest.
             // Their native identities and geometry are checked again after dismissal.
             capture("vertical-popover-open-\(attempt)")

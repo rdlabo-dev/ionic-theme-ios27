@@ -4,7 +4,8 @@ import { isExcluded, isPermanentlyExcluded, isShellDisabled } from '../shared/do
 import { activeElement, trapFocus } from './focus';
 import { relayPopover, popoverPresentation, verticalBarsPopoverAnchor } from './popover';
 import { nativeDialogAnimation } from './dialog-animation';
-import { relayStyles } from './styles';
+import { relayLayoutSupported, relayStyles } from './styles';
+import { moveContent } from './content';
 
 type Presentation = { kind: 'popover'; animated: boolean };
 type Overlay = HTMLIonPopoverElement;
@@ -125,7 +126,9 @@ export const createOverlayController = async (
         win.document.write('<!doctype html><html><head></head><body></body></html>');
         win.document.close();
         connection.stopChildEvents = observe(win.document);
-        const environment = relayStyles(doc, win.document, overlay);
+        const environment = relayStyles(doc, win.document, overlay, () => {
+          if (connection.stopContent) void release(connection).catch(console.error);
+        });
         connection.stopStyles = environment.stop;
         await bounded(environment.ready);
         if (gone()) return undefined;
@@ -147,6 +150,10 @@ export const createOverlayController = async (
       const nativePresentation = popoverPresentation(overlay);
       const content = relayPopover(overlay, staged.destination);
       connection.stopContent = content.stop;
+      if (!relayLayoutSupported(overlay) || !content.matchesSourceAppearance()) {
+        await release(connection);
+        return;
+      }
       connection.hideAnimation?.();
       // Ionic does not dismiss a presented overlay when its page is hidden or
       // destroyed; without this a popover could retain the page projections
@@ -198,8 +205,18 @@ export const createOverlayController = async (
     const overlay = event.target as Overlay;
     if (current) {
       const connection = current;
+      const fromChild = overlay.ownerDocument === connection.win?.document;
+      if (fromChild) {
+        // A child-document overlay may be a sibling of the relayed content.
+        // Move it before cleanup closes that document; keep the live node,
+        // component handlers and adopted shadow styles in the source WebView.
+        moveContent([overlay], doc.querySelector<HTMLElement>('ion-app') ?? doc.body);
+      }
       current = undefined;
       opening = opening.then(() => release(connection)).catch(console.error);
+      // The original event path still belongs to the child document. Let the
+      // source runtime observe presentation before releasing retained controls.
+      if (fromChild) doc.dispatchEvent(new CustomEvent('nativeUIShellOverlayAdopted', { detail: overlay }));
       if (!connection.dismissed) return;
       // A didDismiss handler may immediately open the next popover while SwiftUI is still closing this one.
       connection.stopAnimation?.();

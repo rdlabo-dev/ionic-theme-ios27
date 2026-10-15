@@ -5,6 +5,7 @@ export const relayStyles = (
   source: Document,
   destination: Document,
   overlay: HTMLElement,
+  changed?: () => void,
 ): { destination: HTMLElement; ready: Promise<void>; stop: () => void } => {
   const base = destination.createElement('base');
   base.href = source.baseURI;
@@ -46,7 +47,10 @@ export const relayStyles = (
       if (flatten) target.style.setProperty('display', 'contents', 'important');
     };
     update();
-    const observer = new MutationObserver(update);
+    const observer = new MutationObserver(() => {
+      update();
+      changed?.();
+    });
     observer.observe(node, { attributes: true });
     observers.push(observer);
   };
@@ -73,8 +77,105 @@ export const relayStyles = (
       });
     }),
   ).then(() => undefined);
-  const observer = new MutationObserver(sync);
+  const observer = new MutationObserver(() => {
+    sync();
+    changed?.();
+  });
   observer.observe(source.head, { subtree: true, childList: true, characterData: true, attributes: true });
   observers.push(observer);
   return { destination: parent, ready, stop: () => observers.forEach((item) => item.disconnect()) };
+};
+
+// Compare the live content at the same proposed size before exposing a native
+// surface. Ancestor/sibling selectors and container queries can change when
+// ancestor shells become display:contents; unsupported contexts stay on Web.
+export const captureRelayAppearance = (roots: Element[]): (() => boolean) => {
+  const properties = [
+    'display',
+    'position',
+    'box-sizing',
+    'color',
+    'background-color',
+    'background-image',
+    'background-size',
+    'background-position',
+    'box-shadow',
+    'visibility',
+    'opacity',
+    'transform',
+    'filter',
+    'overflow',
+    'text-decoration',
+    'font-family',
+    'font-size',
+    'font-weight',
+    'font-style',
+    'line-height',
+    'letter-spacing',
+    'text-align',
+    'text-transform',
+    'white-space',
+    'direction',
+    'padding-top',
+    'padding-right',
+    'padding-bottom',
+    'padding-left',
+    'margin-top',
+    'margin-right',
+    'margin-bottom',
+    'margin-left',
+    'border-top-width',
+    'border-right-width',
+    'border-bottom-width',
+    'border-left-width',
+    'border-top-color',
+    'border-radius',
+    'flex-direction',
+    'flex-wrap',
+    'justify-content',
+    'align-items',
+    'grid-template-columns',
+    'grid-template-rows',
+    'gap',
+    'width',
+    'height',
+  ];
+  const snapshots: { node: Element; values: string[] }[] = [];
+  const values = (node: Element) => {
+    const css = node.ownerDocument.defaultView!.getComputedStyle(node);
+    return properties.map((property) => css.getPropertyValue(property));
+  };
+  const visit = (node: Element) => {
+    if (snapshots.length >= 1000) throw new Error('Popover content too complex to verify native styling');
+    snapshots.push({ node, values: values(node) });
+    Array.from(node.children).forEach(visit);
+    if (node.shadowRoot)
+      Array.from(node.shadowRoot.children)
+        .filter((child) => !child.matches('style, link'))
+        .forEach(visit);
+  };
+  roots.forEach(visit);
+  return () =>
+    snapshots.every(({ node, values: before }) =>
+      values(node).every((value, index) => {
+        return value === before[index];
+      }),
+    );
+};
+
+/** Flattening an ancestor must not remove a containing block or visual effect. */
+export const relayLayoutSupported = (overlay: HTMLElement): boolean => {
+  const win = overlay.ownerDocument.defaultView!;
+  for (let node = overlay.parentElement; node; node = node.parentElement) {
+    const css = win.getComputedStyle(node);
+    if (
+      css.containerType !== 'normal' ||
+      (css.transform !== 'none' && !new DOMMatrixReadOnly(css.transform).isIdentity) ||
+      css.perspective !== 'none' ||
+      css.filter !== 'none' ||
+      css.opacity !== '1'
+    )
+      return false;
+  }
+  return true;
 };

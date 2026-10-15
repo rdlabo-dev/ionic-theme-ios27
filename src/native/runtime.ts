@@ -630,17 +630,20 @@ export const createRuntime = async (
     schedule();
   });
   on(doc, 'ionTabsDidChange', endTabSwitchHandoff);
+  const overlayPresenting = (element: HTMLElement) => {
+    presented.add(element);
+    if (element.matches('ion-modal')) {
+      modalPresentHandoff = true;
+      // A pending bridge update must retire the old controls immediately too.
+      if (pending) handoffInstant = true;
+    }
+    schedule();
+  };
+  // Adoption changes the document, but not the in-flight Ionic event path.
+  // Do not replay WillPresent: application handlers must run exactly once.
+  on(doc, 'nativeUIShellOverlayAdopted', (event) => overlayPresenting((event as CustomEvent<HTMLElement>).detail));
   for (const name of overlayNames) {
-    on(doc, `ion${name}WillPresent`, (event) => {
-      presented.add(event.target as HTMLElement);
-      if (name === 'Modal') {
-        modalPresentHandoff = true;
-        // WillPresent may arrive while another bridge update is awaiting its ack.
-        // Make that retirement instant too instead of racing the modal animation.
-        if (pending) handoffInstant = true;
-      }
-      schedule();
-    });
+    on(doc, `ion${name}WillPresent`, (event) => overlayPresenting(event.target as HTMLElement));
     on(doc, `ion${name}DidDismiss`, (event) => {
       presented.delete(event.target as HTMLElement);
       schedule();
