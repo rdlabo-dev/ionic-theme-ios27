@@ -170,8 +170,6 @@ export interface ShellSnapshot {
   verticalBarEdge?: 'left' | 'right';
   /** Visible foreground modal bounds; omitted for the full page. */
   verticalBarFrame?: Frame;
-  /** Keep the rail visible while a Web overlay owns pointer, keyboard and accessibility input. */
-  verticalBarsInteractionBlocked?: boolean;
   controls: ShellControl[];
 }
 
@@ -189,6 +187,7 @@ export interface WebViewMetrics {
 export interface NativeUIShellPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean }>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
+  getVerticalBarsGeometry(options: { viewportWidth: number; ids: string[] }): Promise<{ revision?: number; items: Record<string, Frame> }>;
   prepareOverlay(options: { id: string }): Promise<void>;
   presentOverlay(options: { id: string; presentation?: ShellPopoverPresentation }): Promise<void>;
   dismissOverlay(options: { id: string; animated: boolean }): Promise<void>;

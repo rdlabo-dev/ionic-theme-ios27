@@ -9,6 +9,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getVerticalBarsGeometry", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prepareOverlay", returnType: CAPPluginReturnPromise),
@@ -172,6 +173,22 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         }
     }
 
+    @objc func getVerticalBarsGeometry(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let webView = self.bridge?.webView, let rail = self.verticalBars,
+                  let width = call.getDouble("viewportWidth"), width.isFinite, width > 0,
+                  webView.bounds.width > 0 else { call.resolve(["items": [:]]); return }
+            let scale = width / webView.bounds.width
+            let ids = Set(call.getArray("ids", String.self) ?? [])
+            let measured = ShellVerticalBarsGeometry.measure(in: rail.view, relativeTo: webView, ids: ids).merging(rail.measuredFrames(relativeTo: webView)) { _, swiftUI in swiftUI }
+            let items = measured.mapValues { frame in
+                ["x": frame.minX * scale, "y": frame.minY * scale,
+                 "width": frame.width * scale, "height": frame.height * scale]
+            }
+            call.resolve(["revision": self.revision, "items": items])
+        }
+    }
+
     @objc func clear(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { call.resolve(); return }
@@ -285,7 +302,6 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     rail.view.frame = owner.view.bounds
                 }
                 rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right")
-                rail.setInteractionBlocked(snapshot.verticalBarsInteractionBlocked == true)
                 rail.view.isHidden = false
             } else {
                 rejectedControls.append(contentsOf: verticalBars.map(\.id))

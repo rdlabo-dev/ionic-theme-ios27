@@ -1,3 +1,4 @@
+import { alignVerticalBarClone, verticalBarFrame } from './shared/vertical-bars-geometry';
 import { createVerticalBarsWebSearch, searchProjectionClass } from './vertical-bars-web-search';
 import { inVerticalBarsSurface, topModal } from './shared/modal';
 import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
@@ -164,6 +165,7 @@ export const createVerticalBarsWebProjection = (
     target.color = original.color;
     target.mode = original.mode;
     target.text = '';
+    if (root) alignVerticalBarClone(target, original, root);
   };
   const syncAction = (target: HTMLElement, original: HTMLElement) => {
     copyAttributes(target, original);
@@ -201,6 +203,27 @@ export const createVerticalBarsWebProjection = (
       projection.classList.add(toolbarProjectionClass, 'ion-cloned-element');
       projection.style.setProperty('--ios-theme-vertical-bars-toolbar-offset', `${topOffset}px`);
       if (projection.matches('ion-buttons')) actions.forEach(({ source: action, projection: clone }) => syncAction(clone, action));
+      const frames = actions.map(({ source }) => verticalBarFrame(source));
+      if (root && frames.every((frame) => !!frame)) {
+        if (actions.length === 1) alignVerticalBarClone(projection, actions[0].source, root);
+        else {
+          const left = Math.min(...frames.map((frame) => frame!.x));
+          const top = Math.min(...frames.map((frame) => frame!.y));
+          const right = Math.max(...frames.map((frame) => frame!.x + frame!.width));
+          const bottom = Math.max(...frames.map((frame) => frame!.y + frame!.height));
+          const origin = root.getBoundingClientRect();
+          Object.assign(projection.style, {
+            left: `${left - origin.left}px`,
+            top: `${top - origin.top}px`,
+            right: 'auto',
+            bottom: 'auto',
+            width: `${right - left}px`,
+            height: `${bottom - top}px`,
+            padding: '0',
+          });
+          actions.forEach(({ source, projection: clone }) => alignVerticalBarClone(clone, source, projection));
+        }
+      }
       topOffset += actions.length * toolbarControlSize + toolbarControlGap;
     }
   };
@@ -256,6 +279,7 @@ export const createVerticalBarsWebProjection = (
       toolbarProjections.push({ source: group, projection, actions });
       topOffset += actions.length * toolbarControlSize + toolbarControlGap;
     }
+    syncExisting();
     if (nextBack || toolbarProjections.length) root.classList.add(readyClass);
     sourceObserver = new MutationObserver((records) => {
       if (
@@ -371,6 +395,7 @@ export const createVerticalBarsWebProjection = (
   doc.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, pageLifecycle, { capture: true, signal: listeners.signal });
   for (const name of ['ionModalWillPresent', 'ionModalDidDismiss'])
     doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
+  win.addEventListener('nativeUIShellVerticalBarsAcquire', restore, { signal: listeners.signal });
   win.addEventListener('resize', schedule, { signal: listeners.signal });
   win.addEventListener('nativeUIShellRefresh', schedule, { signal: listeners.signal });
   schedule();

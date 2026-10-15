@@ -4,29 +4,26 @@ import Capacitor
 @testable import IonicNativeUIShellPlugin
 
 final class ShellSnapshotTests: XCTestCase {
-    @MainActor func testWebOverlayBlocksRailInputWithoutRemovingItsSurface() throws {
-        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native Vertical Bars") }
+    @MainActor func testVerticalBarGeometryIgnoresZeroSizeScaffoldsAndConvertsCoordinates() throws {
         let owner = UIViewController()
-        let parent = UIView(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
-        owner.view = parent
-        let rail = ShellVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
-        rail.attach(to: owner, in: parent)
-        defer { rail.detach() }
-        let surface = rail.view
-        let frame = surface.frame
-        for _ in 0..<3 {
-            rail.setInteractionBlocked(true)
-            XCTAssertTrue(rail.view === surface)
-            XCTAssertTrue(surface.superview === parent)
-            XCTAssertFalse(surface.isHidden)
-            XCTAssertEqual(surface.frame, frame)
-            XCTAssertFalse(surface.isUserInteractionEnabled)
-            XCTAssertTrue(surface.accessibilityElementsHidden)
-            XCTAssertNil(surface.hitTest(CGPoint(x: 680, y: 100), with: nil))
-            rail.setInteractionBlocked(false)
-            XCTAssertTrue(surface.isUserInteractionEnabled)
-            XCTAssertFalse(surface.accessibilityElementsHidden)
-        }
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 466, height: 678))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let web = UIView(frame: CGRect(x: 20, y: 30, width: 446, height: 648))
+        owner.view.addSubview(web)
+        let root = UIView(frame: owner.view.bounds)
+        owner.view.addSubview(root)
+        let scaffold = UIView(frame: .zero)
+        root.addSubview(scaffold)
+        let surface = UIView(frame: CGRect(x: 100, y: 170, width: 48, height: 48))
+        scaffold.addSubview(surface)
+        let label = UIView(frame: CGRect(x: 5, y: 6, width: 38, height: 36))
+        label.accessibilityIdentifier = "BackButton"
+        surface.addSubview(label)
+        let frames = ShellVerticalBarsGeometry.measure(in: root, relativeTo: web, ids: ["BackButton"])
+        XCTAssertEqual(frames["BackButton"], CGRect(x: 80, y: 140, width: 48, height: 48))
+        XCTAssertTrue(ShellVerticalBarsGeometry.measure(in: root, relativeTo: web, ids: ["missing"]).isEmpty)
     }
 
     @MainActor func testVerticalPopoverCanCancelBeforeSwiftUIAppearsAndReopen() throws {

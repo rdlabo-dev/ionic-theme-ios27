@@ -4,10 +4,10 @@ import UIKit
 
 protocol ShellVerticalBarsControlling: AnyObject {
     var view: UIView { get }
+    func measuredFrames(relativeTo webView: UIView) -> [String: CGRect]
     func attach(to owner: UIViewController, in parent: UIView)
     @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
     var ownsKeyboardChrome: Bool { get }
-    func setInteractionBlocked(_ blocked: Bool)
     func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping (Bool) -> Void) -> Bool
     func detach()
 }
@@ -189,12 +189,23 @@ private struct ShellVerticalBarsButton: ToolbarContent {
     }
 }
 
+private struct ShellVerticalBarGeometryProbe: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.accessibilityIdentifier = "BackButton"
+        return view
+    }
+    func updateUIView(_ uiView: UIView, context: Context) {}
+}
+
 @available(iOS 26.0, *)
 private func verticalBarsBackButton(_ item: ShellVerticalBarsModel.Item, model: ShellVerticalBarsModel) -> some View {
     Button { model.activate(item.id) } label: { Image(systemName: "chevron.backward") }
         .disabled(item.disabled)
         .accessibilityLabel(item.accessibilityLabel)
         .accessibilityIdentifier("BackButton")
+        .background(ShellVerticalBarGeometryProbe())
 }
 
 @available(iOS 26.0, *)
@@ -431,16 +442,37 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     private let changed: (String, ShellSearchPhase, String, Bool, Int) -> Int
 
     var view: UIView { container }
+    func measuredFrames(relativeTo webView: UIView) -> [String: CGRect] {
+        var frames: [String: CGRect] = [:]
+        let labels = Dictionary(grouping: model.tabs, by: \.accessibilityLabel)
+        var tabViews: [UIView] = []
+        func visit(_ view: UIView) {
+            guard !view.isHidden else { return }
+            if let control = view as? UIControl,
+               let label = control.accessibilityLabel, let items = labels[label], items.count == 1,
+               !control.isHidden, control.bounds.width > 0, control.bounds.height > 0 {
+                if frames[items[0].id] != nil { return }
+                frames[items[0].id] = control.convert(control.bounds, to: webView)
+                tabViews.append(control)
+            }
+            view.subviews.forEach(visit)
+        }
+        visit(container)
+        if let first = tabViews.first, tabViews.count >= model.tabs.count {
+            var ancestor: UIView? = first.superview
+            var platter: UIView?
+            while let current = ancestor, current !== container {
+                if current.bounds.width >= webView.bounds.width * 0.5 { break }
+                if current.bounds.width > 0, current.bounds.height > 0,
+                   tabViews.allSatisfy({ $0.isDescendant(of: current) }) { platter = current }
+                ancestor = current.superview
+            }
+            if let platter { frames["__tabBar"] = platter.convert(platter.bounds, to: webView) }
+        }
+        return frames
+    }
 
     var ownsKeyboardChrome: Bool { model.search?.ownsKeyboardChrome == true }
-
-    func setInteractionBlocked(_ blocked: Bool) {
-        // The Web overlay and its backdrop must receive rail-area taps too.
-        // Keep the system surface mounted without changing its visual state.
-        container.isUserInteractionEnabled = !blocked
-        container.accessibilityElementsHidden = blocked
-        if blocked { container.endEditing(true) }
-    }
 
     init(activate: @escaping (String) -> Void,
          changed: @escaping (String, ShellSearchPhase, String, Bool, Int) -> Int) {

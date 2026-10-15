@@ -504,7 +504,28 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(main.identifier.hasPrefix("shell-"))
     }
 
-    func testVerticalBarsPassWebAlertBackdropInputAndRestoreActions() throws {
+    func testVerticalBarsActionSheetCoversWebFallback() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+        openPage(app, name: "action-sheet")
+        let back = app.buttons["BackButton"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10), app.debugDescription)
+        let before = back.frame
+        app.webViews.buttons["present:button-only"].tap()
+        let cancel = app.webViews.buttons["Cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(back.waitForNonExistence(timeout: 5), app.debugDescription)
+        capture("vertical-bars-action-sheet-web-fallback")
+        cancel.tap()
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(back.frame, before)
+    }
+
+    func testVerticalBarsWebAlertFallbackAndRestoreActions() throws {
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
         let toggle = app.webViews.switches["iPhone Duo Mode"]
@@ -513,6 +534,7 @@ final class NativeUIShellTests: XCTestCase {
         openPage(app, name: "alert")
         let back = app.buttons["BackButton"]
         XCTAssertTrue(back.waitForExistence(timeout: 10), app.debugDescription)
+        capture("vertical-bars-native-before-alert")
         let backFrame = back.frame
         let backPoint = app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: backFrame.midX, dy: backFrame.midY))
@@ -521,7 +543,7 @@ final class NativeUIShellTests: XCTestCase {
             app.webViews.buttons["present:button-only"].tap()
             let confirm = app.webViews.buttons["OK"]
             XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
-            // A covered rail is hidden from accessibility, but stays visually mounted.
+            // Web rendering must replace the native rail beneath the alert backdrop.
             XCTAssertTrue(back.waitForNonExistence(timeout: 5), app.debugDescription)
             capture("vertical-bars-web-alert-\(attempt)")
             if attempt == 0 { backPoint.tap() }

@@ -1,3 +1,9 @@
+import {
+  alignVerticalTabBar,
+  forgetVerticalBarFrame,
+  rememberVerticalBarFrame,
+  validVerticalBarFrame,
+} from './shared/vertical-bars-geometry';
 import { projectionIds } from './shared/projection-id';
 import { inVerticalBarsSurface, topModal, modalUsesVerticalBars, modalVerticalBarFrame } from './shared/modal';
 import type { PluginListenerHandle } from '@capacitor/core';
@@ -31,9 +37,8 @@ import { CSS_MOTION_EVENTS } from './shared/events';
 import { createCrossfade, fadeMarker } from './shared/crossfade';
 
 const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
-// Floating Web overlays do not replace the rail's foreground page.
-const floatingOverlays = 'ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast';
-const nonBlockingOverlays = 'ion-toast';
+// Only these Web overlays leave the rail's display and interaction intact.
+const railPreservingOverlays = 'ion-toast, ion-popover, ion-picker';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
 const verticalBarsMarker = 'data-native-ui-shell-vertical-bars';
 const verticalBarsMemberMarker = 'data-native-ui-shell-vertical-bars-member';
@@ -71,6 +76,7 @@ export const createRuntime = async (
   let actions = new Map<string, HTMLElement>();
   let nextId = 0;
   let revision = 0;
+  let restoreTabGeometry: (() => void) | undefined;
   let acceptedRevision = 0;
   let updatingRevision: number | undefined;
   let pendingActivations: ShellActivation[] = [];
@@ -241,7 +247,7 @@ export const createRuntime = async (
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
-    if (doc.hidden || overlayOpen(false, true, floatingOverlays)) return [];
+    if (doc.hidden || overlayOpen(false, true, railPreservingOverlays)) return [];
     if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) return [];
     const overlayVisible = overlayOpen();
     const candidates = unprojected(sources.keys(), () =>
@@ -340,12 +346,46 @@ export const createRuntime = async (
       if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
       const retained = new Set(candidates.flatMap(candidateSources));
       const removed = Array.from(sources.keys()).filter((element) => !retained.has(element));
+      if (removed.some(isVerticalBarsSource)) {
+        actions.forEach(forgetVerticalBarFrame);
+        try {
+          const geometry = await bounded(
+            plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [...actions.keys(), 'BackButton'] }),
+          );
+          if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
+          if (geometry.revision === acceptedRevision && size === `${win.innerWidth}:${win.innerHeight}`) {
+            restoreTabGeometry?.();
+            restoreTabGeometry = undefined;
+            for (const tabBar of removed.filter((element) => element.matches('ion-tab-bar'))) {
+              const items = new Map(
+                [...actions]
+                  .filter(
+                    ([id, element]) => element.parentElement === tabBar && geometry.items[id] && validVerticalBarFrame(geometry.items[id]),
+                  )
+                  .map(([id, element]) => [element, geometry.items[id]]),
+              );
+              if (
+                geometry.items['__tabBar'] &&
+                validVerticalBarFrame(geometry.items['__tabBar']) &&
+                items.size === tabBar.querySelectorAll('ion-tab-button').length
+              )
+                restoreTabGeometry = alignVerticalTabBar(tabBar, geometry.items['__tabBar'], items);
+            }
+            for (const [id, element] of actions) {
+              const frame = geometry.items[element.matches('ion-back-button') ? 'BackButton' : id];
+              if (frame) rememberVerticalBarFrame(element, frame);
+            }
+          }
+        } catch {
+          /* Older native binaries can still use the CSS fallback. */
+        }
+      }
       if (removed.length) {
         // Restore the source and let WebKit paint before removing its native cover.
         removed.forEach(restore);
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
         // native snapshot over the destination. Stack transitions still need the paint.
-        if (!handoffInstant && removed.some((element) => !isVerticalBarsSource(element))) {
+        if (!handoffInstant) {
           await painted();
           if (stopped || dirty) return;
         }
@@ -359,8 +399,6 @@ export const createRuntime = async (
       const modal = topModal(doc);
       const verticalBarFrame = modal && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
       const data = {
-        // Keep rail identity/geometry, but let the source WebView own modal input.
-        verticalBarsInteractionBlocked: !!root && overlayOpen(false, true, nonBlockingOverlays),
         verticalBarFrame,
         viewportWidth: win.innerWidth,
         verticalBarEdge,
@@ -421,6 +459,7 @@ export const createRuntime = async (
         element.removeAttribute(verticalBarsMarker);
         verticalBarsOwners.delete(element);
       }
+      if (acceptedVerticalBarsOwners.size) win.dispatchEvent(new Event('nativeUIShellVerticalBarsAcquire'));
       for (const element of acceptedVerticalBarsOwners) {
         element.setAttribute(verticalBarsMarker, '');
         verticalBarsOwners.add(element);
@@ -443,6 +482,10 @@ export const createRuntime = async (
         element.setAttribute(marker, '');
         element.setAttribute('aria-hidden', 'true');
         if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
+      }
+      if (acceptedVerticalBarsOwners.size) {
+        restoreTabGeometry?.();
+        restoreTabGeometry = undefined;
       }
       const received = pendingActivations;
       pendingActivations = [];
@@ -688,6 +731,8 @@ export const createRuntime = async (
       };
     },
     async destroy() {
+      restoreTabGeometry?.();
+      restoreTabGeometry = undefined;
       if (stopped) return;
       stopped = true;
       setNativeUIShellIntegration(doc);
@@ -724,7 +769,7 @@ export const createRuntime = async (
     if (stopped || doc.hidden || event.revision < acceptedRevision || event.revision > revision || event.sequence <= lastSequence) return;
     const element = actions.get(event.id);
     const owner = element && Array.from(sources.keys()).find((source) => source === element || source.contains(element));
-    const ignored = owner && isVerticalBarsSource(owner) ? nonBlockingOverlays : undefined;
+    const ignored = owner && isVerticalBarsSource(owner) ? (retentions.size ? 'ion-toast, ion-picker' : railPreservingOverlays) : undefined;
     if (overlayOpen(false, true, ignored)) {
       if (!manualSuspensions.size) {
         for (const retention of retentions) {
@@ -763,7 +808,7 @@ export const createRuntime = async (
           doc.hidden ||
           event.revision < acceptedRevision ||
           event.revision > revision ||
-          overlayOpen(true, false, nativeVerticalBars() ? nonBlockingOverlays : undefined)
+          overlayOpen(true, false, nativeVerticalBars() ? (retentions.size ? 'ion-toast, ion-picker' : railPreservingOverlays) : undefined)
         )
           return;
         search.event(event);
