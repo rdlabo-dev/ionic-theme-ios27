@@ -6,6 +6,7 @@ import { relayPopover, popoverPresentation, verticalBarsPopoverAnchor } from './
 import { nativeDialogAnimation } from './dialog-animation';
 import { relayLayoutSupported, relayStyles } from './styles';
 import { moveContent } from './content';
+import { validVerticalBarFrame } from '../shared/vertical-bars-geometry';
 
 type Presentation = { kind: 'popover'; animated: boolean };
 type Overlay = HTMLIonPopoverElement;
@@ -224,6 +225,8 @@ export const createOverlayController = async (
     }
     const enabled =
       overlay.localName === 'ion-popover' &&
+      overlay.mode !== 'md' &&
+      !overlay.classList.contains('md') &&
       options.controls?.popover === true &&
       nativeVerticalBars() &&
       verticalBarsPopoverAnchor(overlay) !== undefined;
@@ -259,7 +262,14 @@ export const createOverlayController = async (
     };
     const closeNative = () =>
       (connection.nativeClosing ??= bounded(plugin.dismissOverlay({ id: connection.id, animated: presentation.animated })));
-    const animation = nativeDialogAnimation(overlay, closeNative);
+    const viewport = `${win.innerWidth}:${win.innerHeight}`;
+    const anchor = bounded(plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [anchorId!] }))
+      .then(({ items }) => {
+        const frame = items[anchorId!];
+        return frame && validVerticalBarFrame(frame) && viewport === `${win.innerWidth}:${win.innerHeight}` ? frame : undefined;
+      })
+      .catch(() => undefined);
+    const animation = nativeDialogAnimation(overlay, closeNative, anchor);
     connection.stopAnimation = animation.stop;
     connection.hideAnimation = animation.hide;
     animation.hide();

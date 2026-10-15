@@ -3466,21 +3466,66 @@ test('ordinary popovers stay in the source WebView', async ({ page }) => {
   await page.getByRole('button', { name: 'Close popover', exact: true }).click();
 });
 
-test('Vertical Bars popover preparation failure restores usable Web content and projection updates', async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 900 });
-  await mockNative(page);
-  await page.goto('/main/index/popover');
-  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
-  const trigger = page.locator('#native-popover-trigger');
-  await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
-  await activate(page, 'Open popover');
-  await expect(page.getByText('Toolbar popover', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Increment', exact: true }).click();
-  await expect(page.getByText('Count: 1', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Close popover', exact: true }).click();
-  await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
-  expect(page.context().pages()).toHaveLength(1);
-});
+const expectWebPopoverPainted = async (page: Page) => {
+  const overlay = page.locator('ion-popover[trigger="native-popover-trigger"]');
+  await expect(overlay).toHaveCSS('opacity', '1');
+  await expect(overlay.locator('.popover-content').first()).toHaveCSS('opacity', '1');
+  await expect(overlay.locator('.popover-arrow').first()).toHaveCSS('opacity', '1');
+  const backdropOpacity = await overlay.evaluate((el) => getComputedStyle(el).getPropertyValue('--backdrop-opacity').trim());
+  await expect(overlay.locator('ion-backdrop').first()).toHaveCSS('opacity', String(Number(backdropOpacity)));
+  await expect(overlay).toHaveJSProperty('animated', true);
+  const box = (await overlay.locator('.popover-content').first().boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(box.width).toBeGreaterThan(0);
+  expect(box.height).toBeGreaterThan(0);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+};
+
+for (const edge of ['leading', 'trailing'] as const)
+  test(`Vertical Bars popover preparation failure restores usable Web content and projection updates (${edge})`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page, false, edge);
+    await page.goto('/main/index/popover');
+    await page.locator('ion-app').evaluate((app, edge) => {
+      app.classList.add('ios-theme-vertical-bars');
+      app.classList.toggle('ios-theme-vertical-bars-left', edge === 'leading');
+    }, edge);
+    const trigger = page.locator('#native-popover-trigger');
+    await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+    const anchor = { x: edge === 'leading' ? 18 : 624, y: 240, width: 48, height: 48 };
+    await page.evaluate((anchor) => {
+      const mock = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
+      const id = mock.updates
+        .at(-1)!
+        .controls.flatMap((c) => c.items)
+        .find((i) => i.accessibilityLabel === 'Open popover')!.id;
+      mock.geometry = { [id]: anchor };
+    }, anchor);
+    await page
+      .locator('ion-popover[trigger="native-popover-trigger"]')
+      .evaluate((overlay) => overlay.style.setProperty('--backdrop-opacity', '0.24'));
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      await activate(page, 'Open popover');
+      await expect(page.getByText('Toolbar popover', { exact: true })).toBeVisible();
+      await expectWebPopoverPainted(page);
+      const box = (await page.locator('ion-popover[trigger="native-popover-trigger"] .popover-content').boundingBox())!;
+      expect(edge === 'leading' ? box.x : box.x + box.width).toBeCloseTo(edge === 'leading' ? anchor.x : anchor.x + anchor.width, 0);
+      expect(box.y).toBeCloseTo(anchor.y, 0);
+      if (attempt === 1) {
+        const screenshot = test.info().outputPath('web-popover-fallback-painted.png');
+        await page.screenshot({ path: screenshot });
+        await test.info().attach('web-popover-fallback-painted', { path: screenshot, contentType: 'image/png' });
+      }
+      await page.getByRole('button', { name: 'Increment', exact: true }).click();
+      await expect(page.getByText(`Count: ${attempt}`, { exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Close popover', exact: true }).click();
+      await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
+      expect(page.context().pages()).toHaveLength(1);
+    }
+  });
 
 for (const disabled of [false, true])
   test(`Vertical Bars popover handles anchor clicks during dismissal (${disabled ? 'disabled before replay' : 'reopens once'})`, async ({
@@ -3645,6 +3690,7 @@ for (const nestedTag of ['ion-popover', 'ion-modal'] as const)
         data: { saved: true },
       });
       await expect(page.getByText('Toolbar popover', { exact: true })).toBeVisible();
+      await expectWebPopoverPainted(page);
       await page.getByRole('button', { name: 'Close popover', exact: true }).click();
       await expect(page.locator('#native-popover-trigger')).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
     });
@@ -3804,6 +3850,7 @@ for (const context of ['inherited native styles', 'sibling-dependent Web fallbac
     if (dependent) {
       await expect.poll(() => relay.isClosed()).toBe(true);
       await expect(page.getByText('Toolbar popover', { exact: true })).toHaveCSS('color', 'rgb(180, 20, 60)');
+      await expectWebPopoverPainted(page);
       await page.getByRole('button', { name: 'Increment', exact: true }).click();
       await expect(page.getByText('Count: 1', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Close popover', exact: true }).click();
@@ -3815,6 +3862,7 @@ for (const context of ['inherited native styles', 'sibling-dependent Web fallbac
       await expect.poll(() => relay.isClosed()).toBe(true);
       await expect(page.getByText('Count: 1', { exact: true })).toBeVisible();
       await expect(page.getByText('Toolbar popover', { exact: true })).toHaveCSS('color', 'rgb(20, 40, 180)');
+      await expectWebPopoverPainted(page);
       await page.getByRole('button', { name: 'Close popover', exact: true }).click();
     }
     await expect(page.locator('#native-popover-trigger')).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
