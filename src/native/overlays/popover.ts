@@ -68,6 +68,9 @@ export const relayPopover = (overlay: HTMLIonPopoverElement, destination: HTMLEl
   const css = overlay.ownerDocument.defaultView!.getComputedStyle(source);
   Object.assign(shell.style, {
     position: 'relative',
+    // Ionic hides this shell until its Web enter animation runs. SwiftUI owns
+    // the relay animation, so its content must already be opaque.
+    opacity: '1',
     boxSizing: 'border-box',
     inset: 'auto',
     width: '100%',

@@ -3425,6 +3425,8 @@ for (const standalone of [false, true])
       await activate(page, 'Open popover');
       const relay = await opened;
       await expect(relay.getByText('Toolbar popover', { exact: true })).toBeVisible();
+      // Playwright visibility and native accessibility do not reject opacity:0.
+      await expect(relay.locator('ion-popover .popover-content')).toHaveCSS('opacity', '1');
       expect(await relay.evaluate(() => document.compatMode)).toBe('CSS1Compat');
       expect((await relay.getByRole('button', { name: 'Increment', exact: true }).boundingBox())!.height).toBeLessThan(80);
       await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
