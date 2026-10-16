@@ -1,0 +1,78 @@
+:host {
+  display: block;
+  padding: 6px 12px;
+  margin-bottom: calc(72px + var(--ion-safe-area-bottom, 0px));
+}
+:host-context(ion-app.ios-theme-vertical-bars) {
+  margin-bottom: var(--ion-safe-area-bottom, 0px);
+}
+:host([hidden]) {
+  display: none;
+}
+section {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  border-radius: 24px;
+  overflow: hidden;
+  color: var(--ion-text-color, #111);
+  background: var(--ion-background-color, #fff);
+  box-shadow: 0 2px 16px #0002;
+}
+button {
+  color: inherit;
+  background: transparent;
+  border: 0;
+  min-height: 48px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+[data-player-open] {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  text-align: start;
+  touch-action: pan-x;
+}
+[data-player-open] img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+[data-player-open] span {
+  min-width: 0;
+}
+strong,
+small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+small,
+.time {
+  opacity: 0.65;
+  font-size: 12px;
+}
+progress {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  border: 0;
+  accent-color: var(--ion-color-primary);
+}
+.cover {
+  width: min(100%, 320px);
+  border-radius: 20px;
+}
+@supports not (text-wrap: pretty) {
+  section {
+    border-radius: 12px;
+  }
+}

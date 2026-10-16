@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
         AA2010010000000000000001 /* NativeUICounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2010010000000000000002 /* NativeUICounter.swift */; };
+        AA2010020000000000000001 /* NativeMiniPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2010020000000000000002 /* NativeMiniPlayer.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -21,6 +22,7 @@
 
 /* Begin PBXFileReference section */
         AA2010010000000000000002 /* NativeUICounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeUICounter.swift; sourceTree = "<group>"; };
+        AA2010020000000000000002 /* NativeMiniPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMiniPlayer.swift; sourceTree = "<group>"; };
 		0F2D0778A9AC04BB9CF8EA1D /* debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -69,6 +71,7 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
                 AA2010010000000000000002 /* NativeUICounter.swift */,
+                AA2010020000000000000002 /* NativeMiniPlayer.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -163,6 +166,7 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
                 AA2010010000000000000001 /* NativeUICounter.swift in Sources */,
+                AA2010020000000000000001 /* NativeMiniPlayer.swift in Sources */,
 				5A8EC910E2334844A592648D /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
