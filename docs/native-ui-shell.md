@@ -172,6 +172,8 @@ Omitting `controls` enables `tabs`, `toolbar`, `segment`, and `fab` for backward
 
 ### Popovers anchored to Vertical Bars
 
+**Native popover presentation is Vertical Bars only.** It requires an accepted native Vertical Bars `ion-button` anchor; enabling `controls.popover` does not make ordinary toolbar or body popovers native. This feature also works with the standalone Vertical Bars runtime, without enabling the full Native UI Shell.
+
 Enable `controls.popover` together with `controls.toolbar` to present popovers from accepted native Vertical Bars `ion-button` controls:
 
 ```ts

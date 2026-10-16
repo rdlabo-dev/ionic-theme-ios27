@@ -57,6 +57,21 @@ On supported iOS versions, adding `.ios-theme-vertical-bars` changes only contro
 The SwiftUI surface is clipped and hit-tested to the system rail. Web content remains visible and interactive outside that physical region. The runtime optimistically updates tab selection before forwarding the action to the original `ion-tab-button`, using the same event and stale-revision protection as the other native controls. Overlay layout follows the [rail reservation rules](#reserve-the-vertical-rail).
 
 
+### Native popovers (Vertical Bars only)
+
+Native popover presentation is limited to popovers anchored to accepted native Vertical Bars `ion-button` controls. It is available with the standalone Vertical Bars runtime; the full Native UI Shell is not required. Enable it explicitly when starting the runtime (`popover` defaults to `false`):
+
+```ts
+import { enableVerticalControlArea } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+
+const rail = await enableVerticalControlArea({
+  controls: { popover: true },
+});
+```
+
+Use an `ion-popover` whose `trigger` identifies the projected button, or pass that button's click event to `PopoverController.create({ event, ... })`. Ordinary toolbar and body popovers remain on the Web. If a rail-anchored popover falls back to Web rendering, the rail also returns to Web projection until dismissal. See [native popover behavior and limitations](./native-ui-shell.md#popovers-anchored-to-vertical-bars).
+
+
 ## Toolbar actions
 
 A standard `ion-back-button` can project from outside a fixed toolbar, including routed content or a persistent app shell. `ion-menu-button` and other toolbar actions require a fixed toolbar.
