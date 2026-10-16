@@ -105,4 +105,4 @@ Element placement requires the source to fit fully inside the viewport and its a
 
 The [demo reader](../demo/src/native-ui/counter.ts) and [demo SwiftUI View](../demo/ios/App/App/NativeUICounter.swift) show both placements using app-local files. Open the Native UI Shell demo page to compare native projection with its Web fallback.
 
-For a complete application feature, see the [SwiftUI mini-player example](./native-mini-player.md): artwork, track metadata, playback controls, progress and swipe-to-open, all defined in the demo application.
+For a complete application feature, see the [SwiftUI mini-player example](./native-mini-player.md): artwork, track metadata, playback controls and swipe-to-open, all defined in the demo application.

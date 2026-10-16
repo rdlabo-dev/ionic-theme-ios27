@@ -1,45 +1,33 @@
 <section
+  #source
   data-mini-player
+  [attr.data-shell]="demo.enabled() ? null : 'disabled'"
+  [attr.data-title]="title"
+  [attr.data-artist]="artist"
   [attr.data-playing]="playing()"
-  [attr.data-elapsed]="elapsed"
-  [attr.data-duration]="duration"
-  [style.transform]="'translateY(' + lift() + 'px)'"
-  [style.opacity]="1 + lift() / 160"
->
-  <button
-    type="button"
-    data-player-open
-    aria-label="Open Now Playing"
-    (click)="open($event)"
-    (pointerdown)="start($event)"
-    (pointermove)="move($event)"
-    (pointerup)="end($event)"
-    (pointercancel)="cancel()"
-  >
-    <img src="assets/ionic-demos/card-media.png" alt="" draggable="false" />
-    <span
-      ><strong data-player-title>{{ title }}</strong
-      ><small data-player-artist>{{ artist }}</small></span
-    >
-  </button>
-  <span class="time">1:24 / 3:45</span>
-  <button type="button" data-player-toggle [attr.aria-label]="playing() ? 'Pause' : 'Play'" (click)="playing.set(!playing())">
-    <span aria-hidden="true">{{ playing() ? 'Ⅱ' : '▶' }}</span>
-  </button>
-  <progress [value]="elapsed" [max]="duration" aria-label="Track progress"></progress>
-</section>
+  (openNowPlaying)="opened.set(true)"
+  (togglePlayback)="playing.set(!playing())"
+></section>
 <ion-modal [isOpen]="opened()" (didDismiss)="opened.set(false)">
   <ng-template>
-    <ion-header
-      ><ion-toolbar><ion-title>Now Playing</ion-title></ion-toolbar></ion-header
-    >
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Now Playing</ion-title>
+        <ion-buttons slot="start">
+          <ion-button type="button" aria-label="Close Now Playing" (click)="opened.set(false)">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
     <ion-content class="ion-padding">
-      <img class="cover" src="assets/ionic-demos/card-media.png" alt="Album artwork" />
-      <h2>{{ title }}</h2>
-      <p>{{ artist }}</p>
-      <p>{{ playing() ? 'Playing' : 'Paused' }} · 1:24 / 3:45</p>
-      <button type="button" (click)="playing.set(!playing())">{{ playing() ? 'Pause' : 'Play' }}</button>
-      <button type="button" (click)="opened.set(false)">Close Now Playing</button>
+      <div class="now-playing">
+        <img class="cover" src="assets/mini-player-artwork.svg" alt="Album artwork" />
+        <h2>{{ title }}</h2>
+        <p>{{ artist }}</p>
+        <p>{{ playing() ? 'Playing' : 'Paused' }} · 1:24 / 3:45</p>
+        <ion-button type="button" expand="block" size="large" (click)="playing.set(!playing())">
+          {{ playing() ? 'Pause' : 'Play' }}
+        </ion-button>
+      </div>
     </ion-content>
   </ng-template>
 </ion-modal>

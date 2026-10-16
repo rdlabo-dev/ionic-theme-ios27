@@ -3,6 +3,10 @@ import { IndexPageComponent } from './index-page.component';
 
 export const routes: Routes = [
   {
+    path: 'native-ui-extension',
+    loadComponent: () => import('../mini-player/native-ui-extension.page').then((m) => m.NativeUIExtensionPage),
+  },
+  {
     path: 'button-projection',
     loadComponent: () => import('../button-projection/button-projection.page').then((m) => m.ButtonProjectionPage),
   },

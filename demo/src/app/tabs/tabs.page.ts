@@ -64,7 +64,7 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
           return;
         }
         const path = params.urlAfterRedirects.split(/[?#]/, 1)[0];
-        this.showMiniPlayer.set(path === '/main/album');
+        this.showMiniPlayer.set(path === '/main/index/native-ui-extension');
         if (['/main/settings', '/main/index/toolbar', '/main/index/button-projection'].includes(path)) {
           tabBar.classList.add('tab-bar-hidden');
         } else {

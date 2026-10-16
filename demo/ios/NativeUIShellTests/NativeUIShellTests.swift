@@ -640,16 +640,28 @@ final class NativeUIShellTests: XCTestCase {
     }
 
     func testAppLocalMiniPlayerPlaybackAndPresentation() throws {
+        try verifyMiniPlayer(vertical: false)
+    }
+
+    func testAppLocalMiniPlayerWithVerticalBars() throws {
+        try verifyMiniPlayer(vertical: true)
+    }
+
+    private func verifyMiniPlayer(vertical: Bool) throws {
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
         let toggle = app.webViews.switches["iPhone Duo Mode"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
-        if toggle.value as? String != "1" { toggle.tap() }
-        let library = app.buttons["Library"].firstMatch
-        XCTAssertTrue(library.waitForExistence(timeout: 10), app.debugDescription)
-        library.tap()
+        if (toggle.value as? String == "1") != vertical { toggle.tap() }
+        openPage(app, name: "Native UI Extension")
+        XCTAssertTrue(app.webViews.buttons["Pause"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let webFrame = app.webViews.buttons["Pause"].firstMatch.frame
+        capture(vertical ? "web-mini-player-vertical" : "web-mini-player-ordinary")
+        app.webViews.switches["Native extension"].tap()
         let pause = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@", "mini-player-playback", "Pause")).firstMatch
         XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(pause.frame.midX, webFrame.midX, accuracy: 4)
+        XCTAssertEqual(pause.frame.midY, webFrame.midY, accuracy: 4)
         pause.tap()
         let play = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@", "mini-player-playback", "Play")).firstMatch
         XCTAssertTrue(play.waitForExistence(timeout: 5), app.debugDescription)
@@ -668,6 +680,11 @@ final class NativeUIShellTests: XCTestCase {
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -90)))
         XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
         close.tap()
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
+        app.webViews.switches["Native extension"].tap()
+        XCTAssertTrue(pause.waitForNonExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.webViews.buttons["Pause"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        app.webViews.switches["Native extension"].tap()
         XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
         capture("swiftui-mini-player-restored")
         app.terminate()

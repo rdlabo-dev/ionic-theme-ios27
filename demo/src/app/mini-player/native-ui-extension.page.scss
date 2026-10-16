@@ -1,0 +1,66 @@
+.extension-demo {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+  line-height: 1.6;
+
+  h1 {
+    margin: 4px 0 12px;
+    font-size: 28px;
+    line-height: 1.2;
+  }
+  h2 {
+    margin: 0 0 16px;
+    font-size: 20px;
+  }
+  section {
+    margin-top: 32px;
+  }
+  .eyebrow {
+    margin: 0;
+    color: var(--ion-color-medium);
+    font-size: 13px;
+  }
+  .demo-control {
+    padding: 16px;
+    border-radius: 16px;
+    background: var(--ion-color-light);
+  }
+  ion-toggle {
+    width: 100%;
+  }
+  [role='status'] {
+    margin: 12px 0 4px;
+    font-weight: 600;
+  }
+  .hint {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: var(--ion-color-medium);
+  }
+  ol {
+    padding-inline-start: 24px;
+  }
+  li + li {
+    margin-top: 8px;
+  }
+  dt {
+    margin-top: 16px;
+    font-weight: 600;
+  }
+  dd {
+    margin: 4px 0 0;
+  }
+  code {
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+  }
+  nav {
+    display: grid;
+    gap: 8px;
+  }
+  a {
+    display: block;
+    padding: 10px 0;
+  }
+}
