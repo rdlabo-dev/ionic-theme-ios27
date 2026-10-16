@@ -3369,6 +3369,9 @@ for (const projection of ['source', 'system'] as const) {
     for (const placement of ['Grouped', 'Standalone', 'Separate']) {
       await page.locator('ion-select').click();
       await page.getByRole('radio', { name: placement, exact: true }).click();
+      // ionChange updates native state before the select's dismissal finishes.
+      // Wait for the overlay to close before attempting the next open.
+      await expect(page.locator('ion-select-popover')).toHaveCount(0);
       await expect
         .poll(() =>
           page.evaluate(() =>
