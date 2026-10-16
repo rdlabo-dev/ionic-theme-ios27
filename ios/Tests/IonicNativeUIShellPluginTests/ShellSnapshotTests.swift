@@ -52,6 +52,29 @@ final class ShellSnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor func testVisiblePopoverDismissalNotifiesAllOverlappingCallersOnce() {
+        let host = ShellOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+        host.anchoredVisible = true
+        var dismissals = 0
+        var completed: [Int] = []
+        host.dismissAnchored = { dismissals += 1 }
+        for caller in 0..<3 {
+            host.dismissPopover(animated: false) { completed.append(caller) }
+        }
+        XCTAssertEqual(dismissals, 1)
+        XCTAssertTrue(completed.isEmpty)
+        // SwiftUI delivers this callback only after the visible popover disappears.
+        host.anchoredVisible = false
+        let finish = host.anchoredDidDismiss
+        host.anchoredDidDismiss = nil
+        finish?()
+        XCTAssertEqual(completed, [0, 1, 2])
+        finish?()
+        XCTAssertEqual(completed, [0, 1, 2])
+        host.dismissPopover(animated: false) { completed.append(3) }
+        XCTAssertEqual(completed, [0, 1, 2, 3])
+    }
+
     @MainActor func testStoppingPreparedPopoverRestoresWebViewAndAllowsNewSession() {
         let source = WKWebView(frame: .zero)
         let owner = UIViewController()

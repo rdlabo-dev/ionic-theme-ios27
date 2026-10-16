@@ -222,3 +222,28 @@ for (const destroyFirst of [false, true]) {
     expect(await page.evaluate(() => (window as Window & { restartState: { listeners(): number } }).restartState.listeners())).toBe(0);
   });
 }
+
+test('a completed teardown failure does not poison later disable calls', async ({ page }) => {
+  await page.addScriptTag({ content: bundle });
+  const result = await page.evaluate(async () => {
+    const { enableNativeUIShell } = (window as LifecycleWindow).shellLifecycle;
+    const first = await enableNativeUIShell();
+    const destroy = first.destroy;
+    // Fail at the teardown boundary after releasing the actual Web resources.
+    first.destroy = async () => {
+      await destroy();
+      throw new Error('Teardown failed');
+    };
+    const failures = await Promise.allSettled([enableNativeUIShell({ enabled: false }), enableNativeUIShell({ enabled: false })]);
+    const disabled = await enableNativeUIShell({ enabled: false });
+    const replacement = await enableNativeUIShell();
+    await replacement.destroy();
+    const disabledAgain = await enableNativeUIShell({ enabled: false });
+    return {
+      failures: failures.map((result) => result.status),
+      disabled: disabled.getStatus().reason,
+      disabledAgain: disabledAgain.getStatus().reason,
+    };
+  });
+  expect(result).toEqual({ failures: ['rejected', 'rejected'], disabled: 'Disabled', disabledAgain: 'Disabled' });
+});

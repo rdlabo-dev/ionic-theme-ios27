@@ -9,6 +9,28 @@ final class ShellOverlayHost: UIViewController {
     var dismissAnchored: (() -> Void)?
     var anchoredVisible = false
     var anchoredDidDismiss: (() -> Void)?
+    private var dismissalCompletions: [() -> Void]?
+
+    // Dismiss, close and stop may overlap while SwiftUI is still disappearing.
+    // Start dismissal once and deliver its completion to every waiting caller.
+    func dismissPopover(animated: Bool, completion: @escaping () -> Void) {
+        if dismissalCompletions != nil {
+            dismissalCompletions?.append(completion)
+            return
+        }
+        dismissalCompletions = [completion]
+        let finish = { [self] in
+            let completions = dismissalCompletions ?? []
+            dismissalCompletions = nil
+            completions.forEach { $0() }
+        }
+        if let dismissAnchored {
+            if anchoredVisible { anchoredDidDismiss = finish; dismissAnchored() }
+            else { dismissAnchored(); finish() }
+        } else if presentingViewController != nil {
+            dismiss(animated: animated, completion: finish)
+        } else { finish() }
+    }
 
     init(configuration: WKWebViewConfiguration, options: [String: Any]?, event: @escaping (String) -> Void) {
         webView = WKWebView(frame: .zero, configuration: configuration)

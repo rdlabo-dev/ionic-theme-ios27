@@ -72,13 +72,7 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
     // Keep the WebView alive until JavaScript has restored the adopted nodes and listeners.
     func dismiss(_ id: String, animated: Bool, completion: @escaping () -> Void) {
         guard self.id == id, let host else { completion(); return }
-        if let dismiss = host.dismissAnchored {
-            if host.anchoredVisible { host.anchoredDidDismiss = completion; dismiss() }
-            else { dismiss(); completion() }
-            return
-        }
-        guard host.presentingViewController != nil else { completion(); return }
-        host.dismiss(animated: animated, completion: completion)
+        host.dismissPopover(animated: animated, completion: completion)
     }
 
     func close(_ id: String, completion: @escaping () -> Void) {
@@ -93,12 +87,7 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
             self.id = nil
             completion()
         }
-        if let dismiss = host.dismissAnchored {
-            if host.anchoredVisible { host.anchoredDidDismiss = finish; dismiss() }
-            else { dismiss(); finish() }
-        }
-        else if host.presentingViewController == nil { finish() }
-        else { host.dismiss(animated: false, completion: finish) }
+        host.dismissPopover(animated: false, completion: finish)
     }
 
     func stop(completion: @escaping () -> Void) {

@@ -193,7 +193,14 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     const current = active;
     active = undefined;
     activeConfiguration = undefined;
-    if (current) stopping = current.then((handle) => handle.destroy());
+    if (current) {
+      const pending = current.then((handle) => handle.destroy());
+      stopping = pending;
+      const release = () => {
+        if (stopping === pending) stopping = undefined;
+      };
+      void pending.then(release, release);
+    }
     return (stopping ?? Promise.resolve()).then(() => web('Disabled'));
   }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
