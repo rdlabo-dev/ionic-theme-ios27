@@ -65,14 +65,55 @@ final class ShellSnapshotTests: XCTestCase {
         XCTAssertTrue(completed.isEmpty)
         // SwiftUI delivers this callback only after the visible popover disappears.
         host.anchoredVisible = false
-        let finish = host.anchoredDidDismiss
-        host.anchoredDidDismiss = nil
-        finish?()
+        host.completeDismissal()
         XCTAssertEqual(completed, [0, 1, 2])
-        finish?()
+        host.completeDismissal()
         XCTAssertEqual(completed, [0, 1, 2])
         host.dismissPopover(animated: false) { completed.append(3) }
         XCTAssertEqual(completed, [0, 1, 2, 3])
+    }
+
+    @MainActor func testMissingPopoverDisappearanceCancelsPresentationAndSettlesAllWaiters() {
+        let host = ShellOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+        host.anchoredVisible = true
+        host.dismissAnchored = {} // No onDisappear callback arrives.
+        var cancelled = false
+        host.cancelAnchored = { cancelled = true }
+        let closed = expectation(description: "Both stop requests finish after cancellation")
+        closed.expectedFulfillmentCount = 2
+        for _ in 0..<2 {
+            host.dismissPopover(animated: false) {
+                XCTAssertTrue(cancelled)
+                closed.fulfill()
+            }
+        }
+        waitForExpectations(timeout: ShellOverlayHost.completionTimeout + 2)
+        XCTAssertFalse(host.anchoredVisible)
+    }
+
+    @MainActor func testDetachingRailSettlesPopoverPresentationAndDismissal() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native Vertical Bars") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        let rail = ShellVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        rail.apply(try decode([control(["placement": "vertical-bars"])]).controls,
+                   rendering: ShellRendering(), edge: "right")
+        let host = ShellOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+        var presentations: [Bool] = []
+        XCTAssertTrue(rail.presentPopover(anchor: "action", host: host) { presentations.append($0) })
+        host.anchoredVisible = true
+        var dismissals = 0
+        host.dismissPopover(animated: false) { dismissals += 1 }
+        rail.detach()
+        XCTAssertEqual(presentations, [false])
+        XCTAssertEqual(dismissals, 1)
+        XCTAssertFalse(host.anchoredVisible)
+        rail.detach()
+        XCTAssertEqual(dismissals, 1)
     }
 
     @MainActor func testStoppingPreparedPopoverRestoresWebViewAndAllowsNewSession() {

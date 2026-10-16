@@ -63,10 +63,24 @@ final class ShellOverlayController: NSObject, WKUIDelegate {
         guard self.id == id, let host, let owner,
               owner.presentedViewController == nil else { completion(false); return }
         host.apply(options)
+        var settled = false
+        var timeout: DispatchWorkItem?
+        let complete: (Bool) -> Void = { presented in
+            guard !settled else { return }
+            settled = true
+            timeout?.cancel()
+            timeout = nil
+            completion(presented)
+        }
+        timeout = DispatchWorkItem { [weak host] in
+            host?.cancelAnchored?()
+            complete(false)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + ShellOverlayHost.completionTimeout, execute: timeout!)
         if host.options?["kind"] as? String == "popover",
            let anchor = host.options?["anchorId"] as? String,
-           anchored(anchor, host, completion) { return }
-        completion(false)
+           anchored(anchor, host, complete) { return }
+        complete(false)
     }
 
     // Keep the WebView alive until JavaScript has restored the adopted nodes and listeners.

@@ -6,10 +6,22 @@ final class ShellOverlayHost: UIViewController {
     let webView: WKWebView
     private(set) var options: [String: Any]?
     let event: (String) -> Void
+    // Settle native presentation before the JS bridge's five-second deadline.
+    static let completionTimeout: TimeInterval = 4
     var dismissAnchored: (() -> Void)?
+    var cancelAnchored: (() -> Void)?
     var anchoredVisible = false
-    var anchoredDidDismiss: (() -> Void)?
     private var dismissalCompletions: [() -> Void]?
+    private var dismissalTimeout: DispatchWorkItem?
+
+    func completeDismissal() {
+        dismissalTimeout?.cancel()
+        dismissalTimeout = nil
+        anchoredVisible = false
+        let completions = dismissalCompletions ?? []
+        dismissalCompletions = nil
+        completions.forEach { $0() }
+    }
 
     // Dismiss, close and stop may overlap while SwiftUI is still disappearing.
     // Start dismissal once and deliver its completion to every waiting caller.
@@ -19,13 +31,18 @@ final class ShellOverlayHost: UIViewController {
             return
         }
         dismissalCompletions = [completion]
-        let finish = { [self] in
-            let completions = dismissalCompletions ?? []
-            dismissalCompletions = nil
-            completions.forEach { $0() }
+        let finish = { [self] in completeDismissal() }
+        let timeout = DispatchWorkItem { [weak self] in
+            guard let self, self.dismissalCompletions != nil else { return }
+            // Remove the owning rail if SwiftUI never reports disappearance.
+            // Its detach path settles waiters before any replacement can attach.
+            self.cancelAnchored?()
+            self.completeDismissal()
         }
+        dismissalTimeout = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.completionTimeout, execute: timeout)
         if let dismissAnchored {
-            if anchoredVisible { anchoredDidDismiss = finish; dismissAnchored() }
+            if anchoredVisible { dismissAnchored() }
             else { dismissAnchored(); finish() }
         } else if presentingViewController != nil {
             dismiss(animated: animated, completion: finish)

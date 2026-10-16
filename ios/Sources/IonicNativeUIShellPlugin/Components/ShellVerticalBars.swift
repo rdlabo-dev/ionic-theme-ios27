@@ -175,11 +175,8 @@ private struct ShellVerticalBarsButton: ToolbarContent {
                                     completion?(true)
                                 }
                                 .onDisappear {
-                                    host.anchoredVisible = false
-                                    let completion = host.anchoredDidDismiss
-                                    host.anchoredDidDismiss = nil
                                     if model.popoverHost === host { model.popoverHost = nil }
-                                    completion?()
+                                    host.completeDismissal()
                                 }
                         }
                     }
@@ -515,8 +512,16 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         model.popoverHost = host
         model.popoverPresented = completion
         host.anchoredVisible = false
+        host.cancelAnchored = { [weak self] in
+            // Native presentation callbacks and their deadline run on the main queue.
+            MainActor.assumeIsolated { self?.detach() }
+        }
         host.dismissAnchored = { [weak self, weak host] in
-            guard let self, let host, self.model.popoverHost === host else { return }
+            guard let host else { return }
+            guard let self, self.model.popoverHost === host else {
+                host.completeDismissal()
+                return
+            }
             // A backdrop tap clears the binding before SwiftUI finishes closing.
             // Keep the live content and completion until onDisappear, including
             // when dismissal has already started through the system binding.
@@ -540,11 +545,21 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
     }
 
     @MainActor func detach(duration: TimeInterval = 0) {
-        guard controller.parent != nil else { return }
-        controller.willMove(toParent: nil)
-        ShellCrossfade.retire(container, duration: duration)
-        controller.view.removeFromSuperview()
-        controller.removeFromParent()
+        let host = model.popoverHost
+        let presented = model.popoverPresented
+        model.popoverPresented = nil
+        model.popoverAnchor = nil
+        model.popoverHost = nil
+        if controller.parent != nil {
+            controller.willMove(toParent: nil)
+            ShellCrossfade.retire(container, duration: duration)
+            controller.view.removeFromSuperview()
+            controller.removeFromParent()
+        }
         owner = nil
+        host?.dismissAnchored = nil
+        host?.cancelAnchored = nil
+        presented?(false)
+        host?.completeDismissal()
     }
 }

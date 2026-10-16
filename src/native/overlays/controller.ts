@@ -341,7 +341,7 @@ export const createOverlayController = async (
         try {
           await bounded(plugin.stopOverlays());
         } finally {
-          await listener.remove();
+          await bounded(listener.remove());
         }
       }
     },

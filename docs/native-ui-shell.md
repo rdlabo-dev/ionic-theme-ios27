@@ -146,6 +146,8 @@ During retirement, the source is restored and allowed to paint before its native
 
 If a bridge update fails or times out, the runtime stops and restores Web rendering. It does not automatically reconnect. `getStatus()` reports `stopped` and the reason; to retry deliberately, call `destroy()` on that handle and then `enableNativeUIShell()` again.
 
+Failures or timeouts in required startup bridge calls return a Web fallback handle. Optional WebView metrics may fail without disabling native controls. Both `destroy()` and `enableNativeUIShell({ enabled: false })` wait for teardown; repeated calls share its completion. A new activation requested while teardown is running waits for it, including when the application calls `destroy()` without awaiting it. Await these promises when the next application operation depends on cleanup, and handle any rejection.
+
 For diagnostics or application teardown:
 
 ```ts

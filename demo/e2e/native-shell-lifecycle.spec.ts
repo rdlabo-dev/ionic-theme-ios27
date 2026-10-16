@@ -134,10 +134,8 @@ for (const eventName of ['overlay', 'activate', 'search']) {
   }
 }
 
-for (const destroyFirst of [false, true]) {
-  test(`disable and immediate re-enable wait for native teardown (${destroyFirst ? 'direct destroy first' : 'disable only'})`, async ({
-    page,
-  }) => {
+for (const stop of ['disable', 'destroy then disable', 'destroy', 'destroy with different controls']) {
+  test(`replacement startup waits for native teardown (${stop})`, async ({ page }) => {
     await page.clock.install();
     await page.evaluate(() => {
       const callbacks = new Set<unknown>();
@@ -186,19 +184,21 @@ for (const destroyFirst of [false, true]) {
       document.body.innerHTML = '<ion-app></ion-app>';
     });
     await page.addScriptTag({ content: bundle });
-    await page.evaluate(async (destroyFirst) => {
+    await page.evaluate(async (stop) => {
       const { enableNativeUIShell } = (window as LifecycleWindow).shellLifecycle;
       const options = { verticalBarsOnly: true, controls: {} };
       const first = await enableNativeUIShell(options);
-      if (destroyFirst) void first.destroy();
-      const disabling = enableNativeUIShell({ enabled: false });
-      const second = enableNativeUIShell(options);
+      const destroying = stop !== 'disable' ? first.destroy() : undefined;
+      const disabling = stop.includes('disable') ? enableNativeUIShell({ enabled: false }) : destroying;
+      const second = enableNativeUIShell(
+        stop === 'destroy with different controls' ? { ...options, controls: { toolbar: true } } : options,
+      );
       Object.assign(window, {
         restartCompleted: Promise.all([disabling, second]).then(([, handle]) => {
           Object.assign(window, { restartedHandle: handle });
         }),
       });
-    }, destroyFirst);
+    }, stop);
     await page.clock.runFor(100);
     const evidence = await page.evaluate(() => {
       const state = (window as Window & { restartState: { configured: number; clearStarted: boolean } }).restartState;
@@ -246,4 +246,117 @@ test('a completed teardown failure does not poison later disable calls', async (
     };
   });
   expect(result).toEqual({ failures: ['rejected', 'rejected'], disabled: 'Disabled', disabledAgain: 'Disabled' });
+});
+
+for (const stalled of ['configure', 'metrics listener', 'metrics', 'listener removal']) {
+  test(`native lifecycle settles when ${stalled} stalls`, async ({ page }) => {
+    await page.clock.install();
+    await page.evaluate((stalled) => {
+      const listeners = new Set<symbol>();
+      let finish: () => void = () => {};
+      const pending = new Promise<void>((resolve) => (finish = resolve));
+      const plugin = {
+        async configure() {
+          if (stalled === 'configure') await pending;
+          return { supported: true };
+        },
+        async getWebViewMetrics() {
+          if (stalled === 'metrics') await pending;
+          return { radius: 0 };
+        },
+        async addListener(name: string) {
+          if (stalled === 'metrics listener' && name === 'webViewMetricsChange') await pending;
+          const registration = Symbol(name);
+          listeners.add(registration);
+          return {
+            async remove() {
+              if (stalled === 'listener removal' && name === 'webViewMetricsChange') await pending;
+              listeners.delete(registration);
+            },
+          };
+        },
+        async clear() {},
+        async update(snapshot: { revision: number }) {
+          return { revision: snapshot.revision };
+        },
+      };
+      window.CapacitorCustomPlatform = { name: 'ios' };
+      let capacitor: { registerPlugin: (name: string) => unknown } | undefined;
+      Object.defineProperty(window, 'Capacitor', {
+        configurable: true,
+        get: () => capacitor,
+        set: (value) => {
+          const register = value.registerPlugin;
+          value.registerPlugin = (name: string) => (name === 'IonicNativeUIShell' ? plugin : register(name));
+          capacitor = value;
+        },
+      });
+      Object.assign(window, { stalledBridge: { finish, count: () => listeners.size, settled: false } });
+      document.body.innerHTML = '<ion-app></ion-app>';
+    }, stalled);
+    await page.addScriptTag({ content: bundle });
+    await page.evaluate(() => {
+      const state = window as LifecycleWindow & { stalledBridge: { settled: boolean; reason?: string } };
+      void state.shellLifecycle.enableNativeUIShell().then(async (handle) => {
+        state.stalledBridge.reason = handle.getStatus().reason;
+        await handle.destroy();
+        state.stalledBridge.settled = true;
+      });
+    });
+    await page.clock.runFor(5300);
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { stalledBridge: { settled: boolean } }).stalledBridge.settled))
+      .toBe(true);
+    if (stalled === 'configure' || stalled === 'metrics listener') {
+      expect(await page.evaluate(() => (window as unknown as { stalledBridge: { reason: string } }).stalledBridge.reason)).toContain(
+        'timed out',
+      );
+    }
+    // Late registrations are released, and late configure/metrics results cannot restart a stopped runtime.
+    await page.evaluate(() => (window as unknown as { stalledBridge: { finish(): void } }).stalledBridge.finish());
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { stalledBridge: { count(): number } }).stalledBridge.count()))
+      .toBe(0);
+    expect(await page.locator('html').getAttribute('class')).not.toContain('ios-theme-native-ui-shell-prehide');
+  });
+}
+
+test('destroy waits for teardown already started by a native bridge failure', async ({ page }) => {
+  await page.clock.install();
+  await page.addScriptTag({ content: bundle });
+  await page.evaluate(async () => {
+    const state = { clearStarted: false, destroyed: false, release: () => {} };
+    const plugin = {
+      async addListener() {
+        return { remove: async () => {} };
+      },
+      async update() {
+        throw new Error('Bridge lost');
+      },
+      async clear() {
+        state.clearStarted = true;
+        await new Promise<void>((resolve) => {
+          state.release = resolve;
+        });
+      },
+    } as unknown as NativeUIShellPlugin;
+    const runtime = await (window as LifecycleWindow).shellLifecycle.createRuntime(document, plugin);
+    Object.assign(window, {
+      failureState: state,
+      destroyFailedRuntime: () =>
+        runtime.destroy().then(() => {
+          state.destroyed = true;
+        }),
+    });
+  });
+  await page.clock.runFor(100);
+  expect(await page.evaluate(() => (window as unknown as { failureState: { clearStarted: boolean } }).failureState.clearStarted)).toBe(
+    true,
+  );
+  const destroying = page.evaluate(() => (window as unknown as { destroyFailedRuntime(): Promise<void> }).destroyFailedRuntime());
+  await page.clock.runFor(100);
+  expect(await page.evaluate(() => (window as unknown as { failureState: { destroyed: boolean } }).failureState.destroyed)).toBe(false);
+  await page.evaluate(() => (window as unknown as { failureState: { release(): void } }).failureState.release());
+  await destroying;
+  expect(await page.evaluate(() => (window as unknown as { failureState: { destroyed: boolean } }).failureState.destroyed)).toBe(true);
 });
