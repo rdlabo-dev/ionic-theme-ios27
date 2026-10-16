@@ -302,7 +302,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                 } else {
                     rail.view.frame = owner.view.bounds
                 }
-                rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right")
+                // The shell owns the entry crossfade; later native updates keep SwiftUI motion.
+                rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right", animated: !entering)
                 rail.view.isHidden = false
                 if entering { ShellCrossfade.enter(rail.view, duration: duration) }
             } else {

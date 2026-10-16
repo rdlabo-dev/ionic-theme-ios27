@@ -6,7 +6,7 @@ protocol ShellVerticalBarsControlling: AnyObject {
     var view: UIView { get }
     func measuredFrames(relativeTo webView: UIView) -> [String: CGRect]
     @MainActor func attach(to owner: UIViewController, in parent: UIView)
-    @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String)
+    @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String, animated: Bool)
     var ownsKeyboardChrome: Bool { get }
     func presentPopover(anchor: String, host: ShellOverlayHost, completion: @escaping (Bool) -> Void) -> Bool
     @MainActor func detach(duration: TimeInterval)
@@ -47,7 +47,7 @@ final class ShellVerticalBarsModel: ObservableObject {
     private var pendingSelection: ShellTabBar.PendingSelection?
     private var pendingExpiryWork: DispatchWorkItem?
 
-    func apply(_ controls: [ShellControl], rendering: ShellRendering,
+    func apply(_ controls: [ShellControl], rendering: ShellRendering, animated: Bool = true,
                now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
         func item(_ source: ShellItem) -> Item {
             let image = rendering.image(source.content)
@@ -62,7 +62,7 @@ final class ShellVerticalBarsModel: ObservableObject {
                  badge: source.content.badge, disabled: source.content.disabled,
                  selected: source.content.selected)
         }
-        withAnimation(nil) {
+        withAnimation(animated && !UIAccessibility.isReduceMotionEnabled ? .smooth(duration: 0.3) : nil) {
             back = controls.first(where: { $0.kind == .backButton })?.items.first.map(item)
             groups = controls.compactMap { control in
                 guard [.button, .buttons, .menuButton].contains(control.kind) else { return nil }
@@ -498,14 +498,14 @@ final class ShellVerticalBarsController: ShellVerticalBarsControlling {
         controller.didMove(toParent: owner)
     }
 
-    @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String) {
+    @MainActor func apply(_ controls: [ShellControl], rendering: ShellRendering, edge: String, animated: Bool = true) {
         container.railEdge = edge
         controller.railEdge = edge
         if let search = controls.first(where: { $0.search != nil })?.search {
             if model.search?.configuration.id == search.id { model.search?.apply(search) }
             else { model.search = ShellVerticalSearchModel(search, in: container, activate: model.activate, changed: changed) }
         } else { model.search = nil }
-        model.apply(controls, rendering: rendering)
+        model.apply(controls, rendering: rendering, animated: animated)
         controller.overrideUserInterfaceStyle = controls.contains(where: \.dark) ? .dark : .light
     }
 
