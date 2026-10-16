@@ -153,23 +153,34 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
 
     @objc func configure(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            // A new JS context starts revision numbering again (live reload / navigation).
-            self?.restoreTopEdge?()
-            self?.restoreTopEdge = nil
-            self?.removeControls()
-            self?.revision = 0
-            if #available(iOS 26.0, *) {
-                self?.bridge?.webView?.layoutIfNeeded()
-                // Ionic already paints the header edge; a second native effect can
-                // add a dark scrim when the OS and Web themes differ.
-                if call.getBool("verticalBarsOnly") != true, let effect = self?.bridge?.webView?.scrollView.topEdgeEffect {
-                    let hidden = effect.isHidden
-                    effect.isHidden = true
-                    self?.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
+            guard let self else { call.resolve(["supported": false]); return }
+            let configure = { [self] in
+                // A new JS context starts revision numbering again (live reload / navigation).
+                self.restoreTopEdge?()
+                self.restoreTopEdge = nil
+                self.removeControls()
+                self.revision = 0
+                if #available(iOS 26.0, *) {
+                    self.bridge?.webView?.layoutIfNeeded()
+                    // Ionic already paints the header edge; a second native effect can
+                    // add a dark scrim when the OS and Web themes differ.
+                    if call.getBool("verticalBarsOnly") != true, let effect = self.bridge?.webView?.scrollView.topEdgeEffect {
+                        let hidden = effect.isHidden
+                        effect.isHidden = true
+                        self.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
+                    }
+                    call.resolve(["supported": true])
                 }
-                call.resolve(["supported": true])
+                else { call.resolve(["supported": false]) }
             }
-            else { call.resolve(["supported": false]) }
+            // A replacement JS context cannot close its predecessor's child window.
+            // Finish dismissing it while its rail still owns the SwiftUI presentation.
+            if let overlays = self.overlays {
+                overlays.stop {
+                    self.overlays = nil
+                    configure()
+                }
+            } else { configure() }
         }
     }
 

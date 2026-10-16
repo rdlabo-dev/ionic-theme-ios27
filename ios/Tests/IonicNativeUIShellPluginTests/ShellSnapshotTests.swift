@@ -52,6 +52,31 @@ final class ShellSnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor func testStoppingPreparedPopoverRestoresWebViewAndAllowsNewSession() {
+        let source = WKWebView(frame: .zero)
+        let owner = UIViewController()
+        final class Delegate: NSObject, WKUIDelegate {}
+        let original = Delegate()
+        source.uiDelegate = original
+        for initiallyAllowed in [false, true] {
+            source.configuration.preferences.javaScriptCanOpenWindowsAutomatically = initiallyAllowed
+            let previous = ShellOverlayController(source: source, owner: owner, event: { _, _ in })
+            XCTAssertTrue(previous.prepare("old-context"))
+            XCTAssertTrue(source.configuration.preferences.javaScriptCanOpenWindowsAutomatically)
+            var stopped = false
+            previous.stop { stopped = true }
+            XCTAssertTrue(stopped)
+            XCTAssertTrue(source.uiDelegate === original)
+            XCTAssertEqual(source.configuration.preferences.javaScriptCanOpenWindowsAutomatically, initiallyAllowed)
+
+            let replacement = ShellOverlayController(source: source, owner: owner, event: { _, _ in })
+            XCTAssertTrue(replacement.prepare("new-context"))
+            replacement.stop {}
+            XCTAssertTrue(source.uiDelegate === original)
+            XCTAssertEqual(source.configuration.preferences.javaScriptCanOpenWindowsAutomatically, initiallyAllowed)
+        }
+    }
+
     private func item(_ changes: JSObject = [:]) -> JSObject {
         var value: JSObject = ["id": "action", "x": 4.0, "y": 8.0, "width": 44.0, "height": 44.0,
             "label": "Send", "accessibilityLabel": "Send message", "disabled": false, "selected": false,

@@ -1,3 +1,4 @@
+import { bounded, boundedListener } from './shared/bridge';
 import { popoverTrigger } from './overlays/popover';
 import {
   alignVerticalTabBar,
@@ -43,13 +44,6 @@ const railPreservingOverlays = 'ion-toast, ion-popover, ion-picker';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
 const verticalBarsMarker = 'data-native-ui-shell-vertical-bars';
 const verticalBarsMemberMarker = 'data-native-ui-shell-vertical-bars-member';
-
-// A failed bridge must not leave the source inaccessible indefinitely.
-export const bounded = <T>(promise: Promise<T>): Promise<T> =>
-  new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Native UI Shell bridge timed out')), 5000);
-    promise.then(resolve, reject).finally(() => clearTimeout(timer));
-  });
 
 export const createRuntime = async (
   doc: Document,
@@ -826,8 +820,8 @@ export const createRuntime = async (
     schedule();
   };
   try {
-    listener = await bounded(plugin.addListener('activate', activate));
-    searchListener = await bounded(
+    listener = await boundedListener(plugin.addListener('activate', activate));
+    searchListener = await boundedListener(
       plugin.addListener('search', (event) => {
         if (
           stopped ||

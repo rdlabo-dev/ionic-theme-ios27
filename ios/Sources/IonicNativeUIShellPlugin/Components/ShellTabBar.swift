@@ -23,9 +23,6 @@ enum ShellTabBar {
     static func make(_ node: ShellControl, rendering: ShellRendering, delegate: UITabBarDelegate) -> UITabBar {
         let control = UITabBar()
         configureLayout(control)
-#if DEBUG
-        NSLog("[Native UI Shell] Created UITabBar %@", node.id)
-#endif
         control.delegate = delegate
         update(control, node: node, rendering: rendering)
         return control

@@ -28,9 +28,6 @@ final class ShellFab: UIView {
             if previous == nil {
                 self.buttons[id] = button
                 self.addSubview(button)
-#if DEBUG
-                NSLog("[Native UI Shell] Created FAB button %@ %p", id, unsafeBitCast(button, to: Int.self))
-#endif
             } else if self.content[id] != artwork {
                 let changedIcon = self.content[id]?.selected != item.content.selected
                 let duration = UIAccessibility.isReduceMotionEnabled ? 0 : min(item.content.iconTransition ?? 0, 1)

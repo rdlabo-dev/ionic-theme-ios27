@@ -33,6 +33,7 @@ const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
 export const IonicNativeUIShell = plugin;
 let active: Promise<NativeUIShellHandle> | undefined;
 let activeConfiguration: string | undefined;
+let stopping: Promise<void> | undefined;
 const web = (reason: string): NativeUIShellHandle => ({
   getStatus: () => ({ state: 'web', projected: 0, updates: 0, reason }),
   suspend: async () => ({ resume: async () => {} }),
@@ -71,7 +72,7 @@ const manage = (
     destroy?: () => void | Promise<void>;
   } = {},
 ): NativeUIShellHandle => {
-  let destroyed = false;
+  let destruction: Promise<void> | undefined;
   return {
     getStatus: () => (lifecycle.reason ? { ...handle.getStatus(), reason: lifecycle.reason } : handle.getStatus()),
     async suspend() {
@@ -84,18 +85,18 @@ const manage = (
         },
       };
     },
-    async destroy() {
-      if (destroyed) return;
-      destroyed = true;
-      try {
-        await handle.destroy();
-      } finally {
+    destroy() {
+      return (destruction ??= (async () => {
         try {
-          await lifecycle.destroy?.();
+          await handle.destroy();
         } finally {
-          lifecycle.release?.();
+          try {
+            await lifecycle.destroy?.();
+          } finally {
+            lifecycle.release?.();
+          }
         }
-      }
+      })());
     },
   };
 };
@@ -192,12 +193,8 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     const current = active;
     active = undefined;
     activeConfiguration = undefined;
-    return current
-      ? current.then(async (handle) => {
-          await handle.destroy();
-          return web('Disabled');
-        })
-      : Promise.resolve(web('Disabled'));
+    if (current) stopping = current.then((handle) => handle.destroy());
+    return (stopping ?? Promise.resolve()).then(() => web('Disabled'));
   }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
   const controls = options.controls;
@@ -215,9 +212,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
     );
   if (active) return active;
   activeConfiguration = configuration;
-  const stopModals = observeVerticalBarsModals(document);
-  const prehide =
-    options.controls === undefined || options.controls.toolbar === true ? prehideVerticalBarsToolbarSources(document) : undefined;
+  const previousStop = stopping;
   // A slow destroy of a superseded activation must not release a newer one.
   let start: Promise<NativeUIShellHandle>;
   const release = () => {
@@ -226,18 +221,24 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
       activeConfiguration = undefined;
     }
   };
-  const fallback = (reason: string) =>
-    manage(createVerticalBarsWebProjection(document, options), {
-      reason,
-      suspend: () => prehide?.suspend(),
-      destroy: () => {
-        prehide?.stop();
-        stopModals();
-      },
-      release,
-    });
   return (start = active =
     (async () => {
+      // Native controls and DOM ownership are shared. A replacement activation
+      // must wait until the old handle has finished clearing both surfaces.
+      if (previousStop) await previousStop.catch(() => {});
+      const stopModals = observeVerticalBarsModals(document);
+      const prehide =
+        options.controls === undefined || options.controls.toolbar === true ? prehideVerticalBarsToolbarSources(document) : undefined;
+      const fallback = (reason: string) =>
+        manage(createVerticalBarsWebProjection(document, options), {
+          reason,
+          suspend: () => prehide?.suspend(),
+          destroy: () => {
+            prehide?.stop();
+            stopModals();
+          },
+          release,
+        });
       if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
       let runtime: NativeUIShellHandle | undefined;
       let overlays: Awaited<ReturnType<typeof createOverlayController>> | undefined;

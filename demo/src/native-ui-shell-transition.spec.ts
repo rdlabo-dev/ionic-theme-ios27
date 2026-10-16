@@ -217,7 +217,7 @@ test('a canceled Web transition releases the still-active leaving page', () => {
   expect(canceledEntering).toBe(entering);
 });
 
-test('server rendering has no DOM side effects', async () => {
+test('without native support the Web handle supports suspension and teardown', async () => {
   await expect(configureNativeTransition()).resolves.toEqual({ radius: 0 });
   const handle = await enableNativeUIShell();
   expect(handle.getStatus().state).toBe('web');

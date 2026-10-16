@@ -1,5 +1,5 @@
 import type { NativeUIShellOptions, NativeUIShellPlugin } from '../definitions';
-import { bounded } from '../runtime';
+import { bounded, boundedListener } from '../shared/bridge';
 import { isExcluded, isPermanentlyExcluded, isShellDisabled } from '../shared/dom';
 import { activeElement, trapFocus } from './focus';
 import { relayPopover, popoverPresentation, verticalBarsPopoverAnchor } from './popover';
@@ -304,19 +304,19 @@ export const createOverlayController = async (
   };
   // Retention must not freeze an obsolete layout or a departed page.
   const win = doc.defaultView!;
-  win.addEventListener('resize', invalidate);
-  doc.addEventListener('ionViewWillLeave', invalidate);
   const visibility = () => {
     if (doc.hidden) invalidate();
   };
-  doc.addEventListener('visibilitychange', visibility);
-  const listener = await bounded(
+  const listener = await boundedListener(
     plugin.addListener('overlay', (event) => {
       if (event.id !== current?.id) return;
       if (event.action === 'dismiss' && current.overlay.backdropDismiss)
         void current.overlay.dismiss(undefined, 'backdrop').catch(console.error);
     }),
   );
+  win.addEventListener('resize', invalidate);
+  doc.addEventListener('ionViewWillLeave', invalidate);
+  doc.addEventListener('visibilitychange', visibility);
   const stopEvents = observe(doc);
   return {
     async suspend() {

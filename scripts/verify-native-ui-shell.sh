@@ -1,7 +1,8 @@
 #!/bin/sh
-# Prerequisites: npm ci at root and demo, Xcode 26+, XcodeGen.
+# Prerequisites: npm ci at root and demo, Xcode 27.1+, XcodeGen.
 # The demo includes the Capacitor 8.5 UIScene migration required by SDK 27.
-# Requires an already booted iOS 26+ Simulator. All generated fixtures stay in /tmp.
+# Requires an already booted iPhone Duo / iOS 27.1+ Simulator for native rail tests.
+# All generated fixtures stay in /tmp unless VERIFY_ARTIFACTS_DIR is supplied.
 set -eu
 
 simulator=${1:?Usage: sh scripts/verify-native-ui-shell.sh SIMULATOR_UDID}
@@ -15,6 +16,9 @@ fi
 printf 'Native UI Shell verification artifacts: %s\n' "$artifacts"
 
 cd "$repo"
+xcodebuild -scheme RdlaboIonicThemeIos27 \
+  -destination "platform=iOS Simulator,id=$simulator" -derivedDataPath "$artifacts/unit-test-build" \
+  -resultBundlePath "$artifacts/unit-tests.xcresult" CODE_SIGNING_ALLOWED=NO test > "$artifacts/unit-tests.log" 2>&1
 npm run build
 npm pack --ignore-scripts --json --pack-destination "$artifacts" > "$artifacts/pack.json"
 archive=$(node -e 'process.stdout.write(require(process.argv[1])[0].filename)' "$artifacts/pack.json")

@@ -22,14 +22,20 @@ jobs:
         include:
           - suite: ui-shell
             script: scripts/verify-native-ui-shell.sh
+            device: iPhone Duo
+            runtime: iOS 27.1
             scenario: ''
             kana: ''
           - suite: search
             script: scripts/verify-native-search.sh
+            device: iPhone 17
+            runtime: iOS 27.0
             scenario: search
             kana: kana
           - suite: edge
             script: scripts/verify-native-search.sh
+            device: iPhone 17
+            runtime: iOS 27.0
             scenario: edge
             kana: ''
     steps:
@@ -55,7 +61,7 @@ jobs:
           curl -fsSL "https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-utils/utils-v${version}/scripts/ci-simulator.sh" -o "$RUNNER_TEMP/ci-simulator.sh"
 
       - name: Create and boot simulator
-        run: sh "$RUNNER_TEMP/ci-simulator.sh" "iPhone 17" "iOS 27.0" ${{ matrix.kana }}
+        run: sh "$RUNNER_TEMP/ci-simulator.sh" "${{ matrix.device }}" "${{ matrix.runtime }}" ${{ matrix.kana }}
 
       - name: Run ${{ matrix.suite }} suite
         run: sh ${{ matrix.script }} "$SIM_UDID" ${{ matrix.scenario }}

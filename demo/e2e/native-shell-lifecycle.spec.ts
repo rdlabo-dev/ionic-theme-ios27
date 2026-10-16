@@ -1,0 +1,224 @@
+import { expect, test } from '@playwright/test';
+import { buildSync } from 'esbuild';
+import type { NativeUIShellPlugin } from '../../src/native/definitions';
+import type { createOverlayController } from '../../src/native/overlays/controller';
+import type { enableNativeUIShell } from '../../src/native';
+import type { createRuntime } from '../../src/native/runtime';
+
+const bundle = buildSync({
+  stdin: {
+    contents:
+      "export { createOverlayController } from '../../src/native/overlays/controller'; export { createRuntime } from '../../src/native/runtime'; export { enableNativeUIShell } from '../../src/native';",
+    resolveDir: __dirname,
+  },
+  bundle: true,
+  format: 'iife',
+  globalName: 'shellLifecycle',
+  write: false,
+}).outputFiles[0].text;
+
+interface LifecycleState {
+  done: boolean;
+  failed: boolean;
+  counts(): { native: number; dom: number };
+  finish(): void;
+  restart(): Promise<{ active: number; native: number; dom: number }>;
+}
+
+type LifecycleWindow = Window & {
+  lifecycleState: LifecycleState;
+  shellLifecycle: {
+    createOverlayController: typeof createOverlayController;
+    createRuntime: typeof createRuntime;
+    enableNativeUIShell: typeof enableNativeUIShell;
+  };
+};
+
+for (const eventName of ['overlay', 'activate', 'search']) {
+  for (const failure of ['reject', 'timeout']) {
+    test(`shell ${eventName} registration ${failure} releases resources and can restart`, async ({ page }) => {
+      await page.clock.install();
+      await page.addScriptTag({ content: bundle });
+      await page.evaluate(
+        ({ eventName, failure }) => {
+          const api = (window as LifecycleWindow).shellLifecycle;
+          const nativeListeners = new Set<symbol>();
+          const domListeners = new Set<EventListenerOrEventListenerObject>();
+          // These controller listeners have no AbortSignal; failed initialization
+          // must never leave them installed on the source document/window.
+          for (const target of [window, document]) {
+            const add = target.addEventListener.bind(target);
+            const remove = target.removeEventListener.bind(target);
+            target.addEventListener = ((name: string, callback: EventListenerOrEventListenerObject, options?: AddEventListenerOptions) => {
+              if (['resize', 'ionViewWillLeave', 'visibilitychange'].includes(name) && !options?.signal) domListeners.add(callback);
+              add(name, callback, options);
+            }) as typeof target.addEventListener;
+            target.removeEventListener = ((name: string, callback: EventListenerOrEventListenerObject, options?: EventListenerOptions) => {
+              domListeners.delete(callback);
+              remove(name, callback, options);
+            }) as typeof target.removeEventListener;
+          }
+          let fail = true;
+          let finishRegistration: (() => void) | undefined;
+          const plugin = {
+            async addListener(name: string) {
+              if (fail && name === eventName) {
+                if (failure === 'reject') throw new Error('Unavailable bridge');
+                await new Promise<void>((resolve) => (finishRegistration = resolve));
+              }
+              const registration = Symbol(name);
+              nativeListeners.add(registration);
+              return {
+                remove: async () => {
+                  nativeListeners.delete(registration);
+                },
+              };
+            },
+            async clear() {},
+            async stopOverlays() {},
+            async update(snapshot: { revision: number }) {
+              return { revision: snapshot.revision };
+            },
+          } as unknown as NativeUIShellPlugin;
+          const start = () =>
+            eventName === 'overlay'
+              ? api.createOverlayController(
+                  document,
+                  plugin,
+                  { controls: { popover: true } },
+                  () => () => {},
+                  () => true,
+                )
+              : api.createRuntime(document, plugin);
+          const state: LifecycleState = {
+            done: false,
+            failed: false,
+            counts: () => ({ native: nativeListeners.size, dom: domListeners.size }),
+            finish: () => finishRegistration?.(),
+            async restart() {
+              fail = false;
+              const handle = await start();
+              const active = nativeListeners.size;
+              await handle.destroy();
+              return { active, ...state.counts() };
+            },
+          };
+          Object.assign(window, { lifecycleState: state });
+          void start()
+            .then(
+              (handle) => {
+                state.failed = 'getStatus' in handle && handle.getStatus().state === 'stopped';
+              },
+              () => {
+                state.failed = true;
+              },
+            )
+            .finally(() => {
+              state.done = true;
+            });
+        },
+        { eventName, failure },
+      );
+      // Advance the production timeout; do not shorten it or replace the bridge helper.
+      await page.clock.runFor(failure === 'timeout' ? 5100 : 100);
+      const state = () => page.evaluate(() => (window as LifecycleWindow).lifecycleState);
+      await expect.poll(async () => (await state()).done).toBe(true);
+      expect((await state()).failed).toBe(true);
+      await page.evaluate(() => (window as LifecycleWindow).lifecycleState.finish());
+      await expect.poll(() => page.evaluate(() => (window as LifecycleWindow).lifecycleState.counts())).toEqual({ native: 0, dom: 0 });
+      // A clean second activation must own exactly one copy of each native listener.
+      const restart = page.evaluate(() => (window as LifecycleWindow).lifecycleState.restart());
+      await page.clock.runFor(100);
+      expect(await restart).toEqual({ active: eventName === 'overlay' ? 1 : 2, native: 0, dom: 0 });
+    });
+  }
+}
+
+for (const destroyFirst of [false, true]) {
+  test(`disable and immediate re-enable wait for native teardown (${destroyFirst ? 'direct destroy first' : 'disable only'})`, async ({
+    page,
+  }) => {
+    await page.clock.install();
+    await page.evaluate(() => {
+      const callbacks = new Set<unknown>();
+      const state = {
+        configured: 0,
+        clearStarted: false,
+        release: () => {},
+        listeners: () => callbacks.size,
+      };
+      const plugin = {
+        async configure() {
+          state.configured++;
+          return { supported: true };
+        },
+        async addListener(_name: string, callback: unknown) {
+          callbacks.add(callback);
+          return {
+            remove: async () => {
+              callbacks.delete(callback);
+            },
+          };
+        },
+        async update(snapshot: { revision: number }) {
+          return { revision: snapshot.revision };
+        },
+        async clear() {
+          if (state.clearStarted) return;
+          state.clearStarted = true;
+          await new Promise<void>((resolve) => {
+            state.release = resolve;
+          });
+        },
+      };
+      window.CapacitorCustomPlatform = { name: 'ios' };
+      let capacitor: { registerPlugin: (name: string) => unknown } | undefined;
+      Object.defineProperty(window, 'Capacitor', {
+        configurable: true,
+        get: () => capacitor,
+        set: (value) => {
+          const register = value.registerPlugin;
+          value.registerPlugin = (name: string) => (name === 'IonicNativeUIShell' ? plugin : register(name));
+          capacitor = value;
+        },
+      });
+      Object.assign(window, { restartState: state });
+      document.body.innerHTML = '<ion-app></ion-app>';
+    });
+    await page.addScriptTag({ content: bundle });
+    await page.evaluate(async (destroyFirst) => {
+      const { enableNativeUIShell } = (window as LifecycleWindow).shellLifecycle;
+      const options = { verticalBarsOnly: true, controls: {} };
+      const first = await enableNativeUIShell(options);
+      if (destroyFirst) void first.destroy();
+      const disabling = enableNativeUIShell({ enabled: false });
+      const second = enableNativeUIShell(options);
+      Object.assign(window, {
+        restartCompleted: Promise.all([disabling, second]).then(([, handle]) => {
+          Object.assign(window, { restartedHandle: handle });
+        }),
+      });
+    }, destroyFirst);
+    await page.clock.runFor(100);
+    const evidence = await page.evaluate(() => {
+      const state = (window as Window & { restartState: { configured: number; clearStarted: boolean } }).restartState;
+      return { configured: state.configured, clearStarted: state.clearStarted };
+    });
+    expect(evidence).toEqual({ configured: 1, clearStarted: true });
+    await page.evaluate(async () => {
+      const state = window as Window & { restartState: { release(): void }; restartCompleted: Promise<void> };
+      state.restartState.release();
+      await state.restartCompleted;
+    });
+    expect(
+      await page.evaluate(() => {
+        const state = (window as Window & { restartState: { configured: number; listeners(): number } }).restartState;
+        return { configured: state.configured, listeners: state.listeners() };
+      }),
+    ).toEqual({ configured: 2, listeners: 2 });
+    const destroy = page.evaluate(() => (window as Window & { restartedHandle: { destroy(): Promise<void> } }).restartedHandle.destroy());
+    await page.clock.runFor(100);
+    await destroy;
+    expect(await page.evaluate(() => (window as Window & { restartState: { listeners(): number } }).restartState.listeners())).toBe(0);
+  });
+}
