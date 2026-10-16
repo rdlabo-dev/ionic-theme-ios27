@@ -3561,6 +3561,11 @@ for (const edge of ['leading', 'trailing'] as const)
       await activate(page, 'Open popover');
       await expect(page.getByText('Toolbar popover', { exact: true })).toBeVisible();
       await expectWebPopoverPainted(page);
+      await expect(trigger).not.toHaveAttribute('data-native-ui-shell-vertical-bars-member');
+      await expect(page.locator('.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
+      await expect
+        .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.controls.length))
+        .toBe(0);
       const box = (await page.locator('ion-popover[trigger="native-popover-trigger"] .popover-content').boundingBox())!;
       expect(edge === 'leading' ? box.x : box.x + box.width).toBeCloseTo(edge === 'leading' ? anchor.x : anchor.x + anchor.width, 0);
       expect(box.y).toBeCloseTo(anchor.y, 0);
@@ -3575,6 +3580,32 @@ for (const edge of ['leading', 'trailing'] as const)
       await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '', { timeout: 15000 });
       expect(page.context().pages()).toHaveLength(1);
     }
+  });
+
+for (const refusal of ['disabled', 'md'])
+  test(`Vertical Bars popover rejected before preparation returns the rail to Web (${refusal})`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto('/main/index/popover');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const trigger = page.locator('#native-popover-trigger');
+    await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
+    await page.locator('ion-popover[trigger="native-popover-trigger"]').evaluate((overlay: HTMLIonPopoverElement, refusal) => {
+      if (refusal === 'disabled') overlay.setAttribute('data-shell', 'disabled');
+      else overlay.mode = 'md';
+    }, refusal);
+    await activate(page, 'Open popover');
+    await expect(page.getByText('Toolbar popover', { exact: true })).toBeVisible();
+    await expect(trigger).not.toHaveAttribute('data-native-ui-shell-vertical-bars-member');
+    await expect(page.locator('.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.controls.length))
+      .toBe(0);
+    expect(await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').preparedPopovers)).toBe(0);
+    await page.getByRole('button', { name: 'Increment', exact: true }).click();
+    await expect(page.getByText('Count: 1', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Close popover', exact: true }).click();
+    await expect(trigger).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
   });
 
 for (const disabled of [false, true])
@@ -3949,6 +3980,8 @@ for (const context of ['inherited native styles', 'sibling-dependent Web fallbac
       await expect.poll(() => relay.isClosed()).toBe(true);
       await expect(page.getByText('Toolbar popover', { exact: true })).toHaveCSS('color', 'rgb(180, 20, 60)');
       await expectWebPopoverPainted(page);
+      await expect(page.locator('#native-popover-trigger')).not.toHaveAttribute('data-native-ui-shell-vertical-bars-member');
+      await expect(page.locator('.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
       await page.getByRole('button', { name: 'Increment', exact: true }).click();
       await expect(page.getByText('Count: 1', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Close popover', exact: true }).click();
@@ -3961,6 +3994,8 @@ for (const context of ['inherited native styles', 'sibling-dependent Web fallbac
       await expect(page.getByText('Count: 1', { exact: true })).toBeVisible();
       await expect(page.getByText('Toolbar popover', { exact: true })).toHaveCSS('color', 'rgb(20, 40, 180)');
       await expectWebPopoverPainted(page);
+      await expect(page.locator('#native-popover-trigger')).not.toHaveAttribute('data-native-ui-shell-vertical-bars-member');
+      await expect(page.locator('.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
       await page.getByRole('button', { name: 'Close popover', exact: true }).click();
     }
     await expect(page.locator('#native-popover-trigger')).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');

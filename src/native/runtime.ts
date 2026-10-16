@@ -1,3 +1,4 @@
+import { popoverTrigger } from './overlays/popover';
 import {
   alignVerticalTabBar,
   forgetVerticalBarFrame,
@@ -69,6 +70,7 @@ export const createRuntime = async (
   const pages = new Set<HTMLElement>();
   const verticalBarsPages = createVerticalBarsPageState();
   const presented = new Set<HTMLElement>();
+  const railPopovers = new WeakSet<HTMLElement>();
   const manualSuspensions = new Set<symbol>();
   const moving = new Map<HTMLElement, Set<string>>();
   const observed = new Set<Element | ShadowRoot>();
@@ -223,7 +225,7 @@ export const createRuntime = async (
   const overlayOpen = (includeMenu = true, allowModal = false, ignoredSelector?: string) => {
     const modal = topModal(doc);
     const ignored = (element: Element) =>
-      (!!ignoredSelector && element.matches(ignoredSelector)) ||
+      (!!ignoredSelector && element.matches(ignoredSelector) && !railPopovers.has(element as HTMLElement)) ||
       (allowModal && !!modal && modalUsesVerticalBars(modal) && element.matches('ion-modal'));
     for (const element of presented) if (!element.isConnected) presented.delete(element);
     const presentedOverlayOpen = Array.from(presented).some(
@@ -645,6 +647,13 @@ export const createRuntime = async (
   on(doc, 'ionTabsDidChange', endTabSwitchHandoff);
   const overlayPresenting = (element: HTMLElement) => {
     presented.add(element);
+    if (element.matches('ion-popover')) {
+      const trigger = popoverTrigger(element as HTMLIonPopoverElement);
+      // Remember the source before native ownership changes. A successful native
+      // popover retains projection; a Web fallback must retire the rail instead.
+      if (trigger?.matches('ion-button') && isVerticalBarsSource(trigger as HTMLElement)) railPopovers.add(element);
+      else railPopovers.delete(element);
+    }
     if (element.matches('ion-modal')) {
       modalPresentHandoff = true;
       // A pending bridge update must retire the old controls immediately too.
@@ -659,6 +668,7 @@ export const createRuntime = async (
     on(doc, `ion${name}WillPresent`, (event) => overlayPresenting(event.target as HTMLElement));
     on(doc, `ion${name}DidDismiss`, (event) => {
       presented.delete(event.target as HTMLElement);
+      railPopovers.delete(event.target as HTMLElement);
       schedule();
     });
   }

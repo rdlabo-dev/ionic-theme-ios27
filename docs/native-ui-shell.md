@@ -132,7 +132,8 @@ Standard Ionic overlays suspend ordinary native projection until dismissal. Vert
 
 | Surface or condition | Vertical Bars behavior |
 | --- | --- |
-| Web toast, popover or legacy picker overlay | Keep the native rail visible, updated and interactive. |
+| Web toast, ordinary popover or legacy picker overlay | Keep the native rail visible, updated and interactive. |
+| Popover opened from a Vertical Bars button, rendered on Web | Return the rail to Web projection until dismissal, including native rejection or preparation failure. |
 | Alert, action sheet or loading | Restore Web rendering so the overlay and its dimming backdrop cover the controls correctly. |
 | Menu | Keep the existing native rail behavior. |
 | Full-width foreground modal | Project the modal's controls instead of the covered page's controls. |
@@ -189,7 +190,7 @@ Only one popover is relayed at a time. A nested popover or modal created in the 
 
 Native presentation owns the arrow, corners and animation; custom Web enter/leave animations do not replace them. The source enter builder runs once with zero duration and delay (including child animations), using the native anchor rectangle for the default `reference="trigger"` layout and visible state for Web fallback. Explicit `reference="event"` retains Ionic’s event-coordinate semantics. An explicit `enterAnimation` is honored; otherwise this package’s iOS popover builder is used. Set `enterAnimation` on the overlay to use a custom builder rather than relying on global `popoverEnter` configuration. Material Design (`md`) popovers keep Ionic’s Web presentation. Initial content dimensions come from Ionic.
 
-The relay copies document and popover shadow styles and preserves the content border spacing. Before native presentation it compares selected computed layout and appearance properties at the source dimensions. Detected differences, unsupported ancestor visual effects or size containers, and content exceeding 1,000 elements restore the live Web popover. Changes to mirrored ancestor attributes or source head styles also restore Web rendering. This is a conservative compatibility check, not a guarantee for arbitrary CSS (including pseudo-elements and dynamic CSSOM changes), document-bound queries, or full VoiceOver/hardware-keyboard parity. Failure to prepare or find the native anchor restores the Web popover.
+The relay copies document and popover shadow styles and preserves the content border spacing. Before native presentation it compares selected computed layout and appearance properties at the source dimensions. Detected differences, unsupported ancestor visual effects or size containers, and content exceeding 1,000 elements restore the live Web popover. Changes to mirrored ancestor attributes or source head styles also restore Web rendering. This is a conservative compatibility check, not a guarantee for arbitrary CSS (including pseudo-elements and dynamic CSSOM changes), document-bound queries, or full VoiceOver/hardware-keyboard parity. Failure to prepare or find the native anchor restores the Web popover. A popover opened from a Vertical Bars button also returns the rail to Web projection for the remainder of that presentation; dismissal restores native projection.
 
 For a custom modal or overlay that Native UI Shell cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
 
