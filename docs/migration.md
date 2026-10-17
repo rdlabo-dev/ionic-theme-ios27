@@ -6,7 +6,7 @@ title: Migration
 
 ## Native UI package separation
 
-The repository now separates the theme from `@ionic-theme/capacitor-native-ui`. Existing theme imports and CSS paths remain supported. Capacitor apps using native controls must add `@ionic-theme/capacitor-native-ui` as a direct dependency and run `npx cap sync ios`; transitive dependencies are not discovered as plugins. See [workspace migration](monorepo.md#existing-applications).
+The repository now separates the theme from `@ionic-theme/capacitor-native-ui`. The ordinary theme entry and CSS paths remain supported. The old `@rdlabo/ionic-theme-ios27/native` and `@rdlabo/ionic-theme-ios27/vertical-bars` entries are removed; replace them with `@ionic-theme/capacitor-native-ui` and `@ionic-theme/capacitor-native-ui/vertical-bars`, respectively. Capacitor apps using native controls must add `@ionic-theme/capacitor-native-ui` as a direct dependency and run `npx cap sync ios`; transitive dependencies are not discovered as plugins. See [workspace migration](monorepo.md#existing-applications).
 
 ## Native UI Shell transition adapter
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import ts from 'typescript';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, mkdirSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, mkdirSync, symlinkSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -25,6 +26,37 @@ try {
     symlinkSync(packageRoot, dependencyPath, 'dir');
     symlinkSync(join(dir, 'node_modules'), join(packageRoot, 'node_modules'), 'dir');
     const files = new Set(archive.files.map((file) => file.path));
+
+    // Hoisted workspace dependencies must not hide undeclared runtime imports.
+    const dependencies = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})]);
+    for (const file of files) {
+      if (!file.startsWith('dist/') || !file.endsWith('.js')) continue;
+      const source = ts.createSourceFile(
+        file,
+        readFileSync(join(packageRoot, file), 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.JS,
+      );
+      const visit = (node) => {
+        const specifier =
+          ts.isImportDeclaration(node) || ts.isExportDeclaration(node)
+            ? node.moduleSpecifier
+            : ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
+              ? node.arguments[0]
+              : undefined;
+        if (specifier && ts.isStringLiteral(specifier) && !specifier.text.startsWith('.')) {
+          const name = specifier.text
+            .split('/')
+            .slice(0, specifier.text.startsWith('@') ? 2 : 1)
+            .join('/');
+          assert(dependencies.has(name), `${manifest.name}: undeclared dependency ${name} in ${file}`);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+
     for (const entry of Object.values(manifest.exports)) {
       for (const target of typeof entry === 'string' ? [entry] : Object.values(entry)) {
         if (!target.includes('*')) assert(files.has(target.replace(/^\.\//, '')), `${manifest.name}: missing ${target}`);

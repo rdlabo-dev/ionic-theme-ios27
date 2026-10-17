@@ -66,5 +66,8 @@
     "android": {
       "src": "android"
     }
+  },
+  "dependencies": {
+    "@rdlabo/ionic-theme-utils": "0.1.4"
   }
 }
