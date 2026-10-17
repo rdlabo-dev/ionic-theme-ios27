@@ -1,0 +1,38 @@
+:host {
+  display: block;
+  padding: 6px 12px;
+  padding-left: calc(
+    var(--player-edge-gap, 12px) + max(env(safe-area-inset-left, 0px), var(--ios-theme-vertical-bars-safe-area-left-resolved, 0px))
+  );
+  padding-right: calc(
+    var(--player-edge-gap, 12px) + max(env(safe-area-inset-right, 0px), var(--ios-theme-vertical-bars-safe-area-right-resolved, 0px))
+  );
+  margin-bottom: calc(72px + var(--ion-safe-area-bottom, 0px));
+}
+:host-context(ion-app.ios-theme-vertical-bars) {
+  --player-edge-gap: 48px;
+  margin-bottom: var(--ion-safe-area-bottom, 0px);
+}
+:host([hidden]) {
+  display: none;
+}
+.cover {
+  width: min(100%, 320px);
+  border-radius: 20px;
+}
+
+.now-playing {
+  max-width: 360px;
+  margin: 24px auto;
+  text-align: center;
+
+  h2 {
+    margin-bottom: 8px;
+  }
+  p {
+    color: var(--ion-color-medium);
+  }
+  ion-button {
+    margin-top: 24px;
+  }
+}

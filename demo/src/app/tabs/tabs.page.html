@@ -26,6 +26,7 @@
 
   <section id="main-content">
     <ion-tabs>
+      <app-mini-player slot="bottom" [hidden]="!showMiniPlayer()"></app-mini-player>
       <ion-tab-bar id="tab-bar-bottom" slot="bottom">
         <ion-tab-button tab="index" href="/main/index">
           <ion-icon aria-hidden="true" name="documents"></ion-icon>

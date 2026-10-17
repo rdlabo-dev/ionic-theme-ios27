@@ -1,0 +1,64 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start"><ion-back-button defaultHref="/main/index"></ion-back-button></ion-buttons>
+    <ion-title>Native UI Extension</ion-title>
+  </ion-toolbar>
+</ion-header>
+<ion-content>
+  <article class="extension-demo">
+    <header>
+      <p class="eyebrow">App-local SwiftUI</p>
+      <h1>One player, two renderers</h1>
+      <p>Now Playing demonstrates how your Web UI can become a native SwiftUI view, using the same state and actions.</p>
+    </header>
+
+    <section aria-labelledby="try-heading">
+      <h2 id="try-heading">1. Try Now Playing</h2>
+      <div class="demo-control">
+        <ion-toggle [checked]="demo.enabled()" (ionChange)="demo.enabled.set($event.detail.checked)">Native extension</ion-toggle>
+        <p role="status">Extension: {{ demo.enabled() ? 'Enabled' : 'Disabled' }}</p>
+        <p class="hint">Off: Web. On: SwiftUI on supported iOS; Web elsewhere. Ordinary tabs and Duo Mode both work.</p>
+      </div>
+      <ol>
+        <li>Use the player at the bottom to pause or resume.</li>
+        <li>Switch the toggle. Playback state stays the same.</li>
+        <li>Tap the track or swipe up to open the Web modal. Close it using the button at the top left.</li>
+      </ol>
+      <p class="hint">UI demo only. No audio is played.</p>
+    </section>
+
+    <section aria-labelledby="state-heading">
+      <h2 id="state-heading">2. Shared state and actions</h2>
+      <dl>
+        <dt>Web owns the state</dt>
+        <dd><code>data-title</code>, <code>data-artist</code> and <code>data-playing</code> supply both renderers.</dd>
+        <dt>SwiftUI sends actions back</dt>
+        <dd>Play and open activate the original Web actions. The app updates its state and attributes.</dd>
+        <dt>Layout stays with the app</dt>
+        <dd>This example uses element projection: SwiftUI follows the Web element's position and size.</dd>
+      </dl>
+    </section>
+
+    <section aria-labelledby="build-heading">
+      <h2 id="build-heading">3. Build your own</h2>
+      <p>Keep the Web renderer, DOM reader and SwiftUI view in your project. No separate npm package or Capacitor plugin is needed.</p>
+      <ol>
+        <li>Read your element with <code>defineNativeUI()</code>.</li>
+        <li>Register the matching view with <code>NativeUIShell.register()</code>.</li>
+        <li>Pass the definition to <code>enableNativeUIShell()</code>.</li>
+      </ol>
+      <p>
+        <code>tab-accessory</code> is an optional placement chosen by your app. This example uses the default
+        <code>element</code> placement.
+      </p>
+      <nav aria-label="Extension documentation">
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/feat/swiftui-mini-player/docs/native-mini-player.md"
+          >Now Playing example</a
+        >
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/feat/native-ui-extensions/docs/native-ui-extensions.md"
+          >Extension API and placement options</a
+        >
+      </nav>
+    </section>
+  </article>
+</ion-content>

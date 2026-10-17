@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, DestroyRef, ElementRef, inject, OnDestroy, OnInit, viewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, inject, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
 import {
   IonContent,
   IonIcon,
@@ -21,6 +21,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { registeredEffect, registerTabBarEffect } from '../../../../src';
 import { applyFoldStateClasses } from '../../../../src/vertical-bars';
 import { Foldable, type FoldState } from '@erkamyaman/capacitor-foldable';
+import { MiniPlayerComponent } from '../mini-player/mini-player.component';
 import { Capacitor } from '@capacitor/core';
 
 @Component({
@@ -28,6 +29,7 @@ import { Capacitor } from '@capacitor/core';
   templateUrl: 'tabs.page.html',
   styleUrls: ['tabs.page.scss'],
   imports: [
+    MiniPlayerComponent,
     IonTabs,
     IonTabBar,
     IonTabButton,
@@ -49,6 +51,7 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
   #hingeListener?: { remove(): Promise<void> };
   readonly #destroyRef = inject(DestroyRef);
   readonly registeredGestures: registeredEffect[] = [];
+  readonly showMiniPlayer = signal(false);
   ngOnInit() {
     this.#router.events
       .pipe(
@@ -61,6 +64,7 @@ export class TabsPage implements OnInit, AfterViewInit, OnDestroy, ViewDidEnter,
           return;
         }
         const path = params.urlAfterRedirects.split(/[?#]/, 1)[0];
+        this.showMiniPlayer.set(path === '/main/index/native-ui-extension');
         if (['/main/settings', '/main/index/toolbar', '/main/index/button-projection'].includes(path)) {
           tabBar.classList.add('tab-bar-hidden');
         } else {

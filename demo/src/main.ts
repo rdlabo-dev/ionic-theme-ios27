@@ -1,3 +1,4 @@
+import { miniPlayer } from './native-ui/mini-player';
 import { counter, accessoryCounter } from './native-ui/counter';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { createAppConfig, type IonicAnimationOptions } from './app/app.config';
@@ -47,7 +48,7 @@ const startShell =
 const buttonDefaultFill = stockIonic || new URLSearchParams(window.location.search).get('buttonDefaultFill') === 'solid' ? 'solid' : null;
 const buttonProjection = new URLSearchParams(window.location.search).get('buttonProjection') === 'source' ? 'source' : 'system';
 void startShell({
-  extensions: [counter, accessoryCounter],
+  extensions: [counter, accessoryCounter, miniPlayer],
   buttonProjection,
   buttonDefaultFill,
   controls: { tabs: true, toolbar: true, segment: true, fab: true, popover: true },

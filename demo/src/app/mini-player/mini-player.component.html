@@ -1,0 +1,33 @@
+<section
+  #source
+  data-mini-player
+  [attr.data-shell]="demo.enabled() ? null : 'disabled'"
+  [attr.data-title]="title"
+  [attr.data-artist]="artist"
+  [attr.data-playing]="playing()"
+  (openNowPlaying)="opened.set(true)"
+  (togglePlayback)="playing.set(!playing())"
+></section>
+<ion-modal [isOpen]="opened()" (didDismiss)="opened.set(false)">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Now Playing</ion-title>
+        <ion-buttons slot="start">
+          <ion-button type="button" aria-label="Close Now Playing" (click)="opened.set(false)">Close</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="ion-padding">
+      <div class="now-playing">
+        <img class="cover" src="assets/mini-player-artwork.svg" alt="Album artwork" />
+        <h2>{{ title }}</h2>
+        <p>{{ artist }}</p>
+        <p>{{ playing() ? 'Playing' : 'Paused' }} · 1:24 / 3:45</p>
+        <ion-button type="button" expand="block" size="large" (click)="playing.set(!playing())">
+          {{ playing() ? 'Pause' : 'Play' }}
+        </ion-button>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
