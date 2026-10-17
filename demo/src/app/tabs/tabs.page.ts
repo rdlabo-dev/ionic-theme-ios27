@@ -18,8 +18,8 @@ import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { registeredEffect, registerTabBarEffect } from '../../../../src';
-import { applyFoldStateClasses } from '../../../../src/vertical-bars';
+import { registeredEffect, registerTabBarEffect } from '@rdlabo/ionic-theme-ios27';
+import { applyFoldStateClasses } from '@ionic-theme/capacitor-native-ui/vertical-bars';
 import { Foldable, type FoldState } from '@erkamyaman/capacitor-foldable';
 import { MiniPlayerComponent } from '../mini-player/mini-player.component';
 import { Capacitor } from '@capacitor/core';

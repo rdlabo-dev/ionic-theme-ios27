@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, QueryList, ViewChildren } from '@angular/core';
 import { closeOutline } from 'ionicons/icons';
-import { supportSeachbarCancelButtonIcon, SearchbarCancelButtonIconSupport } from '../../../../../../src';
+import { supportSeachbarCancelButtonIcon, SearchbarCancelButtonIconSupport } from '@rdlabo/ionic-theme-ios27';
 
 import { FormsModule } from '@angular/forms';
 import {

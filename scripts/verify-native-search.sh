@@ -19,8 +19,10 @@ fi
 printf 'Native %s verification artifacts: %s\n' "$scenario" "$artifacts"
 cd "$repo"
 npm run build
-npm pack --ignore-scripts --json --pack-destination "$artifacts" > "$artifacts/pack.json"
-archive=$(node -e 'process.stdout.write(require(process.argv[1])[0].filename)' "$artifacts/pack.json")
+npm pack --workspaces --ignore-scripts --json --pack-destination "$artifacts" > "$artifacts/pack.json"
+native_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@ionic-theme/capacitor-native-ui").filename)' "$artifacts/pack.json")
+theme_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@rdlabo/ionic-theme-ios27").filename)' "$artifacts/pack.json")
+
 cd "$repo/demo"
 npm run build -- --configuration=production
 mkdir -p "$artifacts/consumer/www"
@@ -33,7 +35,7 @@ const file = process.argv[2];
 writeFileSync(file, readFileSync(file, 'utf8').replace('</body>', `<script src="${process.argv[3]}"></script></body>`));
 JS
 cd "$artifacts/consumer"
-npm install --ignore-scripts "$artifacts/$archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @capacitor/keyboard@8.0.5 @ionic/core@8.8.19
+npm install --ignore-scripts "$artifacts/$native_archive" "$artifacts/$theme_archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @capacitor/keyboard@8.0.5 @ionic/core@8.8.19
 npx cap add ios --packagemanager SPM
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
   -sdk iphonesimulator -destination "platform=iOS Simulator,id=$simulator" \

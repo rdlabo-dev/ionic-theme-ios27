@@ -1,5 +1,5 @@
 import type { registeredEffect } from '../sheets-of-glass/interfaces';
-import { isNativeUIShell } from '../native-integration';
+import { isNativeUIShell } from '@ionic-theme/capacitor-native-ui/integration';
 
 interface LensRect {
   x: number;

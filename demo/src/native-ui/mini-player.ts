@@ -1,4 +1,4 @@
-import { defineNativeUI } from '../../../src/native';
+import { defineNativeUI } from '@ionic-theme/capacitor-native-ui';
 
 const props = (element: HTMLElement) => ({
   title: element.getAttribute('data-title') ?? '',

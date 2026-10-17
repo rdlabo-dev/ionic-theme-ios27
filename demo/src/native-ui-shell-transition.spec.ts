@@ -1,15 +1,15 @@
 import { expect, test, vi } from 'vitest';
-import { withNativeUIShellTransition } from '../../src/vertical-bars';
+import { withNativeUIShellTransition } from '../../packages/native-ui/src/vertical-bars';
 import {
   connectNativeUIShellTransition,
   VERTICAL_BARS_TRANSITION_CANCELED,
   getNativeSearchBindings,
   registerNativeSearch,
   setNativeUIShellIntegration,
-} from '../../src/native-integration';
+} from '../../packages/native-ui/src/native-integration';
 import type { Animation } from '@ionic/core';
-import { configureNativeTransition, enableNativeUIShell } from '../../src/native';
-import { iosTransitionAnimation } from '../../src/transition/ios.transition';
+import { configureNativeTransition, enableNativeUIShell } from '../../packages/native-ui/src/native';
+import { iosTransitionAnimation } from '../../packages/theme-ios/src/transition/ios.transition';
 
 const fixture = () => {
   const doc = {} as Document;

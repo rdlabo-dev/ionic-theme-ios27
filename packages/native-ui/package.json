@@ -1,0 +1,60 @@
+{
+  "version": "1.2.1",
+  "author": "Masahiko Sakakibara <sakakibara@rdlabo.jp>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-ios27.git",
+    "directory": "packages/native-ui"
+  },
+  "bugs": {
+    "url": "https://github.com/rdlabo-dev/ionic-theme-ios27/issues"
+  },
+  "type": "module",
+  "name": "@ionic-theme/capacitor-native-ui",
+  "description": "Web-owned native UI projection for Capacitor",
+  "main": "./dist/native/index.js",
+  "module": "./dist/native/index.js",
+  "types": "./dist/native/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/native/index.d.ts",
+      "import": "./dist/native/index.js"
+    },
+    "./vertical-bars": {
+      "types": "./dist/vertical-bars.d.ts",
+      "import": "./dist/vertical-bars.js"
+    },
+    "./integration": {
+      "types": "./dist/native-integration/index.d.ts",
+      "import": "./dist/native-integration/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "ios",
+    "Package.swift",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc --noEmit && rdlabo-build-theme",
+    "docgen": "docgen --project tsconfig.docgen.json --api NativeUIShellHandle --output-readme ../../docs/native-ui-shell.md && docgen --project tsconfig.docgen.json --api VerticalControlAreaHandle --output-readme ../../docs/vertical-bars.md"
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0 <9",
+    "@ionic/core": ">=8.8.1 <10"
+  },
+  "peerDependenciesMeta": {
+    "@capacitor/core": {
+      "optional": true
+    }
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

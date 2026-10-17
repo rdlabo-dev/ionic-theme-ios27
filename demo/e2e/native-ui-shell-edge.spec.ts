@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { buildSync } from 'esbuild';
-import type { NativeUIShellComponent, ShellControl, ShellItem, ShellSnapshot } from '../../src/native/definitions';
+import type { NativeUIShellComponent, ShellControl, ShellItem, ShellSnapshot } from '../../packages/native-ui/src/native/definitions';
 import type { ShellMockCore } from './native-shell-mock';
 
 interface GeometryEvidence {

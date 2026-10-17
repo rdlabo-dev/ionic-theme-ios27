@@ -2,7 +2,7 @@ import { createIosTransitionAnimation, shadow } from '@rdlabo/ionic-theme-utils'
 import type { Animation } from '@ionic/core/components';
 import type { TransitionOptions } from './index';
 import { getIonPageElement } from './index';
-import { withNativeUIShellTransition } from '../native-integration/transition';
+import { nativeWebViewMetrics, withNativeUIShellTransition } from '@ionic-theme/capacitor-native-ui/integration';
 
 export { shadow };
 
@@ -14,11 +14,13 @@ const transitionConfig = {
   offLeftPercent: 30,
   getIonPageElement,
   shouldAnimateFixedBackButton: (navEl: HTMLElement) => !navEl.closest('ion-app.ios-theme-vertical-bars'),
-  radius: 0,
+  get radius() {
+    return nativeWebViewMetrics.radius;
+  },
 };
 
 export const setConfig = (config: Partial<IosTransitionConfig>): void => {
-  Object.assign(transitionConfig, config);
+  if (config.radius !== undefined) nativeWebViewMetrics.radius = config.radius;
 };
 
 export const iosTransitionAnimation: (navEl: HTMLElement, opts: TransitionOptions) => Animation = withNativeUIShellTransition(

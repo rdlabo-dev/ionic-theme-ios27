@@ -15,13 +15,15 @@ else
 fi
 printf 'Native UI Shell verification artifacts: %s\n' "$artifacts"
 
-cd "$repo"
-xcodebuild -scheme RdlaboIonicThemeIos27 \
+cd "$repo/packages/native-ui"
+xcodebuild -scheme IonicThemeCapacitorNativeUi \
   -destination "platform=iOS Simulator,id=$simulator" -derivedDataPath "$artifacts/unit-test-build" \
   -resultBundlePath "$artifacts/unit-tests.xcresult" CODE_SIGNING_ALLOWED=NO test > "$artifacts/unit-tests.log" 2>&1
+cd "$repo"
 npm run build
-npm pack --ignore-scripts --json --pack-destination "$artifacts" > "$artifacts/pack.json"
-archive=$(node -e 'process.stdout.write(require(process.argv[1])[0].filename)' "$artifacts/pack.json")
+npm pack --workspaces --ignore-scripts --json --pack-destination "$artifacts" > "$artifacts/pack.json"
+native_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@ionic-theme/capacitor-native-ui").filename)' "$artifacts/pack.json")
+theme_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@rdlabo/ionic-theme-ios27").filename)' "$artifacts/pack.json")
 
 cd "$repo/demo"
 npm run build -- --configuration=production
@@ -35,7 +37,7 @@ mkdir -p "$artifacts/consumer/www"
 cp "$repo/demo/native-package-fixture/app.js" "$repo/demo/native-package-fixture/capacitor.config.json" "$artifacts/consumer/"
 cp "$repo/demo/native-package-fixture/index.html" "$artifacts/consumer/www/"
 cd "$artifacts/consumer"
-npm install --ignore-scripts "$artifacts/$archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @ionic/core@8.8.19
+npm install --ignore-scripts "$artifacts/$native_archive" "$artifacts/$theme_archive" @capacitor/core@8.5.2 @capacitor/ios@8.5.2 @capacitor/cli@8.5.2 @ionic/core@8.8.19
 "$repo/demo/node_modules/.bin/esbuild" app.js --bundle --format=esm --outdir=www
 npx cap add ios --packagemanager SPM
 xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \

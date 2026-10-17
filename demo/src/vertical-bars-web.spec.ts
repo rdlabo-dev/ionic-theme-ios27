@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { createVerticalBarsWebProjection } from '../../src/native/vertical-bars-web';
-import { setVerticalBarsPlacement } from '../../src/native/shared/dom';
+import { createVerticalBarsWebProjection } from '../../packages/native-ui/src/native/vertical-bars-web';
+import { setVerticalBarsPlacement } from '../../packages/native-ui/src/native/shared/dom';
 
 const mountEligibleBackButton = () => {
   document.body.innerHTML = `

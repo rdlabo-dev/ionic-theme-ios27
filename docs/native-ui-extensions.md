@@ -10,7 +10,7 @@ An extension projects your existing Web UI into a SwiftUI View. Keep both defini
 
 ```ts
 // src/native-ui/counter.ts
-import { defineNativeUI } from '@rdlabo/ionic-theme-ios27/native';
+import { defineNativeUI } from '@ionic-theme/capacitor-native-ui';
 
 export const counter = defineNativeUI({
   name: 'app.counter',
@@ -30,7 +30,7 @@ The reader is synchronous and read-only. Return `null` when the source should st
 
 ## 2. Register a SwiftUI View in the app target
 
-Add a Swift file to the application's Xcode target. Import `IonicNativeUIShellPlugin`, the module supplied by the theme's existing Capacitor installation.
+Add a Swift file to the application's Xcode target. Import `IonicNativeUIShellPlugin`, the module supplied by `@ionic-theme/capacitor-native-ui`. Follow the [Native UI Shell setup](native-ui-shell.md#enable-the-shell) first.
 
 ```swift
 import SwiftUI
@@ -76,7 +76,7 @@ Call `registerAppNativeUI()` once from `application(_:didFinishLaunchingWithOpti
 ## 3. Enable with local definitions
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
+import { enableNativeUIShell } from '@ionic-theme/capacitor-native-ui';
 import { counter } from './native-ui/counter';
 
 const shell = await enableNativeUIShell({ extensions: [counter] });

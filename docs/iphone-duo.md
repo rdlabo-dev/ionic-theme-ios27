@@ -51,7 +51,7 @@ After `ion-app` is mounted, pass device state to `applyFoldStateClasses`. The ap
 
 ```ts
 import { Foldable } from '@erkamyaman/capacitor-foldable';
-import { applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { applyFoldStateClasses } from '@ionic-theme/capacitor-native-ui/vertical-bars';
 
 const root = document.querySelector('ion-app')!;
 const listener = await Foldable.addListener('foldStateChange', (fold) => applyFoldStateClasses(root, fold));
@@ -84,7 +84,7 @@ Start the standalone runtime once after `ion-app` is mounted, and apply the plug
 
 ```ts
 import { Foldable } from '@erkamyaman/capacitor-foldable';
-import { setVerticalControlAreaPlacement, enableVerticalControlArea } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { setVerticalControlAreaPlacement, enableVerticalControlArea } from '@ionic-theme/capacitor-native-ui/vertical-bars';
 
 const rail = await enableVerticalControlArea();
 const listener = await Foldable.addListener('barPlacementChange', ({ verticalBarEdge, inset }) =>

@@ -19,7 +19,7 @@ import {
   ViewDidEnter,
   ViewDidLeave,
 } from '@demo/ionic';
-import { registeredEffect, registerSegmentEffect } from '../../../../../../src';
+import { registeredEffect, registerSegmentEffect } from '@rdlabo/ionic-theme-ios27';
 
 @Component({
   selector: 'app-segment',

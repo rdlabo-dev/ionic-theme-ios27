@@ -15,7 +15,7 @@ import {
   IonToolbar,
   ViewWillEnter,
 } from '@demo/ionic';
-import { attachTabBarSearchable, TabBarSearchableFunction, TabBarSearchableType } from '../../../../src';
+import { attachTabBarSearchable, TabBarSearchableFunction, TabBarSearchableType } from '@rdlabo/ionic-theme-ios27';
 
 @Component({
   selector: 'app-album-page',

@@ -20,11 +20,11 @@ This is a UI example: elapsed time is fixed and no audio engine is started. Appl
 
 ## Use the Web + SwiftUI set in your application
 
-The local TypeScript file includes both a renderer for an ordinary DOM element and its native reader. Copy it together with `NativeMiniPlayer.swift`; in your app, replace the demo’s relative `defineNativeUI` import with `@rdlabo/ionic-theme-ios27/native`. The Web renderer works without Angular, Capacitor or an enabled Native UI Shell; SwiftUI replaces it only after native accepts the projection.
+The local TypeScript file includes both a renderer for an ordinary DOM element and its native reader. Copy it together with `NativeMiniPlayer.swift`; in your app, replace the demo’s relative `defineNativeUI` import with `@ionic-theme/capacitor-native-ui`. The Web renderer works without Angular, Capacitor or an enabled Native UI Shell; SwiftUI replaces it only after native accepts the projection.
 
 ```ts
 import { miniPlayer, mountNowPlaying } from './native-ui/mini-player';
-import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
+import { enableNativeUIShell } from '@ionic-theme/capacitor-native-ui';
 
 const player = document.querySelector<HTMLElement>('[data-mini-player]')!;
 const destroyWeb = mountNowPlaying(player); // Run on every platform, including the Web.

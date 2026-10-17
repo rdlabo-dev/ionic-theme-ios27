@@ -1,0 +1,49 @@
+# Workspace development and migration
+
+## Packages
+
+| Directory            | npm package                        | Responsibility                                                                            |
+| -------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `packages/theme-ios` | `@rdlabo/ionic-theme-ios27`        | Sass/CSS, Ionic Web behavior and page transitions                                         |
+| `packages/native-ui` | `@ionic-theme/capacitor-native-ui` | Native UI Shell, Vertical Bars runtime, app-local extensions and the Capacitor iOS plugin |
+
+The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination and compatibility exports; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
+
+MD3 remains in `rdlabo-dev/ionic-theme-md3`. Native UI currently implements iOS only. Android and browsers retain Web presentation. Repository transfer and public naming can be considered separately from this layout.
+
+## Existing applications
+
+Theme CSS paths and the ordinary `@rdlabo/ionic-theme-ios27` entry stay unchanged. Existing `/native` and `/vertical-bars` JavaScript imports remain compatibility exports.
+
+**Native installation changes:** Capacitor discovers direct application dependencies. Apps using native projection must add the native package explicitly, then sync:
+
+```sh
+npm install @rdlabo/ionic-theme-ios27 @ionic-theme/capacitor-native-ui
+npx cap sync ios
+```
+
+Prefer `@ionic-theme/capacitor-native-ui` and `@ionic-theme/capacitor-native-ui/vertical-bars` for new runtime imports. Swift extension imports remain `IonicNativeUIShellPlugin`; the Capacitor bridge name is unchanged. Do not leave a manually linked copy of the old theme Swift package in Xcode alongside the new package.
+
+## Local development
+
+```sh
+npm ci
+npm run build
+npm run test:esm
+npm run test:packages
+cd demo
+npm ci
+npm test -- --watch=false
+npm run build -- --configuration=production
+npx cap sync ios
+```
+
+Build Native UI before the theme; the root build command enforces this order. The demo uses both packages through local file dependencies. Its separate lockfile preserves the existing Ionic 8/9 CI matrix. Rebuild packages after editing runtime source before starting or rebuilding the demo.
+
+`npm run docgen` updates the root API documentation. `npm run pack:packages` produces both installable archives. Native integration checks under `scripts/verify-native-*.sh` install both archives into a fresh consumer and exercise the SPM integration. The Swift package lives in `packages/native-ui`; its scheme is `IonicThemeCapacitorNativeUi`.
+
+## Releases
+
+Both packages initially share the root version. Update root and workspace versions together, and keep the theme's native dependency on that exact version. Existing `ios27-v` tags release Native UI first, then the theme. Candidate artifacts contain both packages with matching candidate versions; publication validates both identities and the dependency before publishing either archive.
+
+Before the first release, configure npm publishing access/trusted publishing for `@ionic-theme/capacitor-native-ui`. This migration does not publish packages or transfer the repository. Future independent versioning can be introduced when release needs diverge.
