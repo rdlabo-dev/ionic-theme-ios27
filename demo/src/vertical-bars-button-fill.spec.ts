@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'vitest';
-import { readCandidate } from '../../src/native/components';
-import { setVerticalBarsPlacement } from '../../src/native/shared/dom';
-import { enableVerticalControlArea } from '../../src/vertical-bars';
+import { readCandidate } from '../../packages/capacitor-native-ui/src/native/components';
+import { setVerticalBarsPlacement } from '../../packages/capacitor-native-ui/src/native/shared/dom';
+import { enableVerticalControlArea } from '../../packages/capacitor-native-ui/src/vertical-bars';
 
 const mount = (fills: (string | undefined)[], grouped = false) => {
   document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars"><main class="ion-page"><ion-header><ion-toolbar>${grouped ? '<ion-buttons>' : ''}${fills.map(() => '<ion-button><svg slot="icon-only" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg></ion-button>').join('')}${grouped ? '</ion-buttons>' : ''}</ion-toolbar></ion-header></main></ion-app>`;

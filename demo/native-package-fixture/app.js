@@ -14,7 +14,7 @@ import { defineCustomElement as defineFab } from '@ionic/core/components/ion-fab
 import { defineCustomElement as defineFabButton } from '@ionic/core/components/ion-fab-button.js';
 import { defineCustomElement as defineFabList } from '@ionic/core/components/ion-fab-list.js';
 import { iosTransitionAnimation } from '@rdlabo/ionic-theme-ios27';
-import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
+import { enableNativeUIShell } from '@ionic-theme/capacitor-native-ui';
 initialize({ mode: 'ios' });
 [
   defineApp,

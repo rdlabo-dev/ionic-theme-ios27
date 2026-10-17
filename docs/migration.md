@@ -4,6 +4,10 @@ title: Migration
 
 # Migration
 
+## Native UI package separation
+
+The repository now separates the theme from `@ionic-theme/capacitor-native-ui`. The ordinary theme entry and CSS paths remain supported. The old `@rdlabo/ionic-theme-ios27/native` and `@rdlabo/ionic-theme-ios27/vertical-bars` entries are removed; replace them with `@ionic-theme/capacitor-native-ui` and `@ionic-theme/capacitor-native-ui/vertical-bars`, respectively. Capacitor apps using native controls must add `@ionic-theme/capacitor-native-ui` as a direct dependency and run `npx cap sync ios`; transitive dependencies are not discovered as plugins. See [workspace migration](monorepo.md#existing-applications).
+
 ## Native UI Shell transition adapter
 
 Use `withNativeUIShellTransition()` to keep your existing Ionic navigation animation while coordinating Native UI Shell controls.
@@ -13,7 +17,7 @@ Use `withNativeUIShellTransition()` to keep your existing Ionic navigation anima
 - If you use a custom navigation animation with Native UI Shell or the standalone Vertical Control Area, wrap your existing builder when configuring Ionic:
 
 ```diff
-+ import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27/vertical-bars';
++ import { withNativeUIShellTransition } from '@ionic-theme/capacitor-native-ui/vertical-bars';
 
   const ionicConfig = {
 -   navAnimation: existingTransition,
@@ -137,7 +141,7 @@ Use the version-independent `--ios-theme-*` CSS variables. The corresponding `--
 
 For opting out of the theme, use the version-independent `ios-theme-disabled` class. The `ios26-disabled` class remains supported as a deprecated alias; migrate existing markup when convenient.
 
-See [Special markup and classes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/special-markup) and [Default variables](../src/styles/default-variables.scss) for the current names.
+See [Special markup and classes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/special-markup) and [Default variables](../packages/theme-ios27/src/styles/default-variables.scss) for the current names.
 
 Earlier migration notes are preserved in the [iOS 26 migration guide](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration).
 

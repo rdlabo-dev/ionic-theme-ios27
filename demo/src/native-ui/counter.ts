@@ -1,4 +1,4 @@
-import { defineNativeUI, type NativeUIExtension } from '../../../src/native';
+import { defineNativeUI, type NativeUIExtension } from '@ionic-theme/capacitor-native-ui';
 
 const read: NativeUIExtension['read'] = (element) => ({
   props: { count: Number(element.getAttribute('data-count') ?? 0) },

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { prehideVerticalBarsToolbarSources } from '../../src/native/prehide';
-import { prehiddenClass } from '../../src/native/shared/dom';
+import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
+import { prehiddenClass } from '../../packages/capacitor-native-ui/src/native/shared/dom';
 
 const markup = `
   <ion-app class="ios-theme-vertical-bars">

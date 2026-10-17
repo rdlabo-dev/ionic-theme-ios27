@@ -19,22 +19,24 @@ cd ..
 
 Vitest checks transition ordering and server-safe state without starting a browser. Browser tests use a mock native bridge to check DOM ownership, event forwarding and rendered placement. Swift tests check this package's snapshot contract and UIKit mapping; XCUITest checks actual native interaction and placement.
 
-For native tests, use Xcode 26 or later and boot an iOS 26+ Simulator. Run the Swift tests from the repository root:
+For native tests, use Xcode 26 or later and boot an iOS 26+ Simulator. Run the Swift tests from the Native UI package:
 
 ```sh
 xcrun simctl list devices booted
-xcodebuild -scheme RdlaboIonicThemeIos27 \
+cd packages/capacitor-native-ui
+xcodebuild -scheme IonicThemeCapacitorNativeUi \
   -destination 'platform=iOS Simulator,id=SIMULATOR_UDID' \
   -derivedDataPath /tmp/ionic-native-ui-shell-swift-tests CODE_SIGNING_ALLOWED=NO test
+cd ../..
 ```
 
-With XcodeGen installed, run the app and packaged-consumer XCUITest suite from the repository root:
+For the app and packaged-consumer XCUITest suite, use Xcode 27.1 or later, XcodeGen, and a booted iPhone Duo simulator running iOS 27.1 or later. Run it from the repository root:
 
 ```sh
 sh scripts/verify-native-ui-shell.sh SIMULATOR_UDID
 ```
 
-This builds the demo through SPM, packs the npm package, creates an independent SPM consumer, installs both apps, and runs XCUITest. Artifacts and screenshots remain in the printed `/tmp/ionic-native-ui-shell-verification.*` directory. The demo includes the Capacitor 8.5 UIScene migration. For an existing Capacitor app, upgrading dependencies and running sync alone does not migrate the app lifecycle: run `npx cap migrate` and review the [Capacitor 8.5 migration guide](https://capacitorjs.com/docs/updating/8-5) before building with SDK 27. To choose Xcode 27, set command-local `DEVELOPER_DIR` when running the script.
+This builds the demo through SPM, packs both workspace packages, creates an independent SPM consumer, installs both apps, and runs XCUITest. Artifacts and screenshots remain in the printed `/tmp/ionic-native-ui-shell-verification.*` directory. The demo includes the Capacitor 8.5 UIScene migration. For an existing Capacitor app, upgrading dependencies and running sync alone does not migrate the app lifecycle: run `npx cap migrate` and review the [Capacitor 8.5 migration guide](https://capacitorjs.com/docs/updating/8-5) before building with SDK 27. To choose Xcode 27, set command-local `DEVELOPER_DIR` when running the script.
 
 The standalone XCUITest project also contains packaged-consumer tests. When manually running only the demo, exclude `NativeUIShellTests/NativeUIShellTests/testPackagedNativePlugin`, `NativeUIShellTests/NativeUIShellTests/testPackagedFabStartsExpanded` and `NativeUIShellTests/NativeUIShellTests/testTabPlacementAndSelection` with `-skip-testing`; the verification script installs their fixture automatically.
 

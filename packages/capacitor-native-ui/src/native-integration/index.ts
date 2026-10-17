@@ -118,3 +118,7 @@ export const connectNativeUIShellTransition = (animation: Animation, entering: H
     return destroy(...args);
   };
 };
+
+/** Shared geometry used by the theme's transition adapter; no theme import in the plugin. */
+export const nativeWebViewMetrics = { radius: 0 };
+export { withNativeUIShellTransition } from './transition';

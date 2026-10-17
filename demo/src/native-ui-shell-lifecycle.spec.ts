@@ -1,5 +1,9 @@
 import { expect, test } from 'vitest';
-import { enableNativeUIShell, enableVerticalControlArea, setVerticalControlAreaPlacement } from '../../src/native';
+import {
+  enableNativeUIShell,
+  enableVerticalControlArea,
+  setVerticalControlAreaPlacement,
+} from '../../packages/capacitor-native-ui/src/native';
 
 test('placement requires ion-app and clears it when disabled', () => {
   document.body.replaceChildren();

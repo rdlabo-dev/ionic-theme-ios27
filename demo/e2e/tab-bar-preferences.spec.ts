@@ -8,7 +8,7 @@ const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
 for (const theme of ['light', 'class', 'system', 'always']) {
   test(`tab selection color fallbacks in ${theme} mode`, async ({ page }) => {
-    const styles = resolve(__dirname, '../../src/styles');
+    const styles = resolve(__dirname, '../../packages/theme-ios27/src/styles');
     const css =
       compile(`${styles}/default-variables.scss`, { importers: [importer] }).css +
       compile(`${styles}/ionic-theme-ios27.scss`, { importers: [importer] }).css;

@@ -1,6 +1,6 @@
 import { compileString } from 'sass';
 
-const loadPaths = ['../src/styles/utils'];
+const loadPaths = ['../packages/theme-ios27/src/styles/utils'];
 const compile = (source: string) => compileString(source, { loadPaths, style: 'compressed' }).css;
 
 test('overlay activated alias retains its generated styles', () => {

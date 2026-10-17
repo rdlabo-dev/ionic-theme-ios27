@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { compile } from 'sass';
 
-const verticalBars = compile(resolve(__dirname, '../../src/styles/vertical-bars.scss')).css;
+const verticalBars = compile(resolve(__dirname, '../../packages/theme-ios27/src/styles/vertical-bars.scss')).css;
 
 for (const direction of ['ltr', 'rtl']) {
   for (const edge of ['left', 'right']) {

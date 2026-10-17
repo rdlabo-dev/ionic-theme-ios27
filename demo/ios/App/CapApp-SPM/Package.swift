@@ -17,7 +17,7 @@ let package = Package(
         .package(name: "CapacitorKeyboard", path: "../../../node_modules/@capacitor/keyboard"),
         .package(name: "CapacitorStatusBar", path: "../../../node_modules/@capacitor/status-bar"),
         .package(name: "ErkamyamanCapacitorFoldable", path: "../../../node_modules/@erkamyaman/capacitor-foldable"),
-        .package(name: "RdlaboIonicThemeIos27", path: "../../../node_modules/@rdlabo/ionic-theme-ios27")
+        .package(name: "IonicThemeCapacitorNativeUi", path: "../../../../packages/capacitor-native-ui")
     ],
     targets: [
         .target(
@@ -30,7 +30,7 @@ let package = Package(
                 .product(name: "CapacitorKeyboard", package: "CapacitorKeyboard"),
                 .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar"),
                 .product(name: "ErkamyamanCapacitorFoldable", package: "ErkamyamanCapacitorFoldable"),
-                .product(name: "RdlaboIonicThemeIos27", package: "RdlaboIonicThemeIos27")
+                .product(name: "IonicThemeCapacitorNativeUi", package: "IonicThemeCapacitorNativeUi")
             ]
         )
     ]

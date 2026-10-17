@@ -1,72 +1,29 @@
 {
-  "name": "@rdlabo/ionic-theme-ios27",
-  "private": false,
+  "name": "ionic-theme-workspace",
   "version": "1.2.1",
-  "description": "iOS27 Theme for Ionic Framework",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./dist/css/*": "./dist/css/*",
-    "./src/styles/*": "./src/styles/*",
-    "./native": {
-      "types": "./dist/native/index.d.ts",
-      "import": "./dist/native/index.js"
-    },
-    "./vertical-bars": {
-      "types": "./dist/vertical-bars.d.ts",
-      "import": "./dist/vertical-bars.js"
-    }
-  },
-  "files": [
-    "dist",
-    "src",
-    "package.json",
-    "docs",
-    "ios",
-    "Package.swift"
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
   ],
   "scripts": {
-    "build": "npm run docgen && npm run build:css && npm run build:ts",
-    "prebuild:css": "rdlabo-copy-structured-list src/styles/utils/structured-list.scss",
-    "build:css": "rm -rf dist/css && sass src/styles:dist/css --style=compressed --no-source-map",
-    "build:ts": "tsc --noEmit && rdlabo-build-theme",
-    "docgen": "docgen --project tsconfig.docgen.json --api NativeUIShellHandle --output-readme docs/native-ui-shell.md && docgen --project tsconfig.docgen.json --api VerticalControlAreaHandle --output-readme docs/vertical-bars.md",
-    "build:demo": "npm run build && cd demo && npm install && npm run build -- --configuration=production",
-    "lint": "prettier --check \"./**/*.{scss,ts}\" &&  prettier --parser angular --check \"./**/*.html\"",
-    "fmt": "prettier --write \"./**/*.{scss,ts}\" &&  prettier --parser angular --write \"./**/*.html\"",
-    "release": "np --no-tests --no-publish",
-    "prepublishOnly": "npm run build",
-    "test:esm": "rdlabo-check-esm"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-ios27.git"
-  },
-  "keywords": [
-    "ionic",
-    "framework",
-    "theme",
-    "css",
-    "ios27"
-  ],
-  "author": "Masahiko Sakakibara <sakakibara@rdlabo.jp>",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/rdlabo-dev/ionic-theme-ios27/issues"
-  },
-  "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
-  "dependencies": {
-    "@rdlabo/ionic-theme-utils": "0.1.4"
+    "build": "npm run docgen && npm run build -w @ionic-theme/capacitor-native-ui && npm run build -w @rdlabo/ionic-theme-ios27",
+    "docgen": "npm run docgen -w @ionic-theme/capacitor-native-ui",
+    "build:css": "npm run build:css -w @rdlabo/ionic-theme-ios27",
+    "build:ts": "npm run build -w @ionic-theme/capacitor-native-ui && npm run build:ts -w @rdlabo/ionic-theme-ios27",
+    "build:demo": "npm run build && npm --prefix demo run build -- --configuration=production",
+    "lint": "prettier --check \"./**/*.{scss,ts}\" && prettier --parser angular --check \"./**/*.html\"",
+    "fmt": "prettier --write \"./**/*.{scss,ts}\" && prettier --parser angular --write \"./**/*.html\"",
+    "test:esm": "node scripts/verify-packages.mjs --esm",
+    "pack:packages": "npm pack --workspaces --ignore-scripts",
+    "test:packages": "node scripts/verify-packages.mjs"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
     "@rdlabo/capacitor-docgen": "^0.4.1",
+    "@rdlabo/ionic-theme-utils": "0.1.4",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.1",
     "np": "^10.2.0",
@@ -76,19 +33,8 @@
     "typescript": "^5.9.3",
     "wrangler": "^4.125.0"
   },
-  "peerDependencies": {
-    "@capacitor/core": ">=8.0.0 <9",
-    "@ionic/core": ">=8.8.1 <10"
-  },
-  "peerDependenciesMeta": {
-    "@capacitor/core": {
-      "optional": true
-    }
-  },
-  "capacitor": {
-    "ios": {
-      "src": "ios"
-    }
-  },
-  "type": "module"
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-ios27.git"
+  }
 }

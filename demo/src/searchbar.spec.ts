@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { supportSeachbarCancelButtonIcon } from '../../src/searchbar';
+import { supportSeachbarCancelButtonIcon } from '../../packages/theme-ios27/src/searchbar';
 
 test('supports refresh, cleanup, and registration again without replacing Ionic content', async () => {
   const bar = document.createElement('ion-searchbar');

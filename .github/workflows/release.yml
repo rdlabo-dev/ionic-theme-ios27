@@ -93,11 +93,14 @@ jobs:
         env:
           TAG_VERSION: ${{ steps.tag_version.outputs.version }}
         run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
-            echo "::error::Package version $PACKAGE_VERSION does not match release tag $TAG_VERSION"
-            exit 1
-          fi
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const paths = ['package.json', 'packages/capacitor-native-ui/package.json', 'packages/theme-ios27/package.json'];
+          const packages = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
+          for (const pkg of packages) assert.equal(pkg.version, process.env.TAG_VERSION, `${pkg.name}: release version mismatch`);
+          assert.equal(packages[2].dependencies[packages[1].name], process.env.TAG_VERSION, 'Native dependency version mismatch');
+          JS
 
       - name: Build workspaces
         run: npm run build
@@ -109,9 +112,11 @@ jobs:
 
           echo "Publishing... $IS_STABLE"
           if [ "$IS_STABLE" = "true" ]; then
-            npm publish --provenance --access public --tag latest
+            npm publish -w @ionic-theme/capacitor-native-ui --provenance --access public --tag latest
+            npm publish -w @rdlabo/ionic-theme-ios27 --provenance --access public --tag latest
           elif echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$'; then
-            npm publish --provenance --access public --tag next
+            npm publish -w @ionic-theme/capacitor-native-ui --provenance --access public --tag next
+            npm publish -w @rdlabo/ionic-theme-ios27 --provenance --access public --tag next
           else
             echo "::error::Refusing to publish an invalid release version: $VERSION"
             exit 1
@@ -176,7 +181,7 @@ jobs:
               const { data } = await github.rest.repos.getContent({
                 owner,
                 repo,
-                path: 'package.json',
+                path: ref === 'ios26' ? 'package.json' : 'packages/theme-ios27/package.json',
                 ref,
               });
               if (Array.isArray(data) || data.type !== 'file' || !data.content) {
@@ -503,7 +508,7 @@ jobs:
             const { data } = await github.rest.repos.getContent({
               owner,
               repo,
-              path: 'package.json',
+              path: targetBranch === 'ios26' ? 'package.json' : 'packages/theme-ios27/package.json',
               ref: targetBranch,
             });
             if (Array.isArray(data) || data.type !== 'file' || !data.content) {
@@ -547,31 +552,51 @@ jobs:
         run: |
           shopt -s nullglob
           PACKAGES=("$RUNNER_TEMP"/npm-candidate/*.tgz)
-          if [ "${#PACKAGES[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one package archive, found ${#PACKAGES[@]}."
+          NAMES=("$EXPECTED_NAME")
+          if [ "$EXPECTED_NAME" = "@rdlabo/ionic-theme-ios27" ]; then
+            NAMES=(@ionic-theme/capacitor-native-ui "$EXPECTED_NAME")
+          elif [ "$EXPECTED_NAME" != "@rdlabo/ionic-theme-ios26" ]; then
+            echo "::error::Unexpected package identity."
             exit 1
           fi
-          PACKAGE_ARCHIVE="${PACKAGES[0]}"
-          ACTUAL_NAME=$(tar -xOf "$PACKAGE_ARCHIVE" package/package.json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => process.stdout.write(JSON.parse(input).name));")
-          ACTUAL_VERSION=$(tar -xOf "$PACKAGE_ARCHIVE" package/package.json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => process.stdout.write(JSON.parse(input).version));")
-          ACTUAL_REGISTRY=$(tar -xOf "$PACKAGE_ARCHIVE" package/package.json | node -e "let input=''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => process.stdout.write(JSON.parse(input).publishConfig?.registry || ''));")
-          if [ "$ACTUAL_NAME" != "$EXPECTED_NAME" ] || [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
-            echo "::error::Artifact identity mismatch: ${ACTUAL_NAME}@${ACTUAL_VERSION}"
-            exit 1
-          fi
-          if [ -n "$ACTUAL_REGISTRY" ] && [ "$ACTUAL_REGISTRY" != "https://registry.npmjs.org" ] && [ "$ACTUAL_REGISTRY" != "https://registry.npmjs.org/" ]; then
-            echo "::error::Refusing package with an unexpected publish registry: $ACTUAL_REGISTRY"
+          if [ "${#PACKAGES[@]}" -ne "${#NAMES[@]}" ]; then
+            echo "::error::Unexpected number of package archives."
             exit 1
           fi
           if [ "$DIST_TAG" != "beta" ]; then
-            echo "::error::Refusing unsupported dist-tag: $DIST_TAG"
+            echo "::error::Unexpected package or dist-tag."
             exit 1
           fi
-          if npm view "${EXPECTED_NAME}@${EXPECTED_VERSION}" version --registry "$NPM_CONFIG_REGISTRY" >/dev/null 2>&1; then
-            echo "${EXPECTED_NAME}@${EXPECTED_VERSION} already exists; skipping publish."
-          else
-            npm publish "$PACKAGE_ARCHIVE" --ignore-scripts --provenance --access public --registry "$NPM_CONFIG_REGISTRY" --tag "$DIST_TAG"
-          fi
+          declare -A ARCHIVES
+          # Validate both artifacts before publishing either package. Never execute artifact scripts.
+          for PACKAGE_ARCHIVE in "${PACKAGES[@]}"; do
+            MANIFEST=$(tar -xOf "$PACKAGE_ARCHIVE" package/package.json)
+            ACTUAL_NAME=$(MANIFEST="$MANIFEST" node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          const pkg = JSON.parse(process.env.MANIFEST);
+          const native = '@ionic-theme/capacitor-native-ui';
+          const theme = '@rdlabo/ionic-theme-ios27';
+          const allowed = process.env.EXPECTED_NAME === theme ? [theme, native] : [process.env.EXPECTED_NAME];
+          assert(allowed.includes(pkg.name), 'Unexpected package identity');
+          assert.equal(pkg.version, process.env.EXPECTED_VERSION, 'Artifact version mismatch');
+          assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
+          if (pkg.name === theme) assert.equal(pkg.dependencies?.[native], process.env.EXPECTED_VERSION, 'Native dependency version mismatch');
+          process.stdout.write(pkg.name);
+          JS
+            )
+            if [ -n "${ARCHIVES[$ACTUAL_NAME]:-}" ]; then
+              echo "::error::Duplicate package identity."
+              exit 1
+            fi
+            ARCHIVES[$ACTUAL_NAME]="$PACKAGE_ARCHIVE"
+          done
+          for NAME in "${NAMES[@]}"; do
+            if npm view "${NAME}@${EXPECTED_VERSION}" version --registry "$NPM_CONFIG_REGISTRY" >/dev/null 2>&1; then
+              echo "${NAME}@${EXPECTED_VERSION} already exists; skipping publish."
+            else
+              npm publish "${ARCHIVES[$NAME]}" --ignore-scripts --provenance --access public --registry "$NPM_CONFIG_REGISTRY" --tag "$DIST_TAG"
+            fi
+          done
 
   comment-candidate:
     needs: [authorize-candidate, publish-candidate]
@@ -607,7 +632,10 @@ jobs:
             const authorization = process.env.SOURCE_KIND === 'comment'
               ? `CI passed and a repository owner or maintainer requested \`/beta\` for commit \`${shortSha}\``
               : `CI passed for the merge commit \`${shortSha}\``;
-            const body = `${marker}\n### ${title}\n\n${authorization}. Install the immutable version with:\n\n\`\`\`sh\nnpm install ${process.env.PACKAGE_NAME}@${process.env.VERSION}\n\`\`\``;
+            const install = [process.env.PACKAGE_NAME];
+            if (process.env.PACKAGE_NAME === '@rdlabo/ionic-theme-ios27') install.push('@ionic-theme/capacitor-native-ui');
+            const installCommand = install.map(name => `${name}@${process.env.VERSION}`).join(' ');
+            const body = `${marker}\n### ${title}\n\n${authorization}. Install the immutable version with:\n\n\`\`\`sh\nnpm install ${installCommand}\n\`\`\``;
             await core.summary.addRaw(body).write();
             if (!issueNumber) {
               core.notice('No associated merged pull request was found; wrote the install command to the job summary only.');

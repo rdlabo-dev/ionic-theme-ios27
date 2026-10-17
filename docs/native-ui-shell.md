@@ -18,10 +18,17 @@ This package revisits that idea for Ionic and Liquid Glass. Existing Ionic marku
 
 ## Enable the shell
 
+Install the native package as a direct application dependency so Capacitor can discover it:
+
+```bash
+npm install @ionic-theme/capacitor-native-ui
+npx cap sync ios
+```
+
 After installing the theme CSS described in the README, enable the shell once at application startup:
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
+import { enableNativeUIShell } from '@ionic-theme/capacitor-native-ui';
 
 void enableNativeUIShell();
 ```
@@ -29,14 +36,14 @@ void enableNativeUIShell();
 `enableNativeUIShell()` also reads the WebView's effective top-left corner radius and applies it to page transitions. To configure only the transition without enabling native controls, call:
 
 ```ts
-import { configureNativeTransition } from '@rdlabo/ionic-theme-ios27/native';
+import { configureNativeTransition } from '@ionic-theme/capacitor-native-ui';
 
 await configureNativeTransition();
 ```
 
 Keep the existing `navAnimation: iosTransitionAnimation` setting. No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
 
-This is an opt-in feature. The ordinary package entry point does not import Capacitor, and `@capacitor/core` is an optional peer dependency. Native sources are still detected and built by Capacitor's sync when this package is installed in a Capacitor project, even if the application does not call `enableNativeUIShell()`.
+This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry point does not import Capacitor. Native runtime entry points require `@capacitor/core`, including in browser builds. Native sources are still detected and built by Capacitor's sync when `@ionic-theme/capacitor-native-ui` is a direct dependency of a Capacitor project, even if the application does not call `enableNativeUIShell()`.
 
 Native appearance follows the applied class, system or always-dark theme CSS. System theme changes are synchronized while the runtime is active.
 
@@ -219,7 +226,7 @@ The native material and control appearance follow the running iOS version; an iO
 
 iPhone Duo support, including standalone vertical bars without Native UI Shell, is available as a **preview** in `1.2.0` alongside Native UI Shell. Its APIs and supported behavior may change.
 
-The standalone Vertical Control Area entry point (`@rdlabo/ionic-theme-ios27/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+The standalone Vertical Control Area entry point (`@ionic-theme/capacitor-native-ui/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
 Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars) for rail layout, native fallback and supported overlays.
 
@@ -305,9 +312,9 @@ Stops synchronization, restores Web controls and releases native resources.
 
 ## Source layout
 
-Each TypeScript module in [`src/native/components`](../src/native/components) declares its Ionic tag and DOM reader. `components/index.ts` combines those exports into discovery selectors and the component type. Shared DOM measurements, item data and SVG rendering live in `src/native/shared`; `runtime.ts` owns synchronization, visibility handoffs and lifecycle events.
+Each TypeScript module in [`src/native/components`](../packages/capacitor-native-ui/src/native/components) declares its Ionic tag and DOM reader. `components/index.ts` combines those exports into discovery selectors and the component type. Shared DOM measurements, item data and SVG rendering live in `src/native/shared`; `runtime.ts` owns synchronization, visibility handoffs and lifecycle events.
 
-On iOS, [`Components`](../ios/Sources/IonicNativeUIShellPlugin/Components) owns UIKit control creation, updates and component names. `ShellButton` shares the native button implementation used by ordinary, back and menu buttons. `Shared` owns the host view, typed snapshots, geometry, colors and image cache. Capacitor decodes each complete snapshot once using `Decodable`; renderers consume typed models and compare content with `Equatable`. Invalid batches are rejected before visible controls are changed. `IonicNativeUIShellPlugin.swift` coordinates Capacitor calls, revisions and native view lifetimes.
+On iOS, [`Components`](../packages/capacitor-native-ui/ios/Sources/IonicNativeUIShellPlugin/Components) owns UIKit control creation, updates and component names. `ShellButton` shares the native button implementation used by ordinary, back and menu buttons. `Shared` owns the host view, typed snapshots, geometry, colors and image cache. Capacitor decodes each complete snapshot once using `Decodable`; renderers consume typed models and compare content with `Equatable`. Invalid batches are rejected before visible controls are changed. `IonicNativeUIShellPlugin.swift` coordinates Capacitor calls, revisions and native view lifetimes.
 
 ## Demo and verification
 

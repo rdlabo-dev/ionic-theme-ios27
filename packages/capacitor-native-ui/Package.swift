@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-    name: "RdlaboIonicThemeIos27",
+    name: "IonicThemeCapacitorNativeUi",
     platforms: [.iOS(.v15)],
-    products: [.library(name: "RdlaboIonicThemeIos27", targets: ["IonicNativeUIShellPlugin"])],
+    products: [.library(name: "IonicThemeCapacitorNativeUi", targets: ["IonicNativeUIShellPlugin"])],
     dependencies: [.package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")],
     targets: [.target(
         name: "IonicNativeUIShellPlugin",

@@ -37,16 +37,16 @@
 @use '@ionic/angular/css/palettes/dark.class.css';
 
 @use 'sass:meta';
-@use '../../src/styles/vertical-bars';
+@use '../../packages/theme-ios27/src/styles/vertical-bars';
 
 // Adaptive iOS themes: capability checks, not OS version. See README.md.
 // `overflow-anchor: auto` selects the newer theme; `text-wrap: pretty` without it keeps iOS 26.
 @supports (overflow-anchor: auto) {
-  @include meta.load-css('../../src/styles/default-variables');
-  @include meta.load-css('../../src/styles/ionic-theme-ios27');
-  @include meta.load-css('../../src/styles/ionic-theme-ios27-dark-class');
-  @include meta.load-css('../../src/styles/md-ion-list-inset');
-  @include meta.load-css('../../src/styles/md-remove-ios-class-effect');
+  @include meta.load-css('../../packages/theme-ios27/src/styles/default-variables');
+  @include meta.load-css('../../packages/theme-ios27/src/styles/ionic-theme-ios27');
+  @include meta.load-css('../../packages/theme-ios27/src/styles/ionic-theme-ios27-dark-class');
+  @include meta.load-css('../../packages/theme-ios27/src/styles/md-ion-list-inset');
+  @include meta.load-css('../../packages/theme-ios27/src/styles/md-remove-ios-class-effect');
 }
 
 @supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {

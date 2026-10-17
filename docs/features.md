@@ -9,7 +9,7 @@ Customize the theme with CSS variables and Sass mixins, or adopt it one componen
 ## CSS variables
 
 To customize the library's default styles to match your design, several CSS variables are provided. See this file for details:
-[Default variables](../src/styles/default-variables.scss)
+[Default variables](../packages/theme-ios27/src/styles/default-variables.scss)
 
 For menus, `--ios-theme-menu-background-rgb` sets the surface RGB channels (light: `225, 230, 240`; dark: `26, 31, 34`). `--ios-theme-menu-background-opacity` controls opacity and defaults to `0.96`. Both are public customization variables and can be set on `ion-menu`.
 

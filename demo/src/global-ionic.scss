@@ -6,7 +6,7 @@
 @use '@ionic/angular/css/display.css';
 @use '@ionic/angular/css/padding.css';
 @use '@ionic/angular/css/palettes/dark.class.css';
-@use '../../src/styles/vertical-bars';
+@use '../../packages/theme-ios27/src/styles/vertical-bars';
 
 :root {
   --demo-stock-ionic: 1;

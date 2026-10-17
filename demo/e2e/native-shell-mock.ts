@@ -1,4 +1,9 @@
-import type { NativeUIShellHandle, NativeUIShellSuspension, ShellControl, ShellSnapshot } from '../../src/native/definitions';
+import type {
+  NativeUIShellHandle,
+  NativeUIShellSuspension,
+  ShellControl,
+  ShellSnapshot,
+} from '../../packages/capacitor-native-ui/src/native/definitions';
 
 /**
  * State carried by the fake native plugin that `mockNative` installs.

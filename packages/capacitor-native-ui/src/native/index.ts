@@ -1,6 +1,6 @@
 import { validateExtensions, type NativeUIExtension } from './extensions';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { setConfig } from '../transition/ios.transition';
+import { nativeWebViewMetrics } from '../native-integration';
 import type {
   NativeUIShellHandle,
   NativeUIShellOptions,
@@ -124,7 +124,7 @@ const manage = (
 export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
   const metrics =
     typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' ? await bounded(plugin.getWebViewMetrics()) : { radius: 0 };
-  setConfig({ radius: metrics.radius });
+  nativeWebViewMetrics.radius = metrics.radius;
   return metrics;
 };
 
@@ -289,7 +289,7 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise
         if (!options.verticalBarsOnly) {
           metricsListener = await boundedListener(
             plugin.addListener('webViewMetricsChange', (metrics) => {
-              setConfig({ radius: metrics.radius });
+              nativeWebViewMetrics.radius = metrics.radius;
             }),
           );
           await configureNativeTransition().catch(() => undefined);

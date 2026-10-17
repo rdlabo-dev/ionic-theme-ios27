@@ -6,13 +6,17 @@ This is an Angular-based demo application for the Ionic iOS27 Theme Library.
 
 ### Prerequisites
 
-- Node.js 18 or higher
+- Node.js 24
 - npm or yarn
 
 ### Installation
 
 ```bash
-npm install
+# From the repository root
+npm ci
+npm run build
+cd demo
+npm ci
 ```
 
 ### iPhone Duo device state
@@ -34,7 +38,7 @@ npm start
 ionic serve
 ```
 
-Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+Navigate to `http://localhost:4200/`. The application reloads when demo source changes. Rebuild the workspace packages from the repository root after changing theme or native runtime source.
 
 ## Testing
 

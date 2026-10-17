@@ -32,6 +32,12 @@ On Capacitor iOS, the optional [Native UI Shell](https://docs.rdlabo.dev/project
 
 Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [default setup](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/readme#get-started) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
 
+## Repository packages
+
+This repository uses npm workspaces. The [iOS theme](packages/theme-ios27) provides styles and Web behavior; [Capacitor Native UI](packages/capacitor-native-ui) provides Native UI Shell, Vertical Bars and app-local extensions. The native implementation currently supports iOS. Android and browsers keep the Web presentation. Material Design 3 remains in its separate repository.
+
+See [workspace development and migration](docs/monorepo.md) for local builds, native installation changes and releases.
+
 ## Get started
 
 Install both themes in an existing Ionic 8 or 9 app (`@ionic/core` 8.8.1 or later):
@@ -257,8 +263,10 @@ The same demo is deployed against both supported Ionic versions:
 The `demo/` directory contains the Angular application used by both deployments. To run it locally:
 
 ```bash
+npm ci
+npm run build
 cd demo
-npm install
+npm ci
 npm start
 ```
 

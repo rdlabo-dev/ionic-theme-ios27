@@ -17,7 +17,7 @@ Available in `1.2.0` as a **preview** feature. APIs and supported behavior may c
 This guide assumes an existing Ionic app with Ionic `>=8.8.1 <10` and Capacitor Core `>=8 <9`. Keep your existing Capacitor 8 installation. If your app uses another Capacitor major, migrate its Core, CLI, and platform packages together before following this guide. For a Web-only app without Capacitor, also install `@capacitor/core@^8`; the JavaScript entry point needs it even in Chrome.
 
 ```bash
-npm install @rdlabo/ionic-theme-ios27@1.2.0
+npm install @rdlabo/ionic-theme-ios27 @ionic-theme/capacitor-native-ui
 ```
 
 Keep your existing theme imports. Add this to your global Sass file:
@@ -50,7 +50,7 @@ If you have not configured `navAnimation`, wrap Ionic's standard builders. Selec
 
 ```ts
 import { iosTransitionAnimation, mdTransitionAnimation, type AnimationBuilder } from '@ionic/core';
-import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { withNativeUIShellTransition } from '@ionic-theme/capacitor-native-ui/vertical-bars';
 
 const defaultTransition: AnimationBuilder = (baseEl, opts) =>
   (opts.mode === 'ios' ? iosTransitionAnimation : mdTransitionAnimation)(baseEl, opts);
@@ -82,7 +82,7 @@ If your app uses another builder for `navAnimation`, wrap it:
 
 ```ts
 import type { AnimationBuilder } from '@ionic/core';
-import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { withNativeUIShellTransition } from '@ionic-theme/capacitor-native-ui/vertical-bars';
 
 // Pass the animation builder your app already uses.
 const configureNavigation = (existingTransition: AnimationBuilder) => ({
@@ -99,7 +99,7 @@ The adapter keeps the builder's animation targets, including any horizontal back
 Call this once from your application startup after `ion-app` exists in the DOM:
 
 ```ts
-import { enableVerticalControlArea } from '@rdlabo/ionic-theme-ios27/vertical-bars';
+import { enableVerticalControlArea } from '@ionic-theme/capacitor-native-ui/vertical-bars';
 
 const rail = await enableVerticalControlArea();
 ```

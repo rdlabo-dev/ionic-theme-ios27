@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { compile, NodePackageImporter } from 'sass';
 import { resolve } from 'node:path';
 import * as overlayTypes from '../src/app/overlay-types';
-import type { ShellControl, ShellItem, ShellSnapshot } from '../../src/native/definitions';
+import type { ShellControl, ShellItem, ShellSnapshot } from '../../packages/capacitor-native-ui/src/native/definitions';
 import type { ShellMockCore, TestAppElement } from './native-shell-mock';
 
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
@@ -1699,7 +1699,8 @@ test('all demo pages keep projection consistent through consecutive navigation',
   await settled();
   for (const route of routes) {
     await test.step(route, async () => {
-      const name = route === 'native-ui-shell' ? 'native-ui-shell (Preview)' : route;
+      const name =
+        route === 'native-ui-shell' ? 'native-ui-shell (Preview)' : route === 'native-ui-extension' ? 'Native UI Extension' : route;
       await page
         .getByRole('button', { name, exact: true })
         .or(page.getByRole('link', { name, exact: true }))
@@ -2771,7 +2772,9 @@ for (const theme of ['light', 'class', 'system', 'always'] as const) {
     });
     if (theme !== 'light') {
       await page.addStyleTag({
-        content: compile(resolve(__dirname, `../../src/styles/ionic-theme-ios27-dark-${theme}.scss`), { importers: [importer] }).css,
+        content: compile(resolve(__dirname, `../../packages/theme-ios27/src/styles/ionic-theme-ios27-dark-${theme}.scss`), {
+          importers: [importer],
+        }).css,
       });
     }
     for (const dark of [true, false, true]) {
@@ -3123,7 +3126,7 @@ for (const type of ['normal', 'card', 'sheet']) {
     await page.goto('/main/index/modal');
     await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
     await page.getByText(`present:${type}`, { exact: true }).click();
-    const modal = page.locator('ion-modal');
+    const modal = page.locator('ion-modal.show-modal');
     const close = modal.locator('ion-toolbar ion-button').first();
     await expect(close).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
     await expect
@@ -3141,7 +3144,7 @@ for (const type of ['normal', 'card', 'sheet']) {
         .poll(() =>
           page.evaluate(() => {
             const frame = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.verticalBarFrame;
-            const modal = document.querySelector('ion-modal')!;
+            const modal = document.querySelector('ion-modal.show-modal')!;
             const top = modal.shadowRoot!.querySelector('[part~="content"]')!.getBoundingClientRect().top;
             return !!frame && Math.abs(frame.y - top) < 1 && frame.height < innerHeight;
           }),
@@ -3194,7 +3197,7 @@ test('vertical tab bar skips modal presentation fade and fades back to native', 
   await expect(bar).not.toHaveAttribute('data-fade-count');
   await expect(page.locator('ion-modal ion-toolbar ion-button').nth(1)).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
   await activate(page, 'Done', true);
-  await expect(page.locator('ion-modal')).toHaveCount(0);
+  await expect(page.locator('ion-modal.show-modal')).toHaveCount(0);
   await expect(bar).toHaveAttribute('data-native-ui-shell', '');
   await expect(bar).toHaveAttribute('data-fade-frames', JSON.stringify([{ opacity: 1 }, { opacity: 0 }]));
   await expect(bar).toHaveAttribute('data-fade-count', '1');
