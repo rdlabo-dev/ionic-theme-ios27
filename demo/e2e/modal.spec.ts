@@ -5,7 +5,7 @@ test.use({ viewport: { width: 1210, height: 834 } });
 for (const type of ['normal', 'card', 'sheet']) {
   test(`${type} opens once and closes with Done`, async ({ page }) => {
     await page.goto(`/main/index/modal?type=${type}`);
-    const modal = page.locator('ion-modal');
+    const modal = page.locator('ion-modal:visible');
     await expect(modal).toHaveCount(1);
     await expect(modal.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
     await modal.getByRole('button', { name: 'Done', exact: true }).click();
@@ -17,7 +17,7 @@ for (const type of ['normal', 'card', 'sheet']) {
 
 test('sheet retains dragging and backdrop dismissal', async ({ page }) => {
   await page.goto('/main/index/modal?type=sheet');
-  const modal = page.locator('ion-modal');
+  const modal = page.locator('ion-modal:visible');
   const handle = modal.locator('[part="handle"]');
   await expect(handle).toBeVisible();
   await expect.poll(() => modal.evaluate((el: HTMLIonModalElement) => el.getCurrentBreakpoint())).toBe(0.8);

@@ -49,6 +49,6 @@ Build Native UI before the theme; the root build command enforces this order. Th
 
 ## Releases
 
-Both packages initially share the root version. Update root and workspace versions together, and keep the theme's native dependency on that exact version. Existing `ios27-v` tags release Native UI first, then the theme. Candidate artifacts contain both packages with matching candidate versions; publication validates both identities and the dependency before publishing either archive.
+Both packages initially share the root version. Update root and workspace versions together, and keep the theme's native dependency as `file:../capacitor-native-ui`. Existing `ios27-v` tags release Native UI first, then the theme. `npm run pack:packages` stages the publishable files and replaces local dependencies with matching versions only in the archives; the working tree and lockfiles stay unchanged. Use this command instead of raw `npm pack` or workspace publication. Candidate artifacts contain both packages with matching candidate versions; publication validates both identities and the dependency before publishing either archive.
 
 Before the first release, configure npm publishing access/trusted publishing for `@ionic-theme/capacitor-native-ui`. This migration does not publish packages or transfer the repository. Future independent versioning can be introduced when release needs diverge.

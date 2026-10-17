@@ -36,3 +36,11 @@
     margin-top: 24px;
   }
 }
+
+// The theme keeps the main pane full-width and offsets content around the menu.
+:host-context(ion-split-pane.split-pane-visible:has(ion-menu.menu-pane-visible.menu-side-start)) {
+  margin-inline-start: var(--ios-theme-menu-width, var(--ios26-menu-width, 0px));
+}
+:host-context(ion-split-pane.split-pane-visible:has(ion-menu.menu-pane-visible.menu-side-end)) {
+  margin-inline-end: var(--ios-theme-menu-width, var(--ios26-menu-width, 0px));
+}

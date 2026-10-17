@@ -99,11 +99,14 @@ jobs:
           const paths = ['package.json', 'packages/capacitor-native-ui/package.json', 'packages/theme-ios27/package.json'];
           const packages = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
           for (const pkg of packages) assert.equal(pkg.version, process.env.TAG_VERSION, `${pkg.name}: release version mismatch`);
-          assert.equal(packages[2].dependencies[packages[1].name], process.env.TAG_VERSION, 'Native dependency version mismatch');
+          assert.equal(packages[2].dependencies[packages[1].name], 'file:../capacitor-native-ui', 'Native workspace dependency mismatch');
           JS
 
       - name: Build workspaces
         run: npm run build
+
+      - name: Pack release archives
+        run: node scripts/pack-packages.mjs --pack-destination "$RUNNER_TEMP/npm-release"
 
       - name: Publish packages
         run: |
@@ -112,11 +115,11 @@ jobs:
 
           echo "Publishing... $IS_STABLE"
           if [ "$IS_STABLE" = "true" ]; then
-            npm publish -w @ionic-theme/capacitor-native-ui --provenance --access public --tag latest
-            npm publish -w @rdlabo/ionic-theme-ios27 --provenance --access public --tag latest
+            npm publish "$RUNNER_TEMP/npm-release/ionic-theme-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag latest
+            npm publish "$RUNNER_TEMP/npm-release/rdlabo-ionic-theme-ios27-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag latest
           elif echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$'; then
-            npm publish -w @ionic-theme/capacitor-native-ui --provenance --access public --tag next
-            npm publish -w @rdlabo/ionic-theme-ios27 --provenance --access public --tag next
+            npm publish "$RUNNER_TEMP/npm-release/ionic-theme-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag next
+            npm publish "$RUNNER_TEMP/npm-release/rdlabo-ionic-theme-ios27-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag next
           else
             echo "::error::Refusing to publish an invalid release version: $VERSION"
             exit 1

@@ -97,7 +97,7 @@ for (const { type, edge, direction } of [
       { direction, edge },
     );
     await page.getByText(`present:${type}`, { exact: true }).click();
-    const modal = page.locator('ion-modal');
+    const modal = page.locator('ion-modal:visible');
     await expect(modal).toBeVisible();
     // Ionic 9 updates inline safe areas on resize; keep the author's override explicit.
     await page.addStyleTag({
@@ -180,7 +180,7 @@ test('stacked modals keep rail controls inside the active dialog and restore the
   await page.goto('/main/index/modal');
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
   await page.getByText('present:normal', { exact: true }).click();
-  const modals = page.locator('ion-modal');
+  const modals = page.locator('ion-modal:visible');
   const projection = '.ios-theme-vertical-bars-toolbar-projection[aria-label=Close]';
   await expect(modals.first().locator(projection)).toBeVisible();
   await modals.first().getByText('present:normal', { exact: true }).click();

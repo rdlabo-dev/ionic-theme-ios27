@@ -289,6 +289,21 @@ test('drag speed changes lens proportions and stopping rebounds to the held size
   const peaks: number[] = [];
   for (const delay of [60, 10]) {
     await page.goto('/main/index');
+    // Gesture velocity uses event timestamps. Keep input cadence independent of
+    // Playwright round trips and runner load (Ionic ignores gaps of 100ms+).
+    await page.evaluate((interval) => {
+      let timestamp = performance.now();
+      for (const type of ['mousedown', 'mousemove', 'mouseup']) {
+        window.addEventListener(
+          type,
+          (event) => {
+            timestamp += interval;
+            Object.defineProperty(event, 'timeStamp', { value: timestamp });
+          },
+          { capture: true },
+        );
+      }
+    }, delay);
     const bar = page.locator('ion-tab-bar');
     await expect(bar).toHaveClass(/ios27-enable-gesture/);
     const button = (await bar.locator('ion-tab-button').first().boundingBox())!;

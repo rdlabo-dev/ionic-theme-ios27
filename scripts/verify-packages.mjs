@@ -7,16 +7,31 @@ import { join, resolve } from 'node:path';
 
 // Validate the archives consumers install, not the workspace symlinks.
 const dir = mkdtempSync(join(tmpdir(), 'ionic-theme-packages-'));
+const candidateVersion = process.argv.includes('--candidate') ? '0.0.0-beta.pack-verification' : undefined;
+const sourceFiles = [
+  'package.json',
+  'package-lock.json',
+  'demo/package-lock.json',
+  'packages/theme-ios27/package.json',
+  'packages/capacitor-native-ui/package.json',
+];
+const originals = sourceFiles.map((file) => readFileSync(file, 'utf8'));
 try {
   const packed = JSON.parse(
-    execFileSync('npm', ['pack', '--workspaces', '--ignore-scripts', '--json', '--pack-destination', dir], { encoding: 'utf8' }),
+    execFileSync(
+      process.execPath,
+      ['scripts/pack-packages.mjs', '--pack-destination', dir, ...(candidateVersion ? ['--version', candidateVersion] : [])],
+      { encoding: 'utf8' },
+    ),
   );
   assert.equal(packed.length, 2);
+  sourceFiles.forEach((file, index) => assert.equal(readFileSync(file, 'utf8'), originals[index], `${file} changed while packing`));
   const nativeName = '@ionic-theme/capacitor-native-ui';
   const manifests = new Map();
   for (const archive of packed) {
     const manifest = JSON.parse(execFileSync('tar', ['-xOf', join(dir, archive.filename), 'package/package.json'], { encoding: 'utf8' }));
     manifests.set(manifest.name, manifest);
+    if (candidateVersion) assert.equal(manifest.version, candidateVersion);
     const extracted = join(dir, archive.filename + '-extracted');
     mkdirSync(extracted);
     execFileSync('tar', ['-xzf', join(dir, archive.filename), '-C', extracted]);

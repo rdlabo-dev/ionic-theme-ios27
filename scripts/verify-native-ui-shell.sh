@@ -21,7 +21,7 @@ xcodebuild -scheme IonicThemeCapacitorNativeUi \
   -resultBundlePath "$artifacts/unit-tests.xcresult" CODE_SIGNING_ALLOWED=NO test > "$artifacts/unit-tests.log" 2>&1
 cd "$repo"
 npm run build
-npm pack --workspaces --ignore-scripts --json --pack-destination "$artifacts" > "$artifacts/pack.json"
+node scripts/pack-packages.mjs --pack-destination "$artifacts" > "$artifacts/pack.json"
 native_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@ionic-theme/capacitor-native-ui").filename)' "$artifacts/pack.json")
 theme_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@rdlabo/ionic-theme-ios27").filename)' "$artifacts/pack.json")
 
