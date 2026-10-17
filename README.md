@@ -34,7 +34,7 @@ Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the d
 
 ## Repository packages
 
-This repository uses npm workspaces. The [iOS theme](packages/theme-ios) provides styles and Web behavior; [Capacitor Native UI](packages/native-ui) provides Native UI Shell, Vertical Bars and app-local extensions. The native implementation currently supports iOS. Android and browsers keep the Web presentation. Material Design 3 remains in its separate repository.
+This repository uses npm workspaces. The [iOS theme](packages/theme-ios27) provides styles and Web behavior; [Capacitor Native UI](packages/capacitor-native-ui) provides Native UI Shell, Vertical Bars and app-local extensions. The native implementation currently supports iOS. Android and browsers keep the Web presentation. Material Design 3 remains in its separate repository.
 
 See [workspace development and migration](docs/monorepo.md) for local builds, native installation changes and releases.
 

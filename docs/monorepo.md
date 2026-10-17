@@ -2,10 +2,10 @@
 
 ## Packages
 
-| Directory            | npm package                        | Responsibility                                                                            |
-| -------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
-| `packages/theme-ios` | `@rdlabo/ionic-theme-ios27`        | Sass/CSS, Ionic Web behavior and page transitions                                         |
-| `packages/native-ui` | `@ionic-theme/capacitor-native-ui` | Native UI Shell, Vertical Bars runtime, app-local extensions and the Capacitor iOS plugin |
+| Directory                      | npm package                        | Responsibility                                                                            |
+| ------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `packages/theme-ios27`         | `@rdlabo/ionic-theme-ios27`        | Sass/CSS, Ionic Web behavior and page transitions                                         |
+| `packages/capacitor-native-ui` | `@ionic-theme/capacitor-native-ui` | Native UI Shell, Vertical Bars runtime, app-local extensions and the Capacitor iOS plugin |
 
 The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination and compatibility exports; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
 
@@ -40,7 +40,7 @@ npx cap sync ios
 
 Build Native UI before the theme; the root build command enforces this order. The demo uses both packages through local file dependencies. Its separate lockfile preserves the existing Ionic 8/9 CI matrix. Rebuild packages after editing runtime source before starting or rebuilding the demo.
 
-`npm run docgen` updates the root API documentation. `npm run pack:packages` produces both installable archives. Native integration checks under `scripts/verify-native-*.sh` install both archives into a fresh consumer and exercise the SPM integration. The Swift package lives in `packages/native-ui`; its scheme is `IonicThemeCapacitorNativeUi`.
+`npm run docgen` updates the root API documentation. `npm run pack:packages` produces both installable archives. Native integration checks under `scripts/verify-native-*.sh` install both archives into a fresh consumer and exercise the SPM integration. The Swift package lives in `packages/capacitor-native-ui`; its scheme is `IonicThemeCapacitorNativeUi`.
 
 ## Releases
 

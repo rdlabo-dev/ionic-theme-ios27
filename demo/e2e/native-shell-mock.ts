@@ -3,7 +3,7 @@ import type {
   NativeUIShellSuspension,
   ShellControl,
   ShellSnapshot,
-} from '../../packages/native-ui/src/native/definitions';
+} from '../../packages/capacitor-native-ui/src/native/definitions';
 
 /**
  * State carried by the fake native plugin that `mockNative` installs.

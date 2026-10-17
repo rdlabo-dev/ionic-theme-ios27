@@ -19,9 +19,11 @@
     "test:packages": "node scripts/verify-packages.mjs"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
     "@rdlabo/capacitor-docgen": "^0.4.1",
+    "@rdlabo/ionic-theme-utils": "0.1.4",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.1",
     "np": "^10.2.0",
@@ -29,8 +31,7 @@
     "sass": "^1.93.2",
     "tsdown": "^0.23.0",
     "typescript": "^5.9.3",
-    "wrangler": "^4.125.0",
-    "@rdlabo/ionic-theme-utils": "0.1.4"
+    "wrangler": "^4.125.0"
   },
   "repository": {
     "type": "git",

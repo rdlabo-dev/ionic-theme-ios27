@@ -34,8 +34,11 @@ try {
     assert(files.has('LICENSE'));
     if (manifest.name === nativeName) {
       assert.equal(manifest.capacitor.ios.src, 'ios');
+      assert.equal(manifest.capacitor.android.src, 'android');
       assert(files.has('Package.swift'));
+      assert(files.has('IonicThemeCapacitorNativeUi.podspec'));
       assert(files.has('ios/Sources/IonicNativeUIShellPlugin/IonicNativeUIShellPlugin.swift'));
+      assert(files.has('android/src/main/java/dev/rdlabo/capacitor/nativeui/IonicNativeUIShellPlugin.java'));
       assert(!manifest.dependencies?.['@rdlabo/ionic-theme-ios27'], 'Native UI must not depend on the theme');
     } else {
       assert.equal(manifest.name, '@rdlabo/ionic-theme-ios27');

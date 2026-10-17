@@ -37,7 +37,7 @@
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-ios27.git",
-    "directory": "packages/theme-ios"
+    "directory": "packages/theme-ios27"
   },
   "keywords": [
     "ionic",

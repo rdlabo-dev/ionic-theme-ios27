@@ -96,7 +96,7 @@ jobs:
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           import { readFileSync } from 'node:fs';
-          const paths = ['package.json', 'packages/native-ui/package.json', 'packages/theme-ios/package.json'];
+          const paths = ['package.json', 'packages/capacitor-native-ui/package.json', 'packages/theme-ios27/package.json'];
           const packages = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
           for (const pkg of packages) assert.equal(pkg.version, process.env.TAG_VERSION, `${pkg.name}: release version mismatch`);
           assert.equal(packages[2].dependencies[packages[1].name], process.env.TAG_VERSION, 'Native dependency version mismatch');
@@ -181,7 +181,7 @@ jobs:
               const { data } = await github.rest.repos.getContent({
                 owner,
                 repo,
-                path: ref === 'ios26' ? 'package.json' : 'packages/theme-ios/package.json',
+                path: ref === 'ios26' ? 'package.json' : 'packages/theme-ios27/package.json',
                 ref,
               });
               if (Array.isArray(data) || data.type !== 'file' || !data.content) {
@@ -508,7 +508,7 @@ jobs:
             const { data } = await github.rest.repos.getContent({
               owner,
               repo,
-              path: targetBranch === 'ios26' ? 'package.json' : 'packages/theme-ios/package.json',
+              path: targetBranch === 'ios26' ? 'package.json' : 'packages/theme-ios27/package.json',
               ref: targetBranch,
             });
             if (Array.isArray(data) || data.type !== 'file' || !data.content) {

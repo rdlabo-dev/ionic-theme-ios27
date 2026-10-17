@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { compile, NodePackageImporter } from 'sass';
 import { resolve } from 'node:path';
 import * as overlayTypes from '../src/app/overlay-types';
-import type { ShellControl, ShellItem, ShellSnapshot } from '../../packages/native-ui/src/native/definitions';
+import type { ShellControl, ShellItem, ShellSnapshot } from '../../packages/capacitor-native-ui/src/native/definitions';
 import type { ShellMockCore, TestAppElement } from './native-shell-mock';
 
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
@@ -2772,7 +2772,7 @@ for (const theme of ['light', 'class', 'system', 'always'] as const) {
     });
     if (theme !== 'light') {
       await page.addStyleTag({
-        content: compile(resolve(__dirname, `../../packages/theme-ios/src/styles/ionic-theme-ios27-dark-${theme}.scss`), {
+        content: compile(resolve(__dirname, `../../packages/theme-ios27/src/styles/ionic-theme-ios27-dark-${theme}.scss`), {
           importers: [importer],
         }).css,
       });

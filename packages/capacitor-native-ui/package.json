@@ -4,8 +4,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/rdlabo-dev/ionic-theme-ios27.git",
-    "directory": "packages/native-ui"
+    "url": "git+https://github.com/rdlabo-dev/ionic-theme-ios27.git",
+    "directory": "packages/capacitor-native-ui"
   },
   "bugs": {
     "url": "https://github.com/rdlabo-dev/ionic-theme-ios27/issues"
@@ -13,6 +13,13 @@
   "type": "module",
   "name": "@ionic-theme/capacitor-native-ui",
   "description": "Web-owned native UI projection for Capacitor",
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "native",
+    "ios",
+    "android"
+  ],
   "main": "./dist/native/index.js",
   "module": "./dist/native/index.js",
   "types": "./dist/native/index.d.ts",
@@ -32,10 +39,14 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "src",
-    "ios",
+    "android/src/main/",
+    "android/build.gradle",
+    "dist/",
+    "src/",
+    "ios/Sources",
+    "ios/Tests",
     "Package.swift",
+    "IonicThemeCapacitorNativeUi.podspec",
     "LICENSE",
     "README.md"
   ],
@@ -47,14 +58,12 @@
     "@capacitor/core": ">=8.0.0 <9",
     "@ionic/core": ">=8.8.1 <10"
   },
-  "peerDependenciesMeta": {
-    "@capacitor/core": {
-      "optional": true
-    }
-  },
   "capacitor": {
     "ios": {
       "src": "ios"
+    },
+    "android": {
+      "src": "android"
     }
   }
 }

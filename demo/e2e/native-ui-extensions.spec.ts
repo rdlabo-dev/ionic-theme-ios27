@@ -4,7 +4,7 @@ import { buildSync } from 'esbuild';
 const bundle = buildSync({
   stdin: {
     contents:
-      "export { createRuntime } from '../../packages/native-ui/src/native/runtime'; export { defineNativeUI } from '../../packages/native-ui/src/native/extensions';",
+      "export { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime'; export { defineNativeUI } from '../../packages/capacitor-native-ui/src/native/extensions';",
     resolveDir: __dirname,
   },
   bundle: true,
