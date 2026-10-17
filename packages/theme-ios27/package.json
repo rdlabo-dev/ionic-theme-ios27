@@ -12,15 +12,7 @@
       "import": "./dist/index.js"
     },
     "./dist/css/*": "./dist/css/*",
-    "./src/styles/*": "./src/styles/*",
-    "./native": {
-      "types": "./dist/native/index.d.ts",
-      "import": "./dist/native/index.js"
-    },
-    "./vertical-bars": {
-      "types": "./dist/vertical-bars.d.ts",
-      "import": "./dist/vertical-bars.js"
-    }
+    "./src/styles/*": "./src/styles/*"
   },
   "files": [
     "dist",

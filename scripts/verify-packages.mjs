@@ -36,6 +36,8 @@ try {
       assert.equal(manifest.capacitor.ios.src, 'ios');
       assert.equal(manifest.capacitor.android.src, 'android');
       assert(files.has('Package.swift'));
+      assert(files.has('android/build.gradle'));
+      assert(files.has('android/proguard-rules.pro'));
       assert(files.has('IonicThemeCapacitorNativeUi.podspec'));
       assert(files.has('ios/Sources/IonicNativeUIShellPlugin/IonicNativeUIShellPlugin.swift'));
       assert(files.has('android/src/main/java/dev/rdlabo/capacitor/nativeui/IonicNativeUIShellPlugin.java'));
@@ -44,6 +46,10 @@ try {
       assert.equal(manifest.name, '@rdlabo/ionic-theme-ios27');
       assert.equal(manifest.capacitor, undefined, 'Only the native package registers a Capacitor plugin');
       assert(!files.has('Package.swift'));
+      for (const entry of ['native', 'vertical-bars']) {
+        assert.equal(manifest.exports['./' + entry], undefined, 'Removed theme entry must not be exported');
+        assert(![...files].some((file) => file.startsWith('src/' + entry) || file.startsWith('dist/' + entry)));
+      }
       assert(![...files].some((file) => file.startsWith('ios/')));
       execFileSync('tar', ['-xzf', join(dir, archive.filename), '-C', dir]);
       execFileSync('node_modules/.bin/sass', [
@@ -67,11 +73,12 @@ try {
       `
     import assert from 'node:assert/strict';
     import * as native from '@ionic-theme/capacitor-native-ui';
-    import * as legacy from '@rdlabo/ionic-theme-ios27/native';
     import * as vertical from '@ionic-theme/capacitor-native-ui/vertical-bars';
-    import * as oldVertical from '@rdlabo/ionic-theme-ios27/vertical-bars';
-    assert.equal(native.enableNativeUIShell, legacy.enableNativeUIShell);
-    assert.equal(vertical.enableVerticalControlArea, oldVertical.enableVerticalControlArea);
+    assert.equal(typeof native.enableNativeUIShell, 'function');
+    assert.equal(typeof vertical.enableVerticalControlArea, 'function');
+    for (const entry of ['native', 'vertical-bars']) {
+      await assert.rejects(import('@rdlabo/ionic-theme-ios27/' + entry), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
+    }
   `,
     ],
     { cwd: dir, stdio: 'inherit' },

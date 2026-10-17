@@ -7,13 +7,18 @@
 | `packages/theme-ios27`         | `@rdlabo/ionic-theme-ios27`        | Sass/CSS, Ionic Web behavior and page transitions                                         |
 | `packages/capacitor-native-ui` | `@ionic-theme/capacitor-native-ui` | Native UI Shell, Vertical Bars runtime, app-local extensions and the Capacitor iOS plugin |
 
-The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination and compatibility exports; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
+The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
 
 MD3 remains in `rdlabo-dev/ionic-theme-md3`. Native UI currently implements iOS only. Android and browsers retain Web presentation. Repository transfer and public naming can be considered separately from this layout.
 
 ## Existing applications
 
-Theme CSS paths and the ordinary `@rdlabo/ionic-theme-ios27` entry stay unchanged. Existing `/native` and `/vertical-bars` JavaScript imports remain compatibility exports.
+Theme CSS paths and the ordinary `@rdlabo/ionic-theme-ios27` entry stay unchanged. The old theme `/native` and `/vertical-bars` JavaScript entry points are removed. Update imports as follows:
+
+| Removed import                            | Replacement                                      |
+| ----------------------------------------- | ------------------------------------------------ |
+| `@rdlabo/ionic-theme-ios27/native`        | `@ionic-theme/capacitor-native-ui`               |
+| `@rdlabo/ionic-theme-ios27/vertical-bars` | `@ionic-theme/capacitor-native-ui/vertical-bars` |
 
 **Native installation changes:** Capacitor discovers direct application dependencies. Apps using native projection must add the native package explicitly, then sync:
 
@@ -22,7 +27,7 @@ npm install @rdlabo/ionic-theme-ios27 @ionic-theme/capacitor-native-ui
 npx cap sync ios
 ```
 
-Prefer `@ionic-theme/capacitor-native-ui` and `@ionic-theme/capacitor-native-ui/vertical-bars` for new runtime imports. Swift extension imports remain `IonicNativeUIShellPlugin`; the Capacitor bridge name is unchanged. Do not leave a manually linked copy of the old theme Swift package in Xcode alongside the new package.
+Use the Native UI package for all runtime imports. Swift extension imports remain `IonicNativeUIShellPlugin`; the Capacitor bridge name is unchanged. Do not leave a manually linked copy of the old theme Swift package in Xcode alongside the new package.
 
 ## Local development
 
