@@ -97,6 +97,14 @@ await shell.destroy();              // stop the shell and restore sources
 
 Disabling rail projection does not remove application CSS or change application-owned spacing. Update your own layout alongside this setting if needed.
 
+## Request a check after an unobserved change
+
+```ts
+shell.markForCheck();
+```
+
+Use this after changing a property or reader state that does not cause a DOM mutation. It schedules a check, batches repeated requests, and sends only changed native snapshots. It returns `void`; it does not wait for native completion or render your framework's DOM. Calls after destruction are ignored. See [source checks and observation](native-ui-extensions.md#schedule-a-source-check).
+
 ## Compatibility
 
 The existing global `enableVerticalControlArea()` remains a startup wrapper for Ionic rail-only usage, while `setVerticalControlAreaPlacement()` is a deprecated Web CSS compatibility adapter. Its `nativeEdge` input is ignored; native availability is obtained from the plugin’s own device metrics. Use the theme’s `setVerticalBarsLayout({ edge, inset })` for Web layout. New code should use the shared startup and handle methods above. See [migration](migration.md) for legacy settings and the changed partial-control defaults.

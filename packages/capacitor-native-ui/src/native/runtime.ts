@@ -263,7 +263,7 @@ export const createRuntime = async (
   };
   // Compare source data before PNG rendering mutates each item's payload.
   const signature = (candidate: Candidate) =>
-    JSON.stringify({ control: candidate.control, icons: candidate.icons.map(({ source }) => source) });
+    JSON.stringify({ control: candidate.control, icons: candidate.icons.map(({ source }) => source), assets: candidate.assets?.signature });
   const read = (): Candidate[] => {
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
@@ -380,9 +380,15 @@ export const createRuntime = async (
         return;
       }
       observe();
-      const candidates = read();
+      let candidates = read();
       const signatures = new Map(candidates.map((candidate) => [candidate.element, signature(candidate)]));
+      const failedAssets = new Set<Candidate>();
       for (const candidate of candidates) {
+        try {
+          await candidate.assets?.render(icons);
+        } catch {
+          failedAssets.add(candidate);
+        }
         for (const icon of candidate.icons) {
           const field = icon.field ?? 'icon';
           icon.item[field] = await icons.render(
@@ -392,6 +398,7 @@ export const createRuntime = async (
           );
         }
       }
+      candidates = candidates.filter((candidate) => !failedAssets.has(candidate));
       if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
       const retained = new Set(candidates.flatMap(candidateSources));
       const removed = Array.from(sources.keys()).filter((element) => !retained.has(element));
@@ -779,6 +786,7 @@ export const createRuntime = async (
         schedule();
       };
     },
+    markForCheck: schedule,
     getStatus: (): NativeUIShellStatus => ({
       state: stopped ? 'stopped' : sources.size ? 'native' : 'web',
       projected: sources.size,

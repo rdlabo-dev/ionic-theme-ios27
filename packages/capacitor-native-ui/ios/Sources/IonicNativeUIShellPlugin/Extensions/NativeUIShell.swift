@@ -3,26 +3,66 @@ import UIKit
 
 /// App-local SwiftUI renderers. Register once before enabling the shell from JavaScript.
 @MainActor public enum NativeUIShell {
-    private static var renderers: [String: (String, NativeUIActions) throws -> AnyView] = [:]
+    private static var renderers: [String: (String, NativeUIActions, NativeUIContext) throws -> AnyView] = [:]
 
     /// The name must match defineNativeUI in the application's TypeScript source.
     public static func register<Props: Decodable, Content: View>(
         _ name: String, @ViewBuilder content: @escaping (Props, NativeUIActions) -> Content
     ) throws {
+        try register(name) { (props: Props, actions: NativeUIActions, _: NativeUIContext) in
+            content(props, actions)
+        }
+    }
+
+    /// Receives source geometry and presentation state on every accepted snapshot.
+    public static func register<Props: Decodable, Content: View>(
+        _ name: String, @ViewBuilder content: @escaping (Props, NativeUIActions, NativeUIContext) -> Content
+    ) throws {
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, renderers[name] == nil else {
             throw NativeUIError.duplicateRegistration
         }
-        renderers[name] = { json, actions in
+        renderers[name] = { json, actions, context in
             let props = try JSONDecoder().decode(Props.self, from: Data(json.utf8))
-            return AnyView(content(props, actions))
+            return AnyView(content(props, actions, context))
         }
     }
 
     static var names: [String] { renderers.keys.sorted() }
 
-    static func content(_ data: ShellExtension, actions: NativeUIActions) throws -> AnyView {
+    static func content(_ data: ShellExtension, actions: NativeUIActions, context: NativeUIContext) throws -> AnyView {
         guard let renderer = renderers[data.name] else { throw NativeUIError.unavailable }
-        return try renderer(data.props, actions)
+        return try renderer(data.props, actions, context)
+    }
+}
+
+/// Read-only metadata for a projected Web source. Shell still owns its placement.
+public struct NativeUIContext {
+    public enum Placement: String { case element, tabAccessory = "tab-accessory" }
+
+    /// Opaque identity stable for this source's current lifetime; not its HTML id.
+    public let sourceID: String
+    /// getBoundingClientRect(), in CSS pixels relative to the Web viewport.
+    public let sourceFrame: CGRect
+    /// The same source rectangle in WKWebView-local UIKit points, not screen coordinates.
+    public let sourceFrameInWebView: CGRect
+    /// CSS viewport width used to convert the snapshot into native coordinates.
+    public let viewportWidth: CGFloat
+    /// UIKit points per CSS pixel. This is not the device's pixel density.
+    public let pointsPerCSSPixel: CGFloat
+    public let placement: Placement
+    public let colorScheme: ColorScheme
+    public let layoutDirection: LayoutDirection
+
+    init(node: ShellControl, viewportWidth: CGFloat, pointsPerCSSPixel: CGFloat) {
+        sourceID = node.id
+        sourceFrame = node.frame.rect
+        sourceFrameInWebView = node.frame.rect.applying(
+            CGAffineTransform(scaleX: pointsPerCSSPixel, y: pointsPerCSSPixel))
+        self.viewportWidth = viewportWidth
+        self.pointsPerCSSPixel = pointsPerCSSPixel
+        placement = node.extensionContent?.tabBarId == nil ? .element : .tabAccessory
+        colorScheme = node.dark ? .dark : .light
+        layoutDirection = node.rtl ? .rightToLeft : .leftToRight
     }
 }
 
@@ -34,6 +74,15 @@ public enum NativeUIError: Error {
 /// application's asynchronous work triggered by that click has finished.
 @MainActor public struct NativeUIActions {
     let dispatch: (String) async throws -> Void
+    /// Names of currently visible, enabled DOM targets supplied by the reader.
+    public let availableNames: Set<String>
+
+    init(availableNames: Set<String> = [], dispatch: @escaping (String) async throws -> Void) {
+        self.availableNames = availableNames
+        self.dispatch = dispatch
+    }
+
+    public func isAvailable(_ name: String) -> Bool { availableNames.contains(name) }
 
     public func activate(_ name: String) async throws {
         try Task.checkCancellation()

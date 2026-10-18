@@ -6,6 +6,71 @@ import WebKit
 final class NativeUIExtensionTests: XCTestCase {
     struct Props: Decodable { let title: String }
 
+    private func context(width: Double = 120, dark: Bool = false, accessory: Bool = false) throws -> NativeUIContext {
+        var content: [String: Any] = ["name": "fixture", "props": "{}", "actions": [:]]
+        if accessory { content["tabBarId"] = "tabs" }
+        let json: [String: Any] = ["id": "source", "kind": "extension", "x": -4, "y": 30,
+            "width": width, "height": 44, "dark": dark, "rtl": dark, "items": [], "extension": content]
+        let node = try JSONDecoder().decode(ShellControl.self, from: JSONSerialization.data(withJSONObject: json))
+        return NativeUIContext(node: node, viewportWidth: 600, pointsPerCSSPixel: 0.5)
+    }
+
+    @MainActor func testContextUpdatesGeometryEnvironmentAndAccessoryPlacement() throws {
+        let name = UUID().uuidString
+        var received: [NativeUIContext] = []
+        try NativeUIShell.register(name) { (props: Props, actions: NativeUIActions, context: NativeUIContext) in
+            received.append(context)
+            XCTAssertTrue(actions.isAvailable("open"))
+            XCTAssertFalse(actions.isAvailable("disabled"))
+            return Text(props.title)
+        }
+        let data = ShellExtension(name: name, props: "{\"title\":\"Ready\"}", actions: ["open": "button"], tabBarId: nil)
+        let actions = NativeUIActions(availableNames: ["open"]) { _ in }
+        _ = try NativeUIShell.content(data, actions: actions, context: context())
+        _ = try NativeUIShell.content(data, actions: actions, context: context(width: 220, dark: true, accessory: true))
+        XCTAssertEqual(received.count, 2)
+        XCTAssertEqual(received[0].sourceID, "source")
+        XCTAssertEqual(received[0].sourceFrame, CGRect(x: -4, y: 30, width: 120, height: 44))
+        XCTAssertEqual(received[0].sourceFrameInWebView, CGRect(x: -2, y: 15, width: 60, height: 22))
+        XCTAssertEqual(received[0].placement, .element)
+        XCTAssertEqual(received[0].colorScheme, .light)
+        XCTAssertEqual(received[0].layoutDirection, .leftToRight)
+        XCTAssertEqual(received[1].sourceFrameInWebView.width, 110)
+        XCTAssertEqual(received[1].viewportWidth, 600)
+        XCTAssertEqual(received[1].pointsPerCSSPixel, 0.5)
+        XCTAssertEqual(received[1].placement, .tabAccessory)
+        XCTAssertEqual(received[1].colorScheme, .dark)
+        XCTAssertEqual(received[1].layoutDirection, .rightToLeft)
+        XCTAssertThrowsError(try NativeUIShell.register(name) { (_: Props, _: NativeUIActions) in Text("Duplicate") })
+    }
+
+    @MainActor func testPublicRenderingSharesArtworkAndComputedColors() throws {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16)).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
+        }
+        let data = try XCTUnwrap(image.pngData()).base64EncodedString()
+        let artwork = NativeUIImage(data: data, width: 16, height: 16, template: true)
+        let decoded = try XCTUnwrap(NativeUIRendering.image(artwork))
+        XCTAssertEqual(decoded.size, CGSize(width: 16, height: 16))
+        XCTAssertEqual(decoded.renderingMode, .alwaysTemplate)
+        let legacy: [String: Any] = ["id": "icon", "label": "Icon", "accessibilityLabel": "Icon",
+            "disabled": false, "selected": false, "fontSize": 16, "fontWeight": 400,
+            "color": "rgb(0, 0, 0)", "icon": data, "iconWidth": 16]
+        let item = try JSONDecoder().decode(ShellItemContent.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertEqual(try XCTUnwrap(ShellRendering().image(item)).size, CGSize(width: 16, height: 16))
+        XCTAssertNil(NativeUIRendering.image(NativeUIImage(data: "invalid", width: 16, height: 16)))
+        XCTAssertNil(NativeUIRendering.image(NativeUIImage(data: data, width: .nan, height: 16)))
+        let color = NativeUIRendering.color("rgba(255, 0, 128, 0.5)")
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+        XCTAssertEqual(red, 1)
+        XCTAssertEqual(blue, 128.0 / 255.0, accuracy: 0.001)
+        XCTAssertEqual(alpha, 0.5)
+        XCTAssertEqual(NativeUIRendering.color("currentColor", fallback: .red), .red)
+        XCTAssertEqual(ShellRendering().color("rgba(255, 0, 128, 0.5)"), color)
+    }
+
     @MainActor func testLocalRegistrationDecodesPropsAndRejectsDuplicateAndMissingRenderers() throws {
         let name = UUID().uuidString
         var title = ""
@@ -14,11 +79,12 @@ final class NativeUIExtensionTests: XCTestCase {
             return Text(props.title)
         }
         let actions = NativeUIActions { _ in }
-        _ = try NativeUIShell.content(ShellExtension(name: name, props: "{\"title\":\"Local View\"}", actions: [:], tabBarId: nil), actions: actions)
+        let context = try context()
+        _ = try NativeUIShell.content(ShellExtension(name: name, props: "{\"title\":\"Local View\"}", actions: [:], tabBarId: nil), actions: actions, context: context)
         XCTAssertEqual(title, "Local View")
         XCTAssertThrowsError(try NativeUIShell.register(name) { (props: Props, _: NativeUIActions) in Text(props.title) })
-        XCTAssertThrowsError(try NativeUIShell.content(ShellExtension(name: name, props: "{}", actions: [:], tabBarId: nil), actions: actions))
-        XCTAssertThrowsError(try NativeUIShell.content(ShellExtension(name: "missing", props: "{}", actions: [:], tabBarId: nil), actions: actions))
+        XCTAssertThrowsError(try NativeUIShell.content(ShellExtension(name: name, props: "{}", actions: [:], tabBarId: nil), actions: actions, context: context))
+        XCTAssertThrowsError(try NativeUIShell.content(ShellExtension(name: "missing", props: "{}", actions: [:], tabBarId: nil), actions: actions, context: context))
     }
 
     @MainActor func testExtensionSnapshotAcceptsEmptyActionsButRejectsInvalidProps() throws {

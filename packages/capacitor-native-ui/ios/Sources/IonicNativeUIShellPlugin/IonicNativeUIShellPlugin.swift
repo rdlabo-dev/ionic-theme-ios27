@@ -256,11 +256,11 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
         }
     }
 
-    @MainActor private func extensionContent(_ node: ShellControl) throws -> AnyView {
+    @MainActor private func extensionContent(_ node: ShellControl, viewportWidth: CGFloat, scale: CGFloat) throws -> AnyView {
         guard let data = node.extensionContent else { throw NativeUIError.unavailable }
         let session = extensionSessions[node.id] ?? UUID()
         extensionSessions[node.id] = session
-        let actions = NativeUIActions { [weak self] name in
+        let actions = NativeUIActions(availableNames: Set(data.actions.keys)) { [weak self] name in
             guard let self, self.extensionNodes[node.id] == node, self.extensionSessions[node.id] == session, let target = data.actions[name] else {
                 throw NativeUIError.unavailable
             }
@@ -270,7 +270,8 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     "sequence": self.sequence, "requestId": request])
             }
         }
-        return AnyView(try NativeUIShell.content(data, actions: actions)
+        let context = NativeUIContext(node: node, viewportWidth: viewportWidth, pointsPerCSSPixel: scale)
+        return AnyView(try NativeUIShell.content(data, actions: actions, context: context)
             .environment(\.layoutDirection, node.rtl ? .rightToLeft : .leftToRight)
             .environment(\.colorScheme, node.dark ? .dark : .light)
             .id(node.id))
@@ -417,7 +418,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
             for node in accessories {
                 guard #available(iOS 26.1, *), accessories.count == 1, !self.keyboardVisible, self.verticalBars != nil,
                       verticalBars.filter({ $0.kind == .tabBar }).map(\.id) == [node.extensionContent!.tabBarId!],
-                      let content = try? self.extensionContent(node) else {
+                      let content = try? self.extensionContent(node, viewportWidth: width, scale: scale) else {
                     rejectedControls.append(node.id)
                     self.extensionNodes.removeValue(forKey: node.id)
                     self.extensionSessions.removeValue(forKey: node.id)
@@ -465,7 +466,7 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
                     let bounds = webView.convert(CGRect(x: local.minX * scale, y: local.minY * scale,
                                                        width: local.width * scale, height: local.height * scale), to: parent)
                     if node.kind == .extension {
-                        guard let owner = self.bridge?.viewController, let content = try? self.extensionContent(node) else {
+                        guard let owner = self.bridge?.viewController, let content = try? self.extensionContent(node, viewportWidth: width, scale: scale) else {
                             self.extensionNodes.removeValue(forKey: id)
                             self.extensionSessions.removeValue(forKey: id)
                             self.extensionActions.cancel(owner: id)

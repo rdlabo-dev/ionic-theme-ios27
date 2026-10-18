@@ -60,6 +60,7 @@ export const startNativeUIShell = async (
   let destruction: Promise<void> | undefined;
   const destroy = runtime.destroy.bind(runtime);
   const handle: NativeUIShellHandle = {
+    markForCheck: runtime.markForCheck.bind(runtime),
     getStatus: runtime.getStatus.bind(runtime),
     suspend: runtime.suspend.bind(runtime),
     enableVerticalControlArea: () => change(true),

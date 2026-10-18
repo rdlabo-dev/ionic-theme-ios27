@@ -5,7 +5,7 @@ import { setVerticalControlAreaPlacement } from './legacy-layout';
 export { setVerticalControlAreaPlacement } from './legacy-layout';
 export { configureNativeTransition, IonicNativeUIShell } from './activation';
 export { defineNativeUI } from './extensions';
-export type { NativeUIExtension, NativeUIValue } from './extensions';
+export type { NativeUIExtension, NativeUIValue, NativeUIReadContext, NativeUIImageReference } from './extensions';
 export type {
   NativeUIVerticalBarsOptions,
   NativeUIShellComponent,

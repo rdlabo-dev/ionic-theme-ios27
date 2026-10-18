@@ -143,6 +143,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
   win.addEventListener('nativeUIShellRefresh', schedule);
   render();
   return {
+    markForCheck: schedule,
     getStatus: () => ({ state: stopped ? 'stopped' : 'web', projected: owned.size, updates }),
     async suspend() {
       suspended++;

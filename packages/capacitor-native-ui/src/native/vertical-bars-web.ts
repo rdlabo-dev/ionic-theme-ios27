@@ -455,6 +455,9 @@ export const createVerticalBarsWebProjection = (
   schedule();
 
   return {
+    markForCheck: () => {
+      void schedule();
+    },
     getStatus: (): NativeUIShellStatus => ({
       state: stopped ? 'stopped' : 'web',
       projected:

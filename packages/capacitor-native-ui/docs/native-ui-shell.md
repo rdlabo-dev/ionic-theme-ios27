@@ -237,6 +237,7 @@ The generated reference below documents the handle returned by `enableNativeUISh
 
 * [`enableVerticalControlArea()`](#enableverticalcontrolarea)
 * [`disableVerticalControlArea()`](#disableverticalcontrolarea)
+* [`markForCheck()`](#markforcheck)
 * [`getStatus()`](#getstatus)
 * [`suspend()`](#suspend)
 * [`destroy()`](#destroy)
@@ -259,6 +260,7 @@ Enable rail projection when available, preserving other settings. Rejects after 
 
 --------------------
 
+
 ### disableVerticalControlArea()
 
 ```typescript
@@ -268,6 +270,18 @@ disableVerticalControlArea() => Promise<void>
 Restore rail sources to the Web without stopping ordinary native controls. Rejects after destroy.
 
 --------------------
+
+
+### markForCheck()
+
+```typescript
+markForCheck() => void
+```
+
+Schedule a source recheck. Calls coalesce; unchanged snapshots are not sent. No-op after destroy or without a runtime.
+
+--------------------
+
 
 ### getStatus()
 
@@ -281,6 +295,7 @@ Returns the current Web/native projection state.
 
 --------------------
 
+
 ### suspend()
 
 ```typescript
@@ -293,6 +308,7 @@ Restores projected controls to the Web until the returned lease is resumed.
 
 --------------------
 
+
 ### destroy()
 
 ```typescript
@@ -303,7 +319,9 @@ Stops synchronization, restores Web controls and releases native resources.
 
 --------------------
 
+
 ### Interfaces
+
 
 #### NativeUIShellStatus
 
@@ -313,6 +331,7 @@ Stops synchronization, restores Web controls and releases native resources.
 | **`projected`** | <code>number</code>                         |
 | **`updates`**   | <code>number</code>                         |
 | **`reason`**    | <code>string</code>                         |
+
 
 #### NativeUIShellSuspension
 

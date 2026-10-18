@@ -211,3 +211,111 @@ test('disabled startup and buttons opt-out keep HTML sources on the Web', async 
   handles.push(disabled);
   expect(host.childElementCount).toBe(0);
 });
+
+test('markForCheck batches property-only changes, skips equal snapshots, and stops after teardown', async () => {
+  const { root, options } = mount('<section data-counter>Counter</section>');
+  const source = root.querySelector<HTMLElement>('[data-counter]')! as HTMLElement & { count: number };
+  source.count = 0;
+  const read = vi.fn(() => ({ props: { count: source.count } }));
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const snapshots: ShellSnapshot[] = [];
+  let release: (() => void) | undefined;
+  let hold = false;
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: ShellSnapshot) => {
+      snapshots.push(snapshot);
+      if (hold) {
+        hold = false;
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      }
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIShellPlugin;
+  const handle = await createRuntime(document, plugin, {
+    ...options,
+    extensions: [{ name: 'counter', selector: '[data-counter]', read }],
+  });
+  handles.push(handle);
+  const nextFrame = () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+  const count = () => JSON.parse(snapshots.at(-1)!.controls[0].extension!.props).count;
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
+  await nextFrame();
+  await nextFrame();
+  const before = snapshots.length;
+  const reads = read.mock.calls.length;
+  source.count = 1; // Property assignment does not create a MutationObserver record.
+  for (let i = 0; i < 20; i++) expect(handle.markForCheck()).toBeUndefined();
+  await vi.waitFor(() => expect(count()).toBe(1));
+  expect(snapshots.length).toBe(before + 1);
+  expect(read.mock.calls.length).toBe(reads + 1);
+  handle.markForCheck();
+  await nextFrame();
+  await nextFrame();
+  expect(snapshots.length).toBe(before + 1);
+
+  hold = true;
+  source.count = 2;
+  handle.markForCheck();
+  await vi.waitFor(() => expect(release).toBeDefined());
+  source.count = 3;
+  handle.markForCheck(); // A request during bridge work must survive its acknowledgement.
+  release!();
+  await vi.waitFor(() => expect(count()).toBe(3));
+
+  const lease = await handle.suspend();
+  source.count = 4;
+  handle.markForCheck();
+  await nextFrame();
+  await nextFrame();
+  expect(snapshots.at(-1)!.controls).toHaveLength(0);
+  await lease.resume();
+  await vi.waitFor(() => expect(count()).toBe(4));
+  await handle.destroy();
+  const stopped = snapshots.length;
+  handle.markForCheck();
+  await nextFrame();
+  expect(snapshots.length).toBe(stopped);
+});
+
+test('extension images share SVG validation and rasterization without asynchronous readers', async () => {
+  const { readExtension } = await import('../../packages/capacitor-native-ui/src/native/extensions');
+  const { root } = mount('<section data-counter><svg width="16" height="16"><path d="M0 0h16v16z" /></svg></section>');
+  const source = root.querySelector<HTMLElement>('section')!;
+  const svg = source.querySelector('svg')!;
+  const definition = {
+    name: 'artwork',
+    selector: '[data-counter]',
+    read: (element: HTMLElement, context: import('../../packages/capacitor-native-ui/src/core').NativeUIReadContext) => {
+      const icon = context.image(element.querySelector('svg'), { template: true });
+      return { props: { icon: icon ? { ...icon } : null } };
+    },
+  };
+  const candidate = readExtension(source, [definition], () => 'artwork')!;
+  const renderer = { render: vi.fn().mockResolvedValue('png-base64'), clear: vi.fn() };
+  await candidate.assets!.render(renderer);
+  expect(renderer.render).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(candidate.control.extension!.props).icon).toEqual({ data: 'png-base64', width: 80, height: 44, template: true });
+  svg.innerHTML = '<image href="https://example.invalid/image.png" />';
+  const unsupported = readExtension(source, [definition], () => 'artwork')!;
+  expect(JSON.parse(unsupported.control.extension!.props).icon).toBeNull();
+  expect(unsupported.assets).toBeUndefined();
+  svg.innerHTML = '<path d="M0 0h16v16z" />';
+  const failed = readExtension(source, [definition], () => 'artwork')!;
+  await expect(failed.assets!.render({ ...renderer, render: vi.fn().mockRejectedValue(new Error('decode')) })).rejects.toThrow('decode');
+});

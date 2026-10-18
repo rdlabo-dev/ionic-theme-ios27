@@ -97,6 +97,8 @@ export interface NativeUIVerticalBarsOptions {
 }
 
 export interface NativeUIShellRuntimeHandle {
+  /** Schedule a source recheck. Calls coalesce; unchanged snapshots are not sent. No-op after destroy or without a runtime. */
+  markForCheck(): void;
   /** Returns the current Web/native projection state. */
   getStatus(): NativeUIShellStatus;
   /** Restores projected controls to the Web until the returned lease is resumed. */

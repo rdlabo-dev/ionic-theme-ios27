@@ -11,11 +11,12 @@ private struct MiniPlayerProps: Decodable {
 private struct MiniPlayerView: View {
     let props: MiniPlayerProps
     let actions: NativeUIActions
+    let context: NativeUIContext
     @State private var busy = false
     @State private var showError = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: context.sourceFrame.width < 240 ? 2 : 4) {
             Button { activate("open") } label: {
                 HStack(spacing: 10) {
                     AlbumArtwork()
@@ -38,6 +39,7 @@ private struct MiniPlayerView: View {
             .layoutPriority(1)
             .accessibilityLabel("Open Now Playing")
             .accessibilityIdentifier("mini-player-open")
+            .disabled(!actions.isAvailable("open"))
             .simultaneousGesture(DragGesture(minimumDistance: 16).onEnded { value in
                 if value.translation.height < -32 && abs(value.translation.height) > abs(value.translation.width) {
                     activate("open")
@@ -52,6 +54,7 @@ private struct MiniPlayerView: View {
             }
             .accessibilityLabel(props.playing ? "Pause" : "Play")
             .accessibilityIdentifier("mini-player-playback")
+            .disabled(!actions.isAvailable("toggle"))
         }
         .buttonStyle(.plain)
         .disabled(busy)
@@ -96,7 +99,7 @@ private struct AlbumArtwork: View {
 
 @MainActor func registerNativeMiniPlayer() throws {
     guard #available(iOS 26.0, *) else { return }
-    try NativeUIShell.register("demo.mini-player") { (props: MiniPlayerProps, actions: NativeUIActions) in
-        MiniPlayerView(props: props, actions: actions)
+    try NativeUIShell.register("demo.mini-player") { (props: MiniPlayerProps, actions: NativeUIActions, context: NativeUIContext) in
+        MiniPlayerView(props: props, actions: actions, context: context)
     }
 }

@@ -1,8 +1,9 @@
 import type { ShellControl, ShellItem, NativeUIControlKind, NativeUIShellComponent, VerticalControlAreaOptions } from '../definitions';
 import { frame, isDark, isVerticalBarsSource, text, visible } from './dom';
-import { iconSource } from './icons';
+import { iconSource, type createIconRenderer } from './icons';
 
 export interface Candidate {
+  assets?: { signature: string; render(renderer: ReturnType<typeof createIconRenderer>): Promise<void> };
   buttonProjection?: VerticalControlAreaOptions['buttonProjection'];
   buttonDefaultFill?: VerticalControlAreaOptions['buttonDefaultFill'];
   element: HTMLElement;

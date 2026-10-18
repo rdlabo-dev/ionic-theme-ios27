@@ -2,8 +2,18 @@ import { fitsClip } from './shared/clipping';
 export { projectionAncestors as extensionAncestors } from './shared/clipping';
 import type { Candidate, Identify } from './shared/candidate';
 import { frame, isDark, visible } from './shared/dom';
+import { iconSource, type createIconRenderer } from './shared/icons';
 
 export type NativeUIValue = string | number | boolean | null | NativeUIValue[] | { [key: string]: NativeUIValue };
+
+/** Opaque image reference. Return it in props; the shell replaces it with NativeUIImage data before transmission. */
+export type NativeUIImageReference = { readonly $nativeUIImage: string };
+type NativeUIImage = { data: string; width: number; height: number; template: boolean };
+
+export interface NativeUIReadContext {
+  /** Capture a local SVG or resolved ion-icon using the standard renderer. Unsupported artwork returns null. */
+  image(element: SVGElement | HTMLElement | null, options?: { template?: boolean }): NativeUIImageReference | null;
+}
 
 /** An app-local DOM projection. Swift registers its View under the same name. */
 export interface NativeUIExtension {
@@ -11,8 +21,11 @@ export interface NativeUIExtension {
   readonly selector: string;
   /** Defaults to the source element's frame. Unsupported hosts keep the Web source visible. */
   readonly placement?: 'element' | 'tab-accessory';
-  /** Return null to keep this instance on the Web. Read only DOM-backed state. */
-  readonly read: (element: HTMLElement) => {
+  /** Return null to keep this instance on the Web. Read current source state without side effects. Notify property-only changes with shell.markForCheck(). */
+  readonly read: (
+    element: HTMLElement,
+    context: NativeUIReadContext,
+  ) => {
     props: { [key: string]: NativeUIValue };
     /** Click targets must belong to the source element. Null targets are unavailable. */
     actions?: Record<string, HTMLElement | null>;
@@ -20,7 +33,7 @@ export interface NativeUIExtension {
 }
 
 /** Defines a projection locally; it does not start native work or register a Capacitor plugin. */
-export const defineNativeUI = (extension: NativeUIExtension): NativeUIExtension => Object.freeze({ ...extension });
+export const defineNativeUI = <T extends NativeUIExtension>(extension: T): Readonly<T> => Object.freeze({ ...extension });
 
 export const validateExtensions = (extensions: readonly NativeUIExtension[], doc: Document): void => {
   const names = new Set<string>();
@@ -33,7 +46,7 @@ export const validateExtensions = (extensions: readonly NativeUIExtension[], doc
   }
 };
 
-const json = (value: unknown): string => {
+const json = (value: unknown, images: Map<string, NativeUIImage>): string => {
   if (!value || typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype)
     throw new Error('Native UI props must be a JSON object');
   const result = JSON.stringify(value, (_key, item: unknown) => {
@@ -45,6 +58,11 @@ const json = (value: unknown): string => {
       (item !== null && typeof item === 'object' && !Array.isArray(item) && Object.getPrototypeOf(item) !== Object.prototype)
     )
       throw new Error('Native UI props must contain only JSON values');
+    if (item && typeof item === 'object' && '$nativeUIImage' in item) {
+      const image = images.get(item.$nativeUIImage as string);
+      if (!image || Object.keys(item).length !== 1) throw new Error('Invalid native image reference');
+      return image;
+    }
     return item;
   });
   if (!result || result.length > 65536) throw new Error('Native UI props exceed 64K characters');
@@ -65,9 +83,25 @@ export const readExtension = (element: HTMLElement, extensions: readonly NativeU
   const extension = matches[0];
   if (extension.placement !== 'tab-accessory' && !fitsClip(element)) return;
   try {
-    const state = extension.read(element);
+    const images: { value: NativeUIImage; source: string }[] = [];
+    const imageValues = new Map<string, NativeUIImage>();
+    const state = extension.read(element, {
+      image(owner, options) {
+        if (!owner || !(element.contains(owner) || element.shadowRoot?.contains(owner))) return null;
+        const svg = owner.matches('svg') ? (owner as SVGElement) : owner.shadowRoot?.querySelector<SVGElement>('svg');
+        if (!svg) return null;
+        const source = iconSource(svg);
+        const { width, height } = owner.getBoundingClientRect();
+        if (!source || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+        const value: NativeUIImage = { data: '', width, height, template: options?.template ?? false };
+        const key = String(images.length);
+        images.push({ value, source });
+        imageValues.set(key, value);
+        return { $nativeUIImage: key };
+      },
+    });
     if (!state) return;
-    const props = json(state.props);
+    const props = json(state.props, imageValues);
     const actions = new Map<string, HTMLElement>();
     const targets: Record<string, string> = {};
     for (const [name, target] of Object.entries(state.actions ?? {})) {
@@ -93,19 +127,29 @@ export const readExtension = (element: HTMLElement, extensions: readonly NativeU
         : undefined;
     if (extension.placement === 'tab-accessory' && !tabBar) return;
     const style = getComputedStyle(element);
+    const control = {
+      id: id(element),
+      kind: 'extension' as const,
+      ...frame(element.getBoundingClientRect()),
+      items: [],
+      dark: isDark(style),
+      rtl: style.direction === 'rtl',
+      extension: { name: extension.name, props, actions: targets, tabBarId: tabBar ? id(tabBar) : undefined },
+    };
     return {
       element,
       actions,
       icons: [],
-      control: {
-        id: id(element),
-        kind: 'extension',
-        ...frame(element.getBoundingClientRect()),
-        items: [],
-        dark: isDark(style),
-        rtl: style.direction === 'rtl',
-        extension: { name: extension.name, props, actions: targets, tabBarId: tabBar ? id(tabBar) : undefined },
-      },
+      control,
+      assets: images.length
+        ? {
+            signature: JSON.stringify(images),
+            async render(renderer: ReturnType<typeof createIconRenderer>) {
+              for (const { value, source } of images) value.data = await renderer.render(source, value.width, value.height);
+              control.extension.props = json(state.props, imageValues);
+            },
+          }
+        : undefined,
     };
   } catch {
     // A broken app reader must not retire otherwise valid built-in controls.
