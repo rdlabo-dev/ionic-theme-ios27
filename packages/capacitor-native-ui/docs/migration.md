@@ -6,7 +6,7 @@ title: Migration
 
 ## Native UI package separation
 
-Start with [Choose your setup](../../../integration/docs/setup.md) for separate installation, configuration, migration, and verification paths for **theme only**, **Native UI only**, and **both**. The steps below cover the shared package rename and native project changes.
+Start with [Choose your setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) for separate installation, configuration, migration, and verification paths for **theme only**, **Native UI only**, and **both**. The steps below cover the shared package rename and native project changes.
 
 The theme and native controls now live in separate packages. Choose dependencies by the behavior your app uses:
 
@@ -22,7 +22,7 @@ The theme uses the native package's shared transition/search integration interna
 
 ### 1. Update application dependencies
 
-These commands apply once the packages containing this migration are published. For unreleased workspace development, use the [local development instructions](../../../integration/docs/monorepo.md#local-development).
+These commands apply once the packages containing this migration are published. For unreleased workspace development, use the [local development instructions](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/monorepo.md#local-development).
 
 For theme-only apps, update the theme package. Keep existing theme imports and CSS/Sass paths; no native startup or plugin setup is needed for theme-only use.
 
@@ -83,14 +83,14 @@ For local Swift package references, the package now lives at `packages/capacitor
 - Build and launch the iOS app after sync. Check native controls, navigation/back gestures, and any app-local Swift extensions you use.
 - Check browser and Android Web presentation where supported by your app, and confirm the theme still looks correct.
 
-For repository layout, local file dependencies, and packaging/release procedures, see [Workspace development and migration](../../../integration/docs/monorepo.md).
+For repository layout, local file dependencies, and packaging/release procedures, see [Workspace development and migration](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/monorepo.md).
 
 ## Native UI Shell transition adapter
 
 Use `withNativeUIShellTransition()` to keep your existing Ionic navigation animation while coordinating Native UI Shell controls.
 
-- If you already import `iosTransitionAnimation` from `@rdlabo/ionic-theme-ios27`, keep the [package animation setup](../../../integration/docs/iphone-duo-with-original-theme.md#use-this-packages-ios-animation); no configuration change is needed. It now uses the shared adapter internally; do not add another wrapper.
-- If you use Ionic's default animation without a `navAnimation` option, follow [Keep Ionic's default animation](../../../integration/docs/iphone-duo-with-original-theme.md#keep-ionics-default-animation). The example selects Ionic's standard iOS or MD builder from the transition mode.
+- If you already import `iosTransitionAnimation` from `@rdlabo/ionic-theme-ios27`, keep the [package animation setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md#use-this-packages-ios-animation); no configuration change is needed. It now uses the shared adapter internally; do not add another wrapper.
+- If you use Ionic's default animation without a `navAnimation` option, follow [Keep Ionic's default animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md#keep-ionics-default-animation). The example selects Ionic's standard iOS or MD builder from the transition mode.
 - If you use a custom navigation animation with Native UI Shell or the standalone Vertical Control Area, wrap your existing builder when configuring Ionic:
 
 ```diff
@@ -106,5 +106,5 @@ Merge this option into your existing Ionic configuration before initialization. 
 
 Use the adapter only for navigation; leave modal and popover animations unchanged. Your builder must create a fresh `Animation` for each navigation because Ionic destroys it afterward. Keep lifecycle events for control registration and transitions without animation. If the custom builder animates a horizontal back button separately, exclude that effect while `.ios-theme-vertical-bars` is active.
 
-See [Connect your navigation animation](../../../integration/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup and supported scope.
+See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup and supported scope.
 

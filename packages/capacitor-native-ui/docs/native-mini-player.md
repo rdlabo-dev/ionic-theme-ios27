@@ -6,9 +6,9 @@ title: Native UI Extension: Now Playing
 
 The demo's Index → Native UI Extension page (below native-ui-shell) reimplements the mini-player proposed in PR #248 using the [app-local extension API](native-ui-extensions.md). Its implementation lives in the application; there is no mini-player component or playback API in the theme package.
 
-- [Web component](../../../demo/src/app/mini-player/mini-player.component.ts): owns playback state and the Now Playing modal. Play/pause is separate from opening the player. Tap or swipe up on the track opens the same modal.
-- [Web renderer + DOM reader](../../../demo/src/native-ui/mini-player.ts): renders the Web UI from attributes, sends title, artist and playback state to SwiftUI, and maps `open` / `toggle` to the original Web buttons.
-- [SwiftUI View](../../../demo/ios/App/App/NativeMiniPlayer.swift): uses `Button`, SF Symbols, `DragGesture`, and a capsule glass background. It awaits `NativeUIActions.activate()` rather than duplicating playback state or presenting its own modal.
+- [Web component](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/app/mini-player/mini-player.component.ts): owns playback state and the Now Playing modal. Play/pause is separate from opening the player. Tap or swipe up on the track opens the same modal.
+- [Web renderer + DOM reader](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/mini-player.ts): renders the Web UI from attributes, sends title, artist and playback state to SwiftUI, and maps `open` / `toggle` to the original Web buttons.
+- [SwiftUI View](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/ios/App/App/NativeMiniPlayer.swift): uses `Button`, SF Symbols, `DragGesture`, and a capsule glass background. It awaits `NativeUIActions.activate()` rather than duplicating playback state or presenting its own modal.
 
 Register the View once in the app delegate and pass `miniPlayer` in `enableNativeUIShell({ extensions: [miniPlayer] })`. Copy these app-local files to adapt the sample to your own playback state and artwork. The original sunset artwork is drawn with SwiftUI shapes, with a matching local SVG for the Web. The compact player shows only artwork, track metadata and playback; elapsed time stays in Now Playing.
 

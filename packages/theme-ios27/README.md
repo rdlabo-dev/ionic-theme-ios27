@@ -7,9 +7,9 @@ A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Ca
 <!-- rdlabo-docs-pick -->
 
 <p>
-  <img src="../../screenshots/ios27-settings.png" width="32%" alt="iOS 27 theme: Settings in light mode with a Liquid Glass search bar" />
-  <img src="../../screenshots/ios27-settings-dark.png" width="32%" alt="iOS 27 theme: Settings in dark mode" />
-  <img src="../../screenshots/ios27-library.png" width="32%" alt="iOS 27 theme: Library with Liquid Glass buttons and tab bar" />
+  <img src="https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-ios27/main/screenshots/ios27-settings.png" width="32%" alt="iOS 27 theme: Settings in light mode with a Liquid Glass search bar" />
+  <img src="https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-ios27/main/screenshots/ios27-settings-dark.png" width="32%" alt="iOS 27 theme: Settings in dark mode" />
+  <img src="https://raw.githubusercontent.com/rdlabo-dev/ionic-theme-ios27/main/screenshots/ios27-library.png" width="32%" alt="iOS 27 theme: Library with Liquid Glass buttons and tab bar" />
 </p>
 
 <!-- /rdlabo-docs-pick -->
@@ -26,7 +26,7 @@ Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the d
 
 ## Get started
 
-Choose a complete setup: [Theme only](docs/setup.md#theme-only), [Native UI only with your existing appearance](../capacitor-native-ui/docs/setup.md#native-ui-only), or [Theme and Native UI](../../integration/docs/setup.md#theme-and-native-ui). The instructions below cover theme styling.
+Choose a complete setup: [Theme only](docs/setup.md#theme-only), [Native UI only with your existing appearance](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/setup.md#native-ui-only), or [Theme and Native UI](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md#theme-and-native-ui). The instructions below cover theme styling.
 
 Install both themes in an existing Ionic 8 or 9 app (`@ionic/core` 8.8.1 or later):
 
@@ -130,7 +130,7 @@ The last import uses class-based dark mode; choose the `-dark-system` or `-dark-
 
 ### Other options
 
-- **Native controls:** Follow the [Native UI Shell setup guide](../capacitor-native-ui/docs/native-ui-shell.md). Stylesheet imports alone do not enable it.
+- **Native controls:** Follow the [Native UI Shell setup guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/native-ui-shell.md). Stylesheet imports alone do not enable it.
 - **Inset lists on Android:** Load the matching package's `md-ion-list-inset` stylesheet inside each `@supports` branch if needed. It is already included in `@rdlabo/ionic-theme-md3`.
 
 ### Use with the MD3 theme
@@ -200,6 +200,7 @@ For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/
 - [Special markup and classes](docs/special-markup.md) — opt-in markup and utility classes used by the theme.
 - [ESLint](docs/eslint.md) — check list structure with ESLint rules.
 - [Features](docs/features.md) — CSS variables, Liquid Glass, selective imports, and dark mode.
+- [Vertical Bars layout](docs/vertical-bars-layout.md) — optional Web layout for a native rail.
 - [Animation](docs/animation.md) — tab, segment, and searchable effects.
 - [Migration from iOS 26](docs/migration.md) — upgrade an existing app, including stylesheet, class, and CSS variable changes.
 - [iOS 26 migration history](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration) — earlier major-version changes for the previous package.
@@ -210,6 +211,6 @@ For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/
 
 ## Development
 
-See the [workspace guide](../../integration/docs/monorepo.md) for builds and releases and the [integration guide](../../integration/docs/setup.md) for combining this theme with Native UI.
+See the [workspace guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/monorepo.md) for builds and releases and the [integration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) for combining this theme with Native UI.
 
 <!-- /rdlabo-docs-omit -->
