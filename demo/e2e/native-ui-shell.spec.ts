@@ -2640,9 +2640,9 @@ test('top fixed FAB counts safe area once while preserving edge placement', asyn
 });
 
 for (const [kind, selector] of [
-  ['ion-button', 'ion-button[type=submit]'],
-  ['ion-back-button', 'ion-back-button'],
-  ['ion-menu-button', 'ion-buttons:has(> ion-menu-button)'],
+  ['button', 'ion-button[type=submit]'],
+  ['back-button', 'ion-back-button'],
+  ['menu-button', 'ion-buttons:has(> ion-menu-button)'],
 ]) {
   test(`${kind} stays Web outside fixed header/footer toolbars`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
