@@ -22,7 +22,7 @@ The theme uses the native package's shared transition/search integration interna
 
 ### 1. Update application dependencies
 
-These commands apply once the packages containing this migration are published. For unreleased workspace development, use the [local development instructions](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/development.md#local-development).
+These commands apply once the packages containing this migration are published.
 
 For theme-only apps, update the theme package. Keep existing theme imports and CSS/Sass paths; no native startup or plugin setup is needed for theme-only use.
 
@@ -82,8 +82,6 @@ For local Swift package references, the package now lives at `packages/capacitor
 - Build the application and confirm there are no imports of the removed theme entries or the intermediate package name.
 - Build and launch the iOS app after sync. Check native controls, navigation/back gestures, and any app-local Swift extensions you use.
 - Check browser and Android Web presentation where supported by your app, and confirm the theme still looks correct.
-
-For repository layout, local file dependencies, and packaging/release procedures, see [Workspace development and migration](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/development.md).
 
 ## Native UI Shell transition adapter
 
