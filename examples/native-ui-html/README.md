@@ -6,7 +6,7 @@ From the repository root, build the native package, then install and run this ex
 
 ```sh
 npm run build -w @rdlabo/capacitor-native-ui
-cd integration/native-ui-html
+cd examples/native-ui-html
 npm install
 npm start
 ```
