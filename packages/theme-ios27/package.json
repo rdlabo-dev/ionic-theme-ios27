@@ -47,11 +47,18 @@
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios27",
   "dependencies": {
     "@rdlabo/ionic-theme-utils": "0.1.4",
+    "@rdlabo/capacitor-native-ui": "file:../capacitor-native-ui",
     "ionicons": "^8.1.0",
     "@stencil/core": "^4.43.5"
   },
   "peerDependencies": {
+    "@capacitor/core": ">=8.0.0 <9",
     "@ionic/core": ">=8.8.1 <10"
+  },
+  "peerDependenciesMeta": {
+    "@capacitor/core": {
+      "optional": true
+    }
   },
   "type": "module"
 }

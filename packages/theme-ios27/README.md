@@ -214,7 +214,3 @@ For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/
 See the [workspace guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/monorepo.md) for builds and releases and the [integration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) for combining this theme with Native UI.
 
 <!-- /rdlabo-docs-omit -->
-
-### Optional Native UI integration
-
-The theme works without `@rdlabo/capacitor-native-ui` or Capacitor. To add native controls, install Native UI separately and explicitly call `enableNativeUIShell()` as described in the [integration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md). Keep the usual theme `iosTransitionAnimation`; it coordinates navigation with an enabled shell automatically. Installing the theme or configuring its router animation never enables the plugin.

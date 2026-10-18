@@ -18,7 +18,7 @@ The theme and native controls now live in separate packages. Choose dependencies
 
 The theme owns the appearance and behavior of Ionic's Web elements. Native UI owns projecting supported controls into native iOS views and coordinating their lifecycle with Web navigation. Native UI can be used without the iOS 27 theme; installing it does not apply theme styles. Android and browsers retain Web presentation.
 
-The theme has no dependency on the native package or Capacitor. Its internal transition/search adapters coordinate with an explicitly enabled shell through a plugin-free protocol. Apps using native controls must declare the native package directly so Capacitor can discover the plugin.
+The theme uses the native package's shared transition/search integration internally. This dependency does not enable native controls automatically. Apps using native controls must declare the native package directly so Capacitor can discover the plugin.
 
 ### 1. Update application dependencies
 

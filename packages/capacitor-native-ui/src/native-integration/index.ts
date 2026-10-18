@@ -1,9 +1,20 @@
 /// <reference lib="es2021.weakref" />
 import type { Animation } from '@ionic/core/components';
 
-import { coordination, type NativeSearchBinding, type NativeUIShellIntegration } from './protocol';
-export type { NativeSearchBinding, NativeUIShellIntegration } from './protocol';
-const { searches, runtimes, cancellations: cancellationTransitions } = coordination;
+export interface NativeUIShellIntegration {
+  suspend(scopes: HTMLElement[]): Promise<(canceled?: boolean) => void>;
+  search?(binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean>;
+}
+
+export interface NativeSearchBinding {
+  tabBar: HTMLElement;
+  trigger: HTMLElement;
+  footer: HTMLElement;
+  active: boolean;
+  focused: boolean;
+}
+
+const searches = new WeakMap<Document, WeakRef<NativeSearchBinding>[]>();
 
 export const registerNativeSearch = (tabBar: HTMLElement, trigger: HTMLElement, footer: HTMLElement): NativeSearchBinding => {
   const binding = { tabBar, trigger, footer, active: false, focused: false };
@@ -20,15 +31,11 @@ export const getNativeSearchBindings = (doc: Document): NativeSearchBinding[] =>
 export const requestNativeSearch = async (binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean> =>
   (await runtimes.get(binding.tabBar.ownerDocument)?.search?.(binding, active, focus)) ?? false;
 
+const runtimes = new WeakMap<Document, NativeUIShellIntegration>();
 export const VERTICAL_BARS_TRANSITION_CANCELED = 'iosThemeVerticalBarsTransitionCanceled';
 
 export const setNativeUIShellIntegration = (doc: Document, runtime?: NativeUIShellIntegration) => {
-  if (runtime)
-    runtimes.set(doc, {
-      suspend: (scopes) => runtime.suspend(scopes),
-      search: runtime.search ? (binding, active, focus) => runtime.search!(binding, active, focus) : undefined,
-      connectTransition: connectNativeUIShellTransition,
-    });
+  if (runtime) runtimes.set(doc, runtime);
   else runtimes.delete(doc);
 };
 
@@ -38,6 +45,7 @@ export const suspendNativeUIShell = async (scopes: HTMLElement[]): Promise<(canc
   (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes)) ?? (() => {});
 
 const connectedTransitions = new WeakSet<Animation>();
+const cancellationTransitions = new WeakSet<Animation>();
 
 /** Ionic write hooks cannot await the bridge. Gate playback, including interactive playback. */
 export const connectNativeUIShellTransition = (animation: Animation, entering: HTMLElement, leaving?: HTMLElement) => {
@@ -112,5 +120,5 @@ export const connectNativeUIShellTransition = (animation: Animation, entering: H
 };
 
 /** Shared geometry used by the theme's transition adapter; no theme import in the plugin. */
-export const nativeWebViewMetrics = coordination.metrics;
+export const nativeWebViewMetrics = { radius: 0 };
 export { withNativeUIShellTransition } from './transition';

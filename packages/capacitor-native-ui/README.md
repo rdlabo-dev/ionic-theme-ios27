@@ -3,7 +3,7 @@
 Native UI Shell, Vertical Bars and app-local SwiftUI extensions for Capacitor, with Ionic and plain HTML adapters. Web markup and application state remain the source of truth.
 
 ```sh
-npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
+npm install @capacitor/core @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
 npx cap sync
 ```
 
@@ -30,3 +30,5 @@ The Swift module remains `IonicNativeUIShellPlugin`; app-local extensions do not
 Web layout and styling belong to your app or theme. The plugin does not require the iOS theme package or its CSS variables.
 
 The Ionic entry point includes the popover adapter in its import graph, so bundlers require the optional peers `@ionic/core` and `@rdlabo/ionic-theme-utils@0.1.4`. The theme package already supplies the latter; native-only Ionic apps using the Ionic entry should install it directly. `/core` does not require either peer.
+
+`@capacitor/core` is an optional peer for consumers of the plugin-free `/integration` entry (including the theme). Native startup through the root or `/core` entry requires Capacitor to be installed. Installing the theme does not enable native controls.

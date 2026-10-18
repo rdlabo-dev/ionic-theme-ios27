@@ -79,6 +79,9 @@
     },
     "@rdlabo/ionic-theme-utils": {
       "optional": true
+    },
+    "@capacitor/core": {
+      "optional": true
     }
   }
 }

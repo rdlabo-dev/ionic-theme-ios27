@@ -7,7 +7,7 @@ This path keeps your existing Web appearance. The plugin renders supported contr
 ### Install and configure
 
 ```sh
-npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
+npm install @capacitor/core @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
 ```
 
 Keep your existing Ionic styles and layout. Enable the Shell once at application startup:
@@ -48,3 +48,5 @@ Check that Web content retains your existing appearance, eligible controls rende
 
 
 For an application without Ionic, use the [plain HTML adapter](framework-independent.md). Ionic is an optional peer dependency, not a requirement of the standard native renderers.
+
+`@capacitor/core` is an optional peer for consumers of the plugin-free `/integration` entry (including the theme). Native startup through the root or `/core` entry requires Capacitor to be installed. Installing the theme does not enable native controls.

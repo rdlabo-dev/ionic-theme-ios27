@@ -134,7 +134,9 @@ const manage = (
 /** Reads the current native WebView geometry and applies it to page transitions. */
 export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
   const metrics =
-    typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' ? await bounded(plugin.getWebViewMetrics()) : { radius: 0 };
+    typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' && Capacitor.isPluginAvailable('IonicNativeUIShell')
+      ? await bounded(plugin.getWebViewMetrics())
+      : { radius: 0 };
   nativeWebViewMetrics.radius = metrics.radius;
   return metrics;
 };
@@ -280,6 +282,7 @@ export const enableNativeUIShell = (
           stopping: stop,
         });
       if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
+      if (!Capacitor.isPluginAvailable('IonicNativeUIShell')) return fallback('Native UI plugin is not registered');
       let runtime: NativeUIShellRuntimeHandle | undefined;
       let overlays: OverlayController | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;

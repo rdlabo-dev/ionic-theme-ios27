@@ -1,5 +1,5 @@
 import type { registeredEffect } from '../sheets-of-glass/interfaces';
-import { isNativeUIShell } from '../integration';
+import { isNativeUIShell } from '@rdlabo/capacitor-native-ui/integration';
 
 interface LensRect {
   x: number;

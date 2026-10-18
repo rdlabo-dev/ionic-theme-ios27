@@ -1,9 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import { withNativeUIShellTransition } from '../../packages/theme-ios27/src/integration';
-import {
-  registerNativeSearch as registerThemeSearch,
-  requestNativeSearch as requestThemeSearch,
-} from '../../packages/theme-ios27/src/integration';
+import { withNativeUIShellTransition } from '../../packages/capacitor-native-ui/src/vertical-bars';
 import {
   connectNativeUIShellTransition,
   VERTICAL_BARS_TRANSITION_CANCELED,
@@ -14,7 +10,6 @@ import {
 import type { Animation } from '@ionic/core';
 import { configureNativeTransition, enableNativeUIShell } from '../../packages/capacitor-native-ui/src/native';
 import { iosTransitionAnimation } from '../../packages/theme-ios27/src/transition/ios.transition';
-import { withNativeUIShellTransition as withPluginTransition } from '../../packages/capacitor-native-ui/src/native-integration/transition';
 
 const fixture = () => {
   const doc = {} as Document;
@@ -181,7 +176,7 @@ test('the built-in iOS transition uses the adapter once even when wrapped again'
     return resume;
   });
   setNativeUIShellIntegration(doc, { suspend });
-  const animation = withPluginTransition(iosTransitionAnimation)(nav, {
+  const animation = withNativeUIShellTransition(iosTransitionAnimation)(nav, {
     enteringEl: entering,
     leavingEl: leaving,
     duration: 123,
@@ -249,21 +244,4 @@ test('re-registering a cached search footer replaces its binding without waiting
   }
   const second = registerNativeSearch(tabBar, trigger, {} as HTMLElement);
   expect(getNativeSearchBindings(doc)).toEqual([retained.at(-1), second]);
-});
-
-test('theme search registered before activation connects only while Native UI is enabled', async () => {
-  const doc = document.implementation.createHTMLDocument();
-  const tab = doc.createElement('ion-tab-bar');
-  const binding = registerThemeSearch(tab, doc.createElement('button'), doc.createElement('footer'));
-  expect(getNativeSearchBindings(doc)).toEqual([binding]);
-  expect(await requestThemeSearch(binding, true)).toBe(false);
-  const search = vi.fn(async () => true);
-  setNativeUIShellIntegration(doc, { suspend: async () => () => {}, search });
-  try {
-    expect(await requestThemeSearch(binding, true, true)).toBe(true);
-    expect(search).toHaveBeenCalledExactlyOnceWith(binding, true, true);
-  } finally {
-    setNativeUIShellIntegration(doc);
-  }
-  expect(await requestThemeSearch(binding, true)).toBe(false);
 });
