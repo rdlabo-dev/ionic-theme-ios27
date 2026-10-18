@@ -14,203 +14,36 @@ A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Ca
 
 <!-- /rdlabo-docs-pick -->
 
-## Features
+## What would you like to do?
 
-### Bring the iOS 27 look to Ionic
-
-Give familiar Ionic screens the iOS 27 visual language: Liquid Glass, styled toolbars and tabs, lists, buttons, search, overlays, page transitions, and coordinated light and dark appearances. See the result in the [Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) and [Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/).
-
-### Follow the user's device
-
-Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the design of each generation: the iOS 26 look for iOS 26 users and the iOS 27 look for iOS 27 users. The [default setup](README.md#get-started) uses browser feature checks to select the corresponding **styles**; it does not read the iOS version. When both packages are installed, keep the **page transition** on the iOS 27 animation. On even earlier iOS versions, Ionic's default iOS appearance remains when Safari supports neither feature. In a Capacitor iOS app, Native UI Shell's UIKit material follows the installed iOS version.
+| Goal | Guide |
+| --- | --- |
+| Style an existing Ionic app | [Get started](docs/setup.md) |
+| Select iOS 26/27 styles and optionally use MD3 | [Adaptive themes](docs/adaptive-themes.md) |
+| Add native iOS controls after setting up the theme | [Add Native UI](docs/add-native-ui.md) |
+| Add a side rail while keeping another theme | [Vertical Bars step by step](docs/iphone-duo-with-original-theme.md) |
+| Upgrade an existing installation | [Migration](docs/migration.md) |
 
 ## Get started
 
-Start with [theme setup](docs/setup.md#theme-only) or the instructions below. Once your theme is configured, you can [add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) for supported iOS controls.
+Use the [four-step setup guide](docs/setup.md) to install the theme, load styles, configure animations, and preview your first screen. It supports Ionic 8.8.1 or later within Ionic 8 or 9, including Angular, React, and Vue. Capacitor is not required.
 
-Install both themes in an existing Ionic 8 or 9 app (`@ionic/core` 8.8.1 or later):
+The theme styles toolbars, tabs, lists, buttons, search, and overlays, with light and dark appearances. It does not activate native controls. Once the Web theme is working, you can optionally [add Native UI](docs/add-native-ui.md).
 
-```bash
-npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27
-```
+## Customize your app
 
-In your global Sass stylesheet (for example, `src/styles.scss`), load the styles by browser capability:
-
-```scss
-@use 'sass:meta';
-
-@supports (overflow-anchor: auto) {
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/default-variables');
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27');
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class');
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect');
-}
-
-@supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/default-variables');
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect');
-}
-```
-
-If compilation reports `Can't find stylesheet to import.` for a `meta.load-css()` call, make `node_modules` available to Sass. In Angular, add this under the app's build `options` in `angular.json`:
-
-```json
-"stylePreprocessorOptions": {
-  "includePaths": ["node_modules"]
-}
-```
-
-Alternatively, use a relative path from the Sass file containing `meta.load-css()` to the installed package, such as `../node_modules/@rdlabo/ionic-theme-ios27/src/styles/default-variables` from `src/styles.scss`. Adjust the `../` prefix for your file's location, and apply the same change to each theme import.
-
-These checks select styles by browser features, not by iOS version. Browsers without either feature retain Ionic's default iOS appearance. The example uses class-based dark mode: also load [Ionic's matching dark palette](https://ionicframework.com/docs/theming/dark-mode). For system or always-dark mode, replace both `-dark-class` imports with the matching variant. The `md-remove-ios-class-effect` styles prevent iOS-specific classes from affecting Material Design mode.
-
-### Configure animations
-
-Keep the iOS 27 page transition and popover animations for both styled generations. Resolve these options before Ionic initializes. For Angular:
-
-```ts
-import { isPlatform, provideIonicAngular } from '@ionic/angular/standalone'; // Ionic 8
-import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
-
-function loadIOSAnimations() {
-  if (typeof CSS === 'undefined') return {};
-  if (!CSS.supports('overflow-anchor: auto') && !CSS.supports('text-wrap: pretty')) return {};
-
-  return {
-    navAnimation: iosTransitionAnimation,
-    popoverEnter: popoverEnterAnimation,
-    popoverLeave: popoverLeaveAnimation,
-  };
-}
-
-provideIonicAngular(isPlatform('ios') ? loadIOSAnimations() : {});
-```
-
-For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/angular`. React and Vue can pass the same options to `setupIonicReact` or `IonicVue` during initialization. In server-rendered apps, run the selection during browser initialization.
-
-The page-transition radius defaults to `0`. Native apps can update it after measuring the WebView:
-
-```ts
-import { setConfig } from '@rdlabo/ionic-theme-ios27';
-
-setConfig({ radius });
-```
-
-### Check the theme
-
-Test on iOS. When previewing on desktop, set Ionic mode to `ios` in your existing framework initialization config (for example `mode: 'ios'`).
-
-Use this markup to preview the inset grouped list look. For the list structure the theme expects, see [Using ion-item-group](docs/using-ion-item-group.md).
-
-```html
-<ion-list mode="ios" inset="true">
-  <ion-item-group>
-    <ion-item><ion-label>Notifications</ion-label></ion-item>
-    <ion-item><ion-label>Appearance</ion-label></ion-item>
-  </ion-item-group>
-</ion-list>
-```
-
-## Optional setups
-
-### Use only the iOS 27 theme
-
-Install only `@rdlabo/ionic-theme-ios27` and import its styles unconditionally in your global stylesheet:
-
-```css
-@import '@rdlabo/ionic-theme-ios27/dist/css/default-variables.css';
-@import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27.css';
-@import '@rdlabo/ionic-theme-ios27/dist/css/md-remove-ios-class-effect.css';
-@import '@rdlabo/ionic-theme-ios27/dist/css/ionic-theme-ios27-dark-class.css';
-```
-
-The last import uses class-based dark mode; choose the `-dark-system` or `-dark-always` variant and matching Ionic palette for another mode. Configure the iOS 27 animations with `isPlatform('ios')` as above, without the browser feature checks.
-
-### Other options
-
-- **Native controls:** Follow the [Native UI Shell setup guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/native-ui-shell.md). Stylesheet imports alone do not enable it.
-- **Inset lists on Android:** Load the matching package's `md-ion-list-inset` stylesheet inside each `@supports` branch if needed. It is already included in `@rdlabo/ionic-theme-md3`.
-
-### Use with the MD3 theme
-
-Install all three themes to use iOS 27 on supported Safari versions, fall back to iOS 26 on the preceding Safari generation, and use MD3 whenever Ionic runs in Material Design mode. All three themes require `@ionic/core` 8.8.1 or later:
-
-```bash
-npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27 @rdlabo/ionic-theme-md3
-```
-
-Keep the two iOS themes behind the same browser feature checks used by the default setup, then load MD3 unconditionally. Using `meta.load-css()` throughout also keeps the MD3 styles after the conditional iOS styles in the generated CSS:
-
-```scss
-@use 'sass:meta';
-
-@supports (overflow-anchor: auto) {
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/default-variables');
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27');
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/ionic-theme-ios27-dark-class');
-  @include meta.load-css('@rdlabo/ionic-theme-ios27/src/styles/md-remove-ios-class-effect');
-}
-
-@supports (text-wrap: pretty) and (not (overflow-anchor: auto)) {
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/default-variables');
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26');
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/ionic-theme-ios26-dark-class');
-  @include meta.load-css('@rdlabo/ionic-theme-ios26/src/styles/md-remove-ios-class-effect');
-}
-
-@include meta.load-css('@rdlabo/ionic-theme-md3/dist/css/default-variables.css');
-@include meta.load-css('@rdlabo/ionic-theme-md3/dist/css/ionic-theme-md3.css');
-```
-
-The iOS styles apply only to Ionic's `ios` mode, while MD3 applies to `md` mode. The `md-remove-ios-class-effect` stylesheet in each iOS branch prevents iOS-only utility classes from leaking into MD mode. MD3 already includes its inset-list styles, so do not load either iOS package's optional `md-ion-list-inset` stylesheet in this configuration.
-
-Load Ionic's matching dark palette too. The example uses class-based dark mode; for system or always-dark mode, select the matching variant for Ionic and both iOS themes.
-
-Keep the iOS 27 transition for both iOS theme generations and select the MD3 transition in Material Design mode. Extend the animation setup above as follows:
-
-```ts
-import { isPlatform, provideIonicAngular } from '@ionic/angular/standalone'; // Ionic 8
-import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
-import { mdTransitionAnimation } from '@rdlabo/ionic-theme-md3';
-
-function loadAnimations() {
-  if (!isPlatform('ios')) return { navAnimation: mdTransitionAnimation };
-  if (typeof CSS === 'undefined') return {};
-  if (!CSS.supports('overflow-anchor: auto') && !CSS.supports('text-wrap: pretty')) return {};
-
-  return {
-    navAnimation: iosTransitionAnimation,
-    popoverEnter: popoverEnterAnimation,
-    popoverLeave: popoverLeaveAnimation,
-  };
-}
-
-provideIonicAngular(loadAnimations());
-```
-
-For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/angular`. React and Vue can pass the same returned options to `setupIonicReact` or `IonicVue`. If Sass cannot resolve a package in `meta.load-css()`, use the `stylePreprocessorOptions.includePaths` or relative-path setup described in Get started.
-
-## Documentation
-
-**Full documentation:** [Ionic Theme iOS27](https://docs.rdlabo.dev/projects/ionic-theme-ios27)
-
-- [Using ion-item-group](docs/using-ion-item-group.md) — required markup for inset lists.
-- [Special markup and classes](docs/special-markup.md) — opt-in markup and utility classes used by the theme.
-- [ESLint](docs/eslint.md) — check list structure with ESLint rules.
-- [Features](docs/features.md) — CSS variables, Liquid Glass, selective imports, and dark mode.
-- [Vertical Bars layout](docs/vertical-bars-layout.md) — optional Web layout for a native rail.
-- [Animation](docs/animation.md) — tab, segment, and searchable effects.
-- [Migration from iOS 26](docs/migration.md) — upgrade an existing app, including stylesheet, class, and CSS variable changes.
-- [iOS 26 migration history](https://docs.rdlabo.dev/projects/ionic-theme-ios26/docs/migration) — earlier major-version changes for the previous package.
+- [Features](docs/features.md): CSS variables, Liquid Glass, and selective component imports.
+- [Special markup and classes](docs/special-markup.md): opt-in component behavior.
+- [Using ion-item-group](docs/using-ion-item-group.md): inset list markup.
+- [Animation](docs/animation.md): tab, segment, and search effects.
+- [ESLint](docs/eslint.md): catch unsupported list structure.
+- [Vertical Bars layout](docs/vertical-bars-layout.md): spacing, RTL, and layout helpers.
+- [iPhone Duo device layout](docs/iphone-duo.md): connect device placement and hinge posture.
 
 <!-- rdlabo-docs-omit -->
 
-**iOS 26 theme:** See the [iOS 26 documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios26).
+## Contributing
 
-## Development
-
-See the [workspace guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/development.md) for builds and releases and [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) for the optional next step.
+See [workspace development](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/development.md) and [E2E testing](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/e2e-testing.md).
 
 <!-- /rdlabo-docs-omit -->

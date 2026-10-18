@@ -10,12 +10,12 @@ Adapt your Ionic app to iPhone Duo: place navigation and actions in its vertical
 
 Available in `1.2.0` as a **preview** feature alongside [Native UI Shell](../../capacitor-native-ui/docs/native-ui-shell.md). APIs and supported behavior may change before stable status. Stable status is planned after the official release of Xcode 27.1. The real system rail and hinge reporting require iOS 27.1 or later and an app built with Xcode 27.1 or newer.
 
-This package provides two independent pieces for that hardware. Each works **without the iOS 27 theme stylesheets** and **without the full Native UI Shell**:
+Use the theme layout and native plugin independently for that hardware. Neither requires the full iOS 27 appearance:
 
-- `dist/css/vertical-bars.css` — opt-in classes that reserve the rail's safe area, plus a registered custom property for a posture-driven split-pane width.
-- `enableNativeUIShell({ verticalBars: { only: true } })` — moves eligible tabs and toolbar controls into the reserved area. On Capacitor iOS they are rendered by a native SwiftUI `TabView` and toolbar; everywhere else the same controls appear as Web clones.
+- Theme: `dist/css/vertical-bars.css` — opt-in classes that reserve the rail's safe area, plus a registered custom property for a posture-driven split-pane width.
+- Native UI: `enableNativeUIShell({ verticalBars: { only: true } })` — moves eligible tabs and toolbar controls into the reserved area. On Capacitor iOS they are rendered by a native SwiftUI `TabView` and toolbar; everywhere else the same controls appear as Web clones.
 
-Device state belongs to [`@erkamyaman/capacitor-foldable`](https://github.com/erkamyaman/capacitor-foldable). The **application** subscribes to its events and chooses its layout. This package's **stylesheet and runtime** apply that decision by reserving space, projecting controls and adapting the split pane. The theme does not monitor hinge state or bar placement.
+Device state belongs to [`@erkamyaman/capacitor-foldable`](https://github.com/erkamyaman/capacitor-foldable). The **application** subscribes to its events and chooses its layout. The theme reserves space and adapts the split pane; Native UI projects eligible controls. The theme does not monitor hinge state or bar placement.
 
 ## Choose what to adopt
 
@@ -76,7 +76,7 @@ WebView corner radius remains a rendering concern: `configureNativeTransition()`
 
 ## Reserve the vertical rail
 
-Load `vertical-bars.css` as shown above. For class-based browser simulation, safe-area handling, RTL and overlay layout, see [Reserve the vertical rail](../../capacitor-native-ui/docs/vertical-bars.md#reserve-the-vertical-rail). On device, the placement helper below applies the layout classes and measured inset.
+Load `vertical-bars.css` as shown above. For class-based browser simulation, safe-area handling, RTL and overlay layout, see [Reserve the vertical rail](vertical-bars-layout.md#reserve-the-vertical-rail). On device, the placement helper below applies the layout classes and measured inset.
 
 ## Project controls into the rail
 
@@ -102,7 +102,7 @@ await listener.remove();
 await rail.destroy();
 ```
 
-Native UI detects native availability independently through its own device metrics. The theme helper controls Web layout only. The measured `inset` is passed through instead of assuming a fixed width. Devices without a reported rail, including Web and Android, return a null edge and retain the ordinary layout. For browser simulation, use the [class-based preview](../../capacitor-native-ui/docs/vertical-bars.md#reserve-the-vertical-rail) without connecting device placement.
+Native UI detects native availability independently through its own device metrics. The theme helper controls Web layout only. The measured `inset` is passed through instead of assuming a fixed width. Devices without a reported rail, including Web and Android, return a null edge and retain the ordinary layout. For browser simulation, use the [class-based preview](vertical-bars-layout.md#reserve-the-vertical-rail) without connecting device placement.
 
 Start either `enableNativeUIShell({ verticalBars: { only: true } })` or the full `enableNativeUIShell()` — not both. If the app already uses Native UI Shell, keep that runtime and use the same `setVerticalBarsLayout` callback. The application owner removes its listeners and destroys its runtime on teardown.
 

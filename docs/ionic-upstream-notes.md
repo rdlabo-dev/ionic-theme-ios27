@@ -1,4 +1,6 @@
-# Feature requests for Ionic Framework
+# Ionic upstream design notes
+
+Contributor notes and proposed upstream changes; these examples are not supported theme configuration.
 
 ## feat(): change `--knob-handle-size` to `--knob-handle-width` / `--knob-handle-height`
 
@@ -54,7 +56,7 @@ Resolved.
 
 ### should disable ion-back-button Animation
 
-Resolved: by created https://github.com/rdlabo-dev/ionic-theme-ios27/tree/main/src/transition
+Resolved: by created https://github.com/rdlabo-dev/ionic-theme-ios27/tree/main/packages/theme-ios27/src/transition
 
 ## feat(): ion-content[fullscreen=true] will have .content-fullscreen class
 

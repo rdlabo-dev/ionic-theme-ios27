@@ -1,26 +1,61 @@
-# Setup
+# Set up Native UI in an Ionic app
 
-## Native UI only
+Keep your existing Web appearance and render supported Ionic controls natively on iOS. This guide does not require iOS theme stylesheets.
 
-This path keeps your existing Web appearance. The plugin renders supported controls after you explicitly enable it; theme CSS variables are not an activation requirement. Your app or theme owns Web layout, spacing, and styling.
+Already using the iOS 27 theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). Without Ionic, follow the [HTML setup](framework-independent.md) instead.
 
-### Install and configure
+## Before you start
+
+Use an existing Ionic `>=8.8.1 <10` application with Capacitor 8 and an iOS project. Build with Xcode 26 or later; ordinary native controls require iOS 26 or later. Vertical Bars have separate [device requirements](vertical-bars.md). Keep your current SPM or CocoaPods integration.
+
+If the app does not yet use Capacitor, create and configure its Capacitor iOS project before following the native steps below. Browser previews retain Web controls and do not demonstrate UIKit or SwiftUI rendering.
+
+## 1. Install the plugin
+
+Keep your Capacitor packages on version 8. Add these direct application dependencies:
 
 ```sh
-npm install @capacitor/core @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
+npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
 ```
 
-Keep your existing Ionic styles and layout. Enable the Shell once at application startup:
+The Ionic adapter requires `@ionic/core` and `@rdlabo/ionic-theme-utils`. Your Ionic app already supplies Core. Do not remove your existing Web styles: they style page content and fallback controls.
+
+## 2. Enable the shell
+
+Call once from application startup after `ion-app` is mounted:
 
 ```ts
 import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 
-await enableNativeUIShell();
+const shell = await enableNativeUIShell();
 ```
 
-Supported Ionic markup and control eligibility still apply; enabling the plugin does not make arbitrary Web elements native. See [Native UI Shell](native-ui-shell.md#supported-markup).
+Keep the returned handle if you need to disable features or stop projection. Call `await shell.destroy()` when its application owner is disposed. Do not start a new shell for each page.
+
+Existing Ionic markup supplies labels, icons, disabled state, and actions. For example, an existing fixed page header can contain:
+
+```html
+<ion-header>
+  <ion-toolbar>
+    <ion-title>My app</ion-title>
+    <ion-buttons slot="end">
+      <ion-button aria-label="Add">
+        <ion-icon slot="icon-only" name="add"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+```
+
+Keep your framework's handler on the original button and register the icon as usual. See [supported markup](native-ui-shell.md#supported-markup) for eligibility; unsupported controls stay on the Web.
+
+## 3. Coordinate navigation
 
 For optional Ionic animation coordination, install `@rdlabo/ionic-theme-ios27` and configure navigation before Ionic initializes. Its adapter can retain Ionic's default transitions without loading theme CSS:
+
+```sh
+npm install @rdlabo/ionic-theme-ios27
+```
 
 ```ts
 import { iosTransitionAnimation, mdTransitionAnimation, type AnimationBuilder } from '@ionic/core';
@@ -34,22 +69,33 @@ const ionicConfig = {
 };
 ```
 
-Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-shell-transition-adapter). This optional adapter requires the theme package but does not require its stylesheets or replace your animation. For a plugin-only application, use the suspension API below.
+Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-shell-transition-adapter). This optional adapter requires the theme package but does not require its stylesheets or replace your animation.
 
-For optional Vertical Bars, your app or theme arranges the Web layout around the rail. The [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md) offers a ready-made stylesheet from the theme package; that stylesheet is a layout choice, not a plugin requirement. For rail-only projection, call `enableNativeUIShell({ verticalBars: { only: true } })`. See [all configuration options](configuration.md).
+For a plugin-only app, use [navigation without the theme](#navigation-without-the-theme) below. Configure one approach before testing page navigation.
 
-Build your Web assets, then run `npx cap sync ios` for a Capacitor iOS app. A browser can preview the Web layout; native presentation requires a supported iOS device or simulator.
+## 4. Build, sync, and run
 
-### Migrate and verify
+Run your application's Web build, then sync:
 
-Replace old native imports using the [migration table](migration.md#2-replace-native-imports). Keep or replace any layout CSS your app relies on when removing theme styles. Keep the native package as a direct dependency, and follow the [native project migration](migration.md#3-sync-the-native-project) for old Swift references.
+```sh
+npx cap sync ios
+```
 
-Check that Web content retains your existing appearance, eligible controls render natively on iOS, and navigation/back gestures work. Check browser and Android Web fallback where supported. If using a rail, also verify the layout supplied by your app or theme.
+Run the iOS app from Xcode on an iOS 26+ device or simulator. Supported fixed controls should render natively and still invoke their original handlers. Navigate forward and back, including a canceled swipe-back gesture. A browser or Android build should retain working Web controls.
 
+| If you see… | Check… |
+| --- | --- |
+| All controls remain on the Web on iOS | The native package is a direct dependency, the app was synced and rebuilt, and startup ran on a supported OS. |
+| Only one control remains on the Web | Compare its markup and styles with [supported controls](native-ui-shell.md#supported-markup). |
+| Controls overlap during navigation | Configure the transition adapter or suspend/resume lifecycle before navigating. |
+| Missing styles or spacing | Retain the app's Web CSS; the plugin does not supply page layout. |
 
-For an application without Ionic, use the [plain HTML adapter](framework-independent.md). Ionic is an optional peer dependency, not a requirement of the standard native renderers.
+## Next steps
 
-`@capacitor/core` is an optional peer for consumers of the plugin-free `/integration` entry (including the theme). Native startup through the root or `/core` entry requires Capacitor to be installed. Installing the theme does not enable native controls.
+- [Vertical Bars only](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md): a step-by-step rail setup with your existing theme.
+- [Configuration](configuration.md): choose controls and change rail settings at runtime.
+- [Custom SwiftUI content](native-ui-extensions.md): create an app-local extension.
+- [Migration](migration.md): update older package names, imports, and native projects.
 
 ## Navigation without the theme
 
@@ -64,4 +110,4 @@ try {
 }
 ```
 
-Use your router's completion/cancellation lifecycle to release the suspension. For Ionic interactive animations, the optional theme adapter implements that coordination for you. Migrating from the preview adapter in the plugin: import `withNativeUIShellTransition` from `@rdlabo/ionic-theme-ios27` instead of the plugin's `/integration` or `/vertical-bars` entry.
+Use your router's completion/cancellation lifecycle to release the suspension. For Ionic interactive animations, the optional theme adapter implements that coordination for you.

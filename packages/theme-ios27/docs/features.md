@@ -29,7 +29,7 @@ ion-textarea label.textarea-wrapper {
 
 ## Native UI Shell (Preview)
 
-Capacitor iOS apps can use the optional [Native UI Shell](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/native-ui-shell.md) to render supported fixed Ionic controls with UIKit and system Liquid Glass. It is available as a preview in `1.2.0`. Content and application logic stay in the WebView, with Ionic owning routing and page transitions. The guide explains the hybrid approach's origins in Basecamp and Capacitor, setup, supported controls and Web fallback behavior.
+Once your theme is working, [add Native UI](add-native-ui.md) to render supported fixed controls with UIKit and SwiftUI on iOS. Keep theme styles for Web content and fallback controls. Native UI is an optional preview; adding styles alone does not enable it.
 
 ## Selective component imports
 

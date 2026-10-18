@@ -10,15 +10,11 @@ Native UI Shell is available as a **preview** in `1.2.0`. Its API and supported 
 
 Native UI Shell gives an Ionic app native navigation and action controls around its Web content. The optional Capacitor iOS plugin renders supported fixed Ionic controls with UIKit or SwiftUI and the system's Liquid Glass material. Page content, scrolling, application state and routing remain in Ionic's WebView.
 
-## Background
-
-Basecamp described this hybrid approach in [Hybrid sweet spot: Native navigation, web content](https://signalvnoise.com/posts/3743-hybrid-sweet-spot-native-navigation-web-content) (May 8, 2014): keep Web content at the core and use native UI where it improves the experience. The [Capacitor 1.0.0 Alpha announcement](https://ionic.io/blog/announcing-capacitor-1-0-0-alpha) (February 27, 2018) explicitly included **Native UI Shell** in its roadmap and linked to that article. Combining native UI with Web content was part of Capacitor's direction from the beginning.
-
-This package revisits that idea for Ionic and Liquid Glass. Existing Ionic markup defines the shell: eligible toolbar controls, tabs, fixed FABs and searchable tabs acquire native presentation. UIKit handles their appearance and interaction; the bridge synchronizes DOM state and returns actions to the original Ionic components. Ionic continues to own the navigation stack, page transitions and application logic. The shell's scope is the supported fixed controls described below.
+Use this page as the supported-control and API reference. For first-time installation and a working example, start with [Ionic setup](setup.md) or [HTML setup](framework-independent.md).
 
 ## Enable the shell
 
-Already using the iOS theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). For other Web appearances, use [Native UI setup](setup.md#native-ui-only).
+Already using the iOS theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). For other Web appearances, use [Native UI setup](setup.md).
 
 Install the native package as a direct application dependency so Capacitor can discover it:
 
@@ -325,26 +321,3 @@ Stops synchronization, restores Web controls and releases native resources.
 | **resume** | () =&gt; Promise&lt;void&gt; | Releases this suspension. Native projection resumes after all active suspensions are released. |
 
 </docgen-api>
-
-## Source layout
-
-Each TypeScript module in [`src/native/components`](../src/native/components) declares its Ionic tag and DOM reader. `components/index.ts` combines those exports into discovery selectors and the component type. Shared DOM measurements, item data and SVG rendering live in `src/native/shared`; `runtime.ts` owns synchronization, visibility handoffs and lifecycle events.
-
-On iOS, [`Components`](../ios/Sources/IonicNativeUIShellPlugin/Components) owns UIKit control creation, updates and component names. `ShellButton` shares the native button implementation used by ordinary, back and menu buttons. `Shared` owns the host view, typed snapshots, geometry, colors and image cache. Capacitor decodes each complete snapshot once using `Decodable`; renderers consume typed models and compare content with `Equatable`. Invalid batches are rejected before visible controls are changed. `IonicNativeUIShellPlugin.swift` coordinates Capacitor calls, revisions and native view lifetimes.
-
-## Demo and verification
-
-The demo includes a `native-ui-shell` page for exercising fixed controls. From the repository root, build the library and run the browser tests:
-
-```sh
-npm ci
-npm run build
-cd demo
-npm ci
-npx --no-install playwright install chromium
-npx --no-install playwright test e2e/native-ui-shell.spec.ts e2e/native-ui-shell-edge.spec.ts
-```
-
-For native interaction and placement tests, use Xcode 26 or later, XcodeGen and a booted iOS 26+ Simulator. From the repository root, run `sh scripts/verify-native-ui-shell.sh SIMULATOR_UDID`. This also builds an independent Swift Package Manager consumer from the npm package. Run `sh scripts/verify-native-search.sh SIMULATOR_UDID` for searchable-tab integration, or add `edge` to that command for placement, navigation and keyboard edge cases. The scripts print the location of their local test artifacts.
-
-Search controllers retain their UIKit-managed transition and are excluded from the ordinary control acquisition crossfade.

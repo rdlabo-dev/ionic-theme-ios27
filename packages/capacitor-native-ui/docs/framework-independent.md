@@ -1,23 +1,20 @@
 # Native UI without Ionic
 
-The standard Swift renderers consume a framework-independent control model. Ionic markup and explicit HTML markers are Web adapters for that same model. Use an [app-local extension](native-ui-extensions.md) only for custom native content not covered by the standard renderers; an ordinary HTML button needs no Swift registration.
+Add native buttons to an existing Web app without Ionic or theme CSS. Keep labels, state, and click handlers on ordinary HTML elements. Standard buttons require no custom Swift registration.
 
-## Install and start
+Use a Capacitor 8 app with an iOS project, Xcode 26+, and an iOS 26+ device or simulator. Browsers and Android retain Web controls.
+
+## 1. Install the plugin
+
+Keep your existing Capacitor 8 installation and add the plugin directly:
 
 ```sh
-npm install @capacitor/core @rdlabo/capacitor-native-ui
-npx cap sync ios
+npm install @rdlabo/capacitor-native-ui
 ```
 
-```ts
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui/core';
+The `/core` entry requires `@capacitor/core` but no Ionic dependencies. If this is currently a browser-only application, configure its Capacitor 8 iOS project before running native controls.
 
-const shell = await enableNativeUIShell();
-```
-
-`/core` has no Ionic runtime dependency. Ordinary native rendering requires Capacitor iOS 26 or later. Browsers, Android, older iOS and unsupported controls retain their Web representation. The package does not add page padding or safe-area rules; your CSS owns them. See [all configuration options](configuration.md).
-
-## Mark source controls
+## 2. Mark source controls
 
 ```html
 <main id="app">
@@ -36,7 +33,27 @@ Keep the accessible name, supported static SVG, disabled state and application h
 
 Native and Web-proxy actions click the original element. An ordinary `<button type="submit">` therefore keeps its original form behavior. Use `type="button"` for actions that must not submit. The native bridge does not preserve browser user-activation privileges for APIs such as popup opening.
 
+## 3. Start after mounting the controls
+
+```ts
+import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui/core';
+
+const shell = await enableNativeUIShell({
+  root: document.querySelector<HTMLElement>('#app')!,
+});
+```
+
+Call once after the source root exists. Keep the handle and call `await shell.destroy()` when that root is disposed. The plugin does not add page padding or safe-area rules; retain your application's CSS.
+
+## 4. Build and run on iOS
+
+Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcode. The marked Add button should render natively and invoke its original click handler. In a browser, the same button remains an ordinary Web button. Unmarked HTML remains unchanged.
+
+If a button stays on the Web on supported iOS, check that it is visible within the configured root, has an accessible name, and that the direct plugin dependency was synced and the iOS app rebuilt.
+
 ## Optional Web rail
+
+Replace the startup call in step 3 with the following configuration; do not start a second shell:
 
 ```ts
 const shell = await enableNativeUIShell({

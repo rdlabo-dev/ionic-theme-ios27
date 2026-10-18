@@ -1,8 +1,8 @@
 ---
-title: iPhone Duo with your existing theme (preview)
+title: Add Vertical Bars to your Ionic app
 ---
 
-# iPhone Duo with your existing theme (preview)
+# Add Vertical Bars to your Ionic app
 
 Add a vertical navigation area to your Ionic app while keeping its existing theme. Tabs and supported toolbar actions move to the side of the screen; your content and horizontal controls keep their current appearance. Both Ionic `ios` and `md` modes are supported.
 
@@ -17,7 +17,7 @@ Available in `1.2.0` as a **preview** feature. APIs and supported behavior may c
 This guide assumes an existing Ionic app with Ionic `>=8.8.1 <10` and Capacitor Core `>=8 <9`. Keep your existing Capacitor 8 installation. If your app uses another Capacitor major, migrate its Core, CLI, and platform packages together before following this guide. For a Web-only app without Capacitor, also install `@capacitor/core@^8`; the JavaScript entry point needs it even in Chrome.
 
 ```bash
-npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @capacitor/core@^8 @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
 ```
 
 Keep your existing theme imports. Add this to your global Sass file:
@@ -26,7 +26,7 @@ Keep your existing theme imports. Add this to your global Sass file:
 @use '@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css';
 ```
 
-The standalone JavaScript entry point needs `@capacitor/core` even in Chrome. The iOS 27 theme stylesheets are not required.
+The command includes Capacitor Core for browser previews too. The full iOS 27 theme stylesheets are not required.
 
 ### 2. Opt your app into the side layout
 
@@ -114,7 +114,7 @@ When the application owner is disposed, call `await rail.destroy()` to restore t
 
 `buttonProjection` and local projection settings are available in `1.2.0`. See [Choose button appearance](../../capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance) for availability and migration details.
 
-The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, use:
+The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, replace the startup call in step 4 with:
 
 ```ts
 const rail = await enableNativeUIShell({ verticalBars: { only: true, buttonProjection: 'source', buttonDefaultFill: 'solid' } });

@@ -6,6 +6,10 @@ title: App-local Native UI extensions
 
 An extension projects your existing Web UI into a SwiftUI View. Keep both definitions in your application: no npm package, separate library, or Capacitor plugin is required. The Web element remains the source of truth and the fallback UI.
 
+## Before you start
+
+Complete [Ionic setup](setup.md) or [HTML setup](framework-independent.md) first. You need access to the iOS app target to add a SwiftUI View. The examples below use the Ionic entry; without Ionic, import both `defineNativeUI` and `enableNativeUIShell` from `@rdlabo/capacitor-native-ui/core`.
+
 ## 1. Define a DOM reader
 
 ```ts
@@ -82,7 +86,15 @@ import { counter } from './native-ui/counter';
 const shell = await enableNativeUIShell({ extensions: [counter] });
 ```
 
+Replace your existing startup call with the one above; do not start a second shell.
+
 Keep extension objects stable across repeated enable calls. Changing extensions while running requires `await shell.destroy()` first. Extension names must be unique within an activation. Do not register overlapping selectors for the same source. An extension owns its source subtree, so built-in controls inside it are not projected separately.
+
+## 4. Build and try the extension
+
+Build your Web assets, run `npx cap sync ios`, and rebuild the iOS app in Xcode. On iOS 26+, the counter should render with SwiftUI. Tap Increment: the original Web handler should update `data-count`, and the native count should follow. In a browser, the original Web counter should still work.
+
+If the source stays on the Web, confirm that the Swift file belongs to the app target, registration runs before startup, and the names and props agree on both sides.
 
 ## Content and placement are independent
 

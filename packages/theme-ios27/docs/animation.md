@@ -65,7 +65,7 @@ Register after the Ionic element has initialized (for example, Angular's `ngAfte
 
 The clear button shares the 44px glass design and appears beside the input. It uses Ionic's `clearIcon`, `showClearButton`, and `--clear-button-color`; clearing retains input focus, while cancel ends the search. Clear and cancel can be displayed together. Set `clearIcon` and `cancelButtonIcon` to the same icon to give them the same appearance.
 
-Both external glass buttons use the iOS 27 cancel button's centered press spring, scaled down to fit the available 8px padding without clipping the border: 44px at rest, 57.2px held, with an approximately 58.26px overshoot (native: 60px held and 61.29px peak). Press and release curves follow UIKit presentation-layer measurements (iPhone 18 Pro simulator); reduced motion disables scaling. This shared external clear design intentionally differs from UIKit's small, non-expanding clear button inside the text field. Ionic supplies the icons, so glyph pixels are not identical to SF Symbols.
+Both external glass buttons use a 44px resting size and expand while pressed. Reduced motion disables scaling. The clear button appears outside the text field; Ionic supplies the icons.
 
 While held, the glass background becomes opaque and the icon opacity is 0.55, preserving its configured color. Use `--background-activated` to customize the pressed background independently of `--background`.
 

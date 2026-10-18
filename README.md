@@ -1,6 +1,6 @@
 # Ionic Theme and Capacitor Native UI
 
-Bring the iOS look and native controls to your Ionic app—while keeping your Web content, routing, and application state.
+Bring the iOS look to your Ionic app, or add native controls to your Capacitor app while keeping Web content, routing, and application state.
 
 **[Try the Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) · [Try the Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/)**
 
@@ -32,8 +32,11 @@ The same Library screen with Native UI Shell off and on, captured while dragging
 
 | Your goal | Start here |
 | --- | --- |
-| Style your Ionic Web UI | [Theme only](packages/theme-ios27/docs/setup.md) |
-| Add native controls while keeping your existing Web appearance | [Native UI only](packages/capacitor-native-ui/docs/setup.md) |
+| Style your Ionic Web UI | [Set up the theme](packages/theme-ios27/docs/setup.md) |
+| Render Ionic controls natively with your existing Web appearance | [Set up Native UI](packages/capacitor-native-ui/docs/setup.md) |
+| Use native buttons without Ionic | [HTML setup](packages/capacitor-native-ui/docs/framework-independent.md) |
+| Add only a vertical rail to an Ionic app | [Vertical Bars setup](packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
+| Add custom SwiftUI content | [App-local extensions](packages/capacitor-native-ui/docs/native-ui-extensions.md) |
 
 Already using the iOS theme? [Add Native UI to your theme](packages/theme-ios27/docs/add-native-ui.md) as your next step.
 
