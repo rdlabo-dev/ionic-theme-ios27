@@ -8,7 +8,19 @@ An extension projects your existing Web UI into a SwiftUI View on iOS or Jetpack
 
 ## Before you start
 
-Complete [Ionic setup](setup.md) or [HTML setup](framework-independent.md) first. You need access to the iOS app target or Android application to register native content. The examples below use the Ionic entry; without Ionic, import both `defineNativeUI` and `enableNativeUIShell` from `@rdlabo/capacitor-native-ui/core`.
+Start with an existing Capacitor 8 app and install the plugin if you have not already:
+
+```sh
+npm install @rdlabo/capacitor-native-ui
+```
+
+Choose the native platform you want to support:
+
+- **Android:** use your Capacitor Android project and an API 24+ device or emulator. Follow step 1, then the [Kotlin/Compose registration](#2b-register-compose-content-on-android), and steps 3–4. No iOS project, Xcode, Ionic, or theme package is required.
+- **iOS:** use your Capacitor iOS project, Xcode 26+, and an iOS 26+ device or simulator. Follow step 1, the [SwiftUI registration](#2a-register-a-swiftui-view-on-ios), and steps 3–4. To also project standard controls, follow [Ionic setup](setup.md) or [HTML setup](framework-independent.md).
+- **Both:** share the DOM reader from step 1 and register native content for the same name on each platform.
+
+The TypeScript examples below use the Ionic entry. Without Ionic, import both `defineNativeUI` and `enableNativeUIShell` from `@rdlabo/capacitor-native-ui/core`.
 
 ## 1. Define a DOM reader
 
@@ -34,7 +46,7 @@ The reader is synchronous and read-only. Return `null` when the source should st
 
 ## 2a. Register a SwiftUI View on iOS
 
-Add a Swift file to the application's Xcode target. Import `IonicNativeUIShellPlugin`, the module supplied by `@rdlabo/capacitor-native-ui`. Follow the [Native UI Shell setup](native-ui-shell.md#enable-the-shell) first.
+Run `npx cap sync ios` after installing the plugin, then add a Swift file to the application's Xcode target. Import `IonicNativeUIShellPlugin`, the module supplied by `@rdlabo/capacitor-native-ui`. Keep your existing SPM or CocoaPods integration.
 
 ```swift
 import SwiftUI
@@ -81,7 +93,7 @@ Call `registerAppNativeUI()` once from `application(_:didFinishLaunchingWithOpti
 
 Android supports **element extensions only**. Standard Ionic and HTML controls stay on the Web, including explicitly marked buttons. Vertical Bars and `tab-accessory` are iOS features. The same DOM reader, props, action targets, and `markForCheck()` work on both platforms.
 
-Use Kotlin in your Android app. In the root `build.gradle`, add the Kotlin and Compose compiler plugins to `buildscript.dependencies`, using the same Kotlin version as the app (the plugin defaults to `2.2.20`). Define `ext.kotlin_version = '2.2.20'` in the root `buildscript` if it is not already defined:
+Run `npx cap sync android` after installing the plugin. Use Kotlin in your Android app. In the root `build.gradle`, add the Kotlin and Compose compiler plugins to `buildscript.dependencies`, using the same Kotlin version as the app (the plugin defaults to `2.2.20`). Define `ext.kotlin_version = '2.2.20'` in the root `buildscript` if it is not already defined:
 
 ```groovy
 classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
@@ -149,9 +161,14 @@ Keep extension objects stable across repeated enable calls. Changing extensions 
 
 ## 4. Build and try the extension
 
-Build your Web assets, run `npx cap sync ios`, and rebuild the iOS app in Xcode. On iOS 26+, the counter should render with SwiftUI. Tap Increment: the original Web handler should update `data-count`, and the native count should follow. For Android, run `npx cap sync android` and rebuild the Android app to try the Compose counter. In a browser, the original Web counter should still work.
+Build your Web assets, then sync and rebuild the platform you configured:
 
-If the source stays on the Web, confirm that the Swift file belongs to the app target, registration runs before startup, and the names and props agree on both sides.
+- **Android:** run `npx cap sync android`, then build and launch the app from Android Studio. The counter should render with Compose.
+- **iOS:** run `npx cap sync ios`, then build and launch the app from Xcode. On iOS 26+, the counter should render with SwiftUI.
+
+Tap Increment: the original Web handler should update `data-count`, and the native count should follow. In a browser, the original Web counter should still work.
+
+If the source stays on the Web, confirm that registration runs before JavaScript enables the shell and that the names and props agree on both sides. On Android, check that your `Application` subclass is declared in the manifest; on iOS, check that the Swift file belongs to the app target.
 
 ## Content and placement are independent
 

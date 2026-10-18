@@ -18,7 +18,7 @@ Native UI is opt-in and currently a preview. Standard controls on Android, brows
 
 Native startup requires Capacitor 8 and an iOS or Android project. Android extensions require API 24+ and Kotlin/Compose. Ordinary native rendering requires iOS 26+ and Xcode 26+. The Ionic adapter supports Ionic `>=8.8.1 <10`; the `/core` HTML adapter requires no Ionic or theme package. [Vertical Bars](docs/vertical-bars.md) and [extension placement](docs/native-ui-extensions.md#content-and-placement-are-independent) have additional device requirements.
 
-Follow the setup guide for your markup before installing dependencies; the Ionic and HTML adapters use different imports.
+For standard controls, follow the setup guide for your markup; the Ionic and HTML adapters use different imports. For custom native content, start directly with the [extensions guide](docs/native-ui-extensions.md).
 
 ## Reference and examples
 
