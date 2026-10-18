@@ -9,25 +9,11 @@
 
 The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
 
-MD3 remains in `rdlabo-dev/ionic-theme-md3`. Native UI currently implements iOS only. Android and browsers retain Web presentation. Repository transfer and public naming can be considered separately from this layout.
+MD3 remains in `rdlabo-dev/ionic-theme-md3`. Native UI currently implements iOS only. Android and browsers retain Web presentation. The npm package name is `@rdlabo/capacitor-native-ui`; repository transfer is separate from this layout.
 
 ## Existing applications
 
-Theme CSS paths and the ordinary `@rdlabo/ionic-theme-ios27` entry stay unchanged. The old theme `/native` and `/vertical-bars` JavaScript entry points are removed. Update imports as follows:
-
-| Removed import                            | Replacement                                      |
-| ----------------------------------------- | ------------------------------------------------ |
-| `@rdlabo/ionic-theme-ios27/native`        | `@rdlabo/capacitor-native-ui`               |
-| `@rdlabo/ionic-theme-ios27/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
-
-**Native installation changes:** Capacitor discovers direct application dependencies. Apps using native projection must add the native package explicitly, then sync:
-
-```sh
-npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
-npx cap sync ios
-```
-
-Use the Native UI package for all runtime imports. Swift extension imports remain `IonicNativeUIShellPlugin`; the Capacitor bridge name is unchanged. Do not leave a manually linked copy of the old theme Swift package in Xcode alongside the new package.
+See the [application migration guide](./migration.md#native-ui-package-separation) for choosing packages, replacing imports (including the intermediate `@ionic-theme` scope), syncing Capacitor, and verifying existing apps. Theme-only consumers keep the ordinary theme entry and stylesheet paths. Apps using native controls must declare `@rdlabo/capacitor-native-ui` directly.
 
 ## Local development
 

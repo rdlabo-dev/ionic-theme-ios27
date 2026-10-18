@@ -6,7 +6,7 @@ import * as menuButton from './ion-menu-button';
 import * as tabBar from './ion-tab-bar';
 import * as segment from './ion-segment';
 import * as fab from './ion-fab';
-import { isDisabledButtonGroupChild, isVerticalBarsSource, visible, withoutPrehide } from '../shared/dom';
+import { isVerticalBarsSource, visible, withoutPrehide } from '../shared/dom';
 import type { Candidate, Identify } from '../shared/candidate';
 
 // Static composition only. Each component declares its own tag, discovery and reader.
@@ -37,14 +37,6 @@ export const readCandidate = (element: HTMLElement, id: Identify, options: Verti
     !visible(element, verticalBars) ||
     element.closest('ion-popover') ||
     (element.closest('ion-modal') && !verticalBars)
-  )
-    return;
-  const style = getComputedStyle(element);
-  if (
-    !isDisabledButtonGroupChild(element) &&
-    !style.getPropertyValue('--ios-theme-glass-background-rgb').trim() &&
-    !style.getPropertyValue('--ios26-glass-background-rgb').trim() &&
-    !verticalBars
   )
     return;
   if (element.contains(element.ownerDocument.activeElement)) return;

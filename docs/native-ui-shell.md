@@ -18,6 +18,8 @@ This package revisits that idea for Ionic and Liquid Glass. Existing Ionic marku
 
 ## Enable the shell
 
+For the three application configurations, start with [Choose your setup](./setup.md). For native controls with your existing Web appearance, use [Native UI only](./setup.md#native-ui-only).
+
 Install the native package as a direct application dependency so Capacitor can discover it:
 
 ```bash
@@ -25,7 +27,7 @@ npm install @rdlabo/capacitor-native-ui
 npx cap sync ios
 ```
 
-After installing the theme CSS described in the README, enable the shell once at application startup:
+Keep your existing Web styles and enable the shell once at application startup. The iOS 27 theme is optional:
 
 ```ts
 import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
@@ -41,7 +43,7 @@ import { configureNativeTransition } from '@rdlabo/capacitor-native-ui';
 await configureNativeTransition();
 ```
 
-Keep the existing `navAnimation: iosTransitionAnimation` setting. No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
+If using the theme’s `iosTransitionAnimation`, keep that setting; it already coordinates native transitions. For Ionic default or custom animations, configure the [transition adapter](./migration.md#native-ui-shell-transition-adapter). No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
 
 This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry point does not import Capacitor. Native runtime entry points require `@capacitor/core`, including in browser builds. Native sources are still detected and built by Capacitor's sync when `@rdlabo/capacitor-native-ui` is a direct dependency of a Capacitor project, even if the application does not call `enableNativeUIShell()`.
 
@@ -61,7 +63,7 @@ The table below describes the ordinary Native UI Shell. Vertical Bars uses the s
 | `ion-segment`                                 | Fixed toolbar, non-scrollable, text **or** one icon per item                                              | `UISegmentedControl`                                                  |
 | `ion-fab` / `ion-fab-button` / `ion-fab-list` | Glass FAB in an `ion-content` fixed slot; one main button and optional directional lists                  | Persistent glass `UIButton` per button; one FAB synchronization group |
 
-For the ordinary Native UI Shell, only iOS-mode components with the theme variables installed are eligible. Explicitly enabled Vertical Bars is mode-independent as described below. `ios-theme-disabled` and the legacy `ios26-disabled` on an element or ancestor always exclude it. A disabled theme on one tab/segment item keeps its whole group on the Web.
+For the ordinary Native UI Shell, only supported iOS-mode components are eligible. Theme variables are not required; calling `enableNativeUIShell()` opts into native projection. Explicitly enabled Vertical Bars is mode-independent as described below. `ios-theme-disabled` and the legacy `ios26-disabled` on an element or ancestor always exclude it. A disabled theme on one tab/segment item keeps its whole group on the Web.
 
 Use `data-shell="disabled"` (or the equivalent `ios-theme-shell-disabled` class) to disable only the iOS Native UI Shell while keeping the Web theme. It excludes the element and all its descendants. Adding or removing the attribute or class at runtime automatically restores Web rendering or re-evaluates native eligibility.
 

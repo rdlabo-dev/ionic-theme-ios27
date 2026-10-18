@@ -18,3 +18,5 @@ Requires Capacitor 8 and Ionic 8.8.1 or later (8 or 9). Native rendering current
 [Native UI Shell setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/native-ui-shell.md) · [Vertical Bars](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/vertical-bars.md) · [App-local extensions](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/native-ui-extensions.md)
 
 The Swift module remains `IonicNativeUIShellPlugin`; app-local extensions do not need to change their Swift imports.
+
+See [Choose your setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/setup.md) for theme-only, Native UI-only, and combined setup and migration instructions, including current stylesheet dependencies.

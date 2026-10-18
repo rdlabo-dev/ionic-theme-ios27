@@ -6,7 +6,84 @@ title: Migration
 
 ## Native UI package separation
 
-The repository now separates the theme from `@rdlabo/capacitor-native-ui`. The ordinary theme entry and CSS paths remain supported. The old `@rdlabo/ionic-theme-ios27/native` and `@rdlabo/ionic-theme-ios27/vertical-bars` entries are removed; replace them with `@rdlabo/capacitor-native-ui` and `@rdlabo/capacitor-native-ui/vertical-bars`, respectively. Capacitor apps using native controls must add `@rdlabo/capacitor-native-ui` as a direct dependency and run `npx cap sync ios`; transitive dependencies are not discovered as plugins. See [workspace migration](monorepo.md#existing-applications).
+Start with [Choose your setup](./setup.md) for separate installation, configuration, migration, and verification paths for **theme only**, **Native UI only**, and **both**. The steps below cover the shared package rename and native project changes.
+
+The theme and native controls now live in separate packages. Choose dependencies by the behavior your app uses:
+
+| App behavior | Package to use directly |
+| --- | --- |
+| Theme styles, Ionic Web behavior, and theme animations | `@rdlabo/ionic-theme-ios27` |
+| Native UI Shell or standalone Vertical Control Area | `@rdlabo/capacitor-native-ui` |
+| Theme styling together with native controls | Both packages |
+
+The theme owns the appearance and behavior of Ionic's Web elements. Native UI owns projecting supported controls into native iOS views and coordinating their lifecycle with Web navigation. Native UI can be used without the iOS 27 theme; installing it does not apply theme styles. Android and browsers retain Web presentation.
+
+The theme uses the native package's shared transition/search integration internally. This dependency does not enable native controls automatically. Apps using native controls must declare the native package directly so Capacitor can discover the plugin.
+
+### 1. Update application dependencies
+
+These commands apply once the packages containing this migration are published. For unreleased workspace development, use the [local development instructions](./monorepo.md#local-development).
+
+For theme-only apps, update the theme package. Keep existing theme imports and CSS/Sass paths; no native startup or plugin setup is needed for theme-only use.
+
+```sh
+npm install @rdlabo/ionic-theme-ios27
+```
+
+For apps using both the theme and native controls, install both as direct application dependencies:
+
+```sh
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+```
+
+For native controls with your existing Web appearance, follow [Native UI only](./setup.md#native-ui-only). Install the native package directly and keep your existing Web styles. The plugin no longer requires theme variables to select supported controls; Web layout remains the responsibility of your app or theme. The native package requires Capacitor 8 and Ionic 8.8.1 or later within Ionic 8 or 9.
+
+If you used the intermediate `@ionic-theme/capacitor-native-ui` package name during development, remove it and install `@rdlabo/capacitor-native-ui`. Keep the theme dependency if your app uses its styles or APIs.
+
+```sh
+npm uninstall @ionic-theme/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui
+```
+
+### 2. Replace native imports
+
+| Previous import | Replacement |
+| --- | --- |
+| `@rdlabo/ionic-theme-ios27/native` | `@rdlabo/capacitor-native-ui` |
+| `@rdlabo/ionic-theme-ios27/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
+| `@ionic-theme/capacitor-native-ui` | `@rdlabo/capacitor-native-ui` |
+| `@ionic-theme/capacitor-native-ui/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
+| `@ionic-theme/capacitor-native-ui/integration` | `@rdlabo/capacitor-native-ui/integration` |
+
+Update both value and type imports, including lazy imports, test aliases, and bundler configuration. The old theme `/native` and `/vertical-bars` entries have been removed; there are no compatibility aliases.
+
+```diff
+- import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
++ import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+```
+
+Keep existing native startup options and control markup. The ordinary `@rdlabo/ionic-theme-ios27` entry, theme CSS/Sass paths, and theme animation imports stay unchanged. For custom navigation animations, see the [transition adapter instructions](#native-ui-shell-transition-adapter) below.
+
+### 3. Sync the native project
+
+After updating dependencies and imports, rebuild your app's Web assets with its usual build command, then run:
+
+```sh
+npx cap sync ios
+```
+
+The Capacitor plugin is now supplied by the native package. If you manually linked the old theme Swift package in Xcode, remove that old reference so only the new package supplies the plugin. The Swift package/product is `IonicThemeCapacitorNativeUi`; app-local Swift extensions still use `import IonicNativeUIShellPlugin`. The Capacitor bridge name is unchanged.
+
+For local Swift package references, the package now lives at `packages/capacitor-native-ui` within this repository; there is no root Swift package. Prefer Capacitor's generated integration for application dependencies.
+
+### 4. Verify the migration
+
+- Check `package.json` and the lockfile: native-enabled apps have a direct `@rdlabo/capacitor-native-ui` dependency and no intermediate `@ionic-theme/capacitor-native-ui` dependency.
+- Build the application and confirm there are no imports of the removed theme entries or the intermediate package name.
+- Build and launch the iOS app after sync. Check native controls, navigation/back gestures, and any app-local Swift extensions you use.
+- Check browser and Android Web presentation where supported by your app, and confirm the theme still looks correct.
+
+For repository layout, local file dependencies, and packaging/release procedures, see [Workspace development and migration](./monorepo.md).
 
 ## Native UI Shell transition adapter
 

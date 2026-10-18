@@ -40,6 +40,8 @@ See [workspace development and migration](docs/monorepo.md) for local builds, na
 
 ## Get started
 
+Choose a complete setup: [Theme only](docs/setup.md#theme-only), [Native UI only with your existing appearance](docs/setup.md#native-ui-only), or [Theme and Native UI](docs/setup.md#theme-and-native-ui). The instructions below cover theme styling.
+
 Install both themes in an existing Ionic 8 or 9 app (`@ionic/core` 8.8.1 or later):
 
 ```bash

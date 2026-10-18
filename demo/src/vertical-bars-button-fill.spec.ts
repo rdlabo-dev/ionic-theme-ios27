@@ -164,3 +164,17 @@ test.each(['source', 'system'] as const)('local projection overrides button, gro
     'solid',
   );
 });
+
+test('horizontal controls project without theme variables and retain visibility exclusions', () => {
+  const button = mount([undefined]);
+  document.querySelector('ion-app')!.className = '';
+  button.classList.add('ios');
+  // jsdom leaves the default transform empty instead of the browser's 'none'.
+  document.querySelectorAll<HTMLElement>('*').forEach((element) => (element.style.transform = 'none'));
+  setVerticalBarsPlacement(button, false);
+  expect(getComputedStyle(button).getPropertyValue('--ios-theme-glass-background-rgb')).toBe('');
+  expect(getComputedStyle(button).getPropertyValue('--ios26-glass-background-rgb')).toBe('');
+  expect(readCandidate(button, () => 'button')?.control.items).toHaveLength(1);
+  button.hidden = true;
+  expect(readCandidate(button, () => 'button')).toBeUndefined();
+});
