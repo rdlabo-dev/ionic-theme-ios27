@@ -4,7 +4,7 @@ title: Native UI Extension: Now Playing
 
 # Native UI Extension: Now Playing
 
-The demo's Index → Native UI Extension page (below native-ui-shell) reimplements the mini-player proposed in PR #248 using the [app-local extension API](native-ui-extensions.md). Its implementation lives in the application; there is no mini-player component or playback API in the theme package.
+Use the [app-local extension API](native-ui-extensions.md) to add a SwiftUI mini-player with a Web fallback. The demo's Index → Native UI Extension page provides a sample you can copy into your application.
 
 - [Web component](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/app/mini-player/mini-player.component.ts): owns playback state and the Now Playing modal. Play/pause is separate from opening the player. Tap or swipe up on the track opens the same modal.
 - [Web renderer + DOM reader](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/mini-player.ts): renders the Web UI from attributes, sends title, artist and playback state to SwiftUI, and maps `open` / `toggle` to the original Web buttons.
@@ -16,7 +16,7 @@ The sample uses the default **element projection**: SwiftUI follows the Web elem
 
 The Web fallback reserves its own bottom-slot space and keeps play state across tab changes. Opening Now Playing retires the native player through the shell's existing overlay policy; dismissing it restores the current Web state.
 
-This is a UI example: elapsed time is fixed and no audio engine is started. Applications own playback and reflect current values into the Web DOM. This implementation replaces #248's dedicated UIKit accessory/controller and theme-level mini-player API; it does not include that PR's unrelated segment/browser-support changes or add a system accessory host for ordinary UIKit tabs.
+This is a UI example: elapsed time is fixed and no audio engine is started. Applications own playback and reflect current values into the Web DOM. Connect your application's audio engine to the sample's playback events before using it as a player.
 
 ## Use the Web + SwiftUI set in your application
 

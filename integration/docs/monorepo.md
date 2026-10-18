@@ -9,7 +9,7 @@
 
 The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
 
-MD3 remains in `rdlabo-dev/ionic-theme-md3`. Native UI currently implements iOS only. Android and browsers retain Web presentation. The npm package name is `@rdlabo/capacitor-native-ui`; repository transfer is separate from this layout.
+Native UI implements iOS presentation. Android and browsers retain Web presentation.
 
 ## Existing applications
 
@@ -37,4 +37,4 @@ Build Native UI before the theme; the root build command enforces this order. Th
 
 Both packages initially share the root version. Update root and workspace versions together, and keep the theme's native dependency as `file:../capacitor-native-ui`. Existing `ios27-v` tags release Native UI first, then the theme. `npm run pack:packages` stages the publishable files and replaces local dependencies with matching versions only in the archives; the working tree and lockfiles stay unchanged. Use this command instead of raw `npm pack` or workspace publication. Candidate artifacts contain both packages with matching candidate versions; publication validates both identities and the dependency before publishing either archive.
 
-Before the first release, configure npm publishing access/trusted publishing for `@rdlabo/capacitor-native-ui`. This migration does not publish packages or transfer the repository. Future independent versioning can be introduced when release needs diverge.
+Publishing requires npm publishing access or trusted publishing configured for both packages.

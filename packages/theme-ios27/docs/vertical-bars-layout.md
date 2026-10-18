@@ -34,15 +34,15 @@ The mode is component-mode independent: an app can keep Ionic `mode: 'md'` on iO
 ## Layout API
 
 ```ts
-import { setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
+import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 
 setVerticalBarsLayout({ edge: 'trailing', inset: 80 });
 // Optionally supply a root element and explicit RTL boolean as the next arguments.
 setVerticalBarsLayout({ edge: null }); // restore ordinary Web layout
 ```
 
-Both helpers operate on Web CSS only and work without Capacitor or Native UI startup. The application supplies device state and owns subscriptions. Starting, disabling or destroying Native UI does not change these layout classes or the reserved inset. Unsupported native rails retain the chosen Web rail; choose `edge: null` explicitly if the application wants a horizontal layout instead.
+The helper operates on Web CSS only and work without Capacitor or Native UI startup. The application supplies device state and owns subscriptions. Starting, disabling or destroying Native UI does not change these layout classes or the reserved inset. Unsupported native rails retain the chosen Web rail; choose `edge: null` explicitly if the application wants a horizontal layout instead.
 
 ## Migration
 
-Move `setVerticalControlAreaPlacement` calls from the plugin to `setVerticalBarsLayout({ edge, inset })` from the theme. Move `applyFoldStateClasses` imports to the theme too. Remove `nativeEdge`: it no longer reports availability. Old plugin helpers remain deprecated compatibility adapters for Web CSS only; they are not used by normal startup.
+Move `setVerticalControlAreaPlacement` calls from the plugin to `setVerticalBarsLayout({ edge, inset })` from the theme. Move `applyFoldStateClasses` imports to the theme too. Remove `nativeEdge`: it no longer reports availability. The old plugin helpers are deprecated; update existing imports using the [migration guide](../../capacitor-native-ui/docs/migration.md#web-layout-ownership).

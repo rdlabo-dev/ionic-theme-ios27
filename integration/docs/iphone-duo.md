@@ -80,7 +80,7 @@ Load `vertical-bars.css` as shown above. For class-based browser simulation, saf
 
 ## Project controls into the rail
 
-Start the standalone runtime once after `ion-app` is mounted, and apply the plugin's placement with `setVerticalBarsLayout`:
+Enable rail projection once after `ion-app` is mounted, and apply Foldable's placement to the Web layout with `setVerticalBarsLayout`:
 
 ```ts
 import { Foldable } from '@erkamyaman/capacitor-foldable';

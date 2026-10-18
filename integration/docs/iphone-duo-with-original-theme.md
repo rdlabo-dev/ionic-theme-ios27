@@ -114,7 +114,7 @@ When the application owner is disposed, call `await rail.destroy()` to restore t
 
 `buttonProjection` and local projection settings are available in `1.2.0`. See [Choose button appearance](../../packages/capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance) for availability and migration details.
 
-The new default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, use:
+The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, use:
 
 ```ts
 const rail = await enableNativeUIShell({ verticalBars: { only: true, buttonProjection: 'source', buttonDefaultFill: 'solid' } });
@@ -143,7 +143,7 @@ Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for actual rail pl
 
 Replace the browser-only startup with the [device placement setup](iphone-duo.md#project-controls-into-the-rail). That setup sends initial values and `barPlacementChange` events to `setVerticalBarsLayout({ edge: verticalBarEdge, inset })`, with subscriptions and cleanup kept in your application.
 
-Pass both the requested and native edge with Foldable's measured inset. The placement API resolves RTL. A null edge restores the ordinary layout.
+Pass Foldable's reported logical edge and measured inset to `setVerticalBarsLayout`. The helper resolves RTL. A null edge restores the ordinary Web layout; Native UI detects native rail availability independently.
 
 On supported iOS, controls in the rail use native SwiftUI rendering; your custom Web styling still applies to ordinary content and horizontal controls. Web and Android use Web clones.
 

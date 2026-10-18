@@ -21,7 +21,7 @@ This example uses class-based dark mode; load Ionic's matching dark palette. For
 
 Use `iosTransitionAnimation`, `popoverEnterAnimation`, and `popoverLeaveAnimation` from `@rdlabo/ionic-theme-ios27` in your Ionic configuration as described there. No native startup call or Capacitor sync is required for this path. The theme's internal dependency on Native UI supplies shared coordination code; it does not activate native controls.
 
-### Migrate and verify
+### Existing applications
 
 Existing theme entry imports and CSS/Sass paths stay unchanged after the package split. For an iOS 26 app, follow [From the iOS 26 theme](migration.md#from-the-ios-26-theme).
 
@@ -34,6 +34,6 @@ Web-only applications install just the theme and their normal Ionic dependencies
 
 To opt into native controls, declare `@rdlabo/capacitor-native-ui` directly in the application’s dependencies, install Capacitor, run `npx cap sync ios`, and explicitly call `enableNativeUIShell()`. The existing theme router animation handles coordination. On iOS without a registered plugin, explicit startup retains Web controls rather than calling an unavailable native bridge.
 
-### Navigation ownership
+### Page transitions
 
-`iosTransitionAnimation` remains the theme’s navigation builder, like `mdTransitionAnimation` in the MD3 theme. It handles native suspension, playback, interactive progress, cancellation and cleanup internally. For a custom Ionic builder, the theme also exports `withNativeUIShellTransition(builder)`; no extra configuration is needed for the built-in builder. Neither builder enables Native UI. Native UI itself exposes suspension/resumption and has no Ionic Animation adapter.
+Use `iosTransitionAnimation` in your Ionic configuration to coordinate page transitions with optional native controls, including interactive back gestures and cancellation. No extra transition configuration is needed when using this builder. To keep a custom Ionic animation, wrap it with `withNativeUIShellTransition(builder)` from this package. Enable native controls separately with `enableNativeUIShell()`; configuring an animation does not enable them.
