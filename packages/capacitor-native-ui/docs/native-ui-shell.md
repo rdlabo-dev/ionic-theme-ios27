@@ -18,7 +18,7 @@ This package revisits that idea for Ionic and Liquid Glass. Existing Ionic marku
 
 ## Enable the shell
 
-For the three application configurations, start with [Choose your setup](./setup.md). For native controls with your existing Web appearance, use [Native UI only](./setup.md#native-ui-only).
+For the three application configurations, start with [Choose your setup](../../../integration/docs/setup.md). For native controls with your existing Web appearance, use [Native UI only](setup.md#native-ui-only).
 
 Install the native package as a direct application dependency so Capacitor can discover it:
 
@@ -43,7 +43,7 @@ import { configureNativeTransition } from '@rdlabo/capacitor-native-ui';
 await configureNativeTransition();
 ```
 
-If using the theme’s `iosTransitionAnimation`, keep that setting; it already coordinates native transitions. For Ionic default or custom animations, configure the [transition adapter](./migration.md#native-ui-shell-transition-adapter). No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
+If using the theme’s `iosTransitionAnimation`, keep that setting; it already coordinates native transitions. For Ionic default or custom animations, configure the [transition adapter](migration.md#native-ui-shell-transition-adapter). No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
 
 This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry point does not import Capacitor. Native runtime entry points require `@capacitor/core`, including in browser builds. Native sources are still detected and built by Capacitor's sync when `@rdlabo/capacitor-native-ui` is a direct dependency of a Capacitor project, even if the application does not call `enableNativeUIShell()`.
 
@@ -51,7 +51,7 @@ Native appearance follows the applied class, system or always-dark theme CSS. Sy
 
 ## Supported markup
 
-The table below describes the ordinary Native UI Shell. Vertical Bars uses the separate [toolbar action rules](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#toolbar-actions).
+The table below describes the ordinary Native UI Shell. Vertical Bars uses the separate [toolbar action rules](vertical-bars.md#toolbar-actions).
 
 | Ionic component                               | Supported appearance and placement                                                                        | Native rendering                                                      |
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -133,7 +133,7 @@ FAB support covers the standard circular glass appearance, text and resolved sta
 
 Custom host animation or transition declarations on the FAB, list or button keep the group on the Web until removed. Button transforms support the standard identity and hidden-child scale(0), not custom scaling. For children inside a `display:none` list, browsers can report a computed transform of `none` even when a custom transform is declared. Such transforms are checked when layout becomes available; the whole FAB then returns to Web if needed. The plugin does not parse application stylesheets or temporarily open lists to predict hidden layout.
 
-The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUIShellTransition()`, exported from both the package root and `/vertical-bars`. See [Connect your navigation animation](./iphone-duo-with-original-theme.md#3.-connect-your-navigation-animation) for the setup.
+The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUIShellTransition()`, exported from both the package root and `/vertical-bars`. See [Connect your navigation animation](../../../integration/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup.
 
 Ordinary native/Web handoffs share a 180ms opacity crossfade, including Vertical Bars in both directions. Outgoing visuals cannot receive input or accessibility focus. Reduce Motion and modal presentation use immediate handoffs; search controllers keep their UIKit-managed transition.
 
@@ -228,15 +228,15 @@ The native material and control appearance follow the running iOS version; an iO
 
 iPhone Duo support, including standalone vertical bars without Native UI Shell, is available as a **preview** in `1.2.0` alongside Native UI Shell. Its APIs and supported behavior may change.
 
-The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](../../../integration/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
-Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars) for rail layout, native fallback and supported overlays.
+Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](vertical-bars.md) for rail layout, native fallback and supported overlays.
 
-In Vertical Bars, fixed-toolbar `ion-button` actions need an `ion-icon` or SVG with `slot="icon-only"`. All fills and Ionic colors are eligible; submit buttons follow the same placement rule. Add `.ios-theme-horizontal-only` to a button or its `ion-buttons` group to keep it horizontal. See [Toolbar actions](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#toolbar-actions) for placement and exclusion rules.
+In Vertical Bars, fixed-toolbar `ion-button` actions need an `ion-icon` or SVG with `slot="icon-only"`. All fills and Ionic colors are eligible; submit buttons follow the same placement rule. Add `.ios-theme-horizontal-only` to a button or its `ion-buttons` group to keep it horizontal. See [Toolbar actions](vertical-bars.md#toolbar-actions) for placement and exclusion rules.
 
-**Native button appearance:** `1.2.0` defaults native vertical buttons to `buttonProjection: 'system'`. Use `source` to project Ionic fill and colors, with `data-projection="source|system"` or the equivalent `ios-theme-projection-source` / `ios-theme-projection-system` classes for local exceptions. These settings affect native vertical `ion-button` and `ion-menu-button` actions only. Horizontal controls and Web clones keep their existing behavior. See [Choose button appearance](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#choose-button-appearance) for migration, priority and fill rules.
+**Native button appearance:** `1.2.0` defaults native vertical buttons to `buttonProjection: 'system'`. Use `source` to project Ionic fill and colors, with `data-projection="source|system"` or the equivalent `ios-theme-projection-source` / `ios-theme-projection-system` classes for local exceptions. These settings affect native vertical `ion-button` and `ion-menu-button` actions only. Horizontal controls and Web clones keep their existing behavior. See [Choose button appearance](vertical-bars.md#choose-button-appearance) for migration, priority and fill rules.
 
-For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme).
+For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](../../../integration/docs/iphone-duo-with-original-theme.md).
 
 ## Native UI Shell API
 
@@ -314,9 +314,9 @@ Stops synchronization, restores Web controls and releases native resources.
 
 ## Source layout
 
-Each TypeScript module in [`src/native/components`](../packages/capacitor-native-ui/src/native/components) declares its Ionic tag and DOM reader. `components/index.ts` combines those exports into discovery selectors and the component type. Shared DOM measurements, item data and SVG rendering live in `src/native/shared`; `runtime.ts` owns synchronization, visibility handoffs and lifecycle events.
+Each TypeScript module in [`src/native/components`](../src/native/components) declares its Ionic tag and DOM reader. `components/index.ts` combines those exports into discovery selectors and the component type. Shared DOM measurements, item data and SVG rendering live in `src/native/shared`; `runtime.ts` owns synchronization, visibility handoffs and lifecycle events.
 
-On iOS, [`Components`](../packages/capacitor-native-ui/ios/Sources/IonicNativeUIShellPlugin/Components) owns UIKit control creation, updates and component names. `ShellButton` shares the native button implementation used by ordinary, back and menu buttons. `Shared` owns the host view, typed snapshots, geometry, colors and image cache. Capacitor decodes each complete snapshot once using `Decodable`; renderers consume typed models and compare content with `Equatable`. Invalid batches are rejected before visible controls are changed. `IonicNativeUIShellPlugin.swift` coordinates Capacitor calls, revisions and native view lifetimes.
+On iOS, [`Components`](../ios/Sources/IonicNativeUIShellPlugin/Components) owns UIKit control creation, updates and component names. `ShellButton` shares the native button implementation used by ordinary, back and menu buttons. `Shared` owns the host view, typed snapshots, geometry, colors and image cache. Capacitor decodes each complete snapshot once using `Decodable`; renderers consume typed models and compare content with `Equatable`. Invalid batches are rejected before visible controls are changed. `IonicNativeUIShellPlugin.swift` coordinates Capacitor calls, revisions and native view lifetimes.
 
 ## Demo and verification
 

@@ -18,7 +18,8 @@
     "dist",
     "src",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "docs"
   ],
   "scripts": {
     "prebuild:css": "rdlabo-copy-structured-list src/styles/utils/structured-list.scss",

@@ -60,7 +60,7 @@ Group the items and import `IonItemGroup` in the standalone component:
 
 The rule checks all `ion-list` elements, including non-inset lists. Radio, reorder, and accordion groups are also supported. It checks Angular templates; it does not inspect React or Vue templates.
 
-See [Using ion-item-group](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/using-ion-item-group) for layout examples and the [rule reference](https://docs.rdlabo.dev/projects/eslint-plugin-rules/docs/rules/require-ion-item-group) for supported structures and automatic fixes.
+See [Using ion-item-group](using-ion-item-group.md) for layout examples and the [rule reference](https://docs.rdlabo.dev/projects/eslint-plugin-rules/docs/rules/require-ion-item-group) for supported structures and automatic fixes.
 
 ## Keep it checked
 

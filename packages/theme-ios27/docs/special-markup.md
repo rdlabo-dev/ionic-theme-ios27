@@ -51,11 +51,11 @@ These classes do not reposition a separate `ion-fab`; leave room for it when cho
 
 iPhone Duo support, including standalone vertical bars, is available as a **preview** in `1.2.0` alongside Native UI Shell. Its APIs and supported behavior may change.
 
-iPhone Duo support — the vertical system rail, hinge posture, and the posture-driven split-pane layout — is independent of the iOS 27 theme and the full Native UI Shell. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including device-layout monitoring without a projection runtime.
+iPhone Duo support — the vertical system rail, hinge posture, and the posture-driven split-pane layout — is independent of the iOS 27 theme and the full Native UI Shell. See [iPhone Duo support](../../../integration/docs/iphone-duo.md) for the complete setup, including device-layout monitoring without a projection runtime.
 
-See [Vertical Bars](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars) for rail layout classes, control eligibility and native button appearance.
+See [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md) for rail layout classes, control eligibility and native button appearance.
 
-For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme).
+For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](../../../integration/docs/iphone-duo-with-original-theme.md).
 
 ## Two-line inset list items
 
@@ -178,4 +178,4 @@ Add `.ios-theme-disabled` to an individual Ionic component when it must retain I
 <ion-button>iOS 27 theme</ion-button> <ion-button class="ios-theme-disabled">Standard Ionic button</ion-button>
 ```
 
-For the background model behind inset lists, see [Using `ion-item-group`](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/using-ion-item-group).
+For the background model behind inset lists, see [Using `ion-item-group`](using-ion-item-group.md).

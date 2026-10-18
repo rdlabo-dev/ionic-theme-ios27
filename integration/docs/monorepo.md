@@ -13,7 +13,7 @@ MD3 remains in `rdlabo-dev/ionic-theme-md3`. Native UI currently implements iOS 
 
 ## Existing applications
 
-See the [application migration guide](./migration.md#native-ui-package-separation) for choosing packages, replacing imports (including the intermediate `@ionic-theme` scope), syncing Capacitor, and verifying existing apps. Theme-only consumers keep the ordinary theme entry and stylesheet paths. Apps using native controls must declare `@rdlabo/capacitor-native-ui` directly.
+See the [application migration guide](../../packages/capacitor-native-ui/docs/migration.md#native-ui-package-separation) for choosing packages, replacing imports (including the intermediate `@ionic-theme` scope), syncing Capacitor, and verifying existing apps. Theme-only consumers keep the ordinary theme entry and stylesheet paths. Apps using native controls must declare `@rdlabo/capacitor-native-ui` directly.
 
 ## Local development
 
@@ -31,7 +31,7 @@ npx cap sync ios
 
 Build Native UI before the theme; the root build command enforces this order. The demo uses both packages through local file dependencies. Its separate lockfile preserves the existing Ionic 8/9 CI matrix. Rebuild packages after editing runtime source before starting or rebuilding the demo.
 
-`npm run docgen` updates the root API documentation. `npm run pack:packages` produces both installable archives. Native integration checks under `scripts/verify-native-*.sh` install both archives into a fresh consumer and exercise the SPM integration. The Swift package lives in `packages/capacitor-native-ui`; its scheme is `IonicThemeCapacitorNativeUi`.
+`npm run docgen` updates API documentation in `packages/capacitor-native-ui/docs`. `npm run pack:packages` produces both installable archives. Native integration checks under `scripts/verify-native-*.sh` install both archives into a fresh consumer and exercise the SPM integration. The Swift package lives in `packages/capacitor-native-ui`; its scheme is `IonicThemeCapacitorNativeUi`.
 
 ## Releases
 

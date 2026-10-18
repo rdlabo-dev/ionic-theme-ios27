@@ -168,4 +168,4 @@ To compare appearances:
 
 The startup query applies for the runtime's lifetime. Leave `buttonDefaultFill` out
 of the query to use the chosen configuration's default shown above. For local
-exceptions and fill rules, see [Choose button appearance](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#choose-button-appearance).
+exceptions and fill rules, see [Choose button appearance](../packages/capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance).

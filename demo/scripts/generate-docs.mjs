@@ -7,7 +7,7 @@ import { format } from 'prettier';
 import { createHighlighter } from 'shiki';
 
 const demoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const sourcePath = resolve(demoRoot, '../docs/special-markup.md');
+const sourcePath = resolve(demoRoot, '../packages/theme-ios27/docs/special-markup.md');
 const outputPath = resolve(demoRoot, 'src/app/docs/docs-content.generated.ts');
 
 const markdown = await readFile(sourcePath, 'utf8');
@@ -34,11 +34,18 @@ const markdownWithCodePlaceholders = markdownWithPreviews.replace(/```([\w-]+)?\
   const index = highlightedBlocks.push(`<div class="code-block-container">${highlighted}</div>`) - 1;
   return `<div data-docs-code-block="${index}"></div>`;
 });
-let html = await marked.parse(markdownWithCodePlaceholders, { gfm: true });
+let html = await marked.parse(markdownWithCodePlaceholders, {
+  gfm: true,
+  walkTokens(token) {
+    if (token.type === 'link' && !/^(?:[a-z]+:|#|\/\/)/i.test(token.href)) {
+      token.href = new URL(token.href, 'https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/').href;
+    }
+  },
+});
 html = html.replace(/<div data-docs-code-block="(\d+)"><\/div>/g, (_match, index) => highlightedBlocks[Number(index)]);
 highlighter.dispose();
 const generatedSource = await format(
-  `// Generated from docs/special-markup.md. Do not edit directly.\nexport const docsContentHtml = ${JSON.stringify(html)};\n`,
+  `// Generated from packages/theme-ios27/docs/special-markup.md. Do not edit directly.\nexport const docsContentHtml = ${JSON.stringify(html)};\n`,
   { parser: 'typescript', printWidth: 140 },
 );
 

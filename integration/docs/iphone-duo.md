@@ -6,9 +6,9 @@ title: iPhone Duo support (preview)
 
 Adapt your Ionic app to iPhone Duo: place navigation and actions in its vertical system rail, and adjust your split pane as the device opens and closes. Existing Ionic markup remains the source of labels, icons, routing, and click handlers.
 
-**New here?** Start with [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme) to preview the side layout in Chrome. This page explains device events, placement and split panes. [Vertical Bars](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars) documents control projection and the runtime API.
+**New here?** Start with [iPhone Duo with your existing theme](iphone-duo-with-original-theme.md) to preview the side layout in Chrome. This page explains device events, placement and split panes. [Vertical Bars](../../packages/capacitor-native-ui/docs/vertical-bars.md) documents control projection and the runtime API.
 
-Available in `1.2.0` as a **preview** feature alongside [Native UI Shell](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell). APIs and supported behavior may change before stable status. Stable status is planned after the official release of Xcode 27.1. The real system rail and hinge reporting require iOS 27.1 or later and an app built with Xcode 27.1 or newer.
+Available in `1.2.0` as a **preview** feature alongside [Native UI Shell](../../packages/capacitor-native-ui/docs/native-ui-shell.md). APIs and supported behavior may change before stable status. Stable status is planned after the official release of Xcode 27.1. The real system rail and hinge reporting require iOS 27.1 or later and an app built with Xcode 27.1 or newer.
 
 This package provides two independent pieces for that hardware. Each works **without the iOS 27 theme stylesheets** and **without the full Native UI Shell**:
 
@@ -19,7 +19,7 @@ Device state belongs to [`@erkamyaman/capacitor-foldable`](https://github.com/er
 
 ## Choose what to adopt
 
-To keep your existing theme and add only the standalone support, follow [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme). This page covers the shared device-layout rules.
+To keep your existing theme and add only the standalone support, follow [iPhone Duo with your existing theme](iphone-duo-with-original-theme.md). This page covers the shared device-layout rules.
 
 | Goal                                             | Stylesheet          | Runtime                                                            |
 | ------------------------------------------------ | ------------------- | ------------------------------------------------------------------ |
@@ -76,7 +76,7 @@ WebView corner radius remains a rendering concern: `configureNativeTransition()`
 
 ## Reserve the vertical rail
 
-Load `vertical-bars.css` as shown above. For class-based browser simulation, safe-area handling, RTL and overlay layout, see [Reserve the vertical rail](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#reserve-the-vertical-rail). On device, the placement helper below applies the layout classes and measured inset.
+Load `vertical-bars.css` as shown above. For class-based browser simulation, safe-area handling, RTL and overlay layout, see [Reserve the vertical rail](../../packages/capacitor-native-ui/docs/vertical-bars.md#reserve-the-vertical-rail). On device, the placement helper below applies the layout classes and measured inset.
 
 ## Project controls into the rail
 
@@ -101,19 +101,19 @@ await listener.remove();
 await rail.destroy();
 ```
 
-Supply `nativeEdge` on both the initial read and each event so the renderer knows which rail the system actually provides. The measured `inset` is passed through instead of assuming a fixed width. Devices without a reported rail, including Web and Android, return a null edge and retain the ordinary layout. For browser simulation, use the [class-based preview](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#reserve-the-vertical-rail) without connecting device placement.
+Supply `nativeEdge` on both the initial read and each event so the renderer knows which rail the system actually provides. The measured `inset` is passed through instead of assuming a fixed width. Devices without a reported rail, including Web and Android, return a null edge and retain the ordinary layout. For browser simulation, use the [class-based preview](../../packages/capacitor-native-ui/docs/vertical-bars.md#reserve-the-vertical-rail) without connecting device placement.
 
 Start either `enableVerticalControlArea()` or the full `enableNativeUIShell()` — not both. If the app already uses Native UI Shell, keep that runtime and use the same `setVerticalControlAreaPlacement` callback. The application owner removes its listeners and destroys its runtime on teardown.
 
-On supported iOS versions the runtime hands eligible tabs, back navigation, menu buttons, and fixed-toolbar actions to a native SwiftUI `TabView` and toolbar; on Web, Android, or when native projection is unavailable, Web clones remain the fallback. See [Toolbar actions](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#toolbar-actions) for control eligibility.
+On supported iOS versions the runtime hands eligible tabs, back navigation, menu buttons, and fixed-toolbar actions to a native SwiftUI `TabView` and toolbar; on Web, Android, or when native projection is unavailable, Web clones remain the fallback. See [Toolbar actions](../../packages/capacitor-native-ui/docs/vertical-bars.md#toolbar-actions) for control eligibility.
 
 ### Toolbar actions
 
-See [Vertical Bars: Toolbar actions](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#toolbar-actions) for eligible markup, placement, button appearance and local overrides.
+See [Vertical Bars: Toolbar actions](../../packages/capacitor-native-ui/docs/vertical-bars.md#toolbar-actions) for eligible markup, placement, button appearance and local overrides.
 
 ### Tab bar
 
-See [Vertical Bars: Tab bar](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#tab-bar) for navigation, labels and Web fallback behavior.
+See [Vertical Bars: Tab bar](../../packages/capacitor-native-ui/docs/vertical-bars.md#tab-bar) for navigation, labels and Web fallback behavior.
 
 ## Adapt the split pane
 
@@ -147,4 +147,4 @@ Ionic's `when` still controls whether the menu is persistent. The example choose
 
 ## Vertical Control Area API
 
-The runtime handle reference is maintained in [Vertical Bars](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars#vertical-control-area-api).
+The runtime handle reference is maintained in [Vertical Bars](../../packages/capacitor-native-ui/docs/vertical-bars.md#vertical-control-area-api).

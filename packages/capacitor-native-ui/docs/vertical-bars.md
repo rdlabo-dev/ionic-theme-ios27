@@ -6,7 +6,7 @@ title: Vertical Bars (preview)
 
 Vertical Bars moves eligible Ionic navigation and actions into a side rail while keeping the original components as the source of labels, icons and behavior. It works with this theme or an existing Ionic theme, independently of hinge posture and the full Native UI Shell.
 
-Use this page for layout, control eligibility, native button appearance and the runtime API. For device events and split panes, see [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo). For a step-by-step browser preview and native setup, start with [iPhone Duo with your existing theme](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme).
+Use this page for layout, control eligibility, native button appearance and the runtime API. For device events and split panes, see [iPhone Duo support](../../../integration/docs/iphone-duo.md). For a step-by-step browser preview and native setup, start with [iPhone Duo with your existing theme](../../../integration/docs/iphone-duo-with-original-theme.md).
 
 Available in `1.2.0` as a **preview** feature. APIs and supported behavior may change.
 
@@ -28,9 +28,9 @@ import { enableVerticalControlArea } from '@rdlabo/capacitor-native-ui/vertical-
 const rail = await enableVerticalControlArea();
 ```
 
-Add the layout class below for browser simulation, or [apply device placement](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUIShell()`, keep that runtime; it includes Vertical Bars. Do not start both.
+Add the layout class below for browser simulation, or [apply device placement](../../../integration/docs/iphone-duo.md#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUIShell()`, keep that runtime; it includes Vertical Bars. Do not start both.
 
-The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. CSS-only use needs no runtime. For native setup and navigation transitions, follow the [existing-theme guide](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo-with-original-theme).
+The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. CSS-only use needs no runtime. For native setup and navigation transitions, follow the [existing-theme guide](../../../integration/docs/iphone-duo-with-original-theme.md).
 
 On supported Capacitor iOS, eligible controls use native SwiftUI rendering. Web, Android and unavailable native projection use Web clones. A browser preview can verify layout and actions, but cannot compare native button appearance.
 
@@ -71,7 +71,7 @@ const rail = await enableVerticalControlArea({
 });
 ```
 
-Use an `ion-popover` whose `trigger` identifies the projected button, or pass that button's click event to `PopoverController.create({ event, ... })`. Ordinary toolbar and body popovers remain on the Web. If a rail-anchored popover falls back to Web rendering, the rail also returns to Web projection until dismissal. See [native popover behavior and limitations](./native-ui-shell.md#popovers-anchored-to-vertical-bars).
+Use an `ion-popover` whose `trigger` identifies the projected button, or pass that button's click event to `PopoverController.create({ event, ... })`. Ordinary toolbar and body popovers remain on the Web. If a rail-anchored popover falls back to Web rendering, the rail also returns to Web projection until dismissal. See [native popover behavior and limitations](native-ui-shell.md#popovers-anchored-to-vertical-bars).
 
 
 ## Toolbar actions
@@ -151,7 +151,7 @@ The first matching setting wins:
 
 On the same element, a valid `data-projection` value takes precedence over the classes. Empty or unknown values are ignored. Without a valid attribute, `system` wins if both classes are present. Removing an attribute falls back to the element's classes, then the next level above. Attribute and class changes apply without restarting the runtime; grouping and placement stay unchanged.
 
-Only native vertical `ion-button` and `ion-menu-button` actions interpret these settings. Other ancestors, back buttons, tabs and FABs do not. They do not change Web styling. To keep a control or subtree on the Web entirely, use [`data-shell="disabled"`](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell#supported-markup).
+Only native vertical `ion-button` and `ion-menu-button` actions interpret these settings. Other ancestors, back buttons, tabs and FABs do not. They do not change Web styling. To keep a control or subtree on the Web entirely, use [`data-shell="disabled"`](native-ui-shell.md#supported-markup).
 
 ### Source fill rules
 

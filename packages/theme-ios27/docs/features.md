@@ -4,12 +4,12 @@ title: Features
 
 # Features
 
-Customize the theme with CSS variables and Sass mixins, or adopt it one component at a time. Markup-specific opt-ins are documented in [Special markup and classes](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/special-markup).
+Customize the theme with CSS variables and Sass mixins, or adopt it one component at a time. Markup-specific opt-ins are documented in [Special markup and classes](special-markup.md).
 
 ## CSS variables
 
 To customize the library's default styles to match your design, several CSS variables are provided. See this file for details:
-[Default variables](../packages/theme-ios27/src/styles/default-variables.scss)
+[Default variables](../src/styles/default-variables.scss)
 
 For menus, `--ios-theme-menu-background-rgb` sets the surface RGB channels (light: `225, 230, 240`; dark: `26, 31, 34`). `--ios-theme-menu-background-opacity` controls opacity and defaults to `0.96`. Both are public customization variables and can be set on `ion-menu`.
 
@@ -29,7 +29,7 @@ ion-textarea label.textarea-wrapper {
 
 ## Native UI Shell (Preview)
 
-Capacitor iOS apps can use the optional [Native UI Shell](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/native-ui-shell) to render supported fixed Ionic controls with UIKit and system Liquid Glass. It is available as a preview in `1.2.0`. Content and application logic stay in the WebView, with Ionic owning routing and page transitions. The guide explains the hybrid approach's origins in Basecamp and Capacitor, setup, supported controls and Web fallback behavior.
+Capacitor iOS apps can use the optional [Native UI Shell](../../capacitor-native-ui/docs/native-ui-shell.md) to render supported fixed Ionic controls with UIKit and system Liquid Glass. It is available as a preview in `1.2.0`. Content and application logic stay in the WebView, with Ionic owning routing and page transitions. The guide explains the hybrid approach's origins in Basecamp and Capacitor, setup, supported controls and Web fallback behavior.
 
 ## Selective component imports
 
