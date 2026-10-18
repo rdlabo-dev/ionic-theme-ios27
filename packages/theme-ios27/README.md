@@ -26,7 +26,7 @@ Pair the iOS 26 and iOS 27 themes so supported Safari versions can present the d
 
 ## Get started
 
-Start with [theme setup](docs/setup.md#theme-only) or the instructions below. Once your theme is configured, you can [add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) for supported iOS controls.
+Start with [theme setup](docs/setup.md#theme-only) or the instructions below. Once your theme is configured, you can [add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) for supported iOS controls.
 
 Install both themes in an existing Ionic 8 or 9 app (`@ionic/core` 8.8.1 or later):
 
@@ -211,6 +211,6 @@ For Ionic 9 Angular, import `isPlatform` and `provideIonicAngular` from `@ionic/
 
 ## Development
 
-See the [workspace guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/monorepo.md) for builds and releases and [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) for the optional next step.
+See the [workspace guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/docs/development.md) for builds and releases and [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) for the optional next step.
 
 <!-- /rdlabo-docs-omit -->

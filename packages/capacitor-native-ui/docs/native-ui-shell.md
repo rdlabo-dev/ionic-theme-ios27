@@ -18,7 +18,7 @@ This package revisits that idea for Ionic and Liquid Glass. Existing Ionic marku
 
 ## Enable the shell
 
-Already using the iOS theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md). For other Web appearances, use [Native UI setup](setup.md#native-ui-only).
+Already using the iOS theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). For other Web appearances, use [Native UI setup](setup.md#native-ui-only).
 
 Install the native package as a direct application dependency so Capacitor can discover it:
 
@@ -133,7 +133,7 @@ FAB support covers the standard circular glass appearance, text and resolved sta
 
 Custom host animation or transition declarations on the FAB, list or button keep the group on the Web until removed. Button transforms support the standard identity and hidden-child scale(0), not custom scaling. For children inside a `display:none` list, browsers can report a computed transform of `none` even when a custom transform is declared. Such transforms are checked when layout becomes available; the whole FAB then returns to Web if needed. The plugin does not parse application stylesheets or temporarily open lists to predict hidden layout.
 
-The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUIShellTransition()`, exported by `@rdlabo/ionic-theme-ios27`. See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup.
+The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUIShellTransition()`, exported by `@rdlabo/ionic-theme-ios27`. See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup.
 
 Ordinary native/Web handoffs share a 180ms opacity crossfade, including Vertical Bars in both directions. Outgoing visuals cannot receive input or accessibility focus. Reduce Motion and modal presentation use immediate handoffs; search controllers keep their UIKit-managed transition.
 
@@ -223,7 +223,7 @@ The native material and control appearance follow the running iOS version; an iO
 
 iPhone Duo support, including standalone vertical bars without Native UI Shell, is available as a **preview** in `1.2.0` alongside Native UI Shell. Its APIs and supported behavior may change.
 
-The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUIShell({ verticalBars: { only: true } })` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUIShell({ verticalBars: { only: true } })` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
 Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](vertical-bars.md) for rail layout, native fallback and supported overlays.
 
@@ -231,7 +231,7 @@ In Vertical Bars, fixed-toolbar `ion-button` actions need an `ion-icon` or SVG w
 
 **Native button appearance:** `1.2.0` defaults native vertical buttons to `buttonProjection: 'system'`. Use `source` to project Ionic fill and colors, with `data-projection="source|system"` or the equivalent `ios-theme-projection-source` / `ios-theme-projection-system` classes for local exceptions. These settings affect native vertical `ion-button` and `ion-menu-button` actions only. Horizontal controls and Web clones keep their existing behavior. See [Choose button appearance](vertical-bars.md#choose-button-appearance) for migration, priority and fill rules.
 
-For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md).
+For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 
 ## Native UI Shell API
 

@@ -31,7 +31,7 @@ Build the app and check light/dark appearance, page transitions, and supported b
 
 Web-only applications install just the theme and their normal Ionic dependencies. `@capacitor/core` is an optional peer, including in the transitive Native UI package; the theme imports only its plugin-free `/integration` entry. No Capacitor installation, native sync, or `enableNativeUIShell()` call is needed.
 
-When you are ready to add native iOS controls, follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md).
+When you are ready to add native iOS controls, follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md).
 
 ### Page transitions
 
@@ -39,4 +39,4 @@ Use `iosTransitionAnimation` in your Ionic configuration to coordinate page tran
 
 ## Next step: Add Native UI
 
-With your theme configured, you can optionally project supported controls into native iOS UI. Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) to install and enable the plugin while keeping your existing styles and transitions.
+With your theme configured, you can optionally project supported controls into native iOS UI. Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) to install and enable the plugin while keeping your existing styles and transitions.

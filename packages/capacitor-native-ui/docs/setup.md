@@ -36,7 +36,7 @@ const ionicConfig = {
 
 Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-shell-transition-adapter). This optional adapter requires the theme package but does not require its stylesheets or replace your animation. For a plugin-only application, use the suspension API below.
 
-For optional Vertical Bars, your app or theme arranges the Web layout around the rail. The [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md) offers a ready-made stylesheet from the theme package; that stylesheet is a layout choice, not a plugin requirement. For rail-only projection, call `enableNativeUIShell({ verticalBars: { only: true } })`. See [all configuration options](configuration.md).
+For optional Vertical Bars, your app or theme arranges the Web layout around the rail. The [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md) offers a ready-made stylesheet from the theme package; that stylesheet is a layout choice, not a plugin requirement. For rail-only projection, call `enableNativeUIShell({ verticalBars: { only: true } })`. See [all configuration options](configuration.md).
 
 Build your Web assets, then run `npx cap sync ios` for a Capacitor iOS app. A browser can preview the Web layout; native presentation requires a supported iOS device or simulator.
 

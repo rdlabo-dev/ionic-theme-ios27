@@ -35,14 +35,14 @@ The same Library screen with Native UI Shell off and on, captured while dragging
 | Style your Ionic Web UI | [Theme only](packages/theme-ios27/docs/setup.md) |
 | Add native controls while keeping your existing Web appearance | [Native UI only](packages/capacitor-native-ui/docs/setup.md) |
 
-Already using the iOS theme? [Add Native UI to your theme](integration/docs/setup.md) as your next step.
+Already using the iOS theme? [Add Native UI to your theme](packages/theme-ios27/docs/add-native-ui.md) as your next step.
 
 Both packages support Ionic 8.8.1 or later within Ionic 8 or 9. Native UI requires Capacitor 8; see its setup guide for supported iOS environments.
 
 ## Explore further
 
-- [Integration guides](integration/README.md): combine packages and connect layouts and device behavior.
+- [iPhone Duo layout](packages/theme-ios27/docs/iphone-duo.md) · [Vertical Bars with an existing theme](packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 - [Theme migration](packages/theme-ios27/docs/migration.md) · [Native UI migration](packages/capacitor-native-ui/docs/migration.md).
-- [Workspace development and releases](integration/docs/monorepo.md).
+- [Workspace development and releases](docs/development.md) · [E2E screenshot testing](docs/e2e-testing.md).
 
 Use standard native buttons without Ionic through the [plain HTML adapter](packages/capacitor-native-ui/docs/framework-independent.md), or keep Ionic markup and enable only [Vertical Bars](packages/capacitor-native-ui/docs/configuration.md). Both use the same native renderers.

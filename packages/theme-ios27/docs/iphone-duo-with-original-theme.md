@@ -112,7 +112,7 @@ When the application owner is disposed, call `await rail.destroy()` to restore t
 
 ### Optional: choose native button appearance
 
-`buttonProjection` and local projection settings are available in `1.2.0`. See [Choose button appearance](../../packages/capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance) for availability and migration details.
+`buttonProjection` and local projection settings are available in `1.2.0`. See [Choose button appearance](../../capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance) for availability and migration details.
 
 The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, use:
 
@@ -120,7 +120,7 @@ The default is `system`: SwiftUI styles vertical buttons and tints their icons. 
 const rail = await enableNativeUIShell({ verticalBars: { only: true, buttonProjection: 'source', buttonDefaultFill: 'solid' } });
 ```
 
-The `solid` default suits ordinary Ionic buttons. Buttons inside `ion-buttons` still default to clear; set `fill="solid"` explicitly to project their background. For one-off exceptions, use the [local projection settings](../../packages/capacitor-native-ui/docs/vertical-bars.md#override-individual-buttons-or-groups). These settings affect native vertical buttons only; Web clones keep their existing appearance.
+The `solid` default suits ordinary Ionic buttons. Buttons inside `ion-buttons` still default to clear; set `fill="solid"` explicitly to project their background. For one-off exceptions, use the [local projection settings](../../capacitor-native-ui/docs/vertical-bars.md#override-individual-buttons-or-groups). These settings affect native vertical buttons only; Web clones keep their existing appearance.
 
 ### If the preview does not appear
 
@@ -128,7 +128,7 @@ The `solid` default suits ordinary Ionic buttons. Buttons inside `ion-buttons` s
 | --- | --- |
 | No space at the side | Load `vertical-bars.css` and put the class on `ion-app`. |
 | Space appears, but controls stay horizontal | Start `enableNativeUIShell({ verticalBars: { only: true } })` after mounting the app root. Use existing tabs or `slot="icon-only"` actions in a fixed header/footer toolbar. |
-| One action stays horizontal | Check for `slot="icon-only"` on the icon and a fixed toolbar outside scrolling content. Explicitly excluded controls and controls in centered modals stay horizontal; `fill` and `type="submit"` do not prevent movement. See [control requirements](../../packages/capacitor-native-ui/docs/vertical-bars.md#toolbar-actions). |
+| One action stays horizontal | Check for `slot="icon-only"` on the icon and a fixed toolbar outside scrolling content. Explicitly excluded controls and controls in centered modals stay horizontal; `fill` and `type="submit"` do not prevent movement. See [control requirements](../../capacitor-native-ui/docs/vertical-bars.md#toolbar-actions). |
 
 ## Connect an iPhone Duo
 
@@ -139,7 +139,7 @@ npm install @erkamyaman/capacitor-foldable
 npx cap sync ios
 ```
 
-Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for actual rail placement and hinge posture on iOS 27.1. Native UI Shell uses Swift Package Manager; existing CocoaPods apps can follow [Native UI Shell setup](../../packages/capacitor-native-ui/docs/native-ui-shell.md#enable-the-shell). Keep this package's `vertical-bars.css`; the device plugin's `ionic-tabs.css` is not needed with our rail projection.
+Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for actual rail placement and hinge posture on iOS 27.1. Native UI Shell uses Swift Package Manager; existing CocoaPods apps can follow [Native UI Shell setup](../../capacitor-native-ui/docs/native-ui-shell.md#enable-the-shell). Keep this package's `vertical-bars.css`; the device plugin's `ionic-tabs.css` is not needed with our rail projection.
 
 Replace the browser-only startup with the [device placement setup](iphone-duo.md#project-controls-into-the-rail). That setup sends initial values and `barPlacementChange` events to `setVerticalBarsLayout({ edge: verticalBarEdge, inset })`, with subscriptions and cleanup kept in your application.
 
@@ -155,4 +155,4 @@ See [Read the device layout](iphone-duo.md#read-the-device-layout) for the subsc
 
 ## Shared layout rules and API
 
-Safe-area handling, overlays, RTL, control eligibility, Web simulation, and the handle API are documented in [Vertical Bars](../../packages/capacitor-native-ui/docs/vertical-bars.md). Those rules apply to this standalone setup too.
+Safe-area handling, overlays, RTL, control eligibility, Web simulation, and the handle API are documented in [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md). Those rules apply to this standalone setup too.

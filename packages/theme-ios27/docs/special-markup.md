@@ -51,11 +51,11 @@ These classes do not reposition a separate `ion-fab`; leave room for it when cho
 
 iPhone Duo support, including standalone vertical bars, is available as a **preview** in `1.2.0` alongside Native UI Shell. Its APIs and supported behavior may change.
 
-iPhone Duo support — the vertical system rail, hinge posture, and the posture-driven split-pane layout — is independent of the iOS 27 theme and the full Native UI Shell. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo.md) for the complete setup, including device-layout monitoring without a projection runtime.
+iPhone Duo support — the vertical system rail, hinge posture, and the posture-driven split-pane layout — is independent of the iOS 27 theme and the full Native UI Shell. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md) for the complete setup, including device-layout monitoring without a projection runtime.
 
 See [Vertical Bars](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/vertical-bars.md) for rail layout classes, control eligibility and native button appearance.
 
-For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md).
+For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 
 ## Two-line inset list items
 

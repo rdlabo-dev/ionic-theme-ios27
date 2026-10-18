@@ -10,7 +10,7 @@ npm install @rdlabo/ionic-theme-ios27
 @use '@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css';
 ```
 
-The layout behavior below assumes this stylesheet is loaded. For native runtime setup and device placement, follow the [integration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md).
+The layout behavior below assumes this stylesheet is loaded. For native runtime setup and device placement, follow the [integration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 
 ## Reserve the vertical rail
 

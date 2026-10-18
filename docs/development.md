@@ -13,7 +13,7 @@ Native UI implements iOS presentation. Android and browsers retain Web presentat
 
 ## Existing applications
 
-See the [application migration guide](../../packages/capacitor-native-ui/docs/migration.md#native-ui-package-separation) for choosing packages, replacing imports (including the intermediate `@ionic-theme` scope), syncing Capacitor, and verifying existing apps. Theme-only consumers keep the ordinary theme entry and stylesheet paths. Apps using native controls must declare `@rdlabo/capacitor-native-ui` directly.
+See the [application migration guide](../packages/capacitor-native-ui/docs/migration.md#native-ui-package-separation) for choosing packages, replacing imports (including the intermediate `@ionic-theme` scope), syncing Capacitor, and verifying existing apps. Theme-only consumers keep the ordinary theme entry and stylesheet paths. Apps using native controls must declare `@rdlabo/capacitor-native-ui` directly.
 
 ## Local development
 

@@ -6,7 +6,7 @@ title: Vertical Bars (preview)
 
 Vertical Bars moves eligible Ionic navigation and actions into a side rail while keeping the original components as the source of labels, icons and behavior. It works with the iOS theme or an existing Ionic theme, independently of hinge posture and the full Native UI Shell.
 
-Use this page for layout, control eligibility, native button appearance and the runtime API. For device events and split panes, see [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo.md). For a step-by-step browser preview and native setup, start with [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md).
+Use this page for layout, control eligibility, native button appearance and the runtime API. For device events and split panes, see [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md). For a step-by-step browser preview and native setup, start with [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 
 Available in `1.2.0` as a **preview** feature. APIs and supported behavior may change.
 
@@ -30,9 +30,9 @@ import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 const rail = await enableNativeUIShell({ verticalBars: { only: true } });
 ```
 
-Configure your Web rail layout and [apply device placement](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo.md#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUIShell()`, keep that runtime; it includes Vertical Bars. Do not start both.
+Configure your Web rail layout and [apply device placement](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUIShell()`, keep that runtime; it includes Vertical Bars. Do not start both.
 
-The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. Using only the theme’s rail CSS needs no native runtime. For native setup and navigation transitions, follow the [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md).
+The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. Using only the theme’s rail CSS needs no native runtime. For native setup and navigation transitions, follow the [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 
 On supported Capacitor iOS, eligible controls use native SwiftUI rendering. Web, Android and unavailable native projection use Web clones. A browser preview can verify layout and actions, but cannot compare native button appearance.
 
