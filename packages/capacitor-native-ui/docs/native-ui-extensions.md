@@ -4,11 +4,11 @@ title: App-local Native UI extensions
 
 # App-local Native UI extensions
 
-An extension projects your existing Web UI into a SwiftUI View. Keep both definitions in your application: no npm package, separate library, or Capacitor plugin is required. The Web element remains the source of truth and the fallback UI.
+An extension projects your existing Web UI into a SwiftUI View on iOS or Jetpack Compose content on Android. Keep both definitions in your application: no npm package, separate library, or Capacitor plugin is required. The Web element remains the source of truth and the fallback UI.
 
 ## Before you start
 
-Complete [Ionic setup](setup.md) or [HTML setup](framework-independent.md) first. You need access to the iOS app target to add a SwiftUI View. The examples below use the Ionic entry; without Ionic, import both `defineNativeUI` and `enableNativeUIShell` from `@rdlabo/capacitor-native-ui/core`.
+Complete [Ionic setup](setup.md) or [HTML setup](framework-independent.md) first. You need access to the iOS app target or Android application to register native content. The examples below use the Ionic entry; without Ionic, import both `defineNativeUI` and `enableNativeUIShell` from `@rdlabo/capacitor-native-ui/core`.
 
 ## 1. Define a DOM reader
 
@@ -28,11 +28,11 @@ export const counter = defineNativeUI({
 });
 ```
 
-For example, render `<div data-counter data-count="0"><button>Increment</button></div>` with your framework. Its click handler updates the Web state and `data-count` attribute. The shell observes DOM changes and sends the new props to SwiftUI. State rendered into DOM attributes or text is observed automatically. For properties or external state read by the reader that do not mutate the DOM, call `shell.markForCheck()` after changing them.
+For example, render `<div data-counter data-count="0"><button>Increment</button></div>` with your framework. Its click handler updates the Web state and `data-count` attribute. The shell observes DOM changes and sends the new props to the native content. State rendered into DOM attributes or text is observed automatically. For properties or external state read by the reader that do not mutate the DOM, call `shell.markForCheck()` after changing them.
 
 The reader is synchronous and read-only. Return `null` when the source should stay on the Web. Props are a JSON object (finite numbers, strings, booleans, null, arrays and objects), limited to 64K characters. Action names map to the source itself or its descendants; missing, hidden and disabled targets cannot be activated. Up to 30 actions are supported per source.
 
-## 2. Register a SwiftUI View in the app target
+## 2a. Register a SwiftUI View on iOS
 
 Add a Swift file to the application's Xcode target. Import `IonicNativeUIShellPlugin`, the module supplied by `@rdlabo/capacitor-native-ui`. Follow the [Native UI Shell setup](native-ui-shell.md#enable-the-shell) first.
 
@@ -77,6 +77,63 @@ struct CounterView: View {
 
 Call `registerAppNativeUI()` once from `application(_:didFinishLaunchingWithOptions:)`, before JavaScript enables the shell. Handle a registration error there; duplicate or empty names are rejected. Swift source is compiled into the app, so adding or changing a View requires an iOS rebuild. Registration is synchronous setup, not a native bridge command.
 
+## 2b. Register Compose content on Android
+
+Android supports **element extensions only**. Standard Ionic and HTML controls stay on the Web, including explicitly marked buttons. Vertical Bars and `tab-accessory` are iOS features. The same DOM reader, props, action targets, and `markForCheck()` work on both platforms.
+
+Use Kotlin in your Android app. In the root `build.gradle`, add the Kotlin and Compose compiler plugins to `buildscript.dependencies`, using the same Kotlin version as the app (the plugin defaults to `2.2.20`). Define `ext.kotlin_version = '2.2.20'` in the root `buildscript` if it is not already defined:
+
+```groovy
+classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlin_version"
+```
+
+In `app/build.gradle`, apply `kotlin-android` and `org.jetbrains.kotlin.plugin.compose`, and enable `android { buildFeatures { compose true } }`. The Native UI dependency exposes Compose UI and Foundation; add Material dependencies yourself if your extension uses them.
+
+Register once from your `Application.onCreate()`, on the main thread, before JavaScript enables the shell. Use an `Application` subclass configured with `android:name=".App"` on `<application>` in `AndroidManifest.xml`; avoid registering on each Activity recreation.
+
+```kotlin
+import android.app.Application
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
+import dev.rdlabo.capacitor.nativeui.NativeUIShell
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+
+class App : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        NativeUIShell.register(
+            name = "app.counter",
+            decode = { json -> json.getInt("count") },
+        ) { count, actions, context ->
+            val scope = rememberCoroutineScope()
+            Box(Modifier.fillMaxSize().clickable(enabled = actions.isAvailable("increment")) {
+                scope.launch {
+                    try {
+                        actions.activate("increment")
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: IllegalStateException) {
+                        // Display an application-appropriate error.
+                    }
+                }
+            }) {
+                BasicText("Count: $count")
+            }
+        }
+    }
+}
+```
+
+The shell sizes and positions the Compose host from the source DOM rectangle. `context.sourceFrame` contains CSS pixels; `sourceFrameInDp` contains Compose dp, with `dpPerCSSPixel` as the conversion factor. `sourceID` and `viewportWidth` describe the current source and viewport. `rtl` is also applied through `LocalLayoutDirection`; use `dark` to select your app's Compose theme. Do not apply the source's `x` and `y` again inside your content.
+
+The `decode` callback runs before accepting the projection. If it throws, that source stays on the Web. Empty or duplicate registration names are rejected. Compose content owns its styling and accessibility. Rebuild the Android app after changing Kotlin code.
+
 ## 3. Enable with local definitions
 
 ```ts
@@ -92,7 +149,7 @@ Keep extension objects stable across repeated enable calls. Changing extensions 
 
 ## 4. Build and try the extension
 
-Build your Web assets, run `npx cap sync ios`, and rebuild the iOS app in Xcode. On iOS 26+, the counter should render with SwiftUI. Tap Increment: the original Web handler should update `data-count`, and the native count should follow. In a browser, the original Web counter should still work.
+Build your Web assets, run `npx cap sync ios`, and rebuild the iOS app in Xcode. On iOS 26+, the counter should render with SwiftUI. Tap Increment: the original Web handler should update `data-count`, and the native count should follow. For Android, run `npx cap sync android` and rebuild the Android app to try the Compose counter. In a browser, the original Web counter should still work.
 
 If the source stays on the Web, confirm that the Swift file belongs to the app target, registration runs before startup, and the names and props agree on both sides.
 
@@ -100,7 +157,7 @@ If the source stays on the Web, confirm that the Swift file belongs to the app t
 
 | `placement` | Behavior |
 | --- | --- |
-| Omitted or `'element'` | Hosts the View in the source element's Web frame on iOS 26+. |
+| Omitted or `'element'` | Hosts native content in the source element's Web frame on iOS 26+ or Android API 24+. |
 | `'tab-accessory'` | Attaches the View to a projected tab bar's system SwiftUI tab accessory on iOS 26.1+. |
 
 For `tab-accessory`, place the source inside its owning `ion-tabs`. The shell resolves that tabs element's `ion-tab-bar`; applications do not pass native controller references. Currently only the **Vertical Bars SwiftUI tab host** supports this placement. Ordinary UIKit tab bars, missing native tabs, iOS 26.0, or multiple competing accessories keep the source on the Web. The shell does not approximate a system accessory with a floating overlay. Keep an equivalent Web layout (for example, a fixed footer); the source retains its layout space while hidden.
@@ -231,11 +288,11 @@ struct BadgeView: View {
 
 ## Lifecycle and action completion
 
-The shell owns discovery, geometry, state synchronization, native controller containment, overlay retirement, suspension and teardown. Extensions do not implement attach/detach hooks. Web sources are hidden only after native accepts the projection. An unregistered renderer, incompatible Swift props, unsupported placement or failed reader leaves that instance on the Web. Existing shell overlay policy applies; extensions return to the Web while Web overlays cover the page.
+The shell owns discovery, geometry, state synchronization, native controller containment, overlay retirement, suspension and teardown. Extensions do not implement attach/detach hooks. Web sources are hidden only after native accepts the projection. An unregistered renderer, a failing props decoder, unsupported placement or failed reader leaves that instance on the Web. Existing shell overlay policy applies; extensions return to the Web while Web overlays cover the page.
 
 Element placement requires the source to fit fully inside the viewport and its ancestors' overflow clipping bounds, including Ionic's shadow scroll containers. Partially clipped sources stay on the Web and become eligible again when scrolled fully into view. Tab accessories use the system host's placement instead.
 
-`try await actions.activate(name)` completes after the original Web element receives its click. It does **not** wait for application work launched by the click handler (network requests, navigation or modal presentation). Disabled, removed or stale actions reject; teardown, Swift task cancellation and bridge timeouts settle pending calls. The bridge acknowledgement is a Capacitor Promise method.
+`try await actions.activate(name)` completes after the original Web element receives its click. It does **not** wait for application work launched by the click handler (network requests, navigation or modal presentation). Disabled, removed or stale actions reject; teardown, native task cancellation and bridge timeouts settle pending calls. The bridge acknowledgement is a Capacitor Promise method.
 
 The [demo reader](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/counter.ts) and [demo SwiftUI View](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/ios/App/App/NativeUICounter.swift) show both placements using app-local files. Open the Native UI Shell demo page to compare native projection with its Web fallback.
 

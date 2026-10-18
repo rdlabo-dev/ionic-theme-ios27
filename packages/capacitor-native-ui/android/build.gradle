@@ -6,16 +6,21 @@ ext {
 }
 
 buildscript {
+    ext.kotlin_version = project.hasProperty("kotlin_version") ? rootProject.ext.kotlin_version : '2.2.20'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlin_version"
     }
 }
 
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace = "dev.rdlabo.capacitor.nativeui"
@@ -36,6 +41,8 @@ android {
     lintOptions {
         abortOnError = false
     }
+    buildFeatures { compose true }
+    kotlinOptions { jvmTarget = '21' }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
@@ -48,10 +55,15 @@ repositories {
 }
 
 dependencies {
+    api platform("androidx.compose:compose-bom:2025.10.00")
+    api "androidx.compose.ui:ui"
+    api "androidx.compose.foundation:foundation"
+    api "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation project(':capacitor-android')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.json:json:20250517"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
 }

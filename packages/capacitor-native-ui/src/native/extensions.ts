@@ -15,7 +15,7 @@ export interface NativeUIReadContext {
   image(element: SVGElement | HTMLElement | null, options?: { template?: boolean }): NativeUIImageReference | null;
 }
 
-/** An app-local DOM projection. Swift registers its View under the same name. */
+/** An app-local DOM projection. Swift or Kotlin registers its native content under the same name. */
 export interface NativeUIExtension {
   readonly name: string;
   readonly selector: string;

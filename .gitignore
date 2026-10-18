@@ -44,3 +44,6 @@ Package.resolved
 
 /packages/*/node_modules/
 *.tgz
+
+packages/capacitor-native-ui/android/build/
+packages/capacitor-native-ui/android/.gradle/

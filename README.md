@@ -20,7 +20,7 @@ Bring the iOS look to your Ionic app, or add native controls to your Capacitor a
 
 **[@rdlabo/capacitor-native-ui](packages/capacitor-native-ui/README.md)** projects supported Ionic controls into UIKit and SwiftUI on iOS. Your existing markup supplies their labels, icons, and state; native actions flow back to your Ionic components. Page content and routing stay in the WebView.
 
-Keep your existing Web appearance or pair it with the iOS theme. Native UI is opt-in and currently a preview; unsupported controls, Android, and browsers retain Web presentation. Your app or theme owns Web layout and styling.
+Keep your existing Web appearance or pair it with the iOS theme. Native UI is opt-in and currently a preview; unsupported controls and browsers retain Web presentation. On Android, standard controls stay on the Web; app-local extensions can render with Jetpack Compose. Your app or theme owns Web layout and styling.
 
 [Get started with Native UI](packages/capacitor-native-ui/docs/setup.md) · [Supported controls](packages/capacitor-native-ui/docs/native-ui-shell.md#supported-markup)
 
@@ -36,7 +36,7 @@ The same Library screen with Native UI Shell off and on, captured while dragging
 | Render Ionic controls natively with your existing Web appearance | [Set up Native UI](packages/capacitor-native-ui/docs/setup.md) |
 | Use native buttons without Ionic | [HTML setup](packages/capacitor-native-ui/docs/framework-independent.md) |
 | Add only a vertical rail to an Ionic app | [Vertical Bars setup](packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
-| Add custom SwiftUI content | [App-local extensions](packages/capacitor-native-ui/docs/native-ui-extensions.md) |
+| Add custom SwiftUI or Compose content | [App-local extensions](packages/capacitor-native-ui/docs/native-ui-extensions.md) |
 
 Already using the iOS theme? [Add Native UI to your theme](packages/theme-ios27/docs/add-native-ui.md) as your next step.
 

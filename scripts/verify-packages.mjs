@@ -88,7 +88,7 @@ try {
       assert(files.has('android/proguard-rules.pro'));
       assert(files.has('IonicThemeCapacitorNativeUi.podspec'));
       assert(files.has('ios/Sources/IonicNativeUIShellPlugin/IonicNativeUIShellPlugin.swift'));
-      assert(files.has('android/src/main/java/dev/rdlabo/capacitor/nativeui/IonicNativeUIShellPlugin.java'));
+      assert(files.has('android/src/main/java/dev/rdlabo/capacitor/nativeui/IonicNativeUIShellPlugin.kt'));
       assert(!manifest.dependencies?.['@rdlabo/ionic-theme-ios27'], 'Native UI must not depend on the theme');
       assert(!files.has('dist/native-integration/transition.js'), 'Ionic transition adapter belongs to the theme');
     } else {

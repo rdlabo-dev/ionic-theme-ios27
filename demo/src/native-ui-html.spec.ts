@@ -347,7 +347,7 @@ test('ionic.auto false preserves explicit ion-button rails, live toggles, and so
   await vi.waitFor(() => expect(host.querySelectorAll('button')).toHaveLength(1));
 });
 
-test('disabled automatic controls keep explicit native buttons and extensions eligible', async () => {
+test.each(['auto', 'extensions'] as const)('projection mode %s keeps only its eligible controls', async (source) => {
   const { root, options } = mount(
     '<ion-header><ion-toolbar><ion-button class="ios" data-native-ui="button">Explicit</ion-button><ion-button class="ios">Automatic</ion-button></ion-toolbar></ion-header><section data-counter>Counter</section>',
   );
@@ -375,16 +375,17 @@ test('disabled automatic controls keep explicit native buttons and extensions el
   } as unknown as NativeUIShellPlugin;
   const runtime = await createRuntime(document, plugin, {
     ...options,
-    source: 'auto',
+    source,
     explicitControls: true,
     controls: { toolbar: false, tabs: false, segment: false, fab: false },
     extensions: [{ name: 'counter', selector: '[data-counter]', read: () => ({ props: {} }) }],
   });
   handles.push(runtime);
-  await vi.waitFor(() => expect(runtime.getStatus().projected).toBe(2));
-  expect(snapshots.at(-1)!.controls.map((item) => item.kind)).toEqual(['button', 'extension']);
-  expect(snapshots.at(-1)!.controls[0].items[0].label).toBe('Explicit');
-  expect(root.querySelectorAll('[data-native-ui-shell]')).toHaveLength(2);
+  const expected = source === 'extensions' ? ['extension'] : ['button', 'extension'];
+  await vi.waitFor(() => expect(runtime.getStatus().projected).toBe(expected.length));
+  expect(snapshots.at(-1)!.controls.map((item) => item.kind)).toEqual(expected);
+  expect(root.querySelectorAll('[data-native-ui-shell]')).toHaveLength(expected.length);
+  if (source === 'extensions') expect(root.querySelector('ion-button')!.hasAttribute('data-native-ui-shell')).toBe(false);
 });
 
 test('explicit Ionic Web rails preserve shadow icons and observe artwork changes', async () => {

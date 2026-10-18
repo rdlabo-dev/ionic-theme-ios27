@@ -58,7 +58,13 @@ export const createRuntime = async (
   const extensions = options.extensions ?? [];
   const scope = options.root ?? doc;
   const discovery = [
-    options.source === 'html' ? htmlSelector : options.source === 'auto' ? `${selector}, ${htmlSelector}` : selector,
+    options.source === 'extensions'
+      ? ':not(*)'
+      : options.source === 'html'
+        ? htmlSelector
+        : options.source === 'auto'
+          ? `${selector}, ${htmlSelector}`
+          : selector,
     ...extensions.map((extension) => extension.selector),
   ].join(', ');
   const icons = createIconRenderer();
@@ -188,6 +194,7 @@ export const createRuntime = async (
       if (verticalBarsOnly && (!candidate?.control.extension?.tabBarId || !nativeVerticalBars())) return;
       return candidate;
     }
+    if (options.source === 'extensions') return;
     if (options.source === 'html' || element.matches(htmlSelector)) {
       const candidate = readHTMLControl(element, id, options);
       if (!candidate) return;
@@ -365,7 +372,7 @@ export const createRuntime = async (
     frame = 0;
     dirty = false;
     pending = true;
-    syncToolbarText(doc);
+    if (options.source !== 'extensions') syncToolbarText(doc);
     handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalPresentHandoff || win.performance.now() < handoffUntil;
     try {
       // A retained sync performs no update; keep the modal handoff armed so the

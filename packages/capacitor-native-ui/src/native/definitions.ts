@@ -18,7 +18,7 @@ export interface NativeUIShellStatus {
 }
 
 export interface VerticalControlAreaOptions {
-  /** App-local DOM readers with matching SwiftUI registrations. */
+  /** App-local DOM readers with matching SwiftUI or Compose registrations. */
   extensions?: readonly NativeUIExtension[];
   /** Opt-in popovers anchored to native Vertical Bars buttons. */
   controls?: Pick<NativeUIShellControls, 'popover'>;
@@ -56,7 +56,7 @@ export interface NativeUIShellOptions extends VerticalControlAreaOptions {
 
 /** @internal Resolved adapter state; not an application configuration API. */
 export interface NativeUIShellRuntimeOptions extends NativeUIShellOptions {
-  source?: 'ionic' | 'html' | 'auto';
+  source?: 'ionic' | 'html' | 'auto' | 'extensions';
   /** @internal Preserves legacy controls.buttons behavior for explicit sources. */
   explicitControls?: boolean;
   nativeState?: { edge?: 'left' | 'right' };

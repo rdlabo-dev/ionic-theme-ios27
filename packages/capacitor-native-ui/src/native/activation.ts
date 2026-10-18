@@ -220,13 +220,14 @@ export const enableNativeUIShell = (
       // Native controls and DOM ownership are shared. A replacement activation
       // must wait until the old handle has finished clearing both surfaces.
       if (previousStop) await previousStop.catch(() => {});
-      const stopModals = options.source === 'html' ? () => {} : observeVerticalBarsModals(document);
+      const platform = Capacitor.getPlatform();
+      const stopModals = platform === 'android' || options.source === 'html' ? () => {} : observeVerticalBarsModals(document);
       const prehide =
-        options.source !== 'html' && (options.controls === undefined || options.controls.toolbar === true)
+        platform !== 'android' && options.source !== 'html' && (options.controls === undefined || options.controls.toolbar === true)
           ? prehideVerticalBarsToolbarSources(document, () => options.verticalBars?.enabled !== false, options.root)
           : undefined;
       const fallback = (reason: string) =>
-        manage(webProjection(document, options), {
+        manage(platform === 'android' ? web(reason) : webProjection(document, options), {
           reason,
           suspend: () => prehide?.suspend(),
           destroy: () => {
@@ -235,14 +236,40 @@ export const enableNativeUIShell = (
           },
           stopping: stop,
         });
-      if (Capacitor.getPlatform() !== 'ios') return fallback('Requires Capacitor iOS');
+      if (platform !== 'ios' && platform !== 'android') return fallback('Requires Capacitor iOS or Android');
       if (!Capacitor.isPluginAvailable('IonicNativeUIShell')) return fallback('Native UI plugin is not registered');
       let runtime: NativeUIShellRuntimeHandle | undefined;
       let overlays: OverlayController | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
       try {
         const capabilities = await bounded(plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true }));
-        if (!capabilities.supported) return fallback('Requires iOS 26 or later');
+        if (!capabilities.supported) return fallback('Native UI is unavailable on this device');
+        if (platform === 'android') {
+          runtime = await createRuntime(
+            document,
+            plugin,
+            {
+              ...options,
+              source: 'extensions',
+              extensions: extensions.filter(
+                (extension) => extension.placement !== 'tab-accessory' && capabilities.extensions?.includes(extension.name),
+              ),
+            },
+            () => false,
+            options.verticalBarsOnly === true,
+          );
+          metricsListener = await boundedListener(
+            plugin.addListener('webViewMetricsChange', () => {
+              document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+            }),
+          );
+          return manage(runtime, {
+            stopping: stop,
+            destroy: async () => {
+              if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
+            },
+          });
+        }
         let deviceEdge: VerticalBarEdge = null;
         const ionicRoot = () => {
           if (options.source === 'html') return null;

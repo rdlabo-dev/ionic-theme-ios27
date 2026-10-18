@@ -2,7 +2,7 @@
 title: Native UI Shell (Preview)
 ---
 
-For application-specific SwiftUI content, see [App-local Native UI extensions](native-ui-extensions.md).
+For application-specific SwiftUI or Compose content, see [App-local Native UI extensions](native-ui-extensions.md).
 
 # Native UI Shell (Preview)
 
