@@ -157,6 +157,15 @@ try {
     ],
     { cwd: dir, stdio: 'inherit' },
   );
+  if (process.argv.includes('--esm')) {
+    for (const archive of packed) {
+      execFileSync(
+        process.execPath,
+        [resolve('node_modules/@rdlabo/ionic-theme-utils/scripts/check-esm.mjs'), join(dir, archive.filename + '-extracted/package')],
+        { stdio: 'inherit' },
+      );
+    }
+  }
   // Remove both native packages before importing and type-checking the theme archive.
   rmSync(join(dir, 'node_modules', nativeName));
   rmSync(join(dir, 'node_modules/@capacitor'));
@@ -175,15 +184,6 @@ try {
     withNativeUIShellTransition(iosTransitionAnimation);
   `);
   execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], { cwd: dir, stdio: 'inherit' });
-  if (process.argv.includes('--esm')) {
-    for (const archive of packed) {
-      execFileSync(
-        process.execPath,
-        [resolve('node_modules/@rdlabo/ionic-theme-utils/scripts/check-esm.mjs'), join(dir, archive.filename + '-extracted/package')],
-        { stdio: 'inherit' },
-      );
-    }
-  }
   console.log('Both package archives, public exports, plugin ownership, dependency direction and standalone Sass verified.');
 } finally {
   rmSync(dir, { recursive: true, force: true });
