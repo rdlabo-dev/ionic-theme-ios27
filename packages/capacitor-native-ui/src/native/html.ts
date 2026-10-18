@@ -146,7 +146,6 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
     if (!stopped && !frame) frame = win.requestAnimationFrame(render);
   };
   const observer = new MutationObserver(schedule);
-  observer.observe(doc.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
   win.addEventListener('resize', schedule);
   win.addEventListener('nativeUIShellRefresh', schedule);
   render();

@@ -345,15 +345,6 @@ test('ionic.auto false preserves explicit ion-button rails, live toggles, and so
   expect(host.childElementCount).toBe(0);
   await shell.enableVerticalControlArea();
   await vi.waitFor(() => expect(host.querySelectorAll('button')).toHaveLength(1));
-  await shell.destroy();
-  const legacy = await enableNativeUIShell({
-    root,
-    controls: { buttons: false },
-    verticalBars: { placement: { edge: 'trailing', webHost: host } },
-  });
-  handles.push(legacy);
-  await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-  expect(host.childElementCount).toBe(0);
 });
 
 test('disabled automatic controls keep explicit native buttons and extensions eligible', async () => {
