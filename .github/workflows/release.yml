@@ -102,18 +102,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Align the default branch with the release tag
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          git fetch origin "$DEFAULT_BRANCH"
-          git checkout "$DEFAULT_BRANCH"
-          git merge --ff-only "$GITHUB_SHA"
-          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
-            echo "::error::The default branch has advanced beyond the release tag."
-            exit 1
-          fi
-
       - name: Update all workspace versions
         env:
           VERSION: ${{ steps.tag_version.outputs.version }}
@@ -160,24 +148,42 @@ jobs:
           else
             git commit -m "chore: update workspace versions to $VERSION"
           fi
-          git push origin "HEAD:$DEFAULT_BRANCH"
+          git fetch origin "$DEFAULT_BRANCH"
+          if [ "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse "origin/$DEFAULT_BRANCH^{tree}")" ]; then
+            echo "The default branch already contains the same release tree."
+          else
+            git push origin "HEAD:$DEFAULT_BRANCH"
+          fi
 
       - name: Publish packages
+        env:
+          VERSION: ${{ steps.tag_version.outputs.version }}
         run: |
-          VERSION="${{ steps.tag_version.outputs.version }}"
-          IS_STABLE=$(echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && echo true || echo false)
-
-          echo "Publishing... $IS_STABLE"
-          if [ "$IS_STABLE" = "true" ]; then
-            npm publish "$RUNNER_TEMP/npm-release/rdlabo-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag latest
-            npm publish "$RUNNER_TEMP/npm-release/rdlabo-ionic-theme-ios27-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag latest
-          elif echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$'; then
-            npm publish "$RUNNER_TEMP/npm-release/rdlabo-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag next
-            npm publish "$RUNNER_TEMP/npm-release/rdlabo-ionic-theme-ios27-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag next
-          else
-            echo "::error::Refusing to publish an invalid release version: $VERSION"
-            exit 1
-          fi
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          import { execFileSync, spawnSync } from 'node:child_process';
+          const version = process.env.VERSION;
+          assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
+          const tag = version.includes('-') ? 'next' : 'latest';
+          for (const name of ['capacitor-native-ui', 'ionic-theme-ios27']) {
+            const spec = `@rdlabo/${name}@${version}`;
+            const archive = `${process.env.RUNNER_TEMP}/npm-release/rdlabo-${name}-${version}.tgz`;
+            const existing = spawnSync('npm', ['view', spec, 'dist.integrity', '--json', '--registry=https://registry.npmjs.org'], { encoding: 'utf8' });
+            if (existing.status === 0) {
+              const integrity = 'sha512-' + createHash('sha512').update(readFileSync(archive)).digest('base64');
+              assert.equal(JSON.parse(existing.stdout), integrity, `${spec} already exists with different contents`);
+              console.log(`${spec} already published with matching contents; skipping.`);
+              continue;
+            }
+            let error;
+            try { error = JSON.parse(existing.stdout).error; } catch {}
+            assert.equal(error?.code, 'E404', `Cannot check ${spec}: ${existing.stderr}`);
+            execFileSync('npm', ['publish', archive, '--ignore-scripts', '--provenance', '--access', 'public',
+              '--registry=https://registry.npmjs.org', '--tag', tag], { stdio: 'inherit' });
+          }
+          JS
 
   authorize-candidate:
     if: >-
