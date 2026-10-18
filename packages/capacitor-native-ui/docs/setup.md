@@ -15,10 +15,10 @@ If the app does not yet use Capacitor, create and configure its Capacitor iOS pr
 Keep your Capacitor packages on version 8. Add these direct application dependencies:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
+npm install @rdlabo/capacitor-native-ui
 ```
 
-The Ionic adapter requires `@ionic/core` and `@rdlabo/ionic-theme-utils`. Your Ionic app already supplies Core. Do not remove your existing Web styles: they style page content and fallback controls.
+The Ionic adapter uses `@ionic/core`, which your Ionic app already supplies. Do not remove your existing Web styles: they style page content and fallback controls.
 
 ## 2. Enable the shell
 

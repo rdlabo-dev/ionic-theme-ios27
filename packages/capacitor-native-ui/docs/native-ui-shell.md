@@ -19,7 +19,7 @@ Already using the iOS theme? Follow [Add Native UI to your theme](https://github
 Install the native package as a direct application dependency so Capacitor can discover it:
 
 ```bash
-npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
+npm install @rdlabo/capacitor-native-ui
 npx cap sync ios
 ```
 

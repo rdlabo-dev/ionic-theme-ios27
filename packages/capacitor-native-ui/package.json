@@ -62,8 +62,7 @@
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0 <9",
-    "@ionic/core": ">=8.8.1 <10",
-    "@rdlabo/ionic-theme-utils": "0.1.4"
+    "@ionic/core": ">=8.8.1 <10"
   },
   "capacitor": {
     "ios": {
@@ -77,11 +76,11 @@
     "@ionic/core": {
       "optional": true
     },
-    "@rdlabo/ionic-theme-utils": {
-      "optional": true
-    },
     "@capacitor/core": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "@rdlabo/ionic-theme-utils": "0.1.4"
   }
 }

@@ -17,7 +17,7 @@ See [shared configuration](configuration.md) for all defaults and live `rail.ena
 Install the native package as a direct dependency:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
+npm install @rdlabo/capacitor-native-ui
 ```
 
 For Capacitor iOS, build your Web assets and run `npx cap sync ios`. Supply the Web layout through your app or theme as described below.
