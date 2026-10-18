@@ -33,3 +33,7 @@ Build the app and check light/dark appearance, page transitions, and supported b
 Web-only applications install just the theme and their normal Ionic dependencies. `@capacitor/core` is an optional peer, including in the transitive Native UI package; the theme imports only its plugin-free `/integration` entry. No Capacitor installation, native sync, or `enableNativeUIShell()` call is needed.
 
 To opt into native controls, declare `@rdlabo/capacitor-native-ui` directly in the application’s dependencies, install Capacitor, run `npx cap sync ios`, and explicitly call `enableNativeUIShell()`. The existing theme router animation handles coordination. On iOS without a registered plugin, explicit startup retains Web controls rather than calling an unavailable native bridge.
+
+### Navigation ownership
+
+`iosTransitionAnimation` remains the theme’s navigation builder, like `mdTransitionAnimation` in the MD3 theme. It handles native suspension, playback, interactive progress, cancellation and cleanup internally. For a custom Ionic builder, the theme also exports `withNativeUIShellTransition(builder)`; no extra configuration is needed for the built-in builder. Neither builder enables Native UI. Native UI itself exposes suspension/resumption and has no Ionic Animation adapter.

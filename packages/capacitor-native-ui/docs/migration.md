@@ -87,6 +87,8 @@ For repository layout, local file dependencies, and packaging/release procedures
 
 ## Native UI Shell transition adapter
 
+The Ionic transition adapter now belongs to `@rdlabo/ionic-theme-ios27`. Replace preview imports from the plugin’s `/integration` or `/vertical-bars` entry with the theme root. Native-only applications can use `shell.suspend()` and the returned `resume()` directly.
+
 Use `withNativeUIShellTransition()` to keep your existing Ionic navigation animation while coordinating Native UI Shell controls.
 
 - If you already import `iosTransitionAnimation` from `@rdlabo/ionic-theme-ios27`, keep the [package animation setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md#use-this-packages-ios-animation); no configuration change is needed. It now uses the shared adapter internally; do not add another wrapper.
@@ -94,7 +96,7 @@ Use `withNativeUIShellTransition()` to keep your existing Ionic navigation anima
 - If you use a custom navigation animation with Native UI Shell or the standalone Vertical Control Area, wrap your existing builder when configuring Ionic:
 
 ```diff
-+ import { withNativeUIShellTransition } from '@rdlabo/capacitor-native-ui/vertical-bars';
++ import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
 
   const ionicConfig = {
 -   navAnimation: existingTransition,

@@ -50,7 +50,7 @@ If you have not configured `navAnimation`, wrap Ionic's standard builders. Selec
 
 ```ts
 import { iosTransitionAnimation, mdTransitionAnimation, type AnimationBuilder } from '@ionic/core';
-import { withNativeUIShellTransition } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
 
 const defaultTransition: AnimationBuilder = (baseEl, opts) =>
   (opts.mode === 'ios' ? iosTransitionAnimation : mdTransitionAnimation)(baseEl, opts);
@@ -82,7 +82,7 @@ If your app uses another builder for `navAnimation`, wrap it:
 
 ```ts
 import type { AnimationBuilder } from '@ionic/core';
-import { withNativeUIShellTransition } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
 
 // Pass the animation builder your app already uses.
 const configureNavigation = (existingTransition: AnimationBuilder) => ({
