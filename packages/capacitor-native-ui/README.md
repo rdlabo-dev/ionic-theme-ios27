@@ -19,19 +19,23 @@ Native UI is opt-in and currently a preview. Standard controls on Android, brows
 ## Try the unreleased packages
 
 1. Open a successful [Package Candidate run](https://github.com/rdlabo-dev/ionic-theme-ios27/actions/workflows/package-candidate.yml) for the commit you want to try. Use the documentation from that same commit. Download and extract its `npm-candidate-…` artifact; GitHub requires sign-in to download artifacts.
-2. In your Capacitor 8 app, install the Native UI `.tgz` directly. Replace `VERSION` and the path below with the downloaded filename:
+2. Choose the packages for your goal. Replace `VERSION` and the paths with the downloaded filenames:
+
+   **Native UI only** — in your Capacitor 8 app:
 
    ```sh
    npm install /path/to/rdlabo-capacitor-native-ui-VERSION.tgz
    ```
 
-3. If you also want the **new theme package**, install both archives from that same artifact in one command so their versions match:
+   **Theme only, or theme with Native UI** — install both archives from the same artifact so their versions match:
 
    ```sh
    npm install /path/to/rdlabo-capacitor-native-ui-VERSION.tgz /path/to/rdlabo-ionic-theme-ios27-VERSION.tgz
    ```
 
-4. Continue with the guide for your goal above. The archive install replaces that guide's `npm install` step; build your Web assets, sync Capacitor and rebuild the native app as described there.
+   The theme depends on the Native UI package, so its unpublished dependency must also be supplied as an archive. **Theme-only browser apps do not need Capacitor, shell activation, or native sync.** Continue with [theme setup](../theme-ios27/docs/setup.md).
+
+3. For Native UI, continue with the guide for your goal above. Build your Web assets, sync Capacitor and rebuild the native app as described there. The archive install replaces each guide's `npm install` step.
 
 Already using published theme v1.2.1? Its bundled native APIs belong to the old setup. Follow [migration](docs/migration.md) when adopting these candidate packages. The [published documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios27) describes that released version; this directory describes the upcoming split.
 

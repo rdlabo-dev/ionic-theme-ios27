@@ -102,6 +102,35 @@ test('Android Compose extensions coexist with Web rails and survive disabling on
   expect(rail.children).toHaveLength(0);
 });
 
+test('native extension ownership suppresses a Web rail proxy and rejection restores its original action', async () => {
+  const source = root.querySelector('button')!;
+  source.setAttribute('data-counter', '');
+  root.querySelector('section')!.remove();
+  const click = vi.fn();
+  source.addEventListener('click', click);
+  let count = 0;
+  shell = await enableNativeUIShell({
+    ...options(),
+    extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: { count } }) }],
+  });
+  await vi.waitFor(() => {
+    expect(source.hasAttribute('data-native-ui-shell')).toBe(true);
+    expect(rail.children).toHaveLength(0);
+  });
+  bridge.update.mockImplementation(async (snapshot) => ({
+    revision: snapshot.revision,
+    rejectedControls: snapshot.controls.map((control) => control.id),
+  }));
+  count++;
+  shell.markForCheck();
+  await vi.waitFor(() => {
+    expect(source.hasAttribute('data-native-ui-shell')).toBe(false);
+    expect(rail.querySelector('button')).not.toBeNull();
+  });
+  rail.querySelector('button')!.click();
+  expect(click).toHaveBeenCalledOnce();
+});
+
 test('diagnostics identify late unregistered sources and reader failures without logging props or repeated messages', async () => {
   const log = vi.spyOn(console, 'info').mockImplementation(() => {});
   const missing = vi.fn(() => ({ props: {} }));

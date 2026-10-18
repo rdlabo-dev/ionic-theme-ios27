@@ -83,7 +83,9 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
       const sources = Array.from(options.root.querySelectorAll<HTMLElement>(htmlSelector));
       let back = false;
       for (const source of sources) {
-        if (!htmlRailSource(source) || host.contains(source) || source.hasAttribute('data-native-ui-shell-vertical-bars')) continue;
+        // An accepted native surface owns its source and descendants. Rejected sources
+        // lose the marker and can return to the Web rail on the next render.
+        if (!htmlRailSource(source) || host.contains(source) || source.closest(`[${marker}]`)) continue;
         const iconRoot = source.querySelector('ion-icon')?.shadowRoot;
         if (iconRoot) observer.observe(iconRoot, { subtree: true, childList: true, attributes: true, characterData: true });
         const candidate = measure(source, () => readHTMLControl(source, () => 'web', options));
@@ -111,7 +113,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
               !htmlRailSource(source) ||
               !host.isConnected ||
               current.control.items[0].disabled ||
-              source.hasAttribute(marker)
+              source.closest(`[${marker}]`)
             )
               return;
             source.click(); // Source owns submission, custom handlers and back navigation.

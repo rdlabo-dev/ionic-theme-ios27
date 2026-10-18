@@ -112,7 +112,7 @@ Call `registerAppNativeUI()` once from `application(_:didFinishLaunchingWithOpti
 
 ## 2b. Register Compose content on Android
 
-Android supports **element extensions only**. Standard Ionic and HTML controls stay on the Web, including explicitly marked buttons. Vertical Bars and `tab-accessory` are iOS features. The same DOM reader, props, action targets, and `markForCheck()` work on both platforms.
+Android supports **element extensions only**. Standard Ionic and HTML controls stay on the Web, including explicitly marked buttons. Native Vertical Bars and `tab-accessory` are iOS features; Android can combine a Web side rail with element extensions. The same DOM reader, props, action targets, and `markForCheck()` work on both platforms.
 
 Run `npx cap sync android` after installing the plugin. Use Kotlin in your Android app. In the root `build.gradle`, add the Kotlin and Compose compiler plugins to `buildscript.dependencies`, using the same Kotlin version as the app (the plugin defaults to `2.2.20`). Define `ext.kotlin_version = '2.2.20'` in the root `buildscript` if it is not already defined:
 
