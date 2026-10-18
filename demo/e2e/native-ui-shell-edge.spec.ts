@@ -100,6 +100,8 @@ const mockNative = async (page: Page) => {
       configurable: true,
       get: () => capacitor,
       set: (instance) => {
+        const available = instance.isPluginAvailable;
+        instance.isPluginAvailable = (name: string) => name === 'IonicNativeUIShell' || available(name);
         const registerPlugin = instance.registerPlugin;
         instance.registerPlugin = (name: string, implementations?: Record<string, unknown>) =>
           name === 'IonicNativeUIShell' ? mock : name === 'Foldable' ? foldable : registerPlugin(name, implementations);
