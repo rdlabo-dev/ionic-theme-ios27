@@ -99,7 +99,7 @@ jobs:
           const paths = ['package.json', 'packages/capacitor-native-ui/package.json', 'packages/theme-ios27/package.json'];
           const packages = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
           for (const pkg of packages) assert.equal(pkg.version, process.env.TAG_VERSION, `${pkg.name}: release version mismatch`);
-          assert.equal(packages[2].dependencies[packages[1].name], 'file:../capacitor-native-ui', 'Native workspace dependency mismatch');
+          assert.equal(packages[2].dependencies?.[packages[1].name], undefined, 'Theme must not require the native plugin');
           JS
 
       - name: Build workspaces
@@ -583,7 +583,7 @@ jobs:
           assert(allowed.includes(pkg.name), 'Unexpected package identity');
           assert.equal(pkg.version, process.env.EXPECTED_VERSION, 'Artifact version mismatch');
           assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
-          if (pkg.name === theme) assert.equal(pkg.dependencies?.[native], process.env.EXPECTED_VERSION, 'Native dependency version mismatch');
+          if (pkg.name === theme) assert.equal(pkg.dependencies?.[native], undefined, 'Theme must not require the native plugin');
           process.stdout.write(pkg.name);
           JS
             )

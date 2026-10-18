@@ -19,7 +19,7 @@ Keep Ionic's base styles. Add these imports to your global stylesheet for an iOS
 
 This example uses class-based dark mode; load Ionic's matching dark palette. For system or always-dark mode, choose the matching theme variant and Ionic palette. For adaptive iOS 26/27 styles and framework-specific animation configuration, follow [Get started](../README.md#get-started).
 
-Use `iosTransitionAnimation`, `popoverEnterAnimation`, and `popoverLeaveAnimation` from `@rdlabo/ionic-theme-ios27` in your Ionic configuration as described there. No native startup call or Capacitor sync is required for this path. The theme's internal dependency on Native UI supplies shared coordination code; it does not activate native controls.
+Use `iosTransitionAnimation`, `popoverEnterAnimation`, and `popoverLeaveAnimation` from `@rdlabo/ionic-theme-ios27` in your Ionic configuration as described there. No native startup call or Capacitor sync is required for this path. The theme does not depend on Native UI or Capacitor. Its router and search adapters work without either package. If the application separately installs and explicitly enables Native UI, those adapters coordinate with the active shell automatically.
 
 ### Migrate and verify
 

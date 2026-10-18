@@ -7,7 +7,7 @@
 | `packages/theme-ios27`         | `@rdlabo/ionic-theme-ios27`        | Sass/CSS, Ionic Web behavior and page transitions                                         |
 | `packages/capacitor-native-ui` | `@rdlabo/capacitor-native-ui` | Native UI Shell, Vertical Bars runtime, app-local extensions and the Capacitor iOS plugin |
 
-The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
+The repository root is private. Native UI does not depend on the theme. The theme does not depend on Native UI or Capacitor. Its internal adapters use a versioned, plugin-free coordination protocol; only explicit Native UI startup registers a runtime. There is one native runtime and one Capacitor registration.
 
 MD3 remains in `rdlabo-dev/ionic-theme-md3`. Native UI currently implements iOS only. Android and browsers retain Web presentation. The npm package name is `@rdlabo/capacitor-native-ui`; repository transfer is separate from this layout.
 
@@ -35,6 +35,10 @@ Build Native UI before the theme; the root build command enforces this order. Th
 
 ## Releases
 
-Both packages initially share the root version. Update root and workspace versions together, and keep the theme's native dependency as `file:../capacitor-native-ui`. Existing `ios27-v` tags release Native UI first, then the theme. `npm run pack:packages` stages the publishable files and replaces local dependencies with matching versions only in the archives; the working tree and lockfiles stay unchanged. Use this command instead of raw `npm pack` or workspace publication. Candidate artifacts contain both packages with matching candidate versions; publication validates both identities and the dependency before publishing either archive.
+Both packages initially share the root version. Update root and workspace versions together. Existing `ios27-v` tags release Native UI first, then the theme. `npm run pack:packages` stages the publishable files and replaces local dependencies with matching versions only in the archives; the working tree and lockfiles stay unchanged. Use this command instead of raw `npm pack` or workspace publication. Candidate artifacts contain both packages with matching candidate versions; publication validates both identities and package independence before publishing either archive.
 
 Before the first release, configure npm publishing access/trusted publishing for `@rdlabo/capacitor-native-ui`. This migration does not publish packages or transfer the repository. Future independent versioning can be introduced when release needs diverge.
+
+### Internal coordination protocol
+
+The two packages carry the same small structural protocol (`src/integration/protocol.ts` in the theme and `src/native-integration/protocol.ts` in Native UI). A versioned symbol shares weak document/runtime and search registries within the JavaScript realm, without runtime package imports. The theme delegates native transition work only to a runtime registered by explicit shell startup. Teardown unregisters it. Keep the v1 structure backward-compatible; incompatible protocol changes need a new version. This protocol is internal, not an application configuration API.

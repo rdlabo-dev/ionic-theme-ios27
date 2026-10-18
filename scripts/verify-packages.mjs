@@ -108,7 +108,9 @@ try {
       assert(existsSync(join(dir, 'consumer.css')));
     }
   }
-  assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').dependencies[nativeName], manifests.get(nativeName).version);
+  assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').dependencies[nativeName], undefined);
+  assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').peerDependencies?.[nativeName], undefined);
+  assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').peerDependencies?.['@capacitor/core'], undefined);
   // Verify the core entry with neither Ionic nor the Ionic utilities installed.
   assert.equal(manifests.get(nativeName).peerDependenciesMeta['@ionic/core'].optional, true);
   assert.equal(manifests.get(nativeName).peerDependenciesMeta['@rdlabo/ionic-theme-utils'].optional, true);
@@ -155,6 +157,24 @@ try {
     ],
     { cwd: dir, stdio: 'inherit' },
   );
+  // Remove both native packages before importing and type-checking the theme archive.
+  rmSync(join(dir, 'node_modules', nativeName));
+  rmSync(join(dir, 'node_modules/@capacitor'));
+  execFileSync(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import { iosTransitionAnimation, withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
+    assert.equal(typeof iosTransitionAnimation, 'function');
+    const animation = { play() {} };
+    assert.equal(withNativeUIShellTransition(() => animation)({}), animation);
+    await assert.rejects(import('@rdlabo/capacitor-native-ui'), { code: 'ERR_MODULE_NOT_FOUND' });
+    await assert.rejects(import('@capacitor/core'), { code: 'ERR_MODULE_NOT_FOUND' });
+  `], { cwd: dir, stdio: 'inherit' });
+  writeFileSync(consumer, `
+    import { iosTransitionAnimation, withNativeUIShellTransition, setConfig } from '@rdlabo/ionic-theme-ios27';
+    setConfig({ radius: 12 });
+    withNativeUIShellTransition(iosTransitionAnimation);
+  `);
+  execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], { cwd: dir, stdio: 'inherit' });
   if (process.argv.includes('--esm')) {
     for (const archive of packed) {
       execFileSync(

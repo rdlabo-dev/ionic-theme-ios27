@@ -5,7 +5,7 @@ Use either package independently or combine them:
 - [Theme setup](../../packages/theme-ios27/docs/setup.md): Web styling, layout, and animations.
 - [Native UI setup](../../packages/capacitor-native-ui/docs/setup.md): native control projection with your existing Web appearance.
 
-The theme/application owns Web layout; the plugin owns native presentation and state synchronization. Installing a package does not enable native controls.
+The theme/application owns Web layout; the plugin owns native presentation and state synchronization. The theme does not install or require the plugin. Installing either package or configuring the theme router does not enable native controls; the application explicitly calls `enableNativeUIShell()`. The theme’s internal adapters handle transition and search synchronization only while a shell is active.
 
 ## Theme and Native UI
 

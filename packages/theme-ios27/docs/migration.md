@@ -139,3 +139,7 @@ Submit buttons now use each Ionic color's standard contrast value and an iOS 27 
 -  --ion-color-primary-brightness: #96feff;
   }
 ```
+
+## Optional Native UI dependency
+
+The theme no longer installs `@rdlabo/capacitor-native-ui` transitively and does not require `@capacitor/core`. Theme-only applications keep their existing styles and `iosTransitionAnimation` configuration. Applications using native controls must declare the Native UI package directly and explicitly call `enableNativeUIShell()`. Router and search coordination remain internal to the theme; no extra transition wrapper is needed.
