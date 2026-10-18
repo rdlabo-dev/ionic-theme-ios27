@@ -3,7 +3,7 @@
 - [Ionic Theme iOS27](../packages/theme-ios27/README.md) supplies Web styling, layout, and animations.
 - [Capacitor Native UI](../packages/capacitor-native-ui/README.md) supplies native presentation and control synchronization. The application or its theme owns Web layout.
 
-Use either independently. To use both, follow [Theme and Native UI integration](docs/setup.md). Package-specific APIs and migrations live in each package's docs.
+Each package can be used independently. If you already use the iOS theme, follow [Add Native UI to your theme](docs/setup.md) as your next step. Package-specific APIs and migrations live in each package's docs.
 
 ## Guides
 

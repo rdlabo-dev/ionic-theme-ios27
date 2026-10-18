@@ -34,7 +34,8 @@ The same Library screen with Native UI Shell off and on, captured while dragging
 | --- | --- |
 | Style your Ionic Web UI | [Theme only](packages/theme-ios27/docs/setup.md) |
 | Add native controls while keeping your existing Web appearance | [Native UI only](packages/capacitor-native-ui/docs/setup.md) |
-| Combine theme styling with native controls | [Theme and Native UI together](integration/docs/setup.md) |
+
+Already using the iOS theme? [Add Native UI to your theme](integration/docs/setup.md) as your next step.
 
 Both packages support Ionic 8.8.1 or later within Ionic 8 or 9. Native UI requires Capacitor 8; see its setup guide for supported iOS environments.
 

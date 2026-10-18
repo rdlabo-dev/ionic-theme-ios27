@@ -6,7 +6,7 @@ title: Migration
 
 ## Native UI package separation
 
-Start with [Choose your setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) for separate installation, configuration, migration, and verification paths for **theme only**, **Native UI only**, and **both**. The steps below cover the shared package rename and native project changes.
+For a new native integration, follow [Native UI setup](setup.md) or, if you already use the iOS theme, [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md). The steps below cover existing applications migrating package names and native projects.
 
 The theme and native controls now live in separate packages. Choose dependencies by the behavior your app uses:
 
@@ -109,7 +109,6 @@ Merge this option into your existing Ionic configuration before initialization. 
 Use the adapter only for navigation; leave modal and popover animations unchanged. Your builder must create a fresh `Animation` for each navigation because Ionic destroys it afterward. Keep lifecycle events for control registration and transitions without animation. If the custom builder animates a horizontal back button separately, exclude that effect while `.ios-theme-vertical-bars` is active.
 
 See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup and supported scope.
-
 
 ## Shared shell configuration and HTML adapters
 

@@ -25,7 +25,7 @@ The Swift module remains `IonicNativeUIShellPlugin`; app-local extensions do not
 - [Without Ionic](docs/framework-independent.md): explicit HTML controls and application-owned layout.
 - [Setup](docs/setup.md): use native controls with your existing Web appearance.
 - [Migration](docs/migration.md): package names, imports, and native project updates.
-- [Integration with the iOS theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md): combine native controls and theme styling.
+- [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md): setup for existing iOS theme users.
 
 Web layout and styling belong to your app or theme. The plugin does not require the iOS theme package or its CSS variables.
 

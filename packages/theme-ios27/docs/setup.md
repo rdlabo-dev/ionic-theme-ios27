@@ -27,13 +27,16 @@ Existing theme entry imports and CSS/Sass paths stay unchanged after the package
 
 Build the app and check light/dark appearance, page transitions, and supported browsers. If switching away from native controls, remove their startup calls and imports before removing the direct native dependency; sync an existing Capacitor project to update its plugin integration. Check any app-local Swift code that depended on the plugin too.
 
-
 ### Without Capacitor
 
 Web-only applications install just the theme and their normal Ionic dependencies. `@capacitor/core` is an optional peer, including in the transitive Native UI package; the theme imports only its plugin-free `/integration` entry. No Capacitor installation, native sync, or `enableNativeUIShell()` call is needed.
 
-To opt into native controls, declare `@rdlabo/capacitor-native-ui` directly in the application’s dependencies, install Capacitor, run `npx cap sync ios`, and explicitly call `enableNativeUIShell()`. The existing theme router animation handles coordination. On iOS without a registered plugin, explicit startup retains Web controls rather than calling an unavailable native bridge.
+When you are ready to add native iOS controls, follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md).
 
 ### Page transitions
 
 Use `iosTransitionAnimation` in your Ionic configuration to coordinate page transitions with optional native controls, including interactive back gestures and cancellation. No extra transition configuration is needed when using this builder. To keep a custom Ionic animation, wrap it with `withNativeUIShellTransition(builder)` from this package. Enable native controls separately with `enableNativeUIShell()`; configuring an animation does not enable them.
+
+## Next step: Add Native UI
+
+With your theme configured, you can optionally project supported controls into native iOS UI. Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md) to install and enable the plugin while keeping your existing styles and transitions.

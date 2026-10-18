@@ -18,7 +18,7 @@ This package revisits that idea for Ionic and Liquid Glass. Existing Ionic marku
 
 ## Enable the shell
 
-For the three application configurations, start with [Choose your setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md). For native controls with your existing Web appearance, use [Native UI only](setup.md#native-ui-only).
+Already using the iOS theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/setup.md). For other Web appearances, use [Native UI setup](setup.md#native-ui-only).
 
 Install the native package as a direct application dependency so Capacitor can discover it:
 
@@ -263,7 +263,6 @@ Enable rail projection when available, preserving other settings. Rejects after 
 
 --------------------
 
-
 ### disableVerticalControlArea()
 
 ```typescript
@@ -273,7 +272,6 @@ disableVerticalControlArea() => Promise<void>
 Restore rail sources to the Web without stopping ordinary native controls. Rejects after destroy.
 
 --------------------
-
 
 ### getStatus()
 
@@ -287,7 +285,6 @@ Returns the current Web/native projection state.
 
 --------------------
 
-
 ### suspend()
 
 ```typescript
@@ -300,7 +297,6 @@ Restores projected controls to the Web until the returned lease is resumed.
 
 --------------------
 
-
 ### destroy()
 
 ```typescript
@@ -311,9 +307,7 @@ Stops synchronization, restores Web controls and releases native resources.
 
 --------------------
 
-
 ### Interfaces
-
 
 #### NativeUIShellStatus
 
@@ -323,7 +317,6 @@ Stops synchronization, restores Web controls and releases native resources.
 | **`projected`** | <code>number</code>                         |
 | **`updates`**   | <code>number</code>                         |
 | **`reason`**    | <code>string</code>                         |
-
 
 #### NativeUIShellSuspension
 

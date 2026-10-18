@@ -1,21 +1,24 @@
-# Theme and Native UI integration
+# Add Native UI to your theme
 
-Use either package independently or combine them:
+Already using `@rdlabo/ionic-theme-ios27`? Add native controls on iOS while keeping your theme styles, Web content, and routing. Unsupported controls, browsers, and Android retain their Web appearance.
 
-- [Theme setup](../../packages/theme-ios27/docs/setup.md): Web styling, layout, and animations.
-- [Native UI setup](../../packages/capacitor-native-ui/docs/setup.md): native control projection with your existing Web appearance.
+Start with [theme setup](../../packages/theme-ios27/docs/setup.md) if you have not configured the theme yet. If you use a different Web appearance, follow [Native UI setup](../../packages/capacitor-native-ui/docs/setup.md) instead.
 
-The theme/application owns Web layout; the plugin owns native presentation and state synchronization. Installing a package does not enable native controls.
+## 1. Install the native plugin
 
-## Theme and Native UI
+This guide assumes a Capacitor 8 application with an iOS project. Web-only theme users can continue without Capacitor; adding native iOS controls requires setting up that native project first. See [Native UI requirements](../../packages/capacitor-native-ui/docs/native-ui-shell.md#enable-the-shell) for supported Ionic, iOS, and Xcode versions.
 
-### Install and configure
+Add the native package directly to your application's dependencies:
 
 ```sh
-npm install @capacitor/core @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui
 ```
 
-Load the theme styles and configure theme animations using [theme setup](../../packages/theme-ios27/docs/setup.md). Then enable the Shell once at application startup:
+Keep your existing theme installation and stylesheets. Capacitor's default plugin discovery requires a direct dependency; the copy installed through the theme alone does not register the native plugin.
+
+## 2. Enable native controls
+
+Enable the Shell once at application startup:
 
 ```ts
 import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
@@ -23,7 +26,11 @@ import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 await enableNativeUIShell();
 ```
 
-Keep `navAnimation: iosTransitionAnimation` from the theme package. That animation already integrates native coordination; do not wrap it again. If retaining a custom animation, use the [transition adapter](../../packages/capacitor-native-ui/docs/migration.md#native-ui-shell-transition-adapter).
+Keep `navAnimation: iosTransitionAnimation` from the theme package. It already coordinates native controls during page transitions and back gestures; do not wrap it again. If you use a custom animation, follow the [transition adapter instructions](../../packages/capacitor-native-ui/docs/migration.md#native-ui-shell-transition-adapter).
+
+Installing the plugin or configuring theme animations does not activate native controls. The application enables them with the startup call above.
+
+## 3. Sync and run on iOS
 
 Build your Web assets, then run:
 
@@ -31,14 +38,12 @@ Build your Web assets, then run:
 npx cap sync ios
 ```
 
-Follow [Native UI Shell](../../packages/capacitor-native-ui/docs/native-ui-shell.md) for supported controls, iOS build requirements, and fallback behavior. For Vertical Bars, also load its [opt-in layout stylesheet](../../packages/capacitor-native-ui/docs/vertical-bars.md#enable-vertical-bars) and configure placement. The Shell includes that runtime; do not also start `enableVerticalControlArea()`.
+Run the app on a supported iOS device or simulator. See [supported controls](../../packages/capacitor-native-ui/docs/native-ui-shell.md#supported-markup) for eligible markup and Web fallback behavior. Retain your theme styles for Web content and controls that are not projected.
 
-### Migrate and verify
+## Optional: Vertical Bars
 
-Keep theme styles and ordinary theme API imports. Replace native imports using the [migration table](../../packages/capacitor-native-ui/docs/migration.md#2-replace-native-imports), declare the native package directly, and follow the [native project migration](../../packages/capacitor-native-ui/docs/migration.md#3-sync-the-native-project). Swift extensions retain `import IonicNativeUIShellPlugin`.
+For a side rail, load the [Vertical Bars layout stylesheet](../../packages/theme-ios27/docs/vertical-bars-layout.md) and configure [device placement](iphone-duo.md). The Shell includes the rail runtime; no additional startup call is needed. To project only rail controls, use `enableNativeUIShell({ verticalBars: { only: true } })` instead of the default startup call. See [configuration options](../../packages/capacitor-native-ui/docs/configuration.md).
 
-Build and launch on iOS; check eligible native controls, navigation and canceled back gestures, light/dark appearance, and any app-local extensions. Also check browser and Android Web fallback where your app supports them. Unsupported controls remain Web-rendered, so retain the theme styling for that content.
+## Upgrading an existing native integration
 
-## Installation and activation are separate
-
-The theme depends on Native UI for its plugin-free transition/search integration. Capacitor remains optional for theme-only Web apps. With Capacitor’s default plugin discovery, native plugins must be direct application dependencies; the transitive theme dependency alone does not register the native plugin (`includePlugins` can explicitly override discovery). After declaring Native UI directly and syncing the native project, the application still explicitly calls `enableNativeUIShell()`. The theme’s router configuration never activates it.
+If you previously imported native APIs from the theme package, follow the [native import migration](../../packages/capacitor-native-ui/docs/migration.md#2-replace-native-imports) and [native project migration](../../packages/capacitor-native-ui/docs/migration.md#3-sync-the-native-project). Keep ordinary theme imports and stylesheets.
