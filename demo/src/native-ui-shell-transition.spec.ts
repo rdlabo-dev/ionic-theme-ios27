@@ -1,12 +1,11 @@
 import { expect, test, vi } from 'vitest';
-import { withNativeUIShellTransition } from '../../packages/capacitor-native-ui/src/vertical-bars';
+import { withNativeUIShellTransition, connectNativeUIShellTransition } from '../../packages/theme-ios27/src/transition/native-ui';
 import {
-  connectNativeUIShellTransition,
   VERTICAL_BARS_TRANSITION_CANCELED,
   getNativeSearchBindings,
   registerNativeSearch,
   setNativeUIShellIntegration,
-} from '../../packages/capacitor-native-ui/src/native-integration';
+} from '@rdlabo/capacitor-native-ui/integration';
 import type { Animation } from '@ionic/core';
 import { configureNativeTransition, enableNativeUIShell } from '../../packages/capacitor-native-ui/src/native';
 import { iosTransitionAnimation } from '../../packages/theme-ios27/src/transition/ios.transition';

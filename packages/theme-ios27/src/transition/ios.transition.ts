@@ -2,7 +2,8 @@ import { createIosTransitionAnimation, shadow } from '@rdlabo/ionic-theme-utils'
 import type { Animation } from '@ionic/core/components';
 import type { TransitionOptions } from './index';
 import { getIonPageElement } from './index';
-import { nativeWebViewMetrics, withNativeUIShellTransition } from '@rdlabo/capacitor-native-ui/integration';
+import { nativeWebViewMetrics } from '@rdlabo/capacitor-native-ui/integration';
+import { withNativeUIShellTransition } from './native-ui';
 
 export { shadow };
 

@@ -8,7 +8,7 @@ export {
 export * from './tab-bar-searchable';
 export * from './searchbar';
 export * from './transition/ios.transition';
-export { withNativeUIShellTransition } from '@rdlabo/capacitor-native-ui/integration';
+export { withNativeUIShellTransition } from './transition/native-ui';
 export { registerSegmentEffect } from './segment';
 
 export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffect | undefined => {

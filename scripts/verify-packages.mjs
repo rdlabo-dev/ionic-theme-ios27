@@ -90,6 +90,7 @@ try {
       assert(files.has('ios/Sources/IonicNativeUIShellPlugin/IonicNativeUIShellPlugin.swift'));
       assert(files.has('android/src/main/java/dev/rdlabo/capacitor/nativeui/IonicNativeUIShellPlugin.java'));
       assert(!manifest.dependencies?.['@rdlabo/ionic-theme-ios27'], 'Native UI must not depend on the theme');
+      assert(!files.has('dist/native-integration/transition.js'), 'Ionic transition adapter belongs to the theme');
     } else {
       assert.equal(manifest.name, '@rdlabo/ionic-theme-ios27');
       assert.equal(manifest.capacitor, undefined, 'Only the native package registers a Capacitor plugin');
@@ -148,6 +149,10 @@ try {
     import * as vertical from '@rdlabo/capacitor-native-ui/vertical-bars';
     assert.equal(typeof native.enableNativeUIShell, 'function');
     assert.equal(typeof vertical.enableVerticalControlArea, 'function');
+    assert.equal(vertical.withNativeUIShellTransition, undefined);
+    const integration = await import('@rdlabo/capacitor-native-ui/integration');
+    assert.equal(integration.connectNativeUIShellTransition, undefined);
+    assert.equal(typeof integration.suspendNativeUIShell, 'function');
     for (const entry of ['native', 'vertical-bars']) {
       await assert.rejects(import('@rdlabo/ionic-theme-ios27/' + entry), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
     }

@@ -20,11 +20,11 @@ await enableNativeUIShell();
 
 Supported Ionic markup and control eligibility still apply; enabling the plugin does not make arbitrary Web elements native. See [Native UI Shell](native-ui-shell.md#supported-markup).
 
-Configure navigation before Ionic initializes. To retain Ionic's default transitions:
+For optional Ionic animation coordination, install `@rdlabo/ionic-theme-ios27` and configure navigation before Ionic initializes. Its adapter can retain Ionic's default transitions without loading theme CSS:
 
 ```ts
 import { iosTransitionAnimation, mdTransitionAnimation, type AnimationBuilder } from '@ionic/core';
-import { withNativeUIShellTransition } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
 
 const defaultTransition: AnimationBuilder = (baseEl, opts) =>
   (opts.mode === 'ios' ? iosTransitionAnimation : mdTransitionAnimation)(baseEl, opts);
@@ -34,7 +34,7 @@ const ionicConfig = {
 };
 ```
 
-Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-shell-transition-adapter). This path does not require the iOS 27 theme package or its animations.
+Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-shell-transition-adapter). This optional adapter requires the theme package but does not require its stylesheets or replace your animation. For a plugin-only application, use the suspension API below.
 
 For optional Vertical Bars, your app or theme arranges the Web layout around the rail. The [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md) offers a ready-made stylesheet from the theme package; that stylesheet is a layout choice, not a plugin requirement. For rail-only projection, call `enableNativeUIShell({ verticalBars: { only: true } })`. See [all configuration options](configuration.md).
 
@@ -50,3 +50,18 @@ Check that Web content retains your existing appearance, eligible controls rende
 For an application without Ionic, use the [plain HTML adapter](framework-independent.md). Ionic is an optional peer dependency, not a requirement of the standard native renderers.
 
 `@capacitor/core` is an optional peer for consumers of the plugin-free `/integration` entry (including the theme). Native startup through the root or `/core` entry requires Capacitor to be installed. Installing the theme does not enable native controls.
+
+## Navigation without the theme
+
+Native UI does not depend on a theme or an Ionic animation builder. Your router can suspend projection before changing pages and resume it after completion or cancellation:
+
+```ts
+const suspension = await shell.suspend();
+try {
+  await navigate();
+} finally {
+  await suspension.resume();
+}
+```
+
+Use your router's completion/cancellation lifecycle to release the suspension. For Ionic interactive animations, the optional theme adapter implements that coordination for you. Migrating from the preview adapter in the plugin: import `withNativeUIShellTransition` from `@rdlabo/ionic-theme-ios27` instead of the plugin's `/integration` or `/vertical-bars` entry.
