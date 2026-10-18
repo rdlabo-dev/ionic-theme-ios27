@@ -51,7 +51,7 @@ Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcod
 
 If a button stays on the Web on supported iOS, check that it is visible within the configured root, has an accessible name, and that the direct plugin dependency was synced and the iOS app rebuilt.
 
-In an app that also uses Ionic, set `autoIonicControls: false` to project only explicit sources and registered extensions. See [selective Ionic projection](configuration.md#select-controls-explicitly-in-a-customized-ionic-app).
+In an app that also uses Ionic, set `ionic: { auto: false }` to project only explicit sources and registered extensions. See [selective Ionic projection](configuration.md#select-controls-explicitly-in-a-customized-ionic-app).
 
 ## Optional Web rail
 

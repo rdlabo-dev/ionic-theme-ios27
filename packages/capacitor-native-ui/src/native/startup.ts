@@ -17,7 +17,7 @@ export const startNativeUIShell = async (
   if (host && (!host.isConnected || host.ownerDocument !== document || root?.contains(host) || host.contains(root!)))
     throw new Error('The Web rail host must be connected in the current document and outside the source root');
   const legacy = input.controls;
-  const automatic = input.autoIonicControls;
+  const automatic = input.ionic?.auto;
   const controls = automatic === undefined ? legacy : typeof automatic === 'object' ? automatic : {};
   const defaultEnabled = automatic !== false;
   const options: NativeUIShellRuntimeOptions = {

@@ -11,6 +11,7 @@ export type {
   NativeUIShellComponent,
   NativeUIShellControls,
   AutoIonicControls,
+  IonicProjectionOptions,
   NativeUIShellHandle,
   NativeUIShellOptions,
   NativeUIShellStatus,

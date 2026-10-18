@@ -320,7 +320,7 @@ test('extension images share SVG validation and rasterization without asynchrono
   await expect(failed.assets!.render({ ...renderer, render: vi.fn().mockRejectedValue(new Error('decode')) })).rejects.toThrow('decode');
 });
 
-test('autoIonicControls false preserves explicit ion-button rails, live toggles, and source clicks', async () => {
+test('ionic.auto false preserves explicit ion-button rails, live toggles, and source clicks', async () => {
   const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
   const { root, options } = mount(
     '<ion-button data-native-ui="button" data-native-ui-placement="rail">Explicit</ion-button><ion-button>Automatic</ion-button>',
@@ -330,7 +330,7 @@ test('autoIonicControls false preserves explicit ion-button rails, live toggles,
   button.addEventListener('click', click);
   const shell = await enableNativeUIShell({
     root,
-    autoIonicControls: false,
+    ionic: { auto: false },
     verticalBars: { placement: { edge: 'trailing', webHost: options.rail!.host } },
   });
   handles.push(shell);
@@ -339,7 +339,7 @@ test('autoIonicControls false preserves explicit ion-button rails, live toggles,
   host.querySelector('button')!.click();
   expect(click).toHaveBeenCalledTimes(1);
   await expect(
-    enableNativeUIShell({ root, autoIonicControls: true, verticalBars: { placement: { edge: 'trailing', webHost: host } } }),
+    enableNativeUIShell({ root, ionic: { auto: true }, verticalBars: { placement: { edge: 'trailing', webHost: host } } }),
   ).rejects.toThrow('different controls');
   await shell.disableVerticalControlArea();
   expect(host.childElementCount).toBe(0);
@@ -412,10 +412,12 @@ test('explicit Ionic Web rails preserve shadow icons and observe artwork changes
 });
 
 test.each([
+  { ionic: {} },
+  { ionic: { auto: false }, controls: { buttons: false } },
   { controls: { buttons: true, toolbar: false } },
-  { autoIonicControls: true, controls: { buttons: false } },
-  { autoIonicControls: { buttons: false } },
-  { autoIonicControls: { tabs: false } },
+  { ionic: { auto: true }, controls: { buttons: false } },
+  { ionic: { auto: { buttons: false } } },
+  { ionic: { auto: { tabs: false } } },
 ])('explicit projection survives new automatic settings and legacy alias precedence: %j', async (settings) => {
   const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
   const { root, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Explicit</button>');

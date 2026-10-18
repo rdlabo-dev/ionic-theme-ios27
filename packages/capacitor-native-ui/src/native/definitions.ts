@@ -42,13 +42,13 @@ export interface VerticalControlAreaOptions {
 
 export interface NativeUIShellOptions extends VerticalControlAreaOptions {
   verticalBars?: NativeUIVerticalBarsOptions;
-  /** Automatic Ionic projection. Defaults to true. Does not disable explicit data-native-ui sources or extensions. */
-  autoIonicControls?: boolean | AutoIonicControls;
+  /** Ionic adapter settings. Explicit data-native-ui sources and extensions remain independent. */
+  ionic?: IonicProjectionOptions;
   /** Source subtree. Defaults to document.body. */
   root?: HTMLElement;
   /** @deprecated Call destroy() on the running handle to stop the shell. */
   enabled?: boolean;
-  /** @deprecated Use autoIonicControls for automatic Ionic projection and verticalBars.popover for popovers. */
+  /** @deprecated Use ionic.auto for automatic Ionic projection and verticalBars.popover for popovers. */
   controls?: NativeUIShellControls;
   /** @deprecated Use verticalBars.only. */
   verticalBarsOnly?: boolean;
@@ -61,6 +61,11 @@ export interface NativeUIShellRuntimeOptions extends NativeUIShellOptions {
   explicitControls?: boolean;
   nativeState?: { edge?: 'left' | 'right' };
   rail?: { host: HTMLElement; edge: 'left' | 'right' };
+}
+
+export interface IonicProjectionOptions {
+  /** Automatic Ionic projection. Defaults to true; partial objects keep omitted kinds enabled. */
+  auto?: boolean | AutoIonicControls;
 }
 
 export interface AutoIonicControls {

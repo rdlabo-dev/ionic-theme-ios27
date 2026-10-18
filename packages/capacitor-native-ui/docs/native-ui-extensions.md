@@ -101,7 +101,7 @@ If the source stays on the Web, confirm that the Swift file belongs to the app t
 | `placement` | Behavior |
 | --- | --- |
 | Omitted or `'element'` | Hosts the View in the source element's Web frame on iOS 26+. |
-| `'tab-accessory'` | Attaches the View to the system SwiftUI tab accessory on iOS 26.1+. |
+| `'tab-accessory'` | Attaches the View to a projected tab bar's system SwiftUI tab accessory on iOS 26.1+. |
 
 For `tab-accessory`, place the source inside its owning `ion-tabs`. The shell resolves that tabs element's `ion-tab-bar`; applications do not pass native controller references. Currently only the **Vertical Bars SwiftUI tab host** supports this placement. Ordinary UIKit tab bars, missing native tabs, iOS 26.0, or multiple competing accessories keep the source on the Web. The shell does not approximate a system accessory with a floating overlay. Keep an equivalent Web layout (for example, a fixed footer); the source retains its layout space while hidden.
 

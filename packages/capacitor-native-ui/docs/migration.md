@@ -114,12 +114,12 @@ See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-them
 
 Run `npx cap sync ios` after updating: JavaScript now sends framework-independent control kinds to Swift. New Swift code also accepts the previous `ion-*` kinds, but new JavaScript requires the matching native plugin.
 
-- `controls.toolbar` becomes `autoIonicControls.buttons`.
+- `controls.toolbar` becomes `ionic.auto.buttons`.
 - `controls.popover` becomes `verticalBars.popover`.
 - Top-level `buttonProjection` and `buttonDefaultFill` move into `verticalBars`.
 - The new `verticalBars.buttonDefaultFill` uses `'glass'` instead of `null`.
 - `verticalBarsOnly: true` becomes `verticalBars: { only: true }`.
-- Partial `autoIonicControls` settings override defaults. To preserve automatic projection of tabs only, explicitly set `buttons`, `segment` and `fab` to `false`.
+- Partial `ionic.auto` settings override defaults. To preserve automatic projection of tabs only, explicitly set `buttons`, `segment` and `fab` to `false`.
 - The global `enableVerticalControlArea()` remains a legacy startup wrapper. New code starts with `enableNativeUIShell({ verticalBars: { only: true } })`, then uses the returned handle's `enableVerticalControlArea()` / `disableVerticalControlArea()` methods.
 - Legacy top-level options and global `enabled: false` remain compatible; use `shell.destroy()` to stop new code. If both old and new settings are supplied, the new nested settings take precedence.
 
@@ -131,6 +131,6 @@ Import `setVerticalBarsLayout` and `applyFoldStateClasses` from `@rdlabo/ionic-t
 
 ## Automatic Ionic controls
 
-Use `autoIonicControls` for new configuration. It accepts `true` (default), `false`, or `{ buttons, tabs, segment, fab }`. Unlike legacy `controls`, it affects only automatic Ionic projection; explicit `data-native-ui` sources and registered extensions remain enabled. `verticalBars` independently controls rail projection. See [selective projection](configuration.md#select-controls-explicitly-in-a-customized-ionic-app) for an existing Ionic app that opts in individual buttons.
+Use `ionic.auto` for new configuration. It accepts `true` (default), `false`, or `{ buttons, tabs, segment, fab }`. Unlike legacy `controls`, it affects only automatic Ionic projection; explicit `data-native-ui` sources and registered extensions remain enabled. `verticalBars` independently controls rail projection. See [selective projection](configuration.md#select-controls-explicitly-in-a-customized-ionic-app) for an existing Ionic app that opts in individual buttons.
 
-The legacy `controls` option is marked `@deprecated` and remains available. Existing calls remain compatible when `autoIonicControls` is omitted. If both are supplied, `autoIonicControls` takes precedence for automatic kinds. Move the legacy `popover` option to `verticalBars.popover`.
+The legacy `controls` option is marked `@deprecated` and remains available. Existing calls remain compatible when `ionic.auto` is omitted. If both are supplied, `ionic.auto` takes precedence for automatic kinds. Move the legacy `popover` option to `verticalBars.popover`.

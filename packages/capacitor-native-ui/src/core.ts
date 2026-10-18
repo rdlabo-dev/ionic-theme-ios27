@@ -7,6 +7,7 @@ export type {
   NativeUIVerticalBarsOptions,
   NativeUIShellControls,
   AutoIonicControls,
+  IonicProjectionOptions,
   NativeUIShellHandle,
   NativeUIShellStatus,
   NativeUIShellSuspension,
