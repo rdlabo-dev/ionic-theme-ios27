@@ -1,5 +1,7 @@
 # Capacitor Native UI
 
+> **Unreleased package:** the first npm release of `@rdlabo/capacitor-native-ui` is pending. The registry install commands in these guides apply after that release. To try the current code now, install a candidate archive as described below.
+
 Render supported Web controls with UIKit and SwiftUI on iOS while keeping your application state, routing, and handlers in the WebView. Use existing Ionic markup or explicit HTML buttons; custom SwiftUI or Android Compose content can be added through app-local extensions.
 
 Native UI is opt-in and currently a preview. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
@@ -13,6 +15,25 @@ Native UI is opt-in and currently a preview. Standard controls on Android, brows
 | Project only tabs and toolbar actions into a side rail | [Vertical Bars step by step](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
 | Add native controls to an existing iOS 27 theme app | [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) |
 | Render custom SwiftUI or Android Compose content | [App-local extensions](docs/native-ui-extensions.md) |
+
+## Try the unreleased packages
+
+1. Open a successful [Package Candidate run](https://github.com/rdlabo-dev/ionic-theme-ios27/actions/workflows/package-candidate.yml) for the commit you want to try. Use the documentation from that same commit. Download and extract its `npm-candidate-…` artifact; GitHub requires sign-in to download artifacts.
+2. In your Capacitor 8 app, install the Native UI `.tgz` directly. Replace `VERSION` and the path below with the downloaded filename:
+
+   ```sh
+   npm install /path/to/rdlabo-capacitor-native-ui-VERSION.tgz
+   ```
+
+3. If you also want the **new theme package**, install both archives from that same artifact in one command so their versions match:
+
+   ```sh
+   npm install /path/to/rdlabo-capacitor-native-ui-VERSION.tgz /path/to/rdlabo-ionic-theme-ios27-VERSION.tgz
+   ```
+
+4. Continue with the guide for your goal above. The archive install replaces that guide's `npm install` step; build your Web assets, sync Capacitor and rebuild the native app as described there.
+
+Already using published theme v1.2.1? Its bundled native APIs belong to the old setup. Follow [migration](docs/migration.md) when adopting these candidate packages. The [published documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios27) describes that released version; this directory describes the upcoming split.
 
 ## Requirements
 

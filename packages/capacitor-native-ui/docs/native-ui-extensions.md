@@ -4,6 +4,8 @@ title: App-local Native UI extensions
 
 # App-local Native UI extensions
 
+> This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
+
 An extension projects your existing Web UI into a SwiftUI View on iOS or Jetpack Compose content on Android. Keep both definitions in your application: no npm package, separate library, or Capacitor plugin is required. The Web element remains the source of truth and the fallback UI.
 
 ## Before you start
@@ -40,7 +42,26 @@ export const counter = defineNativeUI({
 });
 ```
 
-For example, render `<div data-counter data-count="0"><button>Increment</button></div>` with your framework. Its click handler updates the Web state and `data-count` attribute. The shell observes DOM changes and sends the new props to the native content. State rendered into DOM attributes or text is observed automatically. For properties or external state read by the reader that do not mutate the DOM, call `shell.markForCheck()` after changing them.
+For example, use this Web source. Its reserved space also accommodates native content and an action error:
+
+```html
+<div data-counter data-count="0" style="width: 280px; min-height: 128px">
+  <p data-count-label>Count: 0</p>
+  <button type="button">Increment</button>
+</div>
+```
+
+Keep your framework's click handler updating the count and `data-count`. In plain HTML, this is enough:
+
+```ts
+const source = document.querySelector<HTMLElement>('[data-counter]')!;
+source.querySelector('button')!.addEventListener('click', () => {
+  const count = Number(source.dataset.count ?? 0) + 1;
+  source.dataset.count = String(count);
+  source.querySelector('[data-count-label]')!.textContent = `Count: ${count}`;
+});
+```
+ The shell observes DOM changes and sends the new props to the native content. State rendered into DOM attributes or text is observed automatically. For properties or external state read by the reader that do not mutate the DOM, call `shell.markForCheck()` after changing them.
 
 The reader is synchronous and read-only. Return `null` when the source should stay on the Web. Props are a JSON object (finite numbers, strings, booleans, null, arrays and objects), limited to 64K characters. Action names map to the source itself or its descendants; missing, hidden and disabled targets cannot be activated. Up to 30 actions are supported per source.
 
@@ -106,12 +127,18 @@ Register once from your `Application.onCreate()`, on the main thread, before Jav
 
 ```kotlin
 import android.app.Application
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
 import dev.rdlabo.capacitor.nativeui.NativeUIShell
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -124,18 +151,35 @@ class App : Application() {
             decode = { json -> json.getInt("count") },
         ) { count, actions, context ->
             val scope = rememberCoroutineScope()
-            Box(Modifier.fillMaxSize().clickable(enabled = actions.isAvailable("increment")) {
-                scope.launch {
-                    try {
-                        actions.activate("increment")
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (error: IllegalStateException) {
-                        // Display an application-appropriate error.
-                    }
-                }
-            }) {
-                BasicText("Count: $count")
+            var error by remember { mutableStateOf<String?>(null) }
+            val enabled = actions.isAvailable("increment")
+            val foreground = if (context.dark) Color.White else Color.Black
+            val background = if (context.dark) Color(0xFF202020) else Color.White
+            val textStyle = TextStyle(color = foreground)
+            Column(Modifier.fillMaxSize().background(background).padding(8.dp)) {
+                BasicText("Count: $count", style = textStyle)
+                Box(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .alpha(if (enabled) 1f else 0.5f)
+                        .clickable(enabled = enabled, role = Role.Button, onClickLabel = "Increment count") {
+                            scope.launch {
+                                try {
+                                    actions.activate("increment")
+                                    error = null
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (unavailable: IllegalStateException) {
+                                    error = "Action unavailable. Try again."
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) { BasicText("Increment", style = textStyle) }
+                BasicText(
+                    error ?: "",
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    style = textStyle,
+                )
             }
         }
     }
@@ -152,10 +196,12 @@ The `decode` callback runs before accepting the projection. If it throws, that s
 import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 import { counter } from './native-ui/counter';
 
-const shell = await enableNativeUIShell({ extensions: [counter] });
+const shell = await enableNativeUIShell({ ionic: { auto: false }, extensions: [counter] });
 ```
 
-Replace your existing startup call with the one above; do not start a second shell.
+This example enables your extensions without automatically projecting Ionic controls. Explicit `data-native-ui` sources remain opted in. To also project standard Ionic controls on supported iOS, omit `ionic: { auto: false }`. Android standard controls remain Web-rendered either way.
+
+Replace your existing startup call with the one above; do not start a second shell. Connect it to your framework using the [app-root lifecycle examples](setup.md#place-startup-in-your-frameworks-app-root), putting these options in the shared startup call.
 
 Keep extension objects stable across repeated enable calls. Changing extensions while running requires `await shell.destroy()` first. Extension names must be unique within an activation. Do not register overlapping selectors for the same source. An extension owns its source subtree, so built-in controls inside it are not projected separately.
 
@@ -168,7 +214,7 @@ Build your Web assets, then sync and rebuild the platform you configured:
 
 Tap Increment: the original Web handler should update `data-count`, and the native count should follow. In a browser, the original Web counter should still work.
 
-If the source stays on the Web, confirm that registration runs before JavaScript enables the shell and that the names and props agree on both sides. On Android, check that your `Application` subclass is declared in the manifest; on iOS, check that the Swift file belongs to the app target.
+For source-specific fallback reasons, temporarily enable [`debug: true`](configuration.md#understand-why-a-source-stays-on-the-web). If the source stays on the Web, confirm that registration runs before JavaScript enables the shell and that the names and props agree on both sides. On Android, check that your `Application` subclass is declared in the manifest; on iOS, check that the Swift file belongs to the app target.
 
 ## Content and placement are independent
 

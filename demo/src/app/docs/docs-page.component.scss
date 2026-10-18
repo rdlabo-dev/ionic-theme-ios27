@@ -2,9 +2,24 @@
   opacity: 1 !important;
 }
 
+.docs-start,
 .docs-content {
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
   padding: 24px 16px 72px;
+}
+
+.docs-start {
+  padding-bottom: 0;
+  ul {
+    padding-inline-start: 24px;
+  }
+  li + li {
+    margin-top: 12px;
+  }
+  a {
+    color: var(--ion-color-primary);
+    text-underline-offset: 3px;
+  }
 }

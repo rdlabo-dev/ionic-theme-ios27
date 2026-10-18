@@ -1,5 +1,7 @@
 # Add Native UI to your theme
 
+> This guide targets the upcoming package split. Use [matching candidate archives](../../capacitor-native-ui/README.md#try-the-unreleased-packages) to try it now, or the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1) for the published theme.
+
 Already using `@rdlabo/ionic-theme-ios27`? Add native controls on iOS while keeping your theme styles, Web content, and routing. Unsupported controls, browsers, and Android retain their Web appearance.
 
 Start with [theme setup](setup.md) if you have not configured the theme yet. If you use a different Web appearance, follow [Native UI setup](../../capacitor-native-ui/docs/setup.md) instead.
@@ -26,7 +28,7 @@ import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 const shell = await enableNativeUIShell();
 ```
 
-Call `await shell.destroy()` when the application owner is disposed; do not create a shell for each page.
+Call `await shell.destroy()` when the application owner is disposed; do not create a shell for each page. Use the [Angular, React, or Vue app-root examples](../../capacitor-native-ui/docs/setup.md#place-startup-in-your-frameworks-app-root) to connect startup and cleanup.
 
 Keep `navAnimation: iosTransitionAnimation` from the theme package. It already coordinates native controls during page transitions and back gestures; do not wrap it again. If you use a custom animation, follow the [transition adapter instructions](../../capacitor-native-ui/docs/migration.md#native-ui-shell-transition-adapter).
 

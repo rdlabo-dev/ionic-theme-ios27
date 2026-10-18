@@ -1,8 +1,10 @@
 # Ionic Theme iOS27
 
+> This branch documents the upcoming package split. For the current npm release, use the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1). To try this branch, use the [matching candidate archives](../capacitor-native-ui/README.md#try-the-unreleased-packages) instead of the registry install commands below.
+
 A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Capacitor iOS apps can also opt into a preview Native UI Shell for supported controls.
 
-**[Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) · [Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/) · [Documentation](https://docs.rdlabo.dev/projects/ionic-theme-ios27)**
+**[Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) · [Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/) · [Guides for this branch](docs/setup.md) · [Published v1.2.1 docs](https://docs.rdlabo.dev/projects/ionic-theme-ios27)**
 
 <!-- rdlabo-docs-pick -->
 

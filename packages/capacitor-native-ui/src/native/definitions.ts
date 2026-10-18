@@ -41,6 +41,8 @@ export interface VerticalControlAreaOptions {
 }
 
 export interface NativeUIShellOptions extends VerticalControlAreaOptions {
+  /** Log Web fallback reasons and their source elements once per reason during this activation. Defaults to false. */
+  debug?: boolean;
   verticalBars?: NativeUIVerticalBarsOptions;
   /** Ionic adapter settings. Explicit data-native-ui sources and extensions remain independent. */
   ionic?: IonicProjectionOptions;
@@ -60,6 +62,8 @@ export interface NativeUIShellRuntimeOptions extends NativeUIShellOptions {
   /** @internal Preserves legacy controls.buttons behavior for explicit sources. */
   explicitControls?: boolean;
   nativeState?: { edge?: 'left' | 'right' };
+  /** @internal Keep unavailable definitions discoverable for diagnostics without calling their readers. */
+  unavailableExtensions?: ReadonlyMap<string, string>;
   rail?: { host: HTMLElement; edge: 'left' | 'right' };
 }
 

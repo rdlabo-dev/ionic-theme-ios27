@@ -9,5 +9,48 @@
   </ion-toolbar>
 </ion-header>
 <ion-content [fullscreen]="true">
+  <nav class="docs-start" aria-labelledby="docs-start-title">
+    <h2 id="docs-start-title">What would you like to build?</h2>
+    <p>Choose a guide, then use the component examples below to explore the result.</p>
+    <ul>
+      <li>
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/setup.md"
+          >Style an Ionic app with the theme</a
+        >
+      </li>
+      <li>
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md"
+          >Add Native UI to an existing theme app</a
+        >
+      </li>
+      <li>
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/setup.md"
+          >Use Native UI with your own Ionic styling</a
+        >
+      </li>
+      <li>
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/framework-independent.md"
+          >Use native buttons without Ionic</a
+        >
+      </li>
+      <li>
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/native-ui-extensions.md"
+          >Build a SwiftUI or Kotlin / Compose extension</a
+        >
+      </li>
+      <li>
+        <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md"
+          >Add a side rail with your existing theme</a
+        >
+      </li>
+    </ul>
+    <p>
+      These guides describe the upcoming package split. Check
+      <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/README.md#try-the-unreleased-packages"
+        >preview installation</a
+      >
+      before installing Native UI.
+    </p>
+  </nav>
   <article class="docs-content" [innerHTML]="docsContentHtml | safeHtml"></article>
 </ion-content>

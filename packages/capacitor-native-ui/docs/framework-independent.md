@@ -1,5 +1,7 @@
 # Native UI without Ionic
 
+> This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
+
 Add native buttons to an existing Web app without Ionic or theme CSS. Keep labels, state, and click handlers on ordinary HTML elements. Standard buttons require no custom Swift registration.
 
 Use a Capacitor 8 app with an iOS project, Xcode 26+, and an iOS 26+ device or simulator. Browsers and Android retain Web controls. For custom Android native content, use [Kotlin/Compose extensions](native-ui-extensions.md#2b-register-compose-content-on-android).
@@ -43,7 +45,7 @@ const shell = await enableNativeUIShell({
 });
 ```
 
-Call once after the source root exists. Keep the handle and call `await shell.destroy()` when that root is disposed. The plugin does not add page padding or safe-area rules; retain your application's CSS.
+Call once after the source root exists. Keep the handle and call `await shell.destroy()` when that root is disposed. The plugin does not add page padding or safe-area rules; retain your application's CSS. For Angular, React, or Vue, use the [app-root lifecycle examples](setup.md#place-startup-in-your-frameworks-app-root) with the `/core` import. For animated navigation, use [suspension through completion and cancellation](setup.md#navigation-without-the-theme).
 
 ## 4. Build and run on iOS
 

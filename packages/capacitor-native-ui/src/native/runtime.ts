@@ -1,3 +1,4 @@
+import { createDiagnostics } from './shared/diagnostics';
 import { htmlSelector, readHTMLControl } from './html';
 import { extensionAncestors, readExtension } from './extensions';
 import { bounded, boundedListener } from './shared/bridge';
@@ -56,6 +57,7 @@ export const createRuntime = async (
 ): Promise<NativeUIShellRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
   const win = doc.defaultView!;
   const extensions = options.extensions ?? [];
+  const diagnose = createDiagnostics(options.debug);
   const scope = options.root ?? doc;
   const discovery = [
     options.source === 'extensions'
@@ -190,14 +192,29 @@ export const createRuntime = async (
     if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
       return;
     if (extensions.some((extension) => element.matches(extension.selector))) {
-      const candidate = readExtension(element, extensions, id);
-      if (verticalBarsOnly && (!candidate?.control.extension?.tabBarId || !nativeVerticalBars())) return;
+      const extension = extensions.find((definition) => element.matches(definition.selector))!;
+      const unavailable = options.unavailableExtensions?.get(extension.name);
+      if (unavailable) {
+        diagnose(`${extension.name}: ${unavailable}`, element);
+        return;
+      }
+      const candidate = readExtension(element, extensions, id, (reason) => diagnose(`${extension.name}: ${reason}`, element));
+      if (verticalBarsOnly && (!candidate?.control.extension?.tabBarId || !nativeVerticalBars())) {
+        if (candidate) diagnose('rail-only: element extensions stay on the Web when verticalBars.only is true.', element);
+        return;
+      }
       return candidate;
     }
     if (options.source === 'extensions') return;
     if (options.source === 'html' || element.matches(htmlSelector)) {
       const candidate = readHTMLControl(element, id, options);
-      if (!candidate) return;
+      if (!candidate) {
+        diagnose(
+          'unsupported-control: check the source visibility, accessible name, disabled ancestors, and supported HTML markup.',
+          element,
+        );
+        return;
+      }
       const rail = candidate.control.placement === 'vertical-bars';
       if (verticalBarsOnly && !rail) return;
       if (rail && !nativeVerticalBars()) return;
@@ -231,6 +248,7 @@ export const createRuntime = async (
         if (slot === 'start' || slot === 'end') candidate.control.toolbarSlot = slot;
       }
     }
+    if (!candidate) diagnose('unsupported-control: check the supported Ionic markup, fixed placement, and styling requirements.', element);
     return candidate && controlEnabled(candidate) ? candidate : undefined;
   };
   const flush = async () => {
@@ -396,6 +414,7 @@ export const createRuntime = async (
           await candidate.assets?.render(icons);
         } catch {
           failedAssets.add(candidate);
+          diagnose('invalid-assets: image conversion or serialized extension props failed.', candidate.element);
         }
         for (const icon of candidate.icons) {
           const field = icon.field ?? 'icon';
@@ -496,6 +515,10 @@ export const createRuntime = async (
       }
       for (const candidate of candidates) {
         if (result.rejectedControls?.includes(candidate.control.id)) {
+          diagnose(
+            'native-rejected: the native renderer rejected this source; check decoded props, placement, and device support.',
+            candidate.element,
+          );
           rejected.set(candidate.element, signatures.get(candidate.element)!);
           setRejected(candidate.element, true);
           dirty = true;

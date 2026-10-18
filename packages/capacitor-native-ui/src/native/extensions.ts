@@ -71,41 +71,54 @@ const json = (value: unknown, images: Map<string, NativeUIImage>): string => {
 
 /** Follow slot assignment too: Ionic scroll containers live inside shadow roots. */
 
-export const readExtension = (element: HTMLElement, extensions: readonly NativeUIExtension[], id: Identify): Candidate | undefined => {
+export const readExtension = (
+  element: HTMLElement,
+  extensions: readonly NativeUIExtension[],
+  id: Identify,
+  diagnose: (reason: string) => void = () => {},
+): Candidate | undefined => {
+  const skip = (reason: string): undefined => {
+    diagnose(reason);
+    return undefined;
+  };
   const matches = extensions.filter((extension) => element.matches(extension.selector));
-  if (
-    matches.length !== 1 ||
-    !visible(element) ||
-    element.closest('ion-modal, ion-popover, ion-menu') ||
-    element.contains(element.ownerDocument.activeElement)
-  )
-    return;
+  if (matches.length !== 1) return skip('overlapping-selectors: exactly one extension must own this source.');
+  if (!visible(element)) return skip('source-hidden: the source must be visible and inside the viewport.');
+  if (element.closest('ion-modal, ion-popover, ion-menu'))
+    return skip('unsupported-overlay: extension sources inside Web overlays stay on the Web.');
+  if (element.contains(element.ownerDocument.activeElement)) return skip('source-focused: keep the focused Web source until focus leaves.');
   const extension = matches[0];
-  if (extension.placement !== 'tab-accessory' && !fitsClip(element)) return;
+  if (extension.placement !== 'tab-accessory' && !fitsClip(element))
+    return skip('source-clipped: the source must fit its clipping ancestors without transformed ancestors.');
   try {
     const images: { value: NativeUIImage; source: string }[] = [];
     const imageValues = new Map<string, NativeUIImage>();
-    const state = extension.read(element, {
-      image(owner, options) {
-        if (!owner || !(element.contains(owner) || element.shadowRoot?.contains(owner))) return null;
-        const svg = owner.matches('svg') ? (owner as SVGElement) : owner.shadowRoot?.querySelector<SVGElement>('svg');
-        if (!svg) return null;
-        const source = iconSource(svg);
-        const { width, height } = owner.getBoundingClientRect();
-        if (!source || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
-        const value: NativeUIImage = { data: '', width, height, template: options?.template ?? false };
-        const key = String(images.length);
-        images.push({ value, source });
-        imageValues.set(key, value);
-        return { $nativeUIImage: key };
-      },
-    });
-    if (!state) return;
+    let state: ReturnType<NativeUIExtension['read']>;
+    try {
+      state = extension.read(element, {
+        image(owner, options) {
+          if (!owner || !(element.contains(owner) || element.shadowRoot?.contains(owner))) return null;
+          const svg = owner.matches('svg') ? (owner as SVGElement) : owner.shadowRoot?.querySelector<SVGElement>('svg');
+          if (!svg) return null;
+          const source = iconSource(svg);
+          const { width, height } = owner.getBoundingClientRect();
+          if (!source || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+          const value: NativeUIImage = { data: '', width, height, template: options?.template ?? false };
+          const key = String(images.length);
+          images.push({ value, source });
+          imageValues.set(key, value);
+          return { $nativeUIImage: key };
+        },
+      });
+    } catch {
+      return skip('reader-error: the extension reader threw; inspect its implementation.');
+    }
+    if (!state) return skip('reader-opt-out: the reader returned null.');
     const props = json(state.props, imageValues);
     const actions = new Map<string, HTMLElement>();
     const targets: Record<string, string> = {};
     for (const [name, target] of Object.entries(state.actions ?? {})) {
-      if (!name || (target && !element.contains(target))) return;
+      if (!name || (target && !element.contains(target))) return skip('invalid-actions: use named targets inside the source element.');
       if (
         !target ||
         !visible(target) ||
@@ -118,14 +131,15 @@ export const readExtension = (element: HTMLElement, extensions: readonly NativeU
       targets[name] = id(target);
       actions.set(id(target), target);
     }
-    if (Object.keys(targets).length > 30) return;
+    if (Object.keys(targets).length > 30) return skip('invalid-actions: a source can expose at most 30 actions.');
     const tabBar =
       extension.placement === 'tab-accessory'
         ? Array.from(element.closest('ion-tabs')?.querySelectorAll<HTMLElement>('ion-tab-bar') ?? []).find(
             (bar) => bar.closest('ion-tabs') === element.closest('ion-tabs'),
           )
         : undefined;
-    if (extension.placement === 'tab-accessory' && !tabBar) return;
+    if (extension.placement === 'tab-accessory' && !tabBar)
+      return skip('missing-tab-owner: a tab accessory needs an owning ion-tabs with ion-tab-bar.');
     const style = getComputedStyle(element);
     const control = {
       id: id(element),
@@ -152,7 +166,7 @@ export const readExtension = (element: HTMLElement, extensions: readonly NativeU
         : undefined,
     };
   } catch {
-    // A broken app reader must not retire otherwise valid built-in controls.
-    return;
+    // Keep the source usable without exposing props or application exception data.
+    return skip('invalid-props: return a JSON object with finite values, valid image references, and at most 64K characters.');
   }
 };

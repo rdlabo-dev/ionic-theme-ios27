@@ -1,5 +1,7 @@
 # Set up the iOS 27 theme
 
+> This guide targets the upcoming package split. Use [matching candidate archives](../../capacitor-native-ui/README.md#try-the-unreleased-packages) to try it now, or the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1) for the published theme.
+
 Give an existing Ionic app the iOS 27 appearance in four steps. This guide uses the iOS 27 theme on its own and system dark mode. For browser-dependent iOS 26/27 styling or MD3, use [adaptive themes](adaptive-themes.md) instead.
 
 ## Before you start

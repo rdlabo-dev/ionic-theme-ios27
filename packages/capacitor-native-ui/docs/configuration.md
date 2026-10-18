@@ -10,6 +10,18 @@ const shell = await enableNativeUIShell();
 
 Without Ionic, import the same API from `@rdlabo/capacitor-native-ui/core`. That entry does not load Ionic's optional popover integration. See [plain HTML](framework-independent.md).
 
+## Platform behavior
+
+| Feature | Supported iOS | Android | Browser / older iOS |
+| --- | --- | --- | --- |
+| Automatic Ionic controls (`ionic.auto`) | Native | Original Web controls | Original Web controls |
+| Explicit element buttons | Native | Original Web controls | Original Web controls |
+| Element extensions | SwiftUI | Kotlin / Compose | Original Web content |
+| Vertical Bars | Native when available; otherwise Web rail | Web rail | Web rail |
+| `tab-accessory` extensions | Supported iOS tab host only | Original Web content | Original Web content |
+
+Web rails require the Ionic rail layout or an application-owned HTML `webHost`. Settings never create a device capability. `verticalBars.only: true` excludes element extensions on every platform; leave it false when combining a Web rail with Android extensions.
+
 ## All settings
 
 All nested objects merge with their defaults. For example, `ionic: { auto: { tabs: false } }` disables only tabs.
@@ -17,6 +29,7 @@ All nested objects merge with their defaults. For example, `ionic: { auto: { tab
 ```ts
 const shell = await enableNativeUIShell({
   root: document.body,
+  debug: false,
   ionic: {
     auto: {
       buttons: true,
@@ -40,6 +53,7 @@ const shell = await enableNativeUIShell({
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `ionic.auto` | `true` | `true` or omitted enables automatic Ionic projection; `false` disables it; an object selects kinds. Explicit `data-native-ui` sources and extensions are unaffected. |
+| `debug` | `false` | Log source elements and Web fallback reasons to the developer console; no props or application exception messages. |
 | `root` | `document.body` | Connected source subtree. Controls outside it are not projected. |
 | `ionic.auto.buttons` | `true` | Automatic Ionic toolbar/back/menu controls. Explicitly marked buttons are independent. |
 | `ionic.auto.tabs` | `true` | Ionic tabs and their registered native search. |
@@ -51,7 +65,7 @@ const shell = await enableNativeUIShell({
 | `verticalBars.buttonDefaultFill` | `'glass'` | `'glass'` or `'solid'` for source-style standalone Ionic buttons with no explicit fill. Explicit fills and the clear default inside `ion-buttons` take precedence. |
 | `verticalBars.popover` | `false` | Opt into Ionic popovers anchored to native rail buttons. Requires the Ionic entry and its optional peers; no effect on plain HTML. |
 | `verticalBars.placement` | omitted | Optional `{ edge: 'leading' \| 'trailing', webHost?: HTMLElement }`. Edge is a preference, not a device capability declaration. |
-| `extensions` | `[]` | Application-specific SwiftUI extensions, paired with native registrations. |
+| `extensions` | `[]` | Application-specific SwiftUI / Compose extensions, paired with native registrations. |
 
 `webHost` is an optional, application-styled HTML fallback rail. It must be connected in the same document and outside `root`, with neither element containing the other. Use a limited `root`, such as your `<main>`, when supplying a sibling host; the default `document.body` cannot have such a host. Without a host, unavailable HTML rails leave their original controls visible. Ionic's existing rail layout uses its own fallback adapter.
 
@@ -66,7 +80,7 @@ const shell = await enableNativeUIShell();
 // Alternative startup: Ionic with only Vertical Bars native presentation.
 const railOnly = await enableNativeUIShell({ verticalBars: { only: true } });
 
-// Alternative startup: only native Ionic tabs.
+// Alternative startup: automatically project only Ionic tabs; explicit sources remain independent.
 const tabsOnly = await enableNativeUIShell({
   ionic: { auto: { buttons: false, segment: false, fab: false } },
 });
@@ -138,6 +152,30 @@ shell.markForCheck();
 ```
 
 Use this after changing a property or reader state that does not cause a DOM mutation. It schedules a check, batches repeated requests, and sends only changed native snapshots. It returns `void`; it does not wait for native completion or render your framework's DOM. Calls after destruction are ignored. See [source checks and observation](native-ui-extensions.md#schedule-a-source-check).
+
+## Understand why a source stays on the Web
+
+Temporarily add `debug: true` to your existing startup options, then rebuild the Web app. Do not start a second shell to enable diagnostics:
+
+```ts
+const shell = await enableNativeUIShell({ debug: true, extensions: [myExtension] });
+console.info(shell.getStatus());
+```
+
+Open the WebView developer console and filter for `[Native UI]`. Diagnostics include the DOM source when available. Each reason is logged once per source during that activation, so scrolling or repeated `markForCheck()` calls do not flood the console. Props, action payloads and application exception messages are not logged.
+
+| Diagnostic | What to check |
+| --- | --- |
+| `web-fallback` | Platform support, native plugin registration, sync and native rebuild. |
+| `unregistered-extension` | Native registration name matches the DOM definition and runs before startup. Newly inserted sources are checked too. |
+| `reader-error` / `invalid-props` | Reader implementation, JSON-only values and the 64K size limit. |
+| `unsupported-placement` / `missing-tab-owner` | Platform and owning native tab host for a tab accessory. |
+| `source-hidden` / `source-clipped` / `source-focused` | Visibility, clipping/transformed ancestors, or a focused Web descendant. |
+| `reader-opt-out` / `rail-only` | Your reader returned null, or `verticalBars.only` excludes an element extension. |
+| `unsupported-control` | Supported markup, accessible name, fixed placement and styling. |
+| `native-rejected` | Native props decoding, placement or device support. The bridge reports rejection, not the native exception. |
+
+`getStatus()` summarizes the shell; it is not a per-element diagnostic report. Normal navigation, suspension and unsupported content can intentionally retain Web presentation. Turn debug off after investigating; it does not change projection eligibility.
 
 ## Compatibility
 

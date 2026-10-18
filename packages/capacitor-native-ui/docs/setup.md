@@ -1,5 +1,7 @@
 # Set up Native UI in an Ionic app
 
+> This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
+
 Keep your existing Web appearance and render supported Ionic controls natively on iOS. This guide does not require iOS theme stylesheets.
 
 Already using the iOS 27 theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). Without Ionic, follow the [HTML setup](framework-independent.md) instead.
@@ -48,6 +50,75 @@ Existing Ionic markup supplies labels, icons, disabled state, and actions. For e
 ```
 
 Keep your framework's handler on the original button and register the icon as usual. See [supported markup](native-ui-shell.md#supported-markup) for eligibility; unsupported controls stay on the Web.
+
+### Place startup in your framework's app root
+
+Keep one shell for the whole app, above routed pages. The following app-owned helper serializes asynchronous startup and cleanup, including React development remounts. Put your shared startup options here, and remove any other `enableNativeUIShell()` call:
+
+```ts
+// native-ui.ts — place beside your root component
+import { enableNativeUIShell, type NativeUIShellHandle } from '@rdlabo/capacitor-native-ui';
+// Without Ionic, use @rdlabo/capacitor-native-ui/core instead.
+
+let lifecycle = Promise.resolve();
+const report = (error: unknown) => console.error('Native UI lifecycle failed', error);
+
+export function mountNativeUI(): () => void {
+  let disposed = false;
+  let shell: NativeUIShellHandle | undefined;
+  lifecycle = lifecycle.then(async () => {
+    if (disposed) return;
+    shell = await enableNativeUIShell(); // Put your options here.
+    if (disposed) await shell.destroy();
+  }).catch(report);
+  return () => {
+    disposed = true;
+    lifecycle = lifecycle.then(async () => {
+      await shell?.destroy();
+      shell = undefined;
+    }).catch(report);
+  };
+}
+```
+
+Choose **one** framework below. The helper belongs to your application; it is not another package to install.
+
+**Angular:** call from the root component after the first DOM render, and register cleanup with its `DestroyRef`:
+
+```ts
+import { afterNextRender, DestroyRef, inject } from '@angular/core';
+import { mountNativeUI } from './native-ui';
+
+// In the constructor of your root AppComponent:
+const destroyRef = inject(DestroyRef);
+afterNextRender(() => {
+  const stop = mountNativeUI();
+  destroyRef.onDestroy(stop);
+});
+```
+
+**React:** use one effect in the root component that renders `IonApp`:
+
+```tsx
+import { useEffect } from 'react';
+import { mountNativeUI } from './native-ui';
+
+// Inside your root App component:
+useEffect(() => mountNativeUI(), []);
+```
+
+**Vue:** register lifecycle hooks in the root component's `<script setup>`:
+
+```ts
+import { onMounted, onBeforeUnmount } from 'vue';
+import { mountNativeUI } from './native-ui';
+
+let stop: (() => void) | undefined;
+onMounted(() => { stop = mountNativeUI(); });
+onBeforeUnmount(() => { stop?.(); });
+```
+
+These hooks manage the app's lifetime, not individual page transitions. Configure navigation below as well.
 
 ## 3. Coordinate navigation
 
@@ -110,4 +181,25 @@ try {
 }
 ```
 
-Use your router's completion/cancellation lifecycle to release the suspension. For Ionic interactive animations, the optional theme adapter implements that coordination for you.
+The promise must finish after the DOM and any page animation have settled, not merely after the URL changes. Connect browser back, gesture cancellation, and programmatic navigation to the same lifecycle. For Ionic, use the transition adapter above to cover animated and interactive transitions.
+
+For a routerless HTML app, this is a complete animated page switch. A canceled animation restores the old page before resuming projection:
+
+```ts
+async function showPage(current: HTMLElement, next: HTMLElement) {
+  const lease = await shell.suspend();
+  try {
+    current.hidden = true;
+    next.hidden = false;
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const animation = next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150 });
+      try { await animation.finished; }
+      catch { next.hidden = true; current.hidden = false; }
+    }
+  } finally {
+    await lease.resume();
+  }
+}
+```
+
+Serialize page switches if your app allows another navigation before this promise settles. Keep the source click handlers responsible for your router or history; the plugin does not navigate for you.

@@ -50,7 +50,11 @@ export const isDark = (style: CSSStyleDeclaration): boolean => {
   const themeScheme = style.getPropertyValue('--ios27-color-scheme').trim();
   if (themeScheme) return themeScheme === 'dark';
   const background = style.getPropertyValue('--ion-background-color-rgb').match(/\d+/g)?.slice(0, 3).map(Number);
-  return !!background && background.length === 3 && background[0] * 0.2126 + background[1] * 0.7152 + background[2] * 0.0722 < 128;
+  if (background?.length === 3) return background[0] * 0.2126 + background[1] * 0.7152 + background[2] * 0.0722 < 128;
+  const schemes = (style.colorScheme ?? '').split(/\s+/);
+  if (schemes.includes('dark') && !schemes.includes('light')) return true;
+  if (schemes.includes('light') && !schemes.includes('dark')) return false;
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches;
 };
 const permanentlyExcluded = '.ios-theme-disabled, .ios26-disabled, .ion-cloned-element, [hidden], [inert]';
 export const excluded = `${permanentlyExcluded}, .ion-page-hidden, .ion-page-invisible`;

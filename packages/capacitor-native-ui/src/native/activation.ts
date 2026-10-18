@@ -1,3 +1,4 @@
+import { createDiagnostics } from './shared/diagnostics';
 import { createHTMLWebProjection } from './html';
 import { validateExtensions, type NativeUIExtension } from './extensions';
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -185,6 +186,7 @@ export const enableNativeUIShell = (
   const controls = options.controls;
   const configuration = JSON.stringify([
     options.source ?? 'ionic',
+    options.debug === true,
     options.explicitControls !== false,
     options.verticalBars?.enabled !== false,
     options.verticalBars?.placement?.edge,
@@ -221,13 +223,15 @@ export const enableNativeUIShell = (
       // must wait until the old handle has finished clearing both surfaces.
       if (previousStop) await previousStop.catch(() => {});
       const platform = Capacitor.getPlatform();
-      const stopModals = platform === 'android' || options.source === 'html' ? () => {} : observeVerticalBarsModals(document);
+      const diagnose = createDiagnostics(options.debug);
+      const stopModals = options.source === 'html' ? () => {} : observeVerticalBarsModals(document);
       const prehide =
         platform !== 'android' && options.source !== 'html' && (options.controls === undefined || options.controls.toolbar === true)
           ? prehideVerticalBarsToolbarSources(document, () => options.verticalBars?.enabled !== false, options.root)
           : undefined;
-      const fallback = (reason: string) =>
-        manage(platform === 'android' ? web(reason) : webProjection(document, options), {
+      const fallback = (reason: string) => {
+        diagnose(`web-fallback: ${reason}`);
+        return manage(webProjection(document, options), {
           reason,
           suspend: () => prehide?.suspend(),
           destroy: () => {
@@ -236,6 +240,7 @@ export const enableNativeUIShell = (
           },
           stopping: stop,
         });
+      };
       if (platform !== 'ios' && platform !== 'android') return fallback('Requires Capacitor iOS or Android');
       if (!Capacitor.isPluginAvailable('IonicNativeUIShell')) return fallback('Native UI plugin is not registered');
       let runtime: NativeUIShellRuntimeHandle | undefined;
@@ -244,6 +249,16 @@ export const enableNativeUIShell = (
       try {
         const capabilities = await bounded(plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true }));
         if (!capabilities.supported) return fallback('Native UI is unavailable on this device');
+        const unavailableExtensions = new Map<string, string>();
+        for (const extension of extensions) {
+          if (platform === 'android' && extension.placement === 'tab-accessory')
+            unavailableExtensions.set(extension.name, 'unsupported-placement: tab-accessory requires a supported iOS tab host.');
+          else if (!capabilities.extensions?.includes(extension.name))
+            unavailableExtensions.set(
+              extension.name,
+              'unregistered-extension: register this name in the native app before enabling the shell, then rebuild.',
+            );
+        }
         if (platform === 'android') {
           runtime = await createRuntime(
             document,
@@ -251,13 +266,13 @@ export const enableNativeUIShell = (
             {
               ...options,
               source: 'extensions',
-              extensions: extensions.filter(
-                (extension) => extension.placement !== 'tab-accessory' && capabilities.extensions?.includes(extension.name),
-              ),
+              extensions,
+              unavailableExtensions,
             },
             () => false,
             options.verticalBarsOnly === true,
           );
+          runtime = combine(runtime, webProjection(document, options));
           metricsListener = await boundedListener(
             plugin.addListener('webViewMetricsChange', () => {
               document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
@@ -267,6 +282,7 @@ export const enableNativeUIShell = (
             stopping: stop,
             destroy: async () => {
               if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
+              stopModals();
             },
           });
         }
@@ -304,7 +320,7 @@ export const enableNativeUIShell = (
         const native = await createRuntime(
           document,
           plugin,
-          { ...options, extensions: extensions.filter((extension) => capabilities.extensions?.includes(extension.name)) },
+          { ...options, extensions, unavailableExtensions },
           nativeVerticalBars,
           options.verticalBarsOnly === true,
         );

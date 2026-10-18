@@ -4,6 +4,8 @@ title: Migration
 
 # Migration
 
+> This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
+
 ## Native UI package separation
 
 For a new native integration, follow [Native UI setup](setup.md) or, if you already use the iOS theme, [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). The steps below cover existing applications migrating package names and native projects.
