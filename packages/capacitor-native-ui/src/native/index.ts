@@ -1,8 +1,9 @@
 // Compatibility Ionic entrypoint. Standard HTML consumers can import /core without Ionic.
 import { startNativeUIShell as activate } from './startup';
 import type { NativeUIShellOptions, VerticalControlAreaOptions, VerticalControlAreaHandle } from './definitions';
-import { setVerticalControlAreaPlacement } from './activation';
-export { configureNativeTransition, setVerticalControlAreaPlacement, IonicNativeUIShell } from './activation';
+import { setVerticalControlAreaPlacement } from './legacy-layout';
+export { setVerticalControlAreaPlacement } from './legacy-layout';
+export { configureNativeTransition, IonicNativeUIShell } from './activation';
 export { defineNativeUI } from './extensions';
 export type { NativeUIExtension, NativeUIValue } from './extensions';
 export type {

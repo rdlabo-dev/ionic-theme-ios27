@@ -20,9 +20,9 @@ Add `.ios-theme-vertical-bars` to `ion-app` to reserve the rail region on the ph
 <ion-app class="ios-theme-vertical-bars">...</ion-app>
 ```
 
-The classes are physical — `-left` always means the physical left edge — because CSS and the native renderer work in physical coordinates. `setVerticalControlAreaPlacement` applies the logical `verticalBarEdge` reported by the device plugin and resolves it through the document's direction, so an RTL app does not need its own conversion.
+The classes are physical — `-left` always means the physical left edge — because CSS and the native renderer work in physical coordinates. `setVerticalBarsLayout` applies the logical `verticalBarEdge` reported by the device plugin and resolves it through the document's direction, so an RTL app does not need its own conversion.
 
-For Chrome development, no native plugin is needed — the class alone reserves `80px` to simulate iPhone Duo. When `setVerticalControlAreaPlacement` receives `{ edge, nativeEdge, inset }`, the inset replaces the fallback width, even when it is less than `80px`. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
+For Chrome development, no native plugin is needed — the class alone reserves `80px` to simulate iPhone Duo. When `setVerticalBarsLayout` receives `{ edge, inset }`, the inset replaces the fallback width, even when it is less than `80px`. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
 
 This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when placed beside the system UI. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
 
@@ -30,3 +30,19 @@ This keeps routers and component backgrounds full-viewport. `ion-content` moves 
 
 The mode is component-mode independent: an app can keep Ionic `mode: 'md'` on iOS and still enable Vertical Bars. No component needs `mode="ios"`.
 
+
+## Layout API
+
+```ts
+import { setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
+
+setVerticalBarsLayout({ edge: 'trailing', inset: 80 });
+// Optionally supply a root element and explicit RTL boolean as the next arguments.
+setVerticalBarsLayout({ edge: null }); // restore ordinary Web layout
+```
+
+Both helpers operate on Web CSS only and work without Capacitor or Native UI startup. The application supplies device state and owns subscriptions. Starting, disabling or destroying Native UI does not change these layout classes or the reserved inset. Unsupported native rails retain the chosen Web rail; choose `edge: null` explicitly if the application wants a horizontal layout instead.
+
+## Migration
+
+Move `setVerticalControlAreaPlacement` calls from the plugin to `setVerticalBarsLayout({ edge, inset })` from the theme. Move `applyFoldStateClasses` imports to the theme too. Remove `nativeEdge`: it no longer reports availability. Old plugin helpers remain deprecated compatibility adapters for Web CSS only; they are not used by normal startup.

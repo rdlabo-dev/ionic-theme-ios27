@@ -7,7 +7,6 @@ import type {
   NativeUIShellRuntimeOptions,
   NativeUIShellPlugin,
   VerticalBarEdge,
-  VerticalBarPlacement,
   WebViewMetrics,
 } from './definitions';
 import { createRuntime } from './runtime';
@@ -36,7 +35,6 @@ export type {
   NativeUIShellStatus,
   NativeUIShellSuspension,
   VerticalBarEdge,
-  VerticalBarPlacement,
   WebViewMetrics,
 } from './definitions';
 
@@ -147,59 +145,6 @@ const physicalVerticalBarEdge = (edge: Exclude<VerticalBarEdge, null>, rtl: bool
 
 const elementRtl = (element: Element): boolean => element.closest('[dir]')?.getAttribute('dir') === 'rtl';
 
-// Device facts are supplied by the application; the theme only compares placement.
-const nativePlacements = new WeakMap<HTMLElement, { edge: VerticalBarEdge; rtl?: boolean }>();
-const horizontalFallbackAttribute = 'data-native-ui-shell-vertical-bars-suspended';
-
-// Keep the requested rail while ordinary Native UI Shell temporarily uses its
-// horizontal layout. Removing the effective class restores normal measurements,
-// toolbar ownership and safe areas throughout the existing rendering pipeline.
-const observeNativeVerticalBarsLayout = (doc: Document): (() => void) => {
-  const reconcile = () => {
-    const app = doc.querySelector<HTMLElement>('ion-app');
-    if (!app) return;
-    const requested = app.classList.contains('ios-theme-vertical-bars') || app.hasAttribute(horizontalFallbackAttribute);
-    const suspended = requested && nativePlacements.get(app)?.edge == null;
-    if (app.hasAttribute(horizontalFallbackAttribute) !== suspended) app.toggleAttribute(horizontalFallbackAttribute, suspended);
-    if (app.classList.contains('ios-theme-vertical-bars') !== (requested && !suspended)) {
-      app.classList.toggle('ios-theme-vertical-bars', requested && !suspended);
-    }
-  };
-  const observer = new MutationObserver(reconcile);
-  observer.observe(doc.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-  doc.defaultView?.addEventListener('nativeUIShellRefresh', reconcile);
-  reconcile();
-  return () => {
-    observer.disconnect();
-    doc.defaultView?.removeEventListener('nativeUIShellRefresh', reconcile);
-    const app = doc.querySelector<HTMLElement>(`ion-app[${horizontalFallbackAttribute}]`);
-    if (app) {
-      app.removeAttribute(horizontalFallbackAttribute);
-      app.classList.add('ios-theme-vertical-bars');
-    }
-  };
-};
-
-/**
- * Applies one placement to the CSS layout and both Web/native projections.
- * Pass `rtl` when the document direction is known; otherwise the nearest `dir` attribute is used.
- */
-export const setVerticalControlAreaPlacement = (placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean): void => {
-  if (typeof document === 'undefined') return;
-  const app = document.querySelector<HTMLElement>('ion-app');
-  if (!app) throw new Error('Vertical Control Area requires ion-app');
-  const { edge, inset = 0 } = placement && typeof placement === 'object' ? placement : { edge: placement, inset: 0 };
-  if (placement && typeof placement === 'object' && placement.nativeEdge !== undefined) {
-    nativePlacements.set(app, { edge: placement.nativeEdge, rtl });
-  }
-  app.removeAttribute(horizontalFallbackAttribute);
-  app.classList.toggle('ios-theme-vertical-bars', edge !== null);
-  app.classList.toggle('ios-theme-vertical-bars-left', edge !== null && physicalVerticalBarEdge(edge, rtl ?? elementRtl(app)) === 'left');
-  if (edge && Number.isFinite(inset) && inset > 0) app.style.setProperty('--ios-theme-vertical-bars-native-inset', `${inset}px`);
-  else app.style.removeProperty('--ios-theme-vertical-bars-native-inset');
-  document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
-};
-
 const webProjection = (doc: Document, options: NativeUIShellRuntimeOptions, enabled: () => boolean = () => true) => {
   const ionic = () => createVerticalBarsWebProjection(doc, options, () => options.verticalBars?.enabled !== false && enabled());
   if (options.source === 'html') return createHTMLWebProjection(doc, options);
@@ -286,31 +231,34 @@ export const enableNativeUIShell = (
       let runtime: NativeUIShellRuntimeHandle | undefined;
       let overlays: OverlayController | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
-      let stopVerticalBarsLayout: (() => void) | undefined;
       try {
         const capabilities = await bounded(plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true }));
         if (!capabilities.supported) return fallback('Requires iOS 26 or later');
-        if (options.source !== 'html' && !options.verticalBarsOnly) stopVerticalBarsLayout = observeNativeVerticalBarsLayout(document);
-        // The application owns device state and selects the rail through placement classes.
+        let deviceEdge: VerticalBarEdge = null;
+        const ionicRoot = () => {
+          if (options.source === 'html') return null;
+          const root = options.root ?? document.body;
+          return root.closest<HTMLElement>('ion-app') ?? root.querySelector<HTMLElement>('ion-app');
+        };
+        const updateNativeEdge = () => {
+          const requested = options.verticalBars?.placement?.edge;
+          const root = ionicRoot() ?? options.root ?? document.body;
+          nativeState.edge =
+            deviceEdge && (!requested || requested === deviceEdge) ? physicalVerticalBarEdge(deviceEdge, elementRtl(root)) : undefined;
+        };
+        // Ionic layout is read-only input; device metrics determine native availability.
         const nativeVerticalBars = () => {
+          updateNativeEdge();
           if (options.verticalBars?.enabled === false) return false;
-          const app = document.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
-          if (!app) return !!nativeState.edge;
-          const reported = nativePlacements.get(app);
+          const app = ionicRoot();
+          if (!app?.classList.contains('ios-theme-vertical-bars')) return !!nativeState.edge;
           const physicalEdge = app.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right';
-          const available = reported
-            ? reported.edge && physicalVerticalBarEdge(reported.edge, reported.rtl ?? elementRtl(app))
-            : nativeState.edge;
-          return !!available && physicalEdge === available;
+          return physicalEdge === nativeState.edge;
         };
         const applyMetrics = (metrics: WebViewMetrics) => {
           if (!options.verticalBarsOnly) nativeWebViewMetrics.radius = metrics.radius;
-          const requested = options.verticalBars?.placement?.edge;
-          const edge = metrics.verticalBarEdge;
-          nativeState.edge =
-            edge && (!requested || requested === edge)
-              ? physicalVerticalBarEdge(edge, elementRtl(options.root ?? document.body))
-              : undefined;
+          deviceEdge = metrics.verticalBarEdge ?? null;
+          updateNativeEdge();
           document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
         };
         metricsListener = await boundedListener(plugin.addListener('webViewMetricsChange', applyMetrics));
@@ -345,7 +293,6 @@ export const enableNativeUIShell = (
               await overlays?.destroy();
             } finally {
               if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
-              stopVerticalBarsLayout?.();
               prehide?.stop();
               stopModals();
             }
@@ -355,7 +302,6 @@ export const enableNativeUIShell = (
         await overlays?.destroy().catch(() => {});
         await runtime?.destroy().catch(() => {});
         if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
-        stopVerticalBarsLayout?.();
         return fallback(error instanceof Error ? error.message : String(error));
       }
     })());

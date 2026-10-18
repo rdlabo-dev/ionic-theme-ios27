@@ -99,4 +99,4 @@ Disabling rail projection does not remove application CSS or change application-
 
 ## Compatibility
 
-The existing global `enableVerticalControlArea()` remains a startup wrapper for Ionic rail-only usage, and `setVerticalControlAreaPlacement()` continues to accept application/device placement. New code should use the shared startup and handle methods above. See [migration](migration.md) for legacy settings and the changed partial-control defaults.
+The existing global `enableVerticalControlArea()` remains a startup wrapper for Ionic rail-only usage, while `setVerticalControlAreaPlacement()` is a deprecated Web CSS compatibility adapter. Its `nativeEdge` input is ignored; native availability is obtained from the plugin’s own device metrics. Use the theme’s `setVerticalBarsLayout({ edge, inset })` for Web layout. New code should use the shared startup and handle methods above. See [migration](migration.md) for legacy settings and the changed partial-control defaults.

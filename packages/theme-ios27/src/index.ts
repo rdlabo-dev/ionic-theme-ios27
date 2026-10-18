@@ -75,3 +75,5 @@ export const registerTabBarEffect = (targetElement: HTMLElement): registeredEffe
     },
   };
 };
+
+export { setVerticalBarsLayout, applyFoldStateClasses, type VerticalBarsLayout, type FoldState } from './layout';

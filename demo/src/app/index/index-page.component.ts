@@ -19,7 +19,7 @@ import {
   ToggleCustomEvent,
 } from '@demo/ionic';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { setVerticalControlAreaPlacement } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 import { Foldable } from '@erkamyaman/capacitor-foldable';
 
 interface IComponent {
@@ -88,7 +88,7 @@ export class IndexPageComponent {
   readonly #document = inject(DOCUMENT);
 
   get verticalBarsModeEnabled() {
-    return !!this.#document.querySelector('ion-app.ios-theme-vertical-bars, ion-app[data-native-ui-shell-vertical-bars-suspended]');
+    return !!this.#document.querySelector('ion-app.ios-theme-vertical-bars');
   }
 
   async navigateNativeUiShell() {
@@ -104,8 +104,8 @@ export class IndexPageComponent {
   }
 
   async changeVerticalBarsMode(event: ToggleCustomEvent) {
-    if (!event.detail.checked) return setVerticalControlAreaPlacement(null);
+    if (!event.detail.checked) return setVerticalBarsLayout({ edge: null });
     const { verticalBarEdge, inset } = await Foldable.getBarPlacement();
-    setVerticalControlAreaPlacement({ edge: verticalBarEdge ?? 'trailing', nativeEdge: verticalBarEdge, inset });
+    setVerticalBarsLayout({ edge: verticalBarEdge ?? 'trailing', inset });
   }
 }

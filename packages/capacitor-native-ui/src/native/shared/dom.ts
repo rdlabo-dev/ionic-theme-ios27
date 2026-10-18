@@ -159,7 +159,10 @@ export const setVerticalBarsPlacement = (element: HTMLElement, rail: boolean): v
 export const clearVerticalBarsPlacement = (element: HTMLElement): void => {
   verticalBarsPlacement.delete(element);
 };
-export const verticalBarsOwned = (element: HTMLElement): boolean => verticalBarsPlacement.get(element) === true;
+// Explicit Web placement remains authoritative even when added after initial capture.
+export const verticalBarsOwned = (element: HTMLElement): boolean =>
+  verticalBarsPlacement.get(element) === true &&
+  !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only');
 
 export const isVerticalBarsToolbarAction = (element: HTMLElement): boolean =>
   verticalBarsOwned(element) && !isExcluded(element, verticalBarsEnteringPage(element)) && !isShellDisabled(element);

@@ -55,7 +55,7 @@ const mockNative = async (page: Page) => {
         return { supported: true };
       },
       async getWebViewMetrics() {
-        return { radius: 0 };
+        return { radius: 0, verticalBarEdge: 'trailing' };
       },
       async update(options: ShellSnapshot) {
         this.updates.push(options);

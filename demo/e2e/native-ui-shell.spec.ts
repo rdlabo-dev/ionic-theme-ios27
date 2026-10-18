@@ -63,7 +63,7 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
         return { revision: this.updates.at(-1)?.revision, items: (this as ShellMock).geometry ?? {} };
       },
       async getWebViewMetrics() {
-        return { radius: 0 };
+        return { radius: 0, verticalBarEdge: nativeEdge === 'unreported' ? null : nativeEdge };
       },
       async update(options: ShellSnapshot) {
         this.updates.push(options);
@@ -1005,6 +1005,7 @@ test('reported rail inset updates the layout without an edge change and clears w
     await page.evaluate(
       ({ verticalBarEdge, inset }) => {
         Capacitor.registerPlugin<ShellMock>('Foldable').notifyListeners('barPlacementChange', { verticalBarEdge, inset });
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').notifyListeners('webViewMetricsChange', { radius: 0, verticalBarEdge });
       },
       { verticalBarEdge, inset },
     );
@@ -1027,9 +1028,7 @@ test('reported rail inset updates the layout without an edge change and clears w
 
 for (const initialEdge of [null, 'unreported'] as const) {
   for (const verticalBarsOnly of [true, false]) {
-    test(`${initialEdge ?? 'null'} native edge restores ${verticalBarsOnly ? 'Web rail' : 'ordinary Native UI Shell'} and recovers`, async ({
-      page,
-    }) => {
+    test(`${initialEdge ?? 'null'} native edge preserves Web rail (rail-only: ${verticalBarsOnly}) and recovers`, async ({ page }) => {
       await page.setViewportSize({ width: 700, height: 900 });
       await mockNative(page, false, initialEdge);
       await page.goto(`/main/index/native-ui-shell${verticalBarsOnly ? '?verticalBarsOnly' : ''}`);
@@ -1045,28 +1044,23 @@ for (const initialEdge of [null, 'unreported'] as const) {
       const reportEdge = async (verticalBarEdge: 'leading' | 'trailing' | null) => {
         await page.evaluate((edge) => {
           Capacitor.registerPlugin<ShellMock>('Foldable').notifyListeners('barPlacementChange', { verticalBarEdge: edge });
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').notifyListeners('webViewMetricsChange', {
+            radius: 0,
+            verticalBarEdge: edge,
+          });
         }, verticalBarEdge);
       };
       await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
       const expectFallback = async () => {
         await expect.poll(async () => (await snapshot())?.controls.every((control) => control.placement !== 'vertical-bars')).toBe(true);
-        if (verticalBarsOnly) {
-          await expect(app).toHaveClass(/ios-theme-vertical-bars/);
-          await expect(clone).toBeVisible();
-          await expect(tabs).not.toHaveAttribute('data-native-ui-shell', '');
-          await expect(tabs).toBeVisible();
-        } else {
-          await expect(app).not.toHaveClass(/(?:^| )ios-theme-vertical-bars(?: |$)/);
-          await expect(app).toHaveAttribute('data-native-ui-shell-vertical-bars-suspended', '');
-          await expect(clone).toHaveCount(0);
-          await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
-          await expect(save).toHaveAttribute('data-native-ui-shell', '');
-          await expect.poll(async () => (await snapshot())?.controls.some((control) => control.kind === 'tab-bar')).toBe(true);
-        }
+        await expect(app).toHaveClass(/ios-theme-vertical-bars/);
+        await expect(app).not.toHaveAttribute('data-native-ui-shell-vertical-bars-suspended', '');
+        await expect(clone).toBeVisible();
+        await expect(tabs).not.toHaveAttribute('data-native-ui-shell', '');
+        await expect(tabs).toBeVisible();
       };
       await expectFallback();
-      if (verticalBarsOnly) await clone.click();
-      else await activate(page, 'Save');
+      await clone.click();
       await expect(page.locator('[data-save-count]')).toHaveText('1');
 
       await reportEdge('trailing');
@@ -1078,8 +1072,7 @@ for (const initialEdge of [null, 'unreported'] as const) {
 
       await reportEdge(null);
       await expectFallback();
-      if (verticalBarsOnly) await clone.click();
-      else await activate(page, 'Save');
+      await clone.click();
       await expect(page.locator('[data-save-count]')).toHaveText('2');
 
       // The last explicit null survives updates and layout changes.
@@ -3132,6 +3125,10 @@ test('verticalBars return to native projection when the requested edge matches a
       Capacitor.registerPlugin<{ notifyListeners(name: string, value: unknown): void }>('Foldable').notifyListeners('barPlacementChange', {
         verticalBarEdge: 'trailing',
       });
+      Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').notifyListeners('webViewMetricsChange', {
+        radius: 0,
+        verticalBarEdge: 'trailing',
+      });
     });
   await rotate();
   await expect(clone).toHaveCount(0);
@@ -4066,4 +4063,26 @@ test('rail enable and disable preserve the active shell', async ({ page }) => {
       ),
     )
     .toBe(true);
+});
+
+test('native rail toggles and teardown preserve application-owned layout', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui-shell');
+  const app = page.locator('ion-app');
+  await app.evaluate((element) => {
+    element.classList.add('ios-theme-vertical-bars');
+    (element as HTMLElement).style.setProperty('--ios-theme-vertical-bars-native-inset', '72px');
+  });
+  const layout = () =>
+    app.evaluate((element) => ({
+      vertical: element.classList.contains('ios-theme-vertical-bars'),
+      inset: (element as HTMLElement).style.getPropertyValue('--ios-theme-vertical-bars-native-inset'),
+    }));
+  const expected = { vertical: true, inset: '72px' };
+  await app.evaluate(async (element) => (element as TestAppElement).nativeUIShell!.disableVerticalControlArea());
+  expect(await layout()).toEqual(expected);
+  await app.evaluate(async (element) => (element as TestAppElement).nativeUIShell!.enableVerticalControlArea());
+  expect(await layout()).toEqual(expected);
+  await app.evaluate(async (element) => (element as TestAppElement).nativeUIShell!.destroy());
+  expect(await layout()).toEqual(expected);
 });

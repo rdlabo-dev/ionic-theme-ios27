@@ -110,3 +110,22 @@ test('disabling rail projection releases prehidden sources without losing placem
     document.body.replaceChildren();
   }
 });
+
+test('late horizontal-only placement restores a captured Web search action', async () => {
+  document.body.innerHTML = markup;
+  const group = document.querySelector<HTMLElement>('ion-buttons')!;
+  const prehide = prehideVerticalBarsToolbarSources(document);
+  try {
+    expect(group.classList.contains(prehiddenClass)).toBe(true);
+    group.classList.add('ios-theme-horizontal-only');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(group.classList.contains(prehiddenClass)).toBe(false);
+    group.classList.remove('ios-theme-horizontal-only');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(group.classList.contains(prehiddenClass)).toBe(true);
+  } finally {
+    prehide.stop();
+    document.body.replaceChildren();
+    document.documentElement.className = '';
+  }
+});

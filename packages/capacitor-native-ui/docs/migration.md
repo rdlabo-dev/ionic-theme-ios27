@@ -125,3 +125,7 @@ Run `npx cap sync ios` after updating: JavaScript now sends framework-independen
 - Legacy top-level options and global `enabled: false` remain compatible; use `shell.destroy()` to stop new code. If both old and new settings are supplied, the new nested settings take precedence.
 
 See [all settings and defaults](configuration.md) and [plain HTML setup](framework-independent.md). Standard HTML buttons use the same Swift controls as Ionic; they do not require an application-specific Swift extension.
+
+## Web layout ownership
+
+Import `setVerticalBarsLayout` and `applyFoldStateClasses` from `@rdlabo/ionic-theme-ios27` for theme CSS. Replace `setVerticalControlAreaPlacement({ edge, nativeEdge, inset })` with `setVerticalBarsLayout({ edge, inset })`. Native UI now reads availability from its own device metrics; `nativeEdge` is ignored by the deprecated compatibility helper. Normal startup, disabled rails and teardown do not remove theme classes or alter reserved Web spacing. An unavailable native rail keeps the application’s Web rail layout; applications wanting a horizontal layout must select it themselves. Native-only applications can continue to use their own layout CSS.

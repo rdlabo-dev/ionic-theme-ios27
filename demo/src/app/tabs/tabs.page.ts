@@ -19,7 +19,7 @@ import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { registeredEffect, registerTabBarEffect } from '@rdlabo/ionic-theme-ios27';
-import { applyFoldStateClasses } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
 import { Foldable, type FoldState } from '@erkamyaman/capacitor-foldable';
 import { MiniPlayerComponent } from '../mini-player/mini-player.component';
 import { Capacitor } from '@capacitor/core';

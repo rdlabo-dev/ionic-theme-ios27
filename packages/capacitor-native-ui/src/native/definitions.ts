@@ -112,12 +112,16 @@ export interface VerticalBarPlacement {
   edge: VerticalBarEdge;
   /** Explicit rail width in CSS pixels; omitted to use the stylesheet's safe-area rules. */
   inset?: number;
-  /** Native logical edge reported by the application's device plugin. Null or an unregistered edge uses a Web rail in verticalBarsOnly mode, or the ordinary Native UI Shell layout otherwise. Omission keeps the last supplied value. */
+  /** Ignored. Native availability is read from the plugin’s own device metrics.
+   * @deprecated This input no longer reports native availability.
+   */
   nativeEdge?: VerticalBarEdge;
 }
 
 export interface VerticalControlAreaHandle extends NativeUIShellHandle {
-  /** Applies the application's chosen placement to both Web and native controls. */
+  /** Legacy Web CSS adapter. Use the theme setVerticalBarsLayout helper instead.
+   * @deprecated Web layout belongs to the theme or application.
+   */
   setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean): void;
 }
 

@@ -38,7 +38,7 @@ On supported Capacitor iOS, eligible controls use native SwiftUI rendering. Web,
 
 ## Placement and Web layout
 
-The application or theme owns Web spacing, rail positioning, and fallback styles. The plugin reads the supplied Ionic layout and placement; it does not reserve Web content space on its own. Use `setVerticalControlAreaPlacement()` to supply placement and inset, and arrange Web content consistently in your layout.
+The application or theme owns Web spacing, rail positioning, and fallback styles. The plugin reads the supplied Ionic layout and placement; it does not reserve Web content space on its own. With the iOS27 theme, use its `setVerticalBarsLayout({ edge, inset })` helper. Native-only applications use their own CSS; no theme helper is required. Native availability comes from device metrics, independently of Web layout.
 
 The [theme's optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md) supplies one ready-made layout. Its classes and CSS variables are not a requirement to install the theme package: applications may provide equivalent layout themselves. The runtime currently uses the `ios-theme-vertical-bars` class on `ion-app` to identify the rail layout, regardless of who supplies its styles.
 
@@ -203,7 +203,7 @@ The generated reference below documents the handle returned by `enableVerticalCo
 setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean | undefined) => void
 ```
 
-Applies the application's chosen placement to both Web and native controls.
+Legacy Web CSS adapter. Use the theme setVerticalBarsLayout helper instead.
 
 | Param           | Type                                                                                                                    |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -240,11 +240,11 @@ Restore rail sources to the Web without stopping ordinary native controls. Rejec
 
 #### VerticalBarPlacement
 
-| Prop             | Type                                                        | Description                                                                                                                                                                                                                       |
-| ---------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`edge`**       | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> |                                                                                                                                                                                                                                   |
-| **`inset`**      | <code>number</code>                                         | Explicit rail width in CSS pixels; omitted to use the stylesheet's safe-area rules.                                                                                                                                               |
-| **`nativeEdge`** | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> | Native logical edge reported by the application's device plugin. Null or an unregistered edge uses a Web rail in verticalBarsOnly mode, or the ordinary Native UI Shell layout otherwise. Omission keeps the last supplied value. |
+| Prop             | Type                                                        | Description                                                                         |
+| ---------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **`edge`**       | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> |                                                                                     |
+| **`inset`**      | <code>number</code>                                         | Explicit rail width in CSS pixels; omitted to use the stylesheet's safe-area rules. |
+| **`nativeEdge`** | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> | Ignored. Native availability is read from the plugin’s own device metrics.          |
 
 
 ### Type Aliases

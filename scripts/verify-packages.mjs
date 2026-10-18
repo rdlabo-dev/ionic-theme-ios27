@@ -174,14 +174,17 @@ try {
   rmSync(join(dir, 'node_modules/@capacitor'));
   execFileSync(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
-    import { iosTransitionAnimation, withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
+    import { iosTransitionAnimation, withNativeUIShellTransition, setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
     assert.equal(typeof iosTransitionAnimation, 'function');
+    assert.equal(typeof setVerticalBarsLayout, 'function');
+    assert.equal(typeof applyFoldStateClasses, 'function');
+    setVerticalBarsLayout({ edge: null });
     const animation = { play() {} };
     assert.equal(withNativeUIShellTransition(() => animation)({}), animation);
     await assert.rejects(import('@capacitor/core'), { code: 'ERR_MODULE_NOT_FOUND' });
   `], { cwd: dir, stdio: 'inherit' });
   writeFileSync(consumer, `
-    import { iosTransitionAnimation, withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
+    import { iosTransitionAnimation, withNativeUIShellTransition, setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
     withNativeUIShellTransition(iosTransitionAnimation);
   `);
   execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], { cwd: dir, stdio: 'inherit' });
