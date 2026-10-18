@@ -3,12 +3,12 @@
 Native UI Shell, Vertical Bars and app-local SwiftUI extensions for Ionic and Capacitor. Web markup and application state remain the source of truth.
 
 ```sh
-npm install @ionic-theme/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui
 npx cap sync
 ```
 
 ```ts
-import { enableNativeUIShell } from '@ionic-theme/capacitor-native-ui';
+import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 
 await enableNativeUIShell();
 ```

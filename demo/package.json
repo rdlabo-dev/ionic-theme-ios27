@@ -46,7 +46,7 @@
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0",
-    "@ionic-theme/capacitor-native-ui": "file:../packages/capacitor-native-ui"
+    "@rdlabo/capacitor-native-ui": "file:../packages/capacitor-native-ui"
   },
   "devDependencies": {
     "@angular/build": "^21.0.0",

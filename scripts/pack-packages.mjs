@@ -20,7 +20,7 @@ try {
   const locations = new Map(
     packages.map((pkg) => [
       pkg.name,
-      join(root, pkg.name === '@ionic-theme/capacitor-native-ui' ? 'packages/capacitor-native-ui' : 'packages/theme-ios27'),
+      join(root, pkg.name === '@rdlabo/capacitor-native-ui' ? 'packages/capacitor-native-ui' : 'packages/theme-ios27'),
     ]),
   );
   const archives = [];

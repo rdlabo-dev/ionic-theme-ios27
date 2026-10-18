@@ -11,12 +11,7 @@ import {
   type TabBarSearchableFunction,
   TabBarSearchableType,
 } from '@rdlabo/ionic-theme-utils';
-import {
-  isNativeUIShell,
-  registerNativeSearch,
-  requestNativeSearch,
-  suspendNativeUIShell,
-} from '@ionic-theme/capacitor-native-ui/integration';
+import { isNativeUIShell, registerNativeSearch, requestNativeSearch, suspendNativeUIShell } from '@rdlabo/capacitor-native-ui/integration';
 import {
   createCloseButtonsAnimation,
   createEffectAnimation,

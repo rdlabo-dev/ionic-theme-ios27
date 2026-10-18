@@ -19,7 +19,7 @@ import {
   ToggleCustomEvent,
 } from '@demo/ionic';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { setVerticalControlAreaPlacement } from '@ionic-theme/capacitor-native-ui/vertical-bars';
+import { setVerticalControlAreaPlacement } from '@rdlabo/capacitor-native-ui/vertical-bars';
 import { Foldable } from '@erkamyaman/capacitor-foldable';
 
 interface IComponent {

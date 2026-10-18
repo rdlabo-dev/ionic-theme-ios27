@@ -12,7 +12,7 @@ Available in `1.2.0` as a **preview** feature. APIs and supported behavior may c
 
 ## Enable Vertical Bars
 
-Install `@ionic-theme/capacitor-native-ui` as a direct dependency alongside `@rdlabo/ionic-theme-ios27`. For Capacitor iOS, run `npx cap sync ios` afterward. The native package provides the runtime; the theme package provides the Web styles.
+Install `@rdlabo/capacitor-native-ui` as a direct dependency alongside `@rdlabo/ionic-theme-ios27`. For Capacitor iOS, run `npx cap sync ios` afterward. The native package provides the runtime; the theme package provides the Web styles.
 
 Load the opt-in stylesheet:
 
@@ -23,7 +23,7 @@ Load the opt-in stylesheet:
 After `ion-app` is mounted, start one runtime:
 
 ```ts
-import { enableVerticalControlArea } from '@ionic-theme/capacitor-native-ui/vertical-bars';
+import { enableVerticalControlArea } from '@rdlabo/capacitor-native-ui/vertical-bars';
 
 const rail = await enableVerticalControlArea();
 ```
@@ -64,7 +64,7 @@ The SwiftUI surface is clipped and hit-tested to the system rail. Web content re
 Native popover presentation is limited to popovers anchored to accepted native Vertical Bars `ion-button` controls. It is available with the standalone Vertical Bars runtime; the full Native UI Shell is not required. Enable it explicitly when starting the runtime (`popover` defaults to `false`):
 
 ```ts
-import { enableVerticalControlArea } from '@ionic-theme/capacitor-native-ui/vertical-bars';
+import { enableVerticalControlArea } from '@rdlabo/capacitor-native-ui/vertical-bars';
 
 const rail = await enableVerticalControlArea({
   controls: { popover: true },

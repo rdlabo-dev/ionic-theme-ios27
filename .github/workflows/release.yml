@@ -115,10 +115,10 @@ jobs:
 
           echo "Publishing... $IS_STABLE"
           if [ "$IS_STABLE" = "true" ]; then
-            npm publish "$RUNNER_TEMP/npm-release/ionic-theme-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag latest
+            npm publish "$RUNNER_TEMP/npm-release/rdlabo-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag latest
             npm publish "$RUNNER_TEMP/npm-release/rdlabo-ionic-theme-ios27-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag latest
           elif echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$'; then
-            npm publish "$RUNNER_TEMP/npm-release/ionic-theme-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag next
+            npm publish "$RUNNER_TEMP/npm-release/rdlabo-capacitor-native-ui-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag next
             npm publish "$RUNNER_TEMP/npm-release/rdlabo-ionic-theme-ios27-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag next
           else
             echo "::error::Refusing to publish an invalid release version: $VERSION"
@@ -557,7 +557,7 @@ jobs:
           PACKAGES=("$RUNNER_TEMP"/npm-candidate/*.tgz)
           NAMES=("$EXPECTED_NAME")
           if [ "$EXPECTED_NAME" = "@rdlabo/ionic-theme-ios27" ]; then
-            NAMES=(@ionic-theme/capacitor-native-ui "$EXPECTED_NAME")
+            NAMES=(@rdlabo/capacitor-native-ui "$EXPECTED_NAME")
           elif [ "$EXPECTED_NAME" != "@rdlabo/ionic-theme-ios26" ]; then
             echo "::error::Unexpected package identity."
             exit 1
@@ -577,7 +577,7 @@ jobs:
             ACTUAL_NAME=$(MANIFEST="$MANIFEST" node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           const pkg = JSON.parse(process.env.MANIFEST);
-          const native = '@ionic-theme/capacitor-native-ui';
+          const native = '@rdlabo/capacitor-native-ui';
           const theme = '@rdlabo/ionic-theme-ios27';
           const allowed = process.env.EXPECTED_NAME === theme ? [theme, native] : [process.env.EXPECTED_NAME];
           assert(allowed.includes(pkg.name), 'Unexpected package identity');
@@ -636,7 +636,7 @@ jobs:
               ? `CI passed and a repository owner or maintainer requested \`/beta\` for commit \`${shortSha}\``
               : `CI passed for the merge commit \`${shortSha}\``;
             const install = [process.env.PACKAGE_NAME];
-            if (process.env.PACKAGE_NAME === '@rdlabo/ionic-theme-ios27') install.push('@ionic-theme/capacitor-native-ui');
+            if (process.env.PACKAGE_NAME === '@rdlabo/ionic-theme-ios27') install.push('@rdlabo/capacitor-native-ui');
             const installCommand = install.map(name => `${name}@${process.env.VERSION}`).join(' ');
             const body = `${marker}\n### ${title}\n\n${authorization}. Install the immutable version with:\n\n\`\`\`sh\nnpm install ${installCommand}\n\`\`\``;
             await core.summary.addRaw(body).write();

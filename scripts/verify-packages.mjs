@@ -26,7 +26,7 @@ try {
   );
   assert.equal(packed.length, 2);
   sourceFiles.forEach((file, index) => assert.equal(readFileSync(file, 'utf8'), originals[index], `${file} changed while packing`));
-  const nativeName = '@ionic-theme/capacitor-native-ui';
+  const nativeName = '@rdlabo/capacitor-native-ui';
   const manifests = new Map();
   for (const archive of packed) {
     const manifest = JSON.parse(execFileSync('tar', ['-xOf', join(dir, archive.filename), 'package/package.json'], { encoding: 'utf8' }));
@@ -119,8 +119,8 @@ try {
       '-e',
       `
     import assert from 'node:assert/strict';
-    import * as native from '@ionic-theme/capacitor-native-ui';
-    import * as vertical from '@ionic-theme/capacitor-native-ui/vertical-bars';
+    import * as native from '@rdlabo/capacitor-native-ui';
+    import * as vertical from '@rdlabo/capacitor-native-ui/vertical-bars';
     assert.equal(typeof native.enableNativeUIShell, 'function');
     assert.equal(typeof vertical.enableVerticalControlArea, 'function');
     for (const entry of ['native', 'vertical-bars']) {

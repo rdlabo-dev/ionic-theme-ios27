@@ -5,7 +5,7 @@
 | Directory                      | npm package                        | Responsibility                                                                            |
 | ------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------- |
 | `packages/theme-ios27`         | `@rdlabo/ionic-theme-ios27`        | Sass/CSS, Ionic Web behavior and page transitions                                         |
-| `packages/capacitor-native-ui` | `@ionic-theme/capacitor-native-ui` | Native UI Shell, Vertical Bars runtime, app-local extensions and the Capacitor iOS plugin |
+| `packages/capacitor-native-ui` | `@rdlabo/capacitor-native-ui` | Native UI Shell, Vertical Bars runtime, app-local extensions and the Capacitor iOS plugin |
 
 The repository root is private. Native UI does not depend on the theme. The theme depends on Native UI for shared transition/search coordination; importing the ordinary theme entry does not load Capacitor. There is one native runtime and one Capacitor registration.
 
@@ -17,13 +17,13 @@ Theme CSS paths and the ordinary `@rdlabo/ionic-theme-ios27` entry stay unchange
 
 | Removed import                            | Replacement                                      |
 | ----------------------------------------- | ------------------------------------------------ |
-| `@rdlabo/ionic-theme-ios27/native`        | `@ionic-theme/capacitor-native-ui`               |
-| `@rdlabo/ionic-theme-ios27/vertical-bars` | `@ionic-theme/capacitor-native-ui/vertical-bars` |
+| `@rdlabo/ionic-theme-ios27/native`        | `@rdlabo/capacitor-native-ui`               |
+| `@rdlabo/ionic-theme-ios27/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
 
 **Native installation changes:** Capacitor discovers direct application dependencies. Apps using native projection must add the native package explicitly, then sync:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27 @ionic-theme/capacitor-native-ui
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
 npx cap sync ios
 ```
 
@@ -51,4 +51,4 @@ Build Native UI before the theme; the root build command enforces this order. Th
 
 Both packages initially share the root version. Update root and workspace versions together, and keep the theme's native dependency as `file:../capacitor-native-ui`. Existing `ios27-v` tags release Native UI first, then the theme. `npm run pack:packages` stages the publishable files and replaces local dependencies with matching versions only in the archives; the working tree and lockfiles stay unchanged. Use this command instead of raw `npm pack` or workspace publication. Candidate artifacts contain both packages with matching candidate versions; publication validates both identities and the dependency before publishing either archive.
 
-Before the first release, configure npm publishing access/trusted publishing for `@ionic-theme/capacitor-native-ui`. This migration does not publish packages or transfer the repository. Future independent versioning can be introduced when release needs diverge.
+Before the first release, configure npm publishing access/trusted publishing for `@rdlabo/capacitor-native-ui`. This migration does not publish packages or transfer the repository. Future independent versioning can be introduced when release needs diverge.

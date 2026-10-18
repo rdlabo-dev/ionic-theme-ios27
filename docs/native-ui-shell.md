@@ -21,14 +21,14 @@ This package revisits that idea for Ionic and Liquid Glass. Existing Ionic marku
 Install the native package as a direct application dependency so Capacitor can discover it:
 
 ```bash
-npm install @ionic-theme/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui
 npx cap sync ios
 ```
 
 After installing the theme CSS described in the README, enable the shell once at application startup:
 
 ```ts
-import { enableNativeUIShell } from '@ionic-theme/capacitor-native-ui';
+import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 
 void enableNativeUIShell();
 ```
@@ -36,14 +36,14 @@ void enableNativeUIShell();
 `enableNativeUIShell()` also reads the WebView's effective top-left corner radius and applies it to page transitions. To configure only the transition without enabling native controls, call:
 
 ```ts
-import { configureNativeTransition } from '@ionic-theme/capacitor-native-ui';
+import { configureNativeTransition } from '@rdlabo/capacitor-native-ui';
 
 await configureNativeTransition();
 ```
 
 Keep the existing `navAnimation: iosTransitionAnimation` setting. No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The native plugin uses Swift Package Manager (SPM). For an existing CocoaPods app, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
 
-This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry point does not import Capacitor. Native runtime entry points require `@capacitor/core`, including in browser builds. Native sources are still detected and built by Capacitor's sync when `@ionic-theme/capacitor-native-ui` is a direct dependency of a Capacitor project, even if the application does not call `enableNativeUIShell()`.
+This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry point does not import Capacitor. Native runtime entry points require `@capacitor/core`, including in browser builds. Native sources are still detected and built by Capacitor's sync when `@rdlabo/capacitor-native-ui` is a direct dependency of a Capacitor project, even if the application does not call `enableNativeUIShell()`.
 
 Native appearance follows the applied class, system or always-dark theme CSS. System theme changes are synchronized while the runtime is active.
 
@@ -226,7 +226,7 @@ The native material and control appearance follow the running iOS version; an iO
 
 iPhone Duo support, including standalone vertical bars without Native UI Shell, is available as a **preview** in `1.2.0` alongside Native UI Shell. Its APIs and supported behavior may change.
 
-The standalone Vertical Control Area entry point (`@ionic-theme/capacitor-native-ui/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) and `dist/css/vertical-bars.css` work without loading the iOS 27 theme. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/iphone-duo) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
 Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](https://docs.rdlabo.dev/projects/ionic-theme-ios27/docs/vertical-bars) for rail layout, native fallback and supported overlays.
 
