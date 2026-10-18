@@ -43,3 +43,5 @@ Both packages support Ionic 8.8.1 or later within Ionic 8 or 9. Native UI requir
 - [Integration guides](integration/README.md): combine packages and connect layouts and device behavior.
 - [Theme migration](packages/theme-ios27/docs/migration.md) · [Native UI migration](packages/capacitor-native-ui/docs/migration.md).
 - [Workspace development and releases](integration/docs/monorepo.md).
+
+Use standard native buttons without Ionic through the [plain HTML adapter](packages/capacitor-native-ui/docs/framework-independent.md), or keep Ionic markup and enable only [Vertical Bars](packages/capacitor-native-ui/docs/configuration.md). Both use the same native renderers.

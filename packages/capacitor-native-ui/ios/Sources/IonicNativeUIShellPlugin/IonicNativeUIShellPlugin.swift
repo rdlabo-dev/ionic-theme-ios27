@@ -40,8 +40,16 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private var restoreTopEdge: (() -> Void)?
     private var observers: [NSObjectProtocol] = []
     private var lastWebViewRadius: Double?
+    private var lastVerticalBarEdge: String?
 
     public override func load() {
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *), let webView = bridge?.webView {
+            webView.registerForTraitChanges(UITraitCollection.systemTraitsAffectingVerticalBarEdge) { [weak self] (_: WKWebView, _: UITraitCollection) in
+                self?.notifyWebViewMetricsChange()
+            }
+        }
+        #endif
         for name in [UIApplication.didEnterBackgroundNotification, UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardWillHideNotification,
                      UIDevice.orientationDidChangeNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] notification in
@@ -155,13 +163,25 @@ public class IonicNativeUIShellPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDele
     private func webViewMetrics() -> JSObject? {
         guard #available(iOS 26.0, *), let webView = bridge?.webView else { return nil }
         webView.layoutIfNeeded()
-        return ["radius": Double(webView.effectiveRadius(corner: .topLeft))]
+        var metrics: JSObject = ["radius": Double(webView.effectiveRadius(corner: .topLeft)), "verticalBarEdge": NSNull()]
+        #if canImport(UIKit, _underlyingVersion: 9127.0.85) && !targetEnvironment(macCatalyst)
+        if #available(iOS 27.1, *) {
+            switch webView.traitCollection.verticalBarEdge {
+            case .leading: metrics["verticalBarEdge"] = "leading"
+            case .trailing: metrics["verticalBarEdge"] = "trailing"
+            default: break
+            }
+        }
+        #endif
+        return metrics
     }
 
     private func notifyWebViewMetricsChange() {
         let metrics = webViewMetrics() ?? ["radius": 0]
         let radius = metrics["radius"] as? Double ?? 0
-        guard radius != lastWebViewRadius else { return }
+        let edge = metrics["verticalBarEdge"] as? String
+        guard radius != lastWebViewRadius || edge != lastVerticalBarEdge else { return }
+        lastVerticalBarEdge = edge
         lastWebViewRadius = radius
         notifyListeners("webViewMetricsChange", data: metrics)
     }

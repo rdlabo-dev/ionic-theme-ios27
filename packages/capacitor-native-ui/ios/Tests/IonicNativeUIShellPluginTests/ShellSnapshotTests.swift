@@ -4,6 +4,23 @@ import Capacitor
 @testable import IonicNativeUIShellPlugin
 
 final class ShellSnapshotTests: XCTestCase {
+    func testStandardRendererKindsDoNotRequireIonicNames() throws {
+        let pairs: [(String, String, ShellComponent)] = [
+            ("button", "ion-button", .button), ("button-group", "ion-buttons", .buttons),
+            ("back-button", "ion-back-button", .backButton), ("menu-button", "ion-menu-button", .menuButton),
+            ("tab-bar", "ion-tab-bar", .tabBar), ("segment", "ion-segment", .segment),
+            ("floating-action-button", "ion-fab", .fab)
+        ]
+        for (standard, legacy, expected) in pairs {
+            for name in [standard, legacy] {
+                let value = try JSONDecoder().decode(ShellComponent.self, from: JSONEncoder().encode(name))
+                XCTAssertEqual(value, expected)
+                XCTAssertEqual(value.rawValue, standard)
+            }
+        }
+        XCTAssertThrowsError(try JSONDecoder().decode(ShellComponent.self, from: JSONEncoder().encode("unknown")))
+    }
+
     @MainActor func testVerticalBarGeometryIgnoresZeroSizeScaffoldsAndConvertsCoordinates() throws {
         let owner = UIViewController()
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 466, height: 678))

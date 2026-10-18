@@ -1,8 +1,14 @@
 import type { NativeUIExtension } from './extensions';
 import type { PluginListenerHandle } from '@capacitor/core';
 
-import type { NativeUIShellComponent } from './components';
-export type { NativeUIShellComponent } from './components';
+export type NativeUIShellComponent =
+  | 'ion-button'
+  | 'ion-buttons'
+  | 'ion-back-button'
+  | 'ion-menu-button'
+  | 'ion-tab-bar'
+  | 'ion-segment'
+  | 'ion-fab';
 
 export interface NativeUIShellStatus {
   state: 'web' | 'native' | 'stopped';
@@ -35,18 +41,30 @@ export interface VerticalControlAreaOptions {
 }
 
 export interface NativeUIShellOptions extends VerticalControlAreaOptions {
-  /** Enables Native UI Shell globally. Defaults to `true`. */
+  verticalBars?: NativeUIVerticalBarsOptions;
+  /** Source subtree. Defaults to document.body. */
+  root?: HTMLElement;
+  /** @deprecated Call destroy() on the running handle to stop the shell. */
   enabled?: boolean;
-  /** Controls eligible for native projection. Omit to enable tabs, toolbar, segment and fab; popover always requires explicit opt-in. When present, only `true` controls are enabled. */
+  /** Controls eligible for native projection. Omit to enable tabs, toolbar, segment and fab; popover always requires explicit opt-in. Partial settings override the defaults. */
   controls?: NativeUIShellControls;
-  /** Internal: limit native projection to the Vertical Control Area. */
+  /** @deprecated Use verticalBars.only. */
   verticalBarsOnly?: boolean;
 }
 
+/** @internal Resolved adapter state; not an application configuration API. */
+export interface NativeUIShellRuntimeOptions extends NativeUIShellOptions {
+  source?: 'ionic' | 'html' | 'auto';
+  nativeState?: { edge?: 'left' | 'right' };
+  rail?: { host: HTMLElement; edge: 'left' | 'right' };
+}
+
 export interface NativeUIShellControls {
+  /** Toolbar actions and explicitly marked HTML buttons. Defaults to true. */
+  buttons?: boolean;
   /** Projects tab bars and their native search presentation. */
   tabs?: boolean;
-  /** Projects toolbar buttons, including back and menu buttons. */
+  /** @deprecated Use buttons. Projects toolbar buttons, including back and menu buttons. */
   toolbar?: boolean;
   /** Projects segments. */
   segment?: boolean;
@@ -56,7 +74,29 @@ export interface NativeUIShellControls {
   popover?: boolean;
 }
 
-export interface NativeUIShellHandle {
+/** A running shell. Placement changes preserve all other startup settings. */
+export interface NativeUIShellHandle extends NativeUIShellRuntimeHandle {
+  /** Enable rail projection when available, preserving other settings. Rejects after destroy. */
+  enableVerticalControlArea(): Promise<void>;
+  /** Restore rail sources to the Web without stopping ordinary native controls. Rejects after destroy. */
+  disableVerticalControlArea(): Promise<void>;
+}
+
+export interface NativeUIVerticalBarsOptions {
+  /** Defaults to true. Availability is always determined separately. */
+  enabled?: boolean;
+  /** Project only rail controls; unavailable or disabled rails leave controls on the Web. */
+  only?: boolean;
+  buttonProjection?: 'system' | 'source';
+  /** Source-style standalone buttons with no explicit fill. Defaults to glass. */
+  buttonDefaultFill?: 'glass' | 'solid';
+  /** Ionic popover relay. Defaults to false. */
+  popover?: boolean;
+  /** Placement preference, not a declaration of device capability. */
+  placement?: { edge: Exclude<VerticalBarEdge, null>; webHost?: HTMLElement };
+}
+
+export interface NativeUIShellRuntimeHandle {
   /** Returns the current Web/native projection state. */
   getStatus(): NativeUIShellStatus;
   /** Restores projected controls to the Web until the returned lease is resumed. */
@@ -129,9 +169,19 @@ export interface ShellItem extends Frame {
   iconTransition?: number;
 }
 
+/** Standard native renderers, independent of the source Web framework. */
+export type NativeUIControlKind =
+  | 'button'
+  | 'button-group'
+  | 'back-button'
+  | 'menu-button'
+  | 'tab-bar'
+  | 'segment'
+  | 'floating-action-button';
+
 export interface ShellControl extends Frame {
   id: string;
-  kind: NativeUIShellComponent | 'extension';
+  kind: NativeUIControlKind | 'extension';
   extension?: { name: string; props: string; actions: Record<string, string>; tabBarId?: string };
   /** Lets the native host own adaptive placement instead of mirroring the DOM frame. */
   placement?: 'vertical-bars';
@@ -188,6 +238,8 @@ export interface ShellActivation {
 export interface WebViewMetrics {
   /** The WebView's effective top-left corner radius in points, or `0` when unavailable. */
   radius: number;
+  /** Device-reported logical rail edge; null when unavailable. */
+  verticalBarEdge?: VerticalBarEdge;
 }
 
 export interface NativeUIShellPlugin {

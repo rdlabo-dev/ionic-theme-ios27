@@ -1,3 +1,5 @@
+import { fitsClip } from './shared/clipping';
+export { projectionAncestors as extensionAncestors } from './shared/clipping';
 import type { Candidate, Identify } from './shared/candidate';
 import { frame, isDark, visible } from './shared/dom';
 
@@ -50,28 +52,6 @@ const json = (value: unknown): string => {
 };
 
 /** Follow slot assignment too: Ionic scroll containers live inside shadow roots. */
-export function* extensionAncestors(element: HTMLElement): Generator<HTMLElement> {
-  let current: HTMLElement | null = element;
-  while (current) {
-    const root = current.getRootNode();
-    current = current.assignedSlot ?? current.parentElement ?? (root instanceof ShadowRoot ? (root.host as HTMLElement) : null);
-    if (current) yield current;
-  }
-}
-
-const fitsClip = (element: HTMLElement): boolean => {
-  const rect = element.getBoundingClientRect();
-  for (const ancestor of extensionAncestors(element)) {
-    const style = getComputedStyle(ancestor);
-    if (style.transform !== 'none' && !new DOMMatrixReadOnly(style.transform).isIdentity) return false;
-    const bounds = ancestor.getBoundingClientRect();
-    const left = bounds.left + ancestor.clientLeft;
-    const top = bounds.top + ancestor.clientTop;
-    if (style.overflowX !== 'visible' && (rect.left < left - 1 || rect.right > left + ancestor.clientWidth + 1)) return false;
-    if (style.overflowY !== 'visible' && (rect.top < top - 1 || rect.bottom > top + ancestor.clientHeight + 1)) return false;
-  }
-  return true;
-};
 
 export const readExtension = (element: HTMLElement, extensions: readonly NativeUIExtension[], id: Identify): Candidate | undefined => {
   const matches = extensions.filter((extension) => element.matches(extension.selector));

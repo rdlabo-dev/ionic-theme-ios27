@@ -21,3 +21,5 @@ These are independent, git-ignored checkouts for local validation and recording.
   offline recording on Desktop Xcode 27.1's iPhone Duo simulator. Uses **Vertical
   Control Area only** and retains the original theme. See its `README-DUO.md`
   for launch commands and browser previews.
+
+- [Plain HTML Native UI](native-ui-html/README.md): use standard native buttons and an optional rail without Ionic or theme CSS.

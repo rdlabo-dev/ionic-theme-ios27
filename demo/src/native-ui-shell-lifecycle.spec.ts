@@ -64,3 +64,12 @@ test('standalone Vertical Bars forwards popover opt-in into the shared runtime',
   await expect(enableVerticalControlArea()).rejects.toThrow('different controls');
   await handle.destroy();
 });
+
+test('undefined optional controls preserve the same defaults as omitted settings', async () => {
+  const handle = await enableNativeUIShell({ controls: { tabs: undefined, segment: undefined, fab: undefined } });
+  try {
+    expect(await enableNativeUIShell()).toBe(handle);
+  } finally {
+    await handle.destroy();
+  }
+});

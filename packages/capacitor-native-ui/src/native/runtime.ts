@@ -1,3 +1,4 @@
+import { htmlSelector, readHTMLControl } from './html';
 import { extensionAncestors, readExtension } from './extensions';
 import { bounded, boundedListener } from './shared/bridge';
 import { popoverTrigger } from './overlays/popover';
@@ -10,14 +11,14 @@ import {
 import { projectionIds } from './shared/projection-id';
 import { inVerticalBarsSurface, topModal, modalUsesVerticalBars, modalVerticalBarFrame } from './shared/modal';
 import type { PluginListenerHandle } from '@capacitor/core';
-import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from '@ionic/core/components/index.js';
+import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from './shared/events';
 import { VERTICAL_BARS_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
 import type {
   ShellActivation,
   ShellSnapshot,
-  NativeUIShellHandle,
-  NativeUIShellOptions,
+  NativeUIShellRuntimeHandle,
+  NativeUIShellRuntimeOptions,
   NativeUIShellPlugin,
   NativeUIShellStatus,
 } from './definitions';
@@ -49,13 +50,17 @@ const verticalBarsMemberMarker = 'data-native-ui-shell-vertical-bars-member';
 export const createRuntime = async (
   doc: Document,
   plugin: NativeUIShellPlugin,
-  options: NativeUIShellOptions = {},
+  options: NativeUIShellRuntimeOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
-): Promise<NativeUIShellHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
+): Promise<NativeUIShellRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
   const win = doc.defaultView!;
   const extensions = options.extensions ?? [];
-  const discovery = [selector, ...extensions.map((extension) => extension.selector)].join(', ');
+  const scope = options.root ?? doc;
+  const discovery = [
+    options.source === 'html' ? htmlSelector : options.source === 'auto' ? `${selector}, ${htmlSelector}` : selector,
+    ...extensions.map((extension) => extension.selector),
+  ].join(', ');
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
   const ids = new WeakMap<Element, string>();
@@ -104,10 +109,10 @@ export const createRuntime = async (
   let listener: PluginListenerHandle | undefined;
   let searchListener: PluginListenerHandle | undefined;
   let waiters: (() => void)[] = [];
-  const control = (kind: Candidate['control']['kind']): keyof NonNullable<NativeUIShellOptions['controls']> => {
-    if (kind === 'ion-tab-bar') return 'tabs';
-    if (kind === 'ion-segment') return 'segment';
-    if (kind === 'ion-fab') return 'fab';
+  const control = (kind: Candidate['control']['kind']): keyof NonNullable<NativeUIShellRuntimeOptions['controls']> => {
+    if (kind === 'tab-bar') return 'tabs';
+    if (kind === 'segment') return 'segment';
+    if (kind === 'floating-action-button') return 'fab';
     return 'toolbar';
   };
   const controlEnabled = (candidate: Candidate) => {
@@ -175,6 +180,7 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
+    if (options.root && !options.root.contains(element)) return;
     if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
       return;
     if (extensions.some((extension) => element.matches(extension.selector))) {
@@ -182,7 +188,16 @@ export const createRuntime = async (
       if (verticalBarsOnly && (!candidate?.control.extension?.tabBarId || !nativeVerticalBars())) return;
       return candidate;
     }
-    if (verticalBarsOnly && !isVerticalBarsCandidate(element)) return;
+    if (options.source === 'html' || element.matches(htmlSelector)) {
+      const candidate = readHTMLControl(element, id, options);
+      if (!candidate || !controlEnabled(candidate)) return;
+      const rail = candidate.control.placement === 'vertical-bars';
+      if (verticalBarsOnly && !rail) return;
+      if (rail && !nativeVerticalBars()) return;
+      return candidate;
+    }
+    if (verticalBarsOnly && (!isVerticalBarsCandidate(element) || element.closest('[data-native-ui-placement="element"]'))) return;
+    if (options.verticalBars?.enabled === false && isVerticalBarsCandidate(element)) return;
     const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
     let candidate: Candidate | undefined;
     if (pointerPage && getComputedStyle(pointerPage).pointerEvents === 'none') {
@@ -200,10 +215,10 @@ export const createRuntime = async (
         win.setTimeout(() => measuringPointerPages.delete(pointerPage), 0);
       }
     } else candidate = readCandidate(element, id, options);
-    if (candidate && isVerticalBarsCandidate(element)) {
+    if (candidate && isVerticalBarsCandidate(element) && !element.closest('[data-native-ui-placement="element"]')) {
       if (!nativeVerticalBars()) return undefined;
       candidate.control.placement = 'vertical-bars';
-      if (['ion-button', 'ion-buttons', 'ion-menu-button'].includes(candidate.control.kind)) {
+      if (['button', 'button-group', 'menu-button'].includes(candidate.control.kind)) {
         const slot = (element.matches('ion-buttons') ? element : (element.closest('ion-buttons') ?? element)).getAttribute('slot');
         if (slot === 'start' || slot === 'end') candidate.control.toolbarSlot = slot;
       }
@@ -260,12 +275,12 @@ export const createRuntime = async (
     // without releasing the visible clones before native acknowledges ownership.
     const measurableSources = new Set([
       ...sources.keys(),
-      ...Array.from(doc.querySelectorAll<HTMLElement>(`[${marker}]`)).filter(isVerticalBarsSource),
+      ...Array.from(scope.querySelectorAll<HTMLElement>(`[${marker}], [data-native-ui-web-source]`)).filter(isVerticalBarsSource),
     ]);
     const candidates = unprojected(measurableSources, () =>
       search
         .decorate(
-          Array.from(doc.querySelectorAll<HTMLElement>(discovery))
+          Array.from(scope.querySelectorAll<HTMLElement>(discovery))
             .filter(
               (element) =>
                 inVerticalBarsSurface(element) &&
@@ -287,25 +302,24 @@ export const createRuntime = async (
       // Wait for the owning native tab host; do not cache an early rejection while its icons load.
       return (
         candidates.some(
-          (owner) => owner.control.id === tabBarId && owner.control.kind === 'ion-tab-bar' && owner.control.placement === 'vertical-bars',
+          (owner) => owner.control.id === tabBarId && owner.control.kind === 'tab-bar' && owner.control.placement === 'vertical-bars',
         ) && extensionSources.filter((source) => source.control.extension?.tabBarId === tabBarId).length === 1
       );
     });
     const back = preferredVerticalBarsBack(
       candidates
-        .filter((candidate) => candidate.control.kind === 'ion-back-button' && isVerticalBarsCandidate(candidate.element))
+        .filter((candidate) => candidate.control.kind === 'back-button' && isVerticalBarsCandidate(candidate.element))
         .map((candidate) => candidate.element),
       doc,
     );
     const selected = exclusive.filter(
-      (candidate) =>
-        candidate.control.kind !== 'ion-back-button' || !isVerticalBarsCandidate(candidate.element) || candidate.element === back,
+      (candidate) => candidate.control.kind !== 'back-button' || !isVerticalBarsCandidate(candidate.element) || candidate.element === back,
     );
     return overlayVisible ? selected.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : selected;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
-    for (const element of Array.from(doc.querySelectorAll<HTMLElement>(discovery))) {
+    for (const element of Array.from(scope.querySelectorAll<HTMLElement>(discovery))) {
       wanted.add(element);
       if (element.parentElement) wanted.add(element.parentElement);
       if (extensions.some((extension) => element.matches(extension.selector))) {
@@ -428,11 +442,15 @@ export const createRuntime = async (
         }
       }
       const root = doc.querySelector('ion-app.ios-theme-vertical-bars');
-      const verticalBarEdge: 'left' | 'right' | undefined = root
-        ? root.classList.contains('ios-theme-vertical-bars-left')
-          ? 'left'
-          : 'right'
-        : undefined;
+      const verticalBarEdge: 'left' | 'right' | undefined = options.nativeState?.edge
+        ? options.nativeState.edge
+        : options.rail
+          ? options.rail.edge
+          : root
+            ? root.classList.contains('ios-theme-vertical-bars-left')
+              ? 'left'
+              : 'right'
+            : undefined;
       const modal = topModal(doc);
       const verticalBarFrame = modal && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
       const data = {
@@ -567,6 +585,7 @@ export const createRuntime = async (
       records.some(
         (record) =>
           record.attributeName !== marker &&
+          record.attributeName !== 'data-native-ui-web-source' &&
           record.attributeName !== toolbarTextMarker &&
           record.attributeName !== fadeMarker &&
           !prehideOnlyMutation(record) &&
@@ -643,7 +662,7 @@ export const createRuntime = async (
   };
   const motion: EventListener = (event) => {
     const target = event.target as HTMLElement;
-    if (!target.matches?.(`${motionSelector}, ${discovery}`)) return;
+    if (!target.matches?.(`${motionSelector}, ${discovery}`) && !(options.source !== 'ionic' && target.querySelector?.(discovery))) return;
     const key = (event as TransitionEvent).propertyName ?? (event as AnimationEvent).animationName;
     if (event.type === CSS_MOTION_EVENTS.transitionRun || event.type === CSS_MOTION_EVENTS.animationStart) {
       const keys = moving.get(target) ?? new Set<string>();
@@ -746,7 +765,7 @@ export const createRuntime = async (
     on(win.visualViewport, 'resize', refreshLayout);
     on(win.visualViewport, 'scroll');
   }
-  const handle: NativeUIShellHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void } = {
+  const handle: NativeUIShellRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void } = {
     // A native overlay covers this surface; keep its controls and Web ownership intact.
     retain(deferActivation) {
       const retention: { accepts?: (id: string) => boolean; activation?: ShellActivation } = { accepts: deferActivation };

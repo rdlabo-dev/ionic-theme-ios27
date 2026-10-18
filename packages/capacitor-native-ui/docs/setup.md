@@ -7,7 +7,7 @@ This path keeps your existing Web appearance. The plugin renders supported contr
 ### Install and configure
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
 ```
 
 Keep your existing Ionic styles and layout. Enable the Shell once at application startup:
@@ -36,7 +36,7 @@ const ionicConfig = {
 
 Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-shell-transition-adapter). This path does not require the iOS 27 theme package or its animations.
 
-For optional Vertical Bars, your app or theme arranges the Web layout around the rail. The [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md) offers a ready-made stylesheet from the theme package; that stylesheet is a layout choice, not a plugin requirement. For a standalone rail, call `enableVerticalControlArea()` instead of the Shell; do not start both runtimes.
+For optional Vertical Bars, your app or theme arranges the Web layout around the rail. The [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md) offers a ready-made stylesheet from the theme package; that stylesheet is a layout choice, not a plugin requirement. For rail-only projection, call `enableNativeUIShell({ verticalBars: { only: true } })`. See [all configuration options](configuration.md).
 
 Build your Web assets, then run `npx cap sync ios` for a Capacitor iOS app. A browser can preview the Web layout; native presentation requires a supported iOS device or simulator.
 
@@ -46,3 +46,5 @@ Replace old native imports using the [migration table](migration.md#2-replace-na
 
 Check that Web content retains your existing appearance, eligible controls render natively on iOS, and navigation/back gestures work. Check browser and Android Web fallback where supported. If using a rail, also verify the layout supplied by your app or theme.
 
+
+For an application without Ionic, use the [plain HTML adapter](framework-independent.md). Ionic is an optional peer dependency, not a requirement of the standard native renderers.

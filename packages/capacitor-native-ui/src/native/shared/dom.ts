@@ -97,11 +97,15 @@ export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
 const verticalBarsTags = new Set(['ion-button', 'ion-back-button', 'ion-buttons', 'ion-menu-button', 'ion-tab-bar']);
 
 export const isVerticalBarsSource = (element: HTMLElement): boolean =>
-  verticalBarsTags.has(element.localName) &&
-  (element.matches('ion-tab-bar') || verticalBarsOwned(element)) &&
-  !element.closest('ion-menu, ion-popover') &&
-  modalUsesVerticalBars(element) &&
-  !!element.closest('ion-app.ios-theme-vertical-bars');
+  !element.closest('[data-native-ui-placement="element"]') &&
+  (element.matches(
+    '[data-native-ui-placement="rail"][data-native-ui="button"], [data-native-ui-placement="rail"][data-native-ui="back-button"]',
+  ) ||
+    (verticalBarsTags.has(element.localName) &&
+      (element.matches('ion-tab-bar') || verticalBarsOwned(element)) &&
+      !element.closest('ion-menu, ion-popover') &&
+      modalUsesVerticalBars(element) &&
+      !!element.closest('ion-app.ios-theme-vertical-bars')));
 
 export const isVerticalBarsBackPosition = (element: HTMLElement): boolean => {
   if (element.closest('ion-header[collapse], ion-footer[collapse]')) return false;
@@ -215,12 +219,16 @@ export const activateProjectedElement = (element: HTMLElement): void => {
 };
 
 export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): T => {
-  const hidden = Array.from(elements).filter((element) => element.hasAttribute(marker));
+  const list = Array.from(elements);
+  const hidden = list.filter((element) => element.hasAttribute(marker));
+  const webHidden = list.filter((element) => element.hasAttribute('data-native-ui-web-source'));
   hidden.forEach((element) => element.removeAttribute(marker));
+  webHidden.forEach((element) => element.removeAttribute('data-native-ui-web-source'));
   try {
     return read();
   } finally {
     hidden.forEach((element) => element.setAttribute(marker, ''));
+    webHidden.forEach((element) => element.setAttribute('data-native-ui-web-source', ''));
   }
 };
 

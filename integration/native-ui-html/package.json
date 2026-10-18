@@ -1,0 +1,16 @@
+{
+  "name": "native-ui-html-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild main.ts --bundle --format=esm --outdir=dist && cp index.html dist/index.html",
+    "start": "npm run build && esbuild --servedir=dist --serve=4300"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "@rdlabo/capacitor-native-ui": "file:../../packages/capacitor-native-ui"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

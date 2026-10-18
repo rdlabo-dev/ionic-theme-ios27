@@ -36,7 +36,11 @@
       "types": "./dist/native-integration/index.d.ts",
       "import": "./dist/native-integration/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    }
   },
   "files": [
     "android/src/main/",
@@ -58,7 +62,8 @@
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0 <9",
-    "@ionic/core": ">=8.8.1 <10"
+    "@ionic/core": ">=8.8.1 <10",
+    "@rdlabo/ionic-theme-utils": "0.1.4"
   },
   "capacitor": {
     "ios": {
@@ -68,7 +73,12 @@
       "src": "android"
     }
   },
-  "dependencies": {
-    "@rdlabo/ionic-theme-utils": "0.1.4"
+  "peerDependenciesMeta": {
+    "@ionic/core": {
+      "optional": true
+    },
+    "@rdlabo/ionic-theme-utils": {
+      "optional": true
+    }
   }
 }

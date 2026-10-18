@@ -215,7 +215,7 @@ for (const stop of ['disable', 'destroy then disable', 'destroy', 'destroy with 
         const state = (window as Window & { restartState: { configured: number; listeners(): number } }).restartState;
         return { configured: state.configured, listeners: state.listeners() };
       }),
-    ).toEqual({ configured: 2, listeners: 2 });
+    ).toEqual({ configured: 2, listeners: 3 });
     const destroy = page.evaluate(() => (window as Window & { restartedHandle: { destroy(): Promise<void> } }).restartedHandle.destroy());
     await page.clock.runFor(100);
     await destroy;

@@ -1,11 +1,27 @@
 import Foundation
 import CoreGraphics
 
+// Standard renderer names are independent of DOM tags and Web frameworks.
 enum ShellComponent: String, Decodable {
     case `extension`
-    case button = "ion-button", buttons = "ion-buttons"
-    case backButton = "ion-back-button", menuButton = "ion-menu-button"
-    case tabBar = "ion-tab-bar", segment = "ion-segment", fab = "ion-fab"
+    case button, buttons = "button-group"
+    case backButton = "back-button", menuButton = "menu-button"
+    case tabBar = "tab-bar", segment, fab = "floating-action-button"
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        // Accept previous clients during native/Web bundle upgrades.
+        let legacy: [String: ShellComponent] = [
+            "ion-button": .button, "ion-buttons": .buttons,
+            "ion-back-button": .backButton, "ion-menu-button": .menuButton,
+            "ion-tab-bar": .tabBar, "ion-segment": .segment, "ion-fab": .fab
+        ]
+        guard let kind = ShellComponent(rawValue: value) ?? legacy[value] else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown native control kind")
+        }
+        self = kind
+    }
 }
 
 struct ShellSnapshot: Decodable {

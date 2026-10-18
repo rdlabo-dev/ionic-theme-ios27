@@ -23,7 +23,7 @@ For the three application configurations, start with [Choose your setup](https:/
 Install the native package as a direct application dependency so Capacitor can discover it:
 
 ```bash
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
 npx cap sync ios
 ```
 
@@ -167,31 +167,26 @@ console.log(shell.getStatus()); // state, projected control count, update count,
 await shell.destroy(); // restore DOM, remove native controls and release listeners/cache
 ```
 
-Projection is globally enabled by default. Limit it to selected Ionic components when an application only wants part of the native shell, or disable it globally while retaining the same configuration path:
+Projection is enabled by calling the startup API. Partial settings override defaults:
 
 ```ts
-const shell = await enableNativeUIShell({
-  enabled: true,
-  controls: {
-    tabs: true,
-  },
-});
-
-// Equivalent to leaving Native UI Shell off; all controls remain on the Web.
-const disabledShell = await enableNativeUIShell({ enabled: false });
+const shell = await enableNativeUIShell({ controls: { tabs: false } }); // everything except tabs
+await shell.disableVerticalControlArea(); // retain ordinary native controls
+await shell.enableVerticalControlArea();
+await shell.destroy(); // stop all projection
 ```
 
-Omitting `controls` enables `tabs`, `toolbar`, `segment`, and `fab` for backward compatibility. When `controls` is present, only entries set to `true` are native-eligible. `popover` is opt-in and defaults to `false`.
+See [all configuration options](configuration.md) for defaults, rail-only usage and lifecycle methods. For explicit HTML sources without Ionic, see [framework-independent setup](framework-independent.md).
 
 ### Popovers anchored to Vertical Bars
 
-**Native popover presentation is Vertical Bars only.** It requires an accepted native Vertical Bars `ion-button` anchor; enabling `controls.popover` does not make ordinary toolbar or body popovers native. This feature also works with the standalone Vertical Bars runtime, without enabling the full Native UI Shell.
+**Native popover presentation is Vertical Bars only.** It requires an accepted native Vertical Bars `ion-button` anchor; enabling `verticalBars.popover` does not make ordinary toolbar or body popovers native. This feature also works with the standalone Vertical Bars runtime, without enabling the full Native UI Shell.
 
-Enable `controls.popover` together with `controls.toolbar` to present popovers from accepted native Vertical Bars `ion-button` controls:
+Enable `verticalBars.popover` together with `controls.buttons` to present popovers from accepted native Vertical Bars `ion-button` controls:
 
 ```ts
 await enableNativeUIShell({
-  controls: { tabs: true, toolbar: true, segment: true, fab: true, popover: true },
+  verticalBars: { popover: true },
 });
 ```
 
@@ -228,7 +223,7 @@ The native material and control appearance follow the running iOS version; an iO
 
 iPhone Duo support, including standalone vertical bars without Native UI Shell, is available as a **preview** in `1.2.0` alongside Native UI Shell. Its APIs and supported behavior may change.
 
-The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableVerticalControlArea()` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUIShell({ verticalBars: { only: true } })` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUIShell()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
 Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](vertical-bars.md) for rail layout, native fallback and supported overlays.
 
@@ -244,6 +239,8 @@ The generated reference below documents the handle returned by `enableNativeUISh
 
 <docgen-index>
 
+* [`enableVerticalControlArea()`](#enableverticalcontrolarea)
+* [`disableVerticalControlArea()`](#disableverticalcontrolarea)
 * [`getStatus()`](#getstatus)
 * [`suspend()`](#suspend)
 * [`destroy()`](#destroy)
@@ -253,6 +250,30 @@ The generated reference below documents the handle returned by `enableNativeUISh
 
 <docgen-api>
 <!--Update the source file JSDoc comments and rerun docgen to update the docs below-->
+
+A running shell. Placement changes preserve all other startup settings.
+
+### enableVerticalControlArea()
+
+```typescript
+enableVerticalControlArea() => Promise<void>
+```
+
+Enable rail projection when available, preserving other settings. Rejects after destroy.
+
+--------------------
+
+
+### disableVerticalControlArea()
+
+```typescript
+disableVerticalControlArea() => Promise<void>
+```
+
+Restore rail sources to the Web without stopping ordinary native controls. Rejects after destroy.
+
+--------------------
+
 
 ### getStatus()
 

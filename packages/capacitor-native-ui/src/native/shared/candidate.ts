@@ -1,4 +1,4 @@
-import type { ShellControl, ShellItem, NativeUIShellComponent, VerticalControlAreaOptions } from '../definitions';
+import type { ShellControl, ShellItem, NativeUIControlKind, NativeUIShellComponent, VerticalControlAreaOptions } from '../definitions';
 import { frame, isDark, isVerticalBarsSource, text, visible } from './dom';
 import { iconSource } from './icons';
 
@@ -17,7 +17,7 @@ type ItemElement = HTMLElement & { disabled?: boolean; selected?: boolean };
 
 export const createCandidate = (
   element: HTMLElement,
-  kind: NativeUIShellComponent,
+  kind: NativeUIShellComponent | NativeUIControlKind,
   id: Identify,
   options: VerticalControlAreaOptions = {},
 ): Candidate => {
@@ -29,7 +29,18 @@ export const createCandidate = (
     buttonDefaultFill: options.buttonDefaultFill,
     control: {
       id: id(element),
-      kind,
+      kind:
+        (
+          {
+            'ion-button': 'button',
+            'ion-buttons': 'button-group',
+            'ion-back-button': 'back-button',
+            'ion-menu-button': 'menu-button',
+            'ion-tab-bar': 'tab-bar',
+            'ion-segment': 'segment',
+            'ion-fab': 'floating-action-button',
+          } as Partial<Record<string, NativeUIControlKind>>
+        )[kind] ?? (kind as NativeUIControlKind),
       ...frame(rect),
       items: [],
       dark: isDark(style),

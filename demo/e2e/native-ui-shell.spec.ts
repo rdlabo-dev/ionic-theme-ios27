@@ -153,7 +153,7 @@ test('FAB keeps a complete native batch across staggered lists and measures each
     page.evaluate(() => {
       const fab = document.querySelector('ion-fab[horizontal=center]')!;
       const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls;
-      return controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7)!;
+      return controls.find((c: ShellControl) => c.kind === 'floating-action-button' && c.items.length === 7)!;
     });
   const closed = await state();
   expect(closed.items.filter((i: ShellItem) => i.visible)).toHaveLength(1);
@@ -191,7 +191,7 @@ test('FAB activation stays with Ionic and rejects hidden, disabled and duplicate
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7)!
+            .controls.find((c: ShellControl) => c.kind === 'floating-action-button' && c.items.length === 7)!
             .items.filter((i: ShellItem) => i.visible).length,
       ),
     )
@@ -264,7 +264,7 @@ test('FAB restores excluded groups and follows icon, list and theme changes', as
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 6)?.items.length,
+            .controls.find((c: ShellControl) => c.kind === 'floating-action-button' && c.items.length === 6)?.items.length,
       ),
     )
     .toBe(6);
@@ -333,7 +333,7 @@ test('FAB uses measured positions after RTL and viewport changes', async ({ page
           page.evaluate(() => {
             const control = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
               .updates.at(-1)!
-              .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7);
+              .controls.find((c: ShellControl) => c.kind === 'floating-action-button' && c.items.length === 7);
             if (!control || control.rtl !== (document.documentElement.dir === 'rtl') || control.items.some((i: ShellItem) => !i.visible))
               return false;
             const buttons = Array.from(document.querySelector('ion-fab[horizontal=center]')!.querySelectorAll('ion-fab-button'));
@@ -349,7 +349,7 @@ test('FAB uses measured positions after RTL and viewport changes', async ({ page
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7)!.items[2].icon,
+            .controls.find((c: ShellControl) => c.kind === 'floating-action-button' && c.items.length === 7)!.items[2].icon,
       );
       if (direction === 'rtl') rtlIcon = icon!;
       else expect(icon).not.toBe(rtlIcon);
@@ -375,7 +375,8 @@ test('unsupported search morph releases and restores a native fixed-slot FAB int
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)!
           .controls.some(
-            (c: ShellControl) => c.kind === 'ion-fab' && c.items.some((i: ShellItem) => i.accessibilityLabel === 'Search albums'),
+            (c: ShellControl) =>
+              c.kind === 'floating-action-button' && c.items.some((i: ShellItem) => i.accessibilityLabel === 'Search albums'),
           ),
       ),
     )
@@ -402,7 +403,7 @@ test('verticalBars tabs request native adaptive rail placement', async ({ page }
       page.evaluate(() =>
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)!
-          .controls.some((control: ShellControl) => control.kind === 'ion-tab-bar' && control.placement === 'vertical-bars'),
+          .controls.some((control: ShellControl) => control.kind === 'tab-bar' && control.placement === 'vertical-bars'),
       ),
     )
     .toBe(true);
@@ -581,7 +582,7 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)
-            ?.controls.filter((control: ShellControl) => control.kind === 'ion-back-button').length,
+            ?.controls.filter((control: ShellControl) => control.kind === 'back-button').length,
       ),
     )
     .toBe(1);
@@ -593,7 +594,7 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
             .updates.at(-1)!
             .controls.some(
               (control: ShellControl) =>
-                control.kind === 'ion-back-button' && control.placement === 'vertical-bars' && control.toolbarSlot === undefined,
+                control.kind === 'back-button' && control.placement === 'vertical-bars' && control.toolbarSlot === undefined,
             ) &&
           !Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
@@ -608,7 +609,7 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
           .updates.at(-1)!
           .controls.some(
             (control: ShellControl) =>
-              control.kind === 'ion-button' &&
+              control.kind === 'button' &&
               control.placement === 'vertical-bars' &&
               control.toolbarSlot === 'end' &&
               control.items.some((item: ShellItem) => item.accessibilityLabel === 'Save'),
@@ -622,7 +623,7 @@ test('verticalBars back navigation and toolbar slots request native rail placeme
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((control: ShellControl) => control.kind === 'ion-menu-button')?.toolbarSlot,
+            .controls.find((control: ShellControl) => control.kind === 'menu-button')?.toolbarSlot,
       ),
     )
     .toBe('start');
@@ -652,14 +653,14 @@ test('native verticalBars toolbar returns with Index after a pushed page', async
       page.evaluate(() => {
         const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
         const snapshot = state.updates.at(-1)!;
-        return !!snapshot.controls.find((control: ShellControl) => control.kind === 'ion-back-button')?.items[0];
+        return !!snapshot.controls.find((control: ShellControl) => control.kind === 'back-button')?.items[0];
       }),
     )
     .toBe(true);
   await page.evaluate(() => {
     const state = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
     const snapshot = state.updates.at(-1)!;
-    const back = snapshot.controls.find((control: ShellControl) => control.kind === 'ion-back-button')!.items[0];
+    const back = snapshot.controls.find((control: ShellControl) => control.kind === 'back-button')!.items[0];
     state.notifyListeners('activate', { id: back.id, revision: snapshot.revision, sequence: ++state.sequence });
   });
   await expect(page).toHaveURL(/\/main\/index$/);
@@ -875,8 +876,8 @@ test('verticalBars rail remains native while its Ionic menu is open', async ({ p
         const demoActions = (control: ShellControl) =>
           control.items.filter((item: ShellItem) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel)).length;
         return {
-          groups: controls.filter((control: ShellControl) => control.kind === 'ion-buttons' && demoActions(control) === 2).length,
-          individuals: controls.filter((control: ShellControl) => control.kind === 'ion-button' && demoActions(control) > 0).length,
+          groups: controls.filter((control: ShellControl) => control.kind === 'button-group' && demoActions(control) === 2).length,
+          individuals: controls.filter((control: ShellControl) => control.kind === 'button' && demoActions(control) > 0).length,
         };
       }),
     )
@@ -1058,7 +1059,7 @@ for (const initialEdge of [null, 'unreported'] as const) {
           await expect(clone).toHaveCount(0);
           await expect(tabs).toHaveAttribute('data-native-ui-shell', '');
           await expect(save).toHaveAttribute('data-native-ui-shell', '');
-          await expect.poll(async () => (await snapshot())?.controls.some((control) => control.kind === 'ion-tab-bar')).toBe(true);
+          await expect.poll(async () => (await snapshot())?.controls.some((control) => control.kind === 'tab-bar')).toBe(true);
         }
       };
       await expectFallback();
@@ -1101,6 +1102,26 @@ test('native click preserves external form submit, disabled, and duplicate prote
   await expect
     .poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUIShell!.getStatus().projected))
     .toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+            .updates.at(-1)
+            ?.controls.flatMap((control) => control.items)
+            .find((item) => item.accessibilityLabel === 'Save')?.disabled,
+      ),
+    )
+    .toBe(true);
+  // Idle means the disabled state has reached native and source animations have settled.
+  await page.locator('ion-app').evaluate(async (app) => {
+    await Promise.all(
+      app
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => {})),
+    );
+  });
   await page.waitForTimeout(200);
   const count = await page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.length);
   await page.waitForTimeout(250);
@@ -1431,7 +1452,7 @@ test('native refresh during a pending acknowledgement resends unchanged controls
       page.evaluate(() =>
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)!
-          .controls.some((c: ShellControl) => c.kind === 'ion-tab-bar'),
+          .controls.some((c: ShellControl) => c.kind === 'tab-bar'),
       ),
     )
     .toBe(false);
@@ -1538,7 +1559,7 @@ test('clear ion-buttons share one glass surface and keep independent actions', a
           .updates.at(-1)!
           .controls.find(
             (control: ShellControl) =>
-              control.kind === 'ion-buttons' && control.items.some((item: ShellItem) => item.accessibilityLabel === 'GitHub'),
+              control.kind === 'button-group' && control.items.some((item: ShellItem) => item.accessibilityLabel === 'GitHub'),
           )!,
     );
   await expect(group).toHaveAttribute('data-native-ui-shell', '');
@@ -1619,8 +1640,8 @@ test('theme-disabled ion-buttons project eligible buttons independently', async 
         const isDemoAction = (control: ShellControl) =>
           control.items.some((item: ShellItem) => ['GitHub', 'Refresh'].includes(item.accessibilityLabel));
         return {
-          buttons: controls.filter((control: ShellControl) => control.kind === 'ion-button' && isDemoAction(control)).length,
-          groups: controls.filter((control: ShellControl) => control.kind === 'ion-buttons' && isDemoAction(control)).length,
+          buttons: controls.filter((control: ShellControl) => control.kind === 'button' && isDemoAction(control)).length,
+          groups: controls.filter((control: ShellControl) => control.kind === 'button-group' && isDemoAction(control)).length,
         };
       }),
     )
@@ -1686,7 +1707,7 @@ test('all demo pages keep projection consistent through consecutive navigation',
     const hasNativeBack = await page.evaluate(() =>
       Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
         .updates.at(-1)!
-        .controls.some((control: ShellControl) => control.kind === 'ion-back-button'),
+        .controls.some((control: ShellControl) => control.kind === 'back-button'),
     );
     if (hasNativeBack) await activate(page, 'back');
     else
@@ -1848,7 +1869,7 @@ test('shared tabs stay native throughout navigation and delayed page updates', a
     retirements: Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').tabRetirements,
     details: Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').retirementDetails,
     ids: Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.map(
-      (snapshot: ShellSnapshot) => snapshot.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')?.id,
+      (snapshot: ShellSnapshot) => snapshot.controls.find((control: ShellControl) => control.kind === 'tab-bar')?.id,
     ),
   }));
   expect(state.retirements, JSON.stringify(state.details)).toBe(0);
@@ -1881,7 +1902,7 @@ test('native tabs carry position anchors for both slots and text directions', as
               () =>
                 Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
                   .updates.at(-1)
-                  ?.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')?.tabBarAnchor,
+                  ?.controls.find((control: ShellControl) => control.kind === 'tab-bar')?.tabBarAnchor,
             ),
           )
           .toEqual({ x, y: slot === 'bottom' ? 1 : 0 });
@@ -1889,7 +1910,7 @@ test('native tabs carry position anchors for both slots and text directions', as
           () =>
             Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
               .updates.at(-1)!
-              .controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')!,
+              .controls.find((control: ShellControl) => control.kind === 'tab-bar')!,
         );
         const dom = await tabs.boundingBox();
         expect(native.x).toBeCloseTo(dom!.x, 1);
@@ -1909,7 +1930,7 @@ test('tab icons use selection tint only for text-colored SVGs', async ({ page })
       () =>
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)
-          ?.controls.find((control: ShellControl) => control.kind === 'ion-tab-bar')?.items,
+          ?.controls.find((control: ShellControl) => control.kind === 'tab-bar')?.items,
     );
   await expect.poll(async () => (await items())?.every((item: ShellItem) => item.iconTemplate)).toBe(true);
   await tabs
@@ -1938,7 +1959,7 @@ test('menu button toggles its Ionic menu and follows autoHide, disabled and spli
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')?.items[0].icon?.length ?? 0,
+            .controls.find((c: ShellControl) => c.kind === 'menu-button')?.items[0].icon?.length ?? 0,
       ),
     )
     .toBeGreaterThan(0);
@@ -1965,7 +1986,7 @@ test('menu button toggles its Ionic menu and follows autoHide, disabled and spli
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')?.items[0].disabled,
+            .controls.find((c: ShellControl) => c.kind === 'menu-button')?.items[0].disabled,
       ),
     )
     .toBe(true);
@@ -2012,7 +2033,7 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
     () =>
       Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
         .updates.at(-1)!
-        .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')!.items[0].icon,
+        .controls.find((c: ShellControl) => c.kind === 'menu-button')!.items[0].icon,
   );
   await button.evaluate((element) => {
     element.innerHTML = '<ion-icon name="heart"></ion-icon>';
@@ -2023,7 +2044,7 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((c: ShellControl) => c.kind === 'ion-menu-button')?.items[0].icon,
+            .controls.find((c: ShellControl) => c.kind === 'menu-button')?.items[0].icon,
       ),
     )
     .not.toBe(original);
@@ -2043,7 +2064,7 @@ test('menu button projects slot icons and shared glass, restoring excluded surfa
         () =>
           Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)!
-            .controls.find((c: ShellControl) => c.kind === 'ion-buttons' && c.items.some((i: ShellItem) => i.label === 'Extra'))?.items
+            .controls.find((c: ShellControl) => c.kind === 'button-group' && c.items.some((i: ShellItem) => i.label === 'Extra'))?.items
             .length,
       ),
     )
@@ -2523,7 +2544,8 @@ test('a retained FAB accepts a second click while its current native update awai
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)!
           .controls.some(
-            (c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7 && c.items.filter((i: ShellItem) => i.visible).length > 1,
+            (c: ShellControl) =>
+              c.kind === 'floating-action-button' && c.items.length === 7 && c.items.filter((i: ShellItem) => i.visible).length > 1,
           ),
       ),
     )
@@ -2555,7 +2577,7 @@ test('FAB keeps its cover while Stencil show and the rendered host class catch u
       page.evaluate(() =>
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)!
-          .controls.some((c: ShellControl) => c.kind === 'ion-fab' && c.items.length === 7 && c.items[1].visible === false),
+          .controls.some((c: ShellControl) => c.kind === 'floating-action-button' && c.items.length === 7 && c.items[1].visible === false),
       ),
     )
     .toBe(true);
@@ -2796,7 +2818,7 @@ for (const theme of ['light', 'class', 'system', 'always'] as const) {
         .poll(() =>
           page.evaluate(() => {
             const controls = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!.controls;
-            return ['ion-tab-bar', 'ion-fab'].map((kind) =>
+            return ['tab-bar', 'floating-action-button'].map((kind) =>
               controls.filter((c: ShellControl) => c.kind === kind).map((c: ShellControl) => c.dark),
             );
           }),
@@ -2922,7 +2944,7 @@ test('tab switches hand off without a crossfade', async ({ page }) => {
             .updates.slice(start)
             .some(
               (update: ShellSnapshot) =>
-                update.transitionDuration === 0 && !update.controls.some((control: ShellControl) => control.kind === 'ion-segment'),
+                update.transitionDuration === 0 && !update.controls.some((control: ShellControl) => control.kind === 'segment'),
             ),
         before,
       ),
@@ -2972,7 +2994,7 @@ for (const direction of ['ltr', 'rtl']) {
           page.evaluate(() => {
             const item = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
               .updates.at(-1)
-              ?.controls.find((control: ShellControl) => control.kind === 'ion-button')?.items[0];
+              ?.controls.find((control: ShellControl) => control.kind === 'button')?.items[0];
             return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
           }),
         )
@@ -3002,7 +3024,7 @@ for (const direction of ['ltr', 'rtl']) {
         page.evaluate(() => {
           const item = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
             .updates.at(-1)
-            ?.controls.find((control: ShellControl) => control.kind === 'ion-back-button')?.items[0];
+            ?.controls.find((control: ShellControl) => control.kind === 'back-button')?.items[0];
           return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
         }),
       )
@@ -3024,7 +3046,7 @@ test('rejected cached search is replaced by ordinary native tabs after navigatio
       page.evaluate(() => {
         const control = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)
-          ?.controls.find((c: ShellControl) => c.kind === 'ion-tab-bar');
+          ?.controls.find((c: ShellControl) => c.kind === 'tab-bar');
         return !!control && !control.search;
       }),
     )
@@ -3051,7 +3073,7 @@ for (const invalidated of [false, true]) {
       .poll(() =>
         page.evaluate((previous) => {
           const snapshot = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)!;
-          return snapshot.revision > previous && snapshot.controls.some((c: ShellControl) => c.kind === 'ion-button');
+          return snapshot.revision > previous && snapshot.controls.some((c: ShellControl) => c.kind === 'button');
         }, previous),
       )
       .toBe(true);
@@ -3800,7 +3822,7 @@ for (const [route, tag, trigger, keep] of [
       () =>
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)!
-          .controls.find((control) => control.kind === 'ion-back-button')!.items[0].accessibilityLabel!,
+          .controls.find((control) => control.kind === 'back-button')!.items[0].accessibilityLabel!,
     );
     await back.evaluate((element) => {
       element.setAttribute('data-clicks', '0');
@@ -3845,7 +3867,7 @@ for (const invalidation of ['resize', 'mode'])
     await expect(back).toHaveAttribute('data-native-ui-shell-vertical-bars', '');
     await page.evaluate(() => {
       const mock = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
-      const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'ion-tab-bar')!;
+      const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'tab-bar')!;
       mock.geometry = {
         BackButton: { x: 628, y: 176, width: 48, height: 48 },
         __tabBar: { x: 628, y: 600, width: 48, height: 220 },
@@ -3881,7 +3903,7 @@ for (const partial of [false, true])
     await expect(bar).not.toHaveAttribute('data-native-ui-shell-fading');
     await page.evaluate(() => {
       const mock = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell');
-      const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'ion-tab-bar')!;
+      const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'tab-bar')!;
       mock.geometry = {
         __tabBar: { x: 628, y: 600, width: 48, height: 220 },
         ...Object.fromEntries(tabs.items.map((item, index) => [item.id, { x: 632, y: 604 + index * 50, width: 40, height: 50 }])),
@@ -3929,7 +3951,7 @@ test('Vertical Bars picker keeps input but cannot override a Web alert', async (
     () =>
       Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
         .updates.at(-1)!
-        .controls.find((control) => control.kind === 'ion-back-button')!.items[0].accessibilityLabel!,
+        .controls.find((control) => control.kind === 'back-button')!.items[0].accessibilityLabel!,
   );
   await back.evaluate((element) =>
     element.addEventListener(
@@ -4007,3 +4029,39 @@ for (const context of ['inherited native styles', 'sibling-dependent Web fallbac
     await expect(page.locator('#native-popover-trigger')).toHaveAttribute('data-native-ui-shell-vertical-bars-member', '');
   });
 }
+
+test('rail enable and disable preserve the active shell', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index?verticalBarsOnly');
+  const app = page.locator('ion-app');
+  await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)
+          ?.controls.some((c) => c.placement === 'vertical-bars'),
+      ),
+    )
+    .toBe(true);
+  await app.evaluate(async (element: TestAppElement) => {
+    await element.nativeUIShell!.disableVerticalControlArea();
+  });
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell').updates.at(-1)?.controls.length))
+    .toBe(0);
+  await expect(app.locator('[data-native-ui-shell]')).toHaveCount(0);
+  await expect(app.locator('.ios-theme-native-ui-shell-prehidden')).toHaveCount(0);
+  await app.evaluate(async (element: TestAppElement) => {
+    await element.nativeUIShell!.enableVerticalControlArea();
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
+          .updates.at(-1)
+          ?.controls.some((c) => c.placement === 'vertical-bars'),
+      ),
+    )
+    .toBe(true);
+});

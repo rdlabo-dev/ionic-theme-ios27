@@ -27,7 +27,7 @@ export const read = (fab: HTMLElement, id: (element: HTMLElement) => string): Ca
     element: fab,
     control: {
       id: id(fab),
-      kind: tag,
+      kind: 'floating-action-button',
       x: 0,
       y: 0,
       width: innerWidth,

@@ -1,5 +1,5 @@
 import { modalUsesVerticalBars } from './shared/modal';
-import { LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE } from '@ionic/core/components/index.js';
+import { LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE } from './shared/events';
 import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration';
 import {
   childElements,
@@ -33,14 +33,20 @@ const eligibleBack = verticalBarsBackCandidate;
 const eligible = verticalBarsActionCandidate;
 
 /** Capture toolbar placement once per routed-page epoch, before Ionic paints its transition. */
-export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () => () => void; stop: () => void } => {
-  doc.documentElement.classList.add(prehideRootClass);
+export const prehideVerticalBarsToolbarSources = (
+  doc: Document,
+  enabled: () => boolean = () => true,
+  sourceRoot: HTMLElement = doc.body,
+): { suspend: () => () => void; stop: () => void } => {
+  doc.documentElement.classList.toggle(prehideRootClass, enabled());
   const scopes = new Map<HTMLElement, Set<HTMLElement>>();
   const owner = new WeakMap<HTMLElement, HTMLElement>();
   const pendingBacks = new Map<HTMLElement, { scope: HTMLElement; timer: ReturnType<typeof setTimeout> }>();
   const verticalBarsPages = createVerticalBarsPageState();
   const listeners = new AbortController();
-  const root = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
+  const root = () =>
+    sourceRoot.closest<HTMLElement>('ion-app.ios-theme-vertical-bars') ??
+    sourceRoot.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   let suspended = 0;
   let stopped = false;
   const routedPage = (element: HTMLElement) => element.closest<HTMLElement>('.ion-page:not(ion-app, body)');
@@ -75,6 +81,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
     };
     const sources = scope.matches('ion-back-button') ? [scope] : Array.from(scope.querySelectorAll<HTMLElement>(sourceSelector));
     sources.forEach((element) => {
+      if (!sourceRoot.contains(element)) return;
       // Shell opt-out is temporary; decide initial placement once it is lifted.
       if (isShellDisabled(element)) return;
       if (!modalUsesVerticalBars(element) || element.closest(overlays) || (scope.matches('.ion-page') && routedPage(element) !== scope))
@@ -134,6 +141,7 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
     scopes.set(scope, owned);
   };
   const reconcile = () => {
+    doc.documentElement.classList.toggle(prehideRootClass, enabled() && !suspended);
     syncToolbarText(doc);
     const verticalBars = root();
     if (!verticalBars) {
@@ -158,6 +166,8 @@ export const prehideVerticalBarsToolbarSources = (doc: Document): { suspend: () 
           verticalBarsOwned(element.parentElement) &&
           childElements(element.parentElement).every((child) => verticalBarsOwned(child));
         const hide =
+          enabled() &&
+          !element.closest('[data-native-ui-placement="element"]') &&
           !suspended &&
           verticalBarsOwned(element) &&
           !groupOwnsChildren &&

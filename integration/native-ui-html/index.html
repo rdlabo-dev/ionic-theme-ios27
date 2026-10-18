@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Native UI without Ionic</title>
+    <style>
+      body {
+        margin: 0;
+        font: 17px system-ui;
+        color: #18202b;
+        background: #f6f7fa;
+      }
+      main {
+        padding: max(24px, env(safe-area-inset-top)) 24px;
+      }
+      body.rail-layout main {
+        padding-right: 110px;
+      }
+      header {
+        display: flex;
+        gap: 12px;
+        min-height: 48px;
+      }
+      button {
+        font: inherit;
+        padding: 10px 16px;
+        border: 1px solid #b6c1d2;
+        border-radius: 18px;
+        background: white;
+        color: #15395f;
+      }
+      button:disabled {
+        opacity: 0.45;
+      }
+      #rail {
+        position: fixed;
+        right: 8px;
+        top: 100px;
+        width: 88px;
+        display: grid;
+        gap: 12px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app">
+      <h1>Native UI without Ionic</h1>
+      <p>Standard HTML, application-owned layout, and no router.</p>
+      <label><input id="rail-mode" type="checkbox" /> Use the application's rail</label>
+      <header><button type="button" data-native-ui="button" id="add">Add</button></header>
+      <section id="home">
+        <h2>Home</h2>
+        <button type="button" id="open">Open details</button>
+      </section>
+      <section id="details" hidden>
+        <h2>Details</h2>
+        <button type="button" data-native-ui="back-button" id="back">Back</button>
+      </section>
+      <p id="count" role="status">Count: 0</p>
+      <button type="button" id="stop">Stop native UI</button>
+      <p id="status" role="status"></p>
+    </main>
+    <aside id="rail" aria-label="Application actions"></aside>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

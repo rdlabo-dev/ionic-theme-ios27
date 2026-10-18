@@ -2,7 +2,7 @@ import { createCrossfade, fadeMarker } from './shared/crossfade';
 import { alignVerticalBarClone, verticalBarFrame } from './shared/vertical-bars-geometry';
 import { createVerticalBarsWebSearch, searchProjectionClass } from './vertical-bars-web-search';
 import { inVerticalBarsSurface, topModal } from './shared/modal';
-import type { NativeUIShellHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
+import type { NativeUIShellRuntimeHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
 import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration';
 import {
   activateProjectedElement,
@@ -46,7 +46,7 @@ export const createVerticalBarsWebProjection = (
   doc: Document,
   options: NativeUIShellOptions,
   enabled: () => boolean = () => true,
-): NativeUIShellHandle => {
+): NativeUIShellRuntimeHandle => {
   const win = doc.defaultView!;
   const crossfade = createCrossfade(win);
   let incomingInstant: boolean | undefined;
@@ -81,6 +81,8 @@ export const createVerticalBarsWebProjection = (
     (element) =>
       (options.controls === undefined || options.controls.tabs === true) &&
       !!verticalBarsRoot()?.contains(element) &&
+      (!options.root || options.root.contains(element)) &&
+      !element.closest('[data-native-ui-placement="element"]') &&
       inVerticalBarsSurface(element) &&
       !isExcluded(element, verticalBarsEnteringPage(element)) &&
       !isShellDisabled(element) &&
@@ -92,12 +94,16 @@ export const createVerticalBarsWebProjection = (
   );
   const inEligibleToolbar = (element: HTMLElement) =>
     !!verticalBarsRoot()?.contains(element) &&
+    (!options.root || options.root.contains(element)) &&
+    !element.closest('[data-native-ui-placement="element"]') &&
     inVerticalBarsSurface(element) &&
     verticalBarsActionCandidate(element) &&
     !isExcluded(element, verticalBarsEnteringPage(element)) &&
     !verticalBarsPages.isDeparted(element);
   const isEligibleBack = (element: HTMLIonBackButtonElement) =>
     !!verticalBarsRoot()?.contains(element) &&
+    (!options.root || options.root.contains(element)) &&
+    !element.closest('[data-native-ui-placement="element"]') &&
     inVerticalBarsSurface(element) &&
     verticalBarsOwned(element) &&
     verticalBarsBackCandidate(element) &&

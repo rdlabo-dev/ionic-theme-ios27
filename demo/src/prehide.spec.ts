@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
-import { prehiddenClass } from '../../packages/capacitor-native-ui/src/native/shared/dom';
+import { prehiddenClass, prehideRootClass, verticalBarsOwned } from '../../packages/capacitor-native-ui/src/native/shared/dom';
 
 const markup = `
   <ion-app class="ios-theme-vertical-bars">
@@ -87,5 +87,26 @@ test.each(['class', 'data-shell'] as const)('shell opt-out via %s can be removed
     prehide.stop();
     document.body.innerHTML = '';
     document.documentElement.className = '';
+  }
+});
+
+test('disabling rail projection releases prehidden sources without losing placement', () => {
+  document.body.innerHTML = markup;
+  let enabled = true;
+  const source = document.querySelector<HTMLElement>('ion-buttons')!;
+  const controller = prehideVerticalBarsToolbarSources(document, () => enabled);
+  try {
+    expect(source.classList.contains(prehiddenClass)).toBe(true);
+    enabled = false;
+    window.dispatchEvent(new Event('nativeUIShellRefresh'));
+    expect(source.classList.contains(prehiddenClass)).toBe(false);
+    expect(document.documentElement.classList.contains(prehideRootClass)).toBe(false);
+    expect(verticalBarsOwned(source)).toBe(true);
+    enabled = true;
+    window.dispatchEvent(new Event('nativeUIShellRefresh'));
+    expect(source.classList.contains(prehiddenClass)).toBe(true);
+  } finally {
+    controller.stop();
+    document.body.replaceChildren();
   }
 });

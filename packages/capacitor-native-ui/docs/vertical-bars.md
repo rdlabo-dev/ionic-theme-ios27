@@ -10,12 +10,14 @@ Use this page for layout, control eligibility, native button appearance and the 
 
 Available in `1.2.0` as a **preview** feature. APIs and supported behavior may change.
 
+See [shared configuration](configuration.md) for all defaults and live `rail.enableVerticalControlArea()` / `rail.disableVerticalControlArea()` methods. [Plain HTML controls](framework-independent.md) use the same native rail renderers.
+
 ## Enable Vertical Bars
 
 Install the native package as a direct dependency:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-utils@0.1.4
 ```
 
 For Capacitor iOS, build your Web assets and run `npx cap sync ios`. Supply the Web layout through your app or theme as described below.
@@ -23,9 +25,9 @@ For Capacitor iOS, build your Web assets and run `npx cap sync ios`. Supply the 
 After `ion-app` is mounted, start one runtime:
 
 ```ts
-import { enableVerticalControlArea } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 
-const rail = await enableVerticalControlArea();
+const rail = await enableNativeUIShell({ verticalBars: { only: true } });
 ```
 
 Configure your Web rail layout and [apply device placement](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo.md#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUIShell()`, keep that runtime; it includes Vertical Bars. Do not start both.
@@ -42,7 +44,7 @@ The [theme's optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme
 
 ## Native rendering
 
-On supported iOS versions, adding `.ios-theme-vertical-bars` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar once the class is applied. When the OS reports a rail edge — on iPhone Duo linked against iOS 27.1 or later — it must agree with the applied placement; a disagreeing report keeps the rail on the Web. Older toolchains that cannot report an edge trust the DOM placement directly. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
+On supported iOS versions, adding `.ios-theme-vertical-bars` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar once the class is applied. When the OS reports a rail edge — on iPhone Duo linked against iOS 27.1 or later — it must agree with the applied placement; a disagreeing report keeps the rail on the Web. Without a device-reported edge, projection retains its Web fallback unless the application supplies a device report through the compatibility placement API. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
 
 The SwiftUI surface is clipped and hit-tested to the system rail. Web content remains visible and interactive outside that physical region. The runtime optimistically updates tab selection before forwarding the action to the original `ion-tab-button`, using the same event and stale-revision protection as the other native controls. Overlay layout follows the [optional theme rail layout](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md#reserve-the-vertical-rail) when that stylesheet is used; custom layouts remain the application’s responsibility.
 
@@ -52,10 +54,10 @@ The SwiftUI surface is clipped and hit-tested to the system rail. Web content re
 Native popover presentation is limited to popovers anchored to accepted native Vertical Bars `ion-button` controls. It is available with the standalone Vertical Bars runtime; the full Native UI Shell is not required. Enable it explicitly when starting the runtime (`popover` defaults to `false`):
 
 ```ts
-import { enableVerticalControlArea } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 
-const rail = await enableVerticalControlArea({
-  controls: { popover: true },
+const rail = await enableNativeUIShell({
+  verticalBars: { only: true, popover: true },
 });
 ```
 
@@ -104,10 +106,10 @@ For native vertical `ion-button` and `ion-menu-button` actions, choose who contr
 | `'source'` | Projects the supported Ionic fill and computed colors described in [Source fill rules](#source-fill-rules). |
 
 ```ts
-const rail = await enableVerticalControlArea({ buttonProjection: 'source' });
+const rail = await enableNativeUIShell({ verticalBars: { only: true, buttonProjection: 'source' } });
 ```
 
-Both `enableVerticalControlArea()` and `enableNativeUIShell()` accept the option. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. Disabled icons use the native disabled appearance. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
+`enableNativeUIShell()` accepts these settings inside `verticalBars`; the legacy global `enableVerticalControlArea()` still accepts its original top-level settings. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. Disabled icons use the native disabled appearance. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
 
 **Migration from the experimental releases:** the default changes from source styling to `system`. Set `buttonProjection: 'source'` to retain the previous projection behavior.
 
@@ -151,11 +153,11 @@ For an `ion-button` resolved to `source`, fill is chosen separately from the pro
 | Omitted fill or `fill="default"` inside `ion-buttons` | `clear` |
 | Omitted fill or `fill="default"` outside `ion-buttons` | `buttonDefaultFill` |
 
-`buttonDefaultFill` accepts only `'solid'` or `null`; omission is equivalent to `null`. Use `'solid'` for Ionic's default button design, or `null` for this theme's default glass design. It applies to every button resolved to `source`, including a local exception under a global `system` setting.
+`verticalBars.buttonDefaultFill` accepts `'solid'` or `'glass'`; omission is equivalent to `'glass'`. Use `'solid'` for Ionic's default button design, or `'glass'` for a glass design. It applies to every button resolved to `source`, including a local exception under a global `system` setting.
 
 ```ts
 // Keep system styling globally; local source buttons use Ionic's default fill.
-const rail = await enableVerticalControlArea({ buttonDefaultFill: 'solid' });
+const rail = await enableNativeUIShell({ verticalBars: { only: true, buttonDefaultFill: 'solid' } });
 ```
 
 ```html
@@ -185,9 +187,8 @@ The generated reference below documents the handle returned by `enableVerticalCo
 <docgen-index>
 
 * [`setPlacement(...)`](#setplacement)
-* [`getStatus()`](#getstatus)
-* [`suspend()`](#suspend)
-* [`destroy()`](#destroy)
+* [`enableVerticalControlArea()`](#enableverticalcontrolarea)
+* [`disableVerticalControlArea()`](#disableverticalcontrolarea)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
 
@@ -212,39 +213,24 @@ Applies the application's chosen placement to both Web and native controls.
 --------------------
 
 
-### getStatus()
+### enableVerticalControlArea()
 
 ```typescript
-getStatus() => NativeUIShellStatus
+enableVerticalControlArea() => Promise<void>
 ```
 
-Returns the current Web/native projection state.
-
-**Returns:** <code><a href="#nativeuishellstatus">NativeUIShellStatus</a></code>
+Enable rail projection when available, preserving other settings. Rejects after destroy.
 
 --------------------
 
 
-### suspend()
+### disableVerticalControlArea()
 
 ```typescript
-suspend() => Promise<NativeUIShellSuspension>
+disableVerticalControlArea() => Promise<void>
 ```
 
-Restores projected controls to the Web until the returned lease is resumed.
-
-**Returns:** <code>Promise&lt;<a href="#nativeuishellsuspension">NativeUIShellSuspension</a>&gt;</code>
-
---------------------
-
-
-### destroy()
-
-```typescript
-destroy() => Promise<void>
-```
-
-Stops synchronization, restores Web controls and releases native resources.
+Restore rail sources to the Web without stopping ordinary native controls. Rejects after destroy.
 
 --------------------
 
@@ -259,23 +245,6 @@ Stops synchronization, restores Web controls and releases native resources.
 | **`edge`**       | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> |                                                                                                                                                                                                                                   |
 | **`inset`**      | <code>number</code>                                         | Explicit rail width in CSS pixels; omitted to use the stylesheet's safe-area rules.                                                                                                                                               |
 | **`nativeEdge`** | <code><a href="#verticalbaredge">VerticalBarEdge</a></code> | Native logical edge reported by the application's device plugin. Null or an unregistered edge uses a Web rail in verticalBarsOnly mode, or the ordinary Native UI Shell layout otherwise. Omission keeps the last supplied value. |
-
-
-#### NativeUIShellStatus
-
-| Prop            | Type                                        |
-| --------------- | ------------------------------------------- |
-| **`state`**     | <code>'native' \| 'stopped' \| 'web'</code> |
-| **`projected`** | <code>number</code>                         |
-| **`updates`**   | <code>number</code>                         |
-| **`reason`**    | <code>string</code>                         |
-
-
-#### NativeUIShellSuspension
-
-| Method     | Signature                    | Description                                                                                    |
-| ---------- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
-| **resume** | () =&gt; Promise&lt;void&gt; | Releases this suspension. Native projection resumes after all active suspensions are released. |
 
 
 ### Type Aliases

@@ -72,7 +72,7 @@ After updating dependencies and imports, rebuild your app's Web assets with its 
 npx cap sync ios
 ```
 
-The Capacitor plugin is now supplied by the native package. If you manually linked the old theme Swift package in Xcode, remove that old reference so only the new package supplies the plugin. The Swift package/product is `IonicThemeCapacitorNativeUi`; app-local Swift extensions still use `import IonicNativeUIShellPlugin`. The Capacitor bridge name is unchanged.
+The Capacitor plugin is now supplied by the native package. If you manually linked the old theme Swift package in Xcode, remove that old reference so only the new package supplies the plugin. Capacitor discovers the `RdlaboCapacitorNativeUi` Swift product; the previous `IonicThemeCapacitorNativeUi` product remains available for manually linked projects; app-local Swift extensions still use `import IonicNativeUIShellPlugin`. The Capacitor bridge name is unchanged.
 
 For local Swift package references, the package now lives at `packages/capacitor-native-ui` within this repository; there is no root Swift package. Prefer Capacitor's generated integration for application dependencies.
 
@@ -108,3 +108,18 @@ Use the adapter only for navigation; leave modal and popover animations unchange
 
 See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/integration/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup and supported scope.
 
+
+## Shared shell configuration and HTML adapters
+
+Run `npx cap sync ios` after updating: JavaScript now sends framework-independent control kinds to Swift. New Swift code also accepts the previous `ion-*` kinds, but new JavaScript requires the matching native plugin.
+
+- `controls.toolbar` becomes `controls.buttons`.
+- `controls.popover` becomes `verticalBars.popover`.
+- Top-level `buttonProjection` and `buttonDefaultFill` move into `verticalBars`.
+- The new `verticalBars.buttonDefaultFill` uses `'glass'` instead of `null`.
+- `verticalBarsOnly: true` becomes `verticalBars: { only: true }`.
+- Partial `controls` now override defaults. To preserve an old tabs-only configuration, explicitly set `buttons`, `segment` and `fab` to `false`.
+- The global `enableVerticalControlArea()` remains a legacy startup wrapper. New code starts with `enableNativeUIShell({ verticalBars: { only: true } })`, then uses the returned handle's `enableVerticalControlArea()` / `disableVerticalControlArea()` methods.
+- Legacy top-level options and global `enabled: false` remain compatible; use `shell.destroy()` to stop new code. If both old and new settings are supplied, the new nested settings take precedence.
+
+See [all settings and defaults](configuration.md) and [plain HTML setup](framework-independent.md). Standard HTML buttons use the same Swift controls as Ionic; they do not require an application-specific Swift extension.

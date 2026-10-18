@@ -1,0 +1,23 @@
+name: NativeHTMLTests
+options:
+  deploymentTarget:
+    iOS: '26.0'
+targets:
+  NativeHTMLTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - NativeHTMLTests.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rdlabo.nativeui.html.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+schemes:
+  NativeHTMLTests:
+    build:
+      targets:
+        NativeHTMLTests: [test]
+    test:
+      targets:
+        - NativeHTMLTests

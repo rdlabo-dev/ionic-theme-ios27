@@ -98,7 +98,7 @@ test.each([undefined, 'system'] as const)('projection %s ignores source styling 
   const disabled = group.querySelectorAll('ion-button')[2];
   disabled.disabled = true;
   const candidate = readCandidate(group, (e) => e.id || e.localName, { buttonProjection, buttonDefaultFill: 'solid' })!;
-  expect(candidate.control.kind).toBe('ion-buttons');
+  expect(candidate.control.kind).toBe('button-group');
   expect(candidate.control.items).toHaveLength(4);
   for (const item of candidate.control.items) {
     expect(item.iconTemplate).toBe(true);

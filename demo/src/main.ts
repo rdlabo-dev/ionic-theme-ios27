@@ -4,7 +4,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { createAppConfig, type IonicAnimationOptions } from './app/app.config';
 import { AppComponent } from './app/app.component';
 import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
-import { enableVerticalControlArea, setVerticalControlAreaPlacement } from '@rdlabo/capacitor-native-ui/vertical-bars';
+import { setVerticalControlAreaPlacement } from '@rdlabo/capacitor-native-ui/vertical-bars';
 import { Capacitor } from '@capacitor/core';
 import { Foldable, type BarPlacement } from '@erkamyaman/capacitor-foldable';
 import { iosTransitionAnimation, popoverEnterAnimation, popoverLeaveAnimation } from '@rdlabo/ionic-theme-ios27';
@@ -43,15 +43,13 @@ void bootstrapApplication(AppComponent, createAppConfig(loadIOSAnimations()))
     applyPlacement(await Foldable.getBarPlacement());
   })
   .catch((err) => console.error(err));
-const startShell =
-  stockIonic || new URLSearchParams(window.location.search).has('verticalBarsOnly') ? enableVerticalControlArea : enableNativeUIShell;
-const buttonDefaultFill = stockIonic || new URLSearchParams(window.location.search).get('buttonDefaultFill') === 'solid' ? 'solid' : null;
+const verticalBarsOnly = stockIonic || new URLSearchParams(window.location.search).has('verticalBarsOnly');
+const buttonDefaultFill =
+  stockIonic || new URLSearchParams(window.location.search).get('buttonDefaultFill') === 'solid' ? 'solid' : 'glass';
 const buttonProjection = new URLSearchParams(window.location.search).get('buttonProjection') === 'source' ? 'source' : 'system';
-void startShell({
+void enableNativeUIShell({
   extensions: [counter, accessoryCounter, miniPlayer],
-  buttonProjection,
-  buttonDefaultFill,
-  controls: { tabs: true, toolbar: true, segment: true, fab: true, popover: true },
+  verticalBars: { only: verticalBarsOnly, buttonProjection, buttonDefaultFill, popover: true },
 }).then((handle) => {
   const app = document.querySelector('ion-app');
   if (app) Object.assign(app, { nativeUIShell: handle });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import ts from 'typescript';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, mkdirSync, symlinkSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, mkdirSync, symlinkSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -83,6 +83,7 @@ try {
       assert.equal(manifest.capacitor.ios.src, 'ios');
       assert.equal(manifest.capacitor.android.src, 'android');
       assert(files.has('Package.swift'));
+      assert(readFileSync(join(packageRoot, 'Package.swift'), 'utf8').includes('name: "RdlaboCapacitorNativeUi"'), 'Capacitor-generated SPM product must exist');
       assert(files.has('android/build.gradle'));
       assert(files.has('android/proguard-rules.pro'));
       assert(files.has('IonicThemeCapacitorNativeUi.podspec'));
@@ -108,8 +109,32 @@ try {
     }
   }
   assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').dependencies[nativeName], manifests.get(nativeName).version);
+  // Verify the core entry with neither Ionic nor the Ionic utilities installed.
+  assert.equal(manifests.get(nativeName).peerDependenciesMeta['@ionic/core'].optional, true);
+  assert.equal(manifests.get(nativeName).peerDependenciesMeta['@rdlabo/ionic-theme-utils'].optional, true);
+  symlinkSync(resolve('node_modules/@capacitor'), join(dir, 'node_modules/@capacitor'), 'dir');
+  execFileSync(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui/core';
+    assert.equal(typeof enableNativeUIShell, 'function');
+    await assert.rejects(import('@ionic/core'), { code: 'ERR_MODULE_NOT_FOUND' });
+    await assert.rejects(import('@rdlabo/ionic-theme-utils'), { code: 'ERR_MODULE_NOT_FOUND' });
+  `], { cwd: dir, stdio: 'inherit' });
+  const consumer = join(dir, 'consumer.ts');
+  writeFileSync(consumer, `
+    import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui/core';
+    async function start(root: HTMLElement) {
+      const shell = await enableNativeUIShell({ root, controls: { tabs: false }, verticalBars: { enabled: true, only: true } });
+      await shell.disableVerticalControlArea();
+      await shell.enableVerticalControlArea();
+      await shell.destroy();
+    }
+    // @ts-expect-error Availability is automatic; enabled is boolean only.
+    enableNativeUIShell({ verticalBars: { enabled: 'auto' } });
+  `);
+  execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], {cwd: dir, stdio: 'inherit'});
   // Only external dependencies come from the workspace; both packages resolve from archives.
-  for (const name of ['@ionic', '@capacitor', '@stencil', '@rdlabo/ionic-theme-utils', 'ionicons', 'typescript']) {
+  for (const name of ['@ionic', '@stencil', '@rdlabo/ionic-theme-utils', 'ionicons', 'typescript']) {
     symlinkSync(resolve('node_modules', name), join(dir, 'node_modules', name), 'dir');
   }
   execFileSync(
