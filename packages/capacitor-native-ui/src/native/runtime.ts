@@ -190,12 +190,13 @@ export const createRuntime = async (
     }
     if (options.source === 'html' || element.matches(htmlSelector)) {
       const candidate = readHTMLControl(element, id, options);
-      if (!candidate || !controlEnabled(candidate)) return;
+      if (!candidate) return;
       const rail = candidate.control.placement === 'vertical-bars';
       if (verticalBarsOnly && !rail) return;
       if (rail && !nativeVerticalBars()) return;
       return candidate;
     }
+    if (element.querySelector(htmlSelector)) return; // A shared automatic surface must not cover explicitly selected descendants.
     if (verticalBarsOnly && (!isVerticalBarsCandidate(element) || element.closest('[data-native-ui-placement="element"]'))) return;
     if (options.verticalBars?.enabled === false && isVerticalBarsCandidate(element)) return;
     const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;

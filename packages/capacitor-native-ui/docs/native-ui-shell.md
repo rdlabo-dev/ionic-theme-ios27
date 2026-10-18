@@ -166,7 +166,7 @@ await shell.destroy(); // restore DOM, remove native controls and release listen
 Projection is enabled by calling the startup API. Partial settings override defaults:
 
 ```ts
-const shell = await enableNativeUIShell({ controls: { tabs: false } }); // everything except tabs
+const shell = await enableNativeUIShell({ autoIonicControls: { tabs: false } }); // automatic Ionic projection except tabs
 await shell.disableVerticalControlArea(); // retain ordinary native controls
 await shell.enableVerticalControlArea();
 await shell.destroy(); // stop all projection
@@ -178,7 +178,7 @@ See [all configuration options](configuration.md) for defaults, rail-only usage 
 
 **Native popover presentation is Vertical Bars only.** It requires an accepted native Vertical Bars `ion-button` anchor; enabling `verticalBars.popover` does not make ordinary toolbar or body popovers native. This feature also works with the standalone Vertical Bars runtime, without enabling the full Native UI Shell.
 
-Enable `verticalBars.popover` together with `controls.buttons` to present popovers from accepted native Vertical Bars `ion-button` controls:
+Enable `verticalBars.popover` to present popovers from accepted native Vertical Bars `ion-button` controls. Automatic Ionic button projection is enabled by default; when `autoIonicControls` is `false`, mark individual anchors with `data-native-ui="button"`:
 
 ```ts
 await enableNativeUIShell({

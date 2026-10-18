@@ -12,12 +12,12 @@ Without Ionic, import the same API from `@rdlabo/capacitor-native-ui/core`. That
 
 ## All settings
 
-All nested objects merge with their defaults. For example, `controls: { tabs: false }` disables only tabs.
+All nested objects merge with their defaults. For example, `autoIonicControls: { tabs: false }` disables only tabs.
 
 ```ts
 const shell = await enableNativeUIShell({
   root: document.body,
-  controls: {
+  autoIonicControls: {
     buttons: true,
     tabs: true,
     segment: true,
@@ -37,11 +37,12 @@ const shell = await enableNativeUIShell({
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
+| `autoIonicControls` | `true` | `true` or omitted enables automatic Ionic projection; `false` disables it; an object selects kinds. Explicit `data-native-ui` sources and extensions are unaffected. |
 | `root` | `document.body` | Connected source subtree. Controls outside it are not projected. |
-| `controls.buttons` | `true` | Supported Ionic toolbar/back/menu controls and explicitly marked HTML buttons. |
-| `controls.tabs` | `true` | Ionic tabs and their registered native search. |
-| `controls.segment` | `true` | Supported Ionic segments. |
-| `controls.fab` | `true` | Supported Ionic floating action buttons. |
+| `autoIonicControls.buttons` | `true` | Automatic Ionic toolbar/back/menu controls. Explicitly marked buttons are independent. |
+| `autoIonicControls.tabs` | `true` | Ionic tabs and their registered native search. |
+| `autoIonicControls.segment` | `true` | Supported Ionic segments. |
+| `autoIonicControls.fab` | `true` | Supported Ionic floating action buttons. |
 | `verticalBars.enabled` | `true` | Allow rail projection when available. Device capability is always checked; enabling cannot create a system rail. |
 | `verticalBars.only` | `false` | Restrict native projection to rail controls. Other controls stay Web. |
 | `verticalBars.buttonProjection` | `'system'` | `'system'` uses native styling; `'source'` uses supported source styling. Local overrides take precedence. |
@@ -65,7 +66,7 @@ const railOnly = await enableNativeUIShell({ verticalBars: { only: true } });
 
 // Alternative startup: only native Ionic tabs.
 const tabsOnly = await enableNativeUIShell({
-  controls: { buttons: false, segment: false, fab: false },
+  autoIonicControls: { buttons: false, segment: false, fab: false },
 });
 ```
 
@@ -79,6 +80,37 @@ These are alternatives: start only one shell. Repeating the same startup returns
 | `enabled: false, only: true` | All controls remain Web | Same |
 
 `data-native-ui-placement="element"` preserves a control's original position. It is never moved into a rail; with `only: true` it stays Web. For Ionic groups, put the placement on the whole `ion-buttons` group so its shared native surface has a single placement.
+
+## Select controls explicitly in a customized Ionic app
+
+Disable automatic Ionic projection while retaining the native rail and your custom extensions:
+
+```ts
+const shell = await enableNativeUIShell({
+  root: document.querySelector<HTMLElement>('#content')!,
+  autoIonicControls: false,
+  verticalBars: { enabled: true, placement: {
+    edge: 'trailing',
+    webHost: document.querySelector<HTMLElement>('#rail')!,
+  } },
+  extensions: [myExtension],
+});
+```
+
+```html
+<main id="content">
+  <ion-button>Keep this on the Web</ion-button>
+  <ion-button data-native-ui="button" data-native-ui-placement="rail">Project this action</ion-button>
+  <button data-native-ui="button">Project at its original position</button>
+</main>
+<aside id="rail" aria-label="Actions"></aside>
+```
+
+Keep your original handlers on each source. Explicit `ion-button` uses the standard button reader, so supported content and styling rules still apply; the attribute does not make arbitrary custom markup supported. `data-native-ui-placement="rail"` requests the system rail when available. Style the optional `webHost` and reserve space in your app; without it, unavailable explicit rails keep their source controls visible. Unmarked Ionic controls remain Web-rendered. An automatically projected group containing an explicitly marked source stays on the Web to avoid covering that source twice.
+
+Explicit built-in sources support individual `button`, `ion-button`, and `[role="button"]` elements with `data-native-ui="button"` or `"back-button"`. This does not opt existing `ion-back-button`, `ion-menu-button`, button groups, tabs, segments, or FABs into their Ionic-specific readers. Keep automatic projection enabled for the corresponding kind, use a standard explicit button with your own click handler, or register an extension for custom UI. A tab-accessory extension still requires a projected tab bar; disabling automatic tabs also removes that accessory host.
+
+`verticalBars.enabled` and `only` still govern rail availability and projection scope. For example, `only: true` leaves explicitly marked element-position buttons and ordinary element extensions on the Web too.
 
 ## Change rail use after startup
 
@@ -106,5 +138,7 @@ shell.markForCheck();
 Use this after changing a property or reader state that does not cause a DOM mutation. It schedules a check, batches repeated requests, and sends only changed native snapshots. It returns `void`; it does not wait for native completion or render your framework's DOM. Calls after destruction are ignored. See [source checks and observation](native-ui-extensions.md#schedule-a-source-check).
 
 ## Compatibility
+
+`controls` is deprecated. If `autoIonicControls` is omitted, existing `controls` settings retain their previous behavior, including `buttons: false` disabling explicitly marked buttons. When `autoIonicControls` is supplied, it takes precedence for automatic controls and explicit sources are independent. Move `controls.popover` to `verticalBars.popover`. Partial objects retain enabled defaults for omitted kinds; use `false` to disable all automatic kinds.
 
 The existing global `enableVerticalControlArea()` remains a startup wrapper for Ionic rail-only usage, while `setVerticalControlAreaPlacement()` is a deprecated Web CSS compatibility adapter. Its `nativeEdge` input is ignored; native availability is obtained from the plugin’s own device metrics. Use the theme’s `setVerticalBarsLayout({ edge, inset })` for Web layout. New code should use the shared startup and handle methods above. See [migration](migration.md) for legacy settings and the changed partial-control defaults.

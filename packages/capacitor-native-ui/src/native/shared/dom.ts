@@ -171,6 +171,8 @@ const overlays = 'ion-menu, ion-popover';
 
 /** Shared eligibility for a toolbar action candidate, before placement is decided (prehide) or consumed (projection). */
 export const verticalBarsActionCandidate = (element: HTMLElement): boolean =>
+  !element.matches('[data-native-ui="button"], [data-native-ui="back-button"]') &&
+  !element.querySelector('[data-native-ui="button"], [data-native-ui="back-button"]') &&
   inFixedToolbar(element) &&
   !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only') &&
   !isPermanentlyExcluded(element) &&
@@ -180,6 +182,7 @@ export const verticalBarsActionCandidate = (element: HTMLElement): boolean =>
 
 /** Shared eligibility for a back-button candidate; the back button may sit outside a fixed toolbar. */
 export const verticalBarsBackCandidate = (element: HTMLElement): boolean =>
+  !element.hasAttribute('data-native-ui') &&
   isVerticalBarsBackPosition(element) &&
   !element.closest('ion-buttons.ios-theme-horizontal-only') &&
   !isPermanentlyExcluded(element) &&

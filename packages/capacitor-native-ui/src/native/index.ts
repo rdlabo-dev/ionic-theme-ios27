@@ -10,6 +10,7 @@ export type {
   NativeUIVerticalBarsOptions,
   NativeUIShellComponent,
   NativeUIShellControls,
+  AutoIonicControls,
   NativeUIShellHandle,
   NativeUIShellOptions,
   NativeUIShellStatus,

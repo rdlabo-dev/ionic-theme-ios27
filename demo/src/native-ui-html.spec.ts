@@ -319,3 +319,111 @@ test('extension images share SVG validation and rasterization without asynchrono
   const failed = readExtension(source, [definition], () => 'artwork')!;
   await expect(failed.assets!.render({ ...renderer, render: vi.fn().mockRejectedValue(new Error('decode')) })).rejects.toThrow('decode');
 });
+
+test('autoIonicControls false preserves explicit ion-button rails, live toggles, and source clicks', async () => {
+  const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
+  const { root, options } = mount(
+    '<ion-button data-native-ui="button" data-native-ui-placement="rail">Explicit</ion-button><ion-button>Automatic</ion-button>',
+  );
+  const button = root.querySelector('ion-button')!;
+  const click = vi.fn();
+  button.addEventListener('click', click);
+  const shell = await enableNativeUIShell({
+    root,
+    autoIonicControls: false,
+    verticalBars: { placement: { edge: 'trailing', webHost: options.rail!.host } },
+  });
+  handles.push(shell);
+  const host = options.rail!.host;
+  await vi.waitFor(() => expect(host.querySelectorAll('button')).toHaveLength(1));
+  host.querySelector('button')!.click();
+  expect(click).toHaveBeenCalledTimes(1);
+  await expect(
+    enableNativeUIShell({ root, autoIonicControls: true, verticalBars: { placement: { edge: 'trailing', webHost: host } } }),
+  ).rejects.toThrow('different controls');
+  await shell.disableVerticalControlArea();
+  expect(host.childElementCount).toBe(0);
+  await shell.enableVerticalControlArea();
+  await vi.waitFor(() => expect(host.querySelectorAll('button')).toHaveLength(1));
+  await shell.destroy();
+  const legacy = await enableNativeUIShell({
+    root,
+    controls: { buttons: false },
+    verticalBars: { placement: { edge: 'trailing', webHost: host } },
+  });
+  handles.push(legacy);
+  await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+  expect(host.childElementCount).toBe(0);
+});
+
+test('disabled automatic controls keep explicit native buttons and extensions eligible', async () => {
+  const { root, options } = mount(
+    '<ion-header><ion-toolbar><ion-button class="ios" data-native-ui="button">Explicit</ion-button><ion-button class="ios">Automatic</ion-button></ion-toolbar></ion-header><section data-counter>Counter</section>',
+  );
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const snapshots: ShellSnapshot[] = [];
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: ShellSnapshot) => {
+      snapshots.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIShellPlugin;
+  const runtime = await createRuntime(document, plugin, {
+    ...options,
+    source: 'auto',
+    explicitControls: true,
+    controls: { toolbar: false, tabs: false, segment: false, fab: false },
+    extensions: [{ name: 'counter', selector: '[data-counter]', read: () => ({ props: {} }) }],
+  });
+  handles.push(runtime);
+  await vi.waitFor(() => expect(runtime.getStatus().projected).toBe(2));
+  expect(snapshots.at(-1)!.controls.map((item) => item.kind)).toEqual(['button', 'extension']);
+  expect(snapshots.at(-1)!.controls[0].items[0].label).toBe('Explicit');
+  expect(root.querySelectorAll('[data-native-ui-shell]')).toHaveLength(2);
+});
+
+test('explicit Ionic Web rails preserve shadow icons and observe artwork changes', async () => {
+  const { root, options } = mount(
+    '<ion-button data-native-ui="button" data-native-ui-placement="rail" aria-label="Add"><ion-icon></ion-icon></ion-button>',
+  );
+  const shadow = root.querySelector('ion-icon')!.attachShadow({ mode: 'open' });
+  shadow.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0 0h24v24z"/></svg>';
+  const handle = createHTMLWebProjection(document, options);
+  handles.push(handle);
+  const clone = options.rail!.host.querySelector('button')!;
+  expect(clone.getAttribute('aria-label')).toBe('Add');
+  expect(clone.querySelector('path')?.getAttribute('d')).toBe('M0 0h24v24z');
+  shadow.querySelector('path')!.setAttribute('d', 'M0 0h12v12z');
+  await vi.waitFor(() => expect(clone.querySelector('path')?.getAttribute('d')).toBe('M0 0h12v12z'));
+});
+
+test.each([
+  { controls: { buttons: true, toolbar: false } },
+  { autoIonicControls: true, controls: { buttons: false } },
+  { autoIonicControls: { buttons: false } },
+  { autoIonicControls: { tabs: false } },
+])('explicit projection survives new automatic settings and legacy alias precedence: %j', async (settings) => {
+  const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
+  const { root, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Explicit</button>');
+  const shell = await enableNativeUIShell({
+    ...settings,
+    root,
+    verticalBars: { placement: { edge: 'trailing', webHost: options.rail!.host } },
+  });
+  handles.push(shell);
+  await vi.waitFor(() => expect(options.rail!.host.querySelectorAll('button')).toHaveLength(1));
+});

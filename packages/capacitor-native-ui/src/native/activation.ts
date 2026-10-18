@@ -185,6 +185,7 @@ export const enableNativeUIShell = (
   const controls = options.controls;
   const configuration = JSON.stringify([
     options.source ?? 'ionic',
+    options.explicitControls !== false,
     options.verticalBars?.enabled !== false,
     options.verticalBars?.placement?.edge,
     options.rail?.edge,

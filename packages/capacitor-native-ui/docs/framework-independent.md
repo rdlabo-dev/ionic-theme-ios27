@@ -27,7 +27,7 @@ The `/core` entry requires `@capacitor/core` but no Ionic dependencies. If this 
 - `data-native-ui="button"` opts into a standard action button.
 - `data-native-ui="back-button"` opts into a standard back button. Its original click handler owns navigation; the plugin never calls `history.back()`.
 - `data-native-ui-placement="rail"` requests Vertical Bars. Without it, the source rectangle is used. `element` explicitly preserves that rectangle.
-- Sources must be `<button>` or custom elements exposing `role="button"` and click behavior. Unmarked HTML is never inferred to be a control.
+- Sources must be `<button>`, explicitly marked `ion-button`, or custom elements exposing `role="button"` and click behavior. Unmarked HTML is never inferred to be a control.
 
 Keep the accessible name, supported static SVG, disabled state and application handlers on the source. Names resolve from `aria-labelledby`, `aria-label`, then text. Native `disabled`, a disabled fieldset and `aria-disabled="true"` are respected. Hidden, removed, excluded or out-of-scope sources are retired and stale actions are rejected. Use `data-shell="disabled"` to exclude a subtree.
 
@@ -50,6 +50,8 @@ Call once after the source root exists. Keep the handle and call `await shell.de
 Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcode. The marked Add button should render natively and invoke its original click handler. In a browser, the same button remains an ordinary Web button. Unmarked HTML remains unchanged.
 
 If a button stays on the Web on supported iOS, check that it is visible within the configured root, has an accessible name, and that the direct plugin dependency was synced and the iOS app rebuilt.
+
+In an app that also uses Ionic, set `autoIonicControls: false` to project only explicit sources and registered extensions. See [selective Ionic projection](configuration.md#select-controls-explicitly-in-a-customized-ionic-app).
 
 ## Optional Web rail
 

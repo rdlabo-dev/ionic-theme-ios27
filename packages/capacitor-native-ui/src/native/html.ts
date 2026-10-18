@@ -16,10 +16,14 @@ export const readHTMLControl = (element: HTMLElement, id: Identify, options: Nat
   )
     return;
   // Explicit opt-in; custom elements can implement click() and expose role=button.
-  if (!element.matches('button, [role="button"]') || !visible(element, htmlRailSource(element))) return;
+  if (!element.matches('button, ion-button, [role="button"]') || !visible(element, htmlRailSource(element))) return;
   if (element.contains(element.ownerDocument.activeElement)) return;
   if (!htmlRailSource(element) && !fitsClip(element)) return;
-  if (options.controls?.toolbar === false || options.controls?.buttons === false) return;
+  if (
+    options.explicitControls === false ||
+    (options.explicitControls === undefined && (options.controls?.toolbar === false || options.controls?.buttons === false))
+  )
+    return;
   if (htmlRailSource(element) && options.verticalBars?.enabled === false) return;
   const kind = element.getAttribute('data-native-ui') === 'back-button' ? 'back-button' : 'button';
   const candidate = createCandidate(element, kind, id, options);
@@ -72,12 +76,16 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
   const render = () => {
     frame = 0;
     if (stopped) return;
+    observer.disconnect();
+    observer.observe(doc.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
     const wanted = new Set<HTMLElement>();
     if (!suspended && options.verticalBars?.enabled !== false && host?.isConnected && options.root?.isConnected) {
       const sources = Array.from(options.root.querySelectorAll<HTMLElement>(htmlSelector));
       let back = false;
       for (const source of sources) {
         if (!htmlRailSource(source) || host.contains(source) || source.hasAttribute('data-native-ui-shell-vertical-bars')) continue;
+        const iconRoot = source.querySelector('ion-icon')?.shadowRoot;
+        if (iconRoot) observer.observe(iconRoot, { subtree: true, childList: true, attributes: true, characterData: true });
         const candidate = measure(source, () => readHTMLControl(source, () => 'web', options));
         if (!candidate) continue;
         if (candidate.control.kind === 'back-button') {
@@ -86,7 +94,8 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
         }
         wanted.add(source);
         const item = candidate.control.items[0];
-        const signature = JSON.stringify([item, source.innerHTML]);
+        const svg = source.querySelector('svg') ?? iconRoot?.querySelector('svg');
+        const signature = JSON.stringify([item, source.innerHTML, svg?.outerHTML]);
         let state = owned.get(source);
         if (!state) {
           const clone = doc.createElement('button');
@@ -113,7 +122,6 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
         if (state.signature !== signature) {
           state.signature = signature;
           state.clone.replaceChildren();
-          const svg = source.querySelector('svg');
           if (svg) {
             const icon = svg.cloneNode(true) as SVGElement;
             icon.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
