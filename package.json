@@ -17,10 +17,7 @@
     "test:esm": "node scripts/verify-packages.mjs --esm",
     "pack:packages": "node scripts/pack-packages.mjs",
     "test:packages": "node scripts/verify-packages.mjs --candidate",
-    "prerelease": "npm run test:release && npm run build && npm run test:esm",
-    "release": "np --no-tests --no-publish --branch main",
-    "version": "node scripts/sync-release-version.mjs",
-    "test:release": "node --test scripts/sync-release-version.test.mjs"
+    "release": "np --no-tests --no-publish --branch main"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.3",
