@@ -95,6 +95,7 @@ struct CounterView: View {
                     }
                 }
             }
+            .disabled(!actions.isAvailable("increment"))
             if let error { Text(error) }
         }
     }

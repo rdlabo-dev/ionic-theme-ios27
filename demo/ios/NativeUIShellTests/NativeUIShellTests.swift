@@ -110,8 +110,14 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertFalse(nativeButton(app, label: "Cancel").exists, "Text-only toolbar actions must remain in Web")
         XCTAssertTrue(app.webViews.buttons["Cancel"].firstMatch.exists, app.debugDescription)
-        XCUIDevice.shared.press(.home)
-        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+        // Activating another app reliably backgrounds this scene, including on the Duo simulator
+        // where the simulated Home button can leave the scene foreground-active.
+        let otherApp = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
+        otherApp.activate()
+        let backgrounded = NSPredicate { _, _ in
+            app.state == .runningBackground || app.state == .runningBackgroundSuspended
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: backgrounded, object: app)], timeout: 5), .completed)
         app.activate()
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         save.tap()
@@ -209,19 +215,31 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
         app.webViews.buttons["Theme disabled: false"].tap()
-        XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.webViews.buttons["Theme disabled: true"].waitForExistence(timeout: 5))
+        XCTAssertTrue(native.exists, "Disabling group theme styling must not disable its independently projected button")
+        native.tap()
+        let savedTwice = app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "2", "Save count: 2")).firstMatch
+        XCTAssertTrue(savedTwice.waitForExistence(timeout: 5), "The native button must remain actionable with theme styling disabled")
         app.webViews.buttons["Theme disabled: true"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
         app.webViews.buttons["fill: clear"].tap()
+        // Both toolbar children are now clear: the supported glass group owns their native actions.
+        XCTAssertTrue(nativeButton(app, label: "Cancel").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(native.exists)
+        native.tap()
+        let savedThreeTimes = app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "3", "Save count: 3")).firstMatch
+        XCTAssertTrue(savedThreeTimes.waitForExistence(timeout: 5), "Changing to a clear group must preserve the Save action")
+        app.webViews.buttons["fill: solid"].tap()
         XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.webViews.buttons["Save"].firstMatch.exists, "Unsupported standalone solid fill must retain its Web action")
         app.webViews.buttons["fill: default"].tap()
         XCTAssertTrue(native.waitForExistence(timeout: 5))
 
         app.webViews.buttons["disabled: false"].tap()
-        XCTAssertFalse(native.isEnabled)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false"), object: native)], timeout: 5), .completed)
         app.webViews.buttons["disabled: true"].tap()
-        XCTAssertTrue(native.isEnabled)
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: native)], timeout: 5), .completed)
 
         let segment = app.segmentedControls.firstMatch
         XCTAssertTrue(segment.waitForExistence(timeout: 5), app.debugDescription)
@@ -344,7 +362,8 @@ final class NativeUIShellTests: XCTestCase {
         XCTAssertTrue(toggle.waitForExistence(timeout: 5), app.debugDescription)
         capture("native-vertical-bars-index")
         openPage(app, name: "native-ui-shell")
-        let save = nativeButton(app, label: "Save")
+        // The demo Save has text and a start icon; only icon-only toolbar actions enter the rail.
+        let save = app.webViews.buttons["Save"].firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
         save.tap()
         XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
@@ -372,15 +391,15 @@ final class NativeUIShellTests: XCTestCase {
         let menuLink = app.webViews.links["Docs"]
         XCTAssertTrue(menuLink.waitForExistence(timeout: 5), app.debugDescription)
         capture("native-vertical-bars-menu-open")
-        for control in [pageMenu, back, save, library] {
+        for control in [pageMenu, back, refresh, library] {
             XCTAssertTrue(control.waitForExistence(timeout: 5), "Every verticalBars rail control must remain native while the menu is open\n" + app.debugDescription)
             assertOnVerticalBars(control, in: app)
             XCTAssertTrue(control.isEnabled, "VerticalBars rail controls must remain enabled while Ionic disables the covered page\n" + app.debugDescription)
         }
-        save.tap()
+        refresh.tap()
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.81, dy: 0.55)).tap()
         XCTAssertTrue(menuLink.waitForNonExistence(timeout: 5), "The projected Ionic menu button did not close its menu\n" + app.debugDescription)
-        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), "The native control stopped projecting actions while the menu was open\n" + app.debugDescription)
+        XCTAssertTrue(app.webViews.staticTexts["Actions: 0 / 1"].waitForExistence(timeout: 5), "The native control stopped projecting actions while the menu was open\n" + app.debugDescription)
         capture("native-vertical-bars-after-menu")
     }
 
@@ -692,20 +711,26 @@ final class NativeUIShellTests: XCTestCase {
 
     private func openPage(_ app: XCUIApplication, name: String) {
         let label = name == "native-ui-shell" ? "native-ui-shell (Preview)" : name
-        let entry = app.webViews.buttons[label].exists ? app.webViews.buttons[label] : app.webViews.links[label]
-        // WebKit's isHittable does not account for a sibling native tab bar.
-        func unobscured() -> Bool {
-            entry.isHittable && entry.frame.midY > app.frame.minY + 130 && entry.frame.midY < app.frame.maxY - 120
+        // Offscreen Ionic items may be absent from WebKit's accessibility tree until scrolled into view.
+        // Resolve the element type on every iteration instead of permanently selecting a missing Link.
+        func entry() -> XCUIElement {
+            let button = app.webViews.buttons[label].firstMatch
+            return button.exists ? button : app.webViews.links[label].firstMatch
+        }
+        func unobscured(_ element: XCUIElement) -> Bool {
+            element.exists && element.isHittable && element.frame.midY > app.frame.minY + 130 && element.frame.midY < app.frame.maxY - 120
         }
         for _ in 0..<20 {
-            if unobscured() { break }
-            let below = entry.frame.midY >= app.frame.maxY - 120
+            let target = entry()
+            if unobscured(target) { break }
+            let below = !target.exists || target.frame.midY >= app.frame.maxY - 120
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.65 : 0.35))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.35 : 0.65))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
-        XCTAssertTrue(unobscured(), "Cannot open " + name + "\n" + app.debugDescription)
-        entry.tap()
+        let target = entry()
+        XCTAssertTrue(unobscured(target), "Cannot open " + name + "\n" + app.debugDescription)
+        target.tap()
         waitForWebTransition()
     }
 

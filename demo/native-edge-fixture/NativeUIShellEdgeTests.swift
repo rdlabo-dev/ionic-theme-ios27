@@ -27,12 +27,18 @@ final class NativeUIShellEdgeTests: XCTestCase {
     }
     private func openPage(_ app: XCUIApplication, name: String = "button") {
         let entry = app.webViews.buttons[name == "native-ui-shell" ? "native-ui-shell (Preview)" : name].firstMatch
-        for _ in 0..<15 {
-            if entry.isHittable && entry.frame.midY > 330 && entry.frame.midY < app.frame.height - 120 { break }
-            let below = entry.frame.midY >= app.frame.height - 120
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: below ? 0.75 : 0.4))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: below ? 0.4 : 0.75)))
+        // The fixed diagnostics panel covers y=240...352, including its blank areas.
+        // Start drags below it so the underlying Ionic scroller receives the gesture.
+        func unobscured() -> Bool {
+            entry.exists && entry.isHittable && entry.frame.midY > 380 && entry.frame.midY < app.frame.height - 120
         }
+        for _ in 0..<15 {
+            if unobscured() { break }
+            let below = !entry.exists || entry.frame.midY >= app.frame.height - 120
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: below ? 0.8 : 0.55))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: below ? 0.55 : 0.8)))
+        }
+        XCTAssertTrue(unobscured(), "Page entry is covered by the diagnostics panel or tab bar\n" + app.debugDescription)
         entry.tap(); settled()
         XCTAssertTrue(app.buttons["back"].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
     }
@@ -67,7 +73,8 @@ final class NativeUIShellEdgeTests: XCTestCase {
             if fixed { app.webViews.buttons["Edge fixed"].tap(); settled() }
             for cycle in 0..<3 {
                 let before = checkBack(app, native: native && fixed, name: "\(fixed)-\(native)-button-\(cycle)")
-                app.webViews.buttons["Push"].tap(); settled()
+                // Removing the collapsible header makes Push eligible for native projection.
+                app.buttons["Push"].firstMatch.tap(); settled()
                 XCTAssertTrue(app.webViews.staticTexts["action-sheet"].firstMatch.waitForExistence(timeout: 10))
                 if fixed { app.webViews.buttons["Edge fixed"].tap(); settled() }
                 let after = checkBack(app, native: native && fixed, name: "\(fixed)-\(native)-pushed-\(cycle)")
@@ -83,7 +90,7 @@ final class NativeUIShellEdgeTests: XCTestCase {
                 XCTAssertEqual(state(app)["path"] as? String, "/main/index/action-sheet")
                 _ = checkBack(app, native: native && fixed, name: "\(fixed)-\(native)-cancel-\(cycle)")
                 app.buttons["back"].firstMatch.tap(); settled()
-                XCTAssertTrue(app.webViews.buttons["Push"].waitForExistence(timeout: 10))
+                XCTAssertTrue(app.buttons["Push"].firstMatch.waitForExistence(timeout: 10))
             }
             app.buttons["back"].firstMatch.tap(); settled()
             XCTAssertTrue(app.webViews.switches["Dark Mode"].waitForExistence(timeout: 10))

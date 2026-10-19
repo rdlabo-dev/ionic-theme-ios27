@@ -46,6 +46,17 @@ export const readHTMLControl = (element: HTMLElement, id: Identify, options: Nat
 /** A rail host is supplied and styled by the application, never by the plugin. */
 export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRuntimeOptions): NativeUIShellRuntimeHandle => {
   const host = options.rail?.host;
+  if (!host) {
+    let stopped = false;
+    return {
+      markForCheck: () => {},
+      getStatus: () => ({ state: stopped ? 'stopped' : 'web', projected: 0, updates: 0 }),
+      suspend: async () => ({ resume: async () => {} }),
+      destroy: async () => {
+        stopped = true;
+      },
+    };
+  }
   const win = doc.defaultView!;
   const owned = new Map<HTMLElement, { clone: HTMLButtonElement; aria: string | null; signature: string }>();
   const style = doc.createElement('style');

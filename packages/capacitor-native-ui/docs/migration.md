@@ -38,7 +38,7 @@ For apps using both the theme and native controls, install both as direct applic
 npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
 ```
 
-For native controls with your existing Web appearance, follow [Native UI only](setup.md). Install the native package directly and keep your existing Web styles. The plugin no longer requires theme variables to select supported controls; Web layout remains the responsibility of your app or theme. The native package requires Capacitor 8 and Ionic 8.8.1 or later within Ionic 8 or 9.
+For native controls with your existing Web appearance, follow [Native UI only](setup.md). Install the native package directly and keep your existing Web styles. The plugin no longer requires theme variables to select supported controls; Web layout remains the responsibility of your app or theme. Native startup requires Capacitor 8. The Ionic adapter requires Ionic 8.8.1 or later within Ionic 8 or 9; the `/core` entry does not require Ionic.
 
 If you used the intermediate `@ionic-theme/capacitor-native-ui` package name during development, remove it and install `@rdlabo/capacitor-native-ui`. Keep the theme dependency if your app uses its styles or APIs.
 

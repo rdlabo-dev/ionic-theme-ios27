@@ -198,3 +198,29 @@ test('plain HTML extensions follow CSS color-scheme without theme variables', as
   source.style.colorScheme = 'light';
   await vi.waitFor(() => expect(bridge.update.mock.calls.at(-1)?.[0].controls[0]?.dark).toBe(false));
 });
+
+test.each(['bridge', 'pagehide'])('a shell stopped by %s releases ownership before explicit restart', async (cause) => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  let count = 0;
+  const config = {
+    ...options(),
+    extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: { count } }) }],
+  };
+  shell = await enableNativeUIShell(config);
+  const previous = shell;
+  await vi.waitFor(() => expect(previous.getStatus().projected).toBe(2));
+  if (cause === 'bridge') {
+    bridge.update.mockRejectedValueOnce(new Error('Temporary bridge failure'));
+    count++;
+    previous.markForCheck();
+  } else window.dispatchEvent(new Event('pagehide'));
+  await vi.waitFor(() => expect(bridge.clear).toHaveBeenCalled());
+  shell = await enableNativeUIShell(config);
+  expect(shell).not.toBe(previous);
+  await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(2));
+  expect(previous.getStatus().state).toBe('stopped');
+  expect(rail.querySelectorAll('button')).toHaveLength(1);
+  expect(bridge.configure).toHaveBeenCalledTimes(2);
+  await previous.destroy();
+  expect(shell.getStatus().state).toBe('native');
+});

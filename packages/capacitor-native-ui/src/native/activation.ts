@@ -217,6 +217,13 @@ export const enableNativeUIShell = (
   const previousStop = stopping;
   let start: Promise<NativeUIShellRuntimeHandle>;
   const stop = (destruction: Promise<void>) => stopActivation(start, destruction);
+  const runtimeStopped = () => {
+    // Internal bridge failure/pagehide must retire the complete activation, including
+    // fallback projections and listeners, before a new startup can acquire ownership.
+    const destruction = start.then((handle) => handle.destroy());
+    stop(destruction);
+    void destruction.catch(() => {});
+  };
   return (start = active =
     (async () => {
       // Native controls and DOM ownership are shared. A replacement activation
@@ -271,6 +278,7 @@ export const enableNativeUIShell = (
             },
             () => false,
             options.verticalBarsOnly === true,
+            runtimeStopped,
           );
           runtime = combine(runtime, webProjection(document, options));
           metricsListener = await boundedListener(
@@ -323,6 +331,7 @@ export const enableNativeUIShell = (
           { ...options, extensions, unavailableExtensions },
           nativeVerticalBars,
           options.verticalBarsOnly === true,
+          runtimeStopped,
         );
         runtime = combine(
           native,

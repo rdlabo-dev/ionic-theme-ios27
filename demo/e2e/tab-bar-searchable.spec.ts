@@ -13,7 +13,7 @@ for (const { name, width, vertical } of [
     const trigger = vertical ? page.locator('ion-app > .ios-theme-vertical-bars-search-projection') : album.locator('ion-fab-button');
     const footer = album.locator('ion-footer');
     const input = footer.locator('input');
-    const dismiss = footer.getByRole('button', { name: 'Close', exact: true });
+    const dismiss = footer.locator('.ios-theme-searchable-dismiss').getByRole('button', { name: 'Close', exact: true });
     const selectedTab = footer.locator('ion-buttons[slot=start] ion-button');
     const clear = footer.locator('.searchbar-clear-button');
     await trigger.click();

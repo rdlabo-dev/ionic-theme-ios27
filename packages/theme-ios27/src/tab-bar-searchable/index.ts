@@ -75,6 +75,7 @@ export const attachTabBarSearchable = (
   // Saved Params
   let searchableEventCache: SearchableEventCache | undefined;
   let resumeNative: (() => void) | undefined;
+  let restoreTrigger: (() => void) | undefined;
   // Leave is valid both while native Enter awaits its ack and after it completes.
   let nativeEntry = false;
   let nativeRequest = 0;
@@ -121,7 +122,21 @@ export const attachTabBarSearchable = (
       ]);
       try {
         searchableEventCache = await enterEvent(event, ionTabBar, ionFabButton, ionFooter, verticalSearch);
+        if (!restoreTrigger) {
+          // WebKit can hit an opacity-zero FAB above the focused close button.
+          // Hide its complete host after the entrance animation; restore before animating out.
+          const trigger = ionFabButton.closest('ion-fab') ?? ionFabButton;
+          const visibility = trigger.style.getPropertyValue('visibility');
+          const priority = trigger.style.getPropertyPriority('visibility');
+          restoreTrigger = () => {
+            if (visibility) trigger.style.setProperty('visibility', visibility, priority);
+            else trigger.style.removeProperty('visibility');
+            restoreTrigger = undefined;
+          };
+          trigger.style.setProperty('visibility', 'hidden', 'important');
+        }
       } catch (error) {
+        restoreTrigger?.();
         tabVisibilityObserver?.disconnect();
         resumeNative();
         resumeNative = undefined;
@@ -129,9 +144,11 @@ export const attachTabBarSearchable = (
       }
     } else if (searchableEventCache !== undefined) {
       try {
+        restoreTrigger?.();
         await leaveEvent(event, searchableEventCache, ionTabBar, ionFabButton, ionFooter, verticalSearch);
         searchableEventCache = undefined;
       } finally {
+        restoreTrigger?.();
         tabVisibilityObserver?.disconnect();
         resumeNative?.();
         resumeNative = undefined;

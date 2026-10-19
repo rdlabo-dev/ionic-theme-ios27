@@ -389,7 +389,14 @@ final class ShellSearchController: UITabBarController, UITabBarControllerDelegat
             view.setNeedsLayout()
             view.layoutIfNeeded()
         }
-        return true
+        // Fitting the ordinary platter can move UIKit's separate Search control
+        // outside the WebView, especially for centered or trailing source bars.
+        // Reject that layout so Search keeps its usable Web fallback.
+        let visibleBounds = surface.bounds.insetBy(dx: -0.5, dy: -0.5)
+        let regions = ShellTabBar.contentViews(tabBar)
+        return !regions.isEmpty && regions.allSatisfy {
+            visibleBounds.contains(tabBar.convert($0.frame, to: surface))
+        }
     }
 
     func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {

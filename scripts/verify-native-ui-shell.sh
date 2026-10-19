@@ -16,7 +16,7 @@ fi
 printf 'Native UI Shell verification artifacts: %s\n' "$artifacts"
 
 cd "$repo/packages/capacitor-native-ui"
-xcodebuild -scheme IonicThemeCapacitorNativeUi \
+xcodebuild -scheme IonicThemeCapacitorNativeUi-Package \
   -destination "platform=iOS Simulator,id=$simulator" -derivedDataPath "$artifacts/unit-test-build" \
   -resultBundlePath "$artifacts/unit-tests.xcresult" CODE_SIGNING_ALLOWED=NO test > "$artifacts/unit-tests.log" 2>&1
 cd "$repo"

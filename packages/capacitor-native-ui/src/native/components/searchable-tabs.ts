@@ -1,6 +1,6 @@
 import { getNativeSearchBindings, requestNativeSearch } from '../../native-integration';
 import type { NativeSearchBinding } from '../../native-integration';
-import { excluded, inFixedToolbar, isShellDisabled, marker, text, visible } from '../shared/dom';
+import { excluded, inFixedToolbar, isShellDisabled, marker, text, visible, withoutPrehide } from '../shared/dom';
 import { iconSource } from '../shared/icons';
 import type { Candidate } from '../shared/candidate';
 import type { ShellItem, ShellSearch, ShellSearchEvent } from '../definitions';
@@ -220,8 +220,9 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         const existing = states.get(binding);
         if (pageUnavailable) {
           retainInactive(candidate, existing, !!existing?.last?.available && !pageHidden(binding.footer));
-          if (existing?.last) continue;
-          // First registration during a transition: fall through and measure available:false.
+          // A first registration on a cached/hidden page has no measurable trigger.
+          // Keep ordinary tabs until the page becomes available; only reuse a previous valid search.
+          continue;
         }
         if (binding.active && existing && isCurrent(existing) && existing.last && !pageUnavailable) {
           const back = binding.footer.querySelector<HTMLIonButtonElement>('ion-buttons[slot=start] ion-button');
@@ -305,6 +306,15 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           retainInactive(candidate, existing);
           continue;
         }
+        const triggerRect = binding.trigger.getBoundingClientRect();
+        if (
+          ![triggerRect.x, triggerRect.y, triggerRect.width, triggerRect.height].every(Number.isFinite) ||
+          triggerRect.width <= 0 ||
+          triggerRect.height <= 0
+        ) {
+          retainInactive(candidate, existing);
+          continue;
+        }
         const state = existing ?? install(binding, bar, input);
         const trigger = readIcon(binding.trigger, binding.trigger, candidate);
         const searchIcon = bar.querySelector<HTMLElement>('.searchbar-search-icon');
@@ -364,8 +374,38 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         }
       }
       for (const [candidate, configuration] of inactive) candidate.control.search ??= configuration;
-      const groups = candidates.filter((c) => c.control.search);
-      return candidates.filter((c) => !groups.some((group) => group !== c && group.sources?.some((source) => source.contains(c.element))));
+      // Every unsupported search path leaves its trigger on the Web, including
+      // opt-outs and unsupported markup before a native layout was attempted.
+      // Ordinary native tabs must not intercept that trigger's input.
+      const projectedCandidates = candidates.filter(
+        (candidate) =>
+          candidate.control.search?.available ||
+          !bindings.some((binding) => {
+            if (binding.tabBar !== candidate.element) return false;
+            const trigger = withoutPrehide(binding.trigger, () => {
+              // Projection opt-outs do not hide a usable Web button. Check actual
+              // presentation here, rather than the native eligibility predicate.
+              if (!binding.trigger.isConnected || binding.trigger.closest('.ion-page-hidden, .ion-page-invisible, [hidden], [inert]'))
+                return;
+              for (let element: HTMLElement | null = binding.trigger; element; element = element.parentElement) {
+                const style = getComputedStyle(element);
+                if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) === 0) return;
+              }
+              const rect = binding.trigger.getBoundingClientRect();
+              if ([rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) && rect.width > 0 && rect.height > 0) return rect;
+              return;
+            });
+            if (!trigger) return false;
+            const tabs = candidate.control;
+            return (
+              tabs.x < trigger.right && tabs.x + tabs.width > trigger.left && tabs.y < trigger.bottom && tabs.y + tabs.height > trigger.top
+            );
+          }),
+      );
+      const groups = projectedCandidates.filter((c) => c.control.search);
+      return projectedCandidates.filter(
+        (c) => !groups.some((group) => group !== c && group.sources?.some((source) => source.contains(c.element))),
+      );
     },
     projected,
     hasActive() {

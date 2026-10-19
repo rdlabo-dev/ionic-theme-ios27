@@ -20,7 +20,13 @@
         bottom: 80px;
       }
       .position-controls {
-        margin: 240px 20px 0;
+        margin: 0 20px;
+      }
+      .fixture-controls {
+        position: fixed;
+        top: 280px;
+        left: 20px;
+        right: 20px;
       }
       .position-controls button {
         min-height: 44px;
@@ -57,11 +63,13 @@
             <p data-fab-count>FAB clicks: 0</p>
             <p data-fab-source>FAB source: web</p>
             <p data-single-count>Standalone clicks: 0</p>
-            <button data-remove-fab-list>Remove FAB list</button>
-            <button data-position="start">Position start</button><button data-position="center">Position center</button
-            ><button data-position="end">Position end</button> <button data-direction="ltr">Direction ltr</button
-            ><button data-direction="rtl">Direction rtl</button> <button data-slot="top">Slot top</button
-            ><button data-slot="bottom">Slot bottom</button> <button data-count="3">Three tabs</button>
+            <div class="fixture-controls">
+              <button data-remove-fab-list>Remove FAB list</button>
+              <button data-position="start">Position start</button><button data-position="center">Position center</button
+              ><button data-position="end">Position end</button> <button data-direction="ltr">Direction ltr</button
+              ><button data-direction="rtl">Direction rtl</button> <button data-slot="top">Slot top</button
+              ><button data-slot="bottom">Slot bottom</button> <button data-count="3">Three tabs</button>
+            </div>
           </div></ion-content
         >
         <ion-tab-bar id="position-tabs" slot="bottom" class="tab-bar-position-start">

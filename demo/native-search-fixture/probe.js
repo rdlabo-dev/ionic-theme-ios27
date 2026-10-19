@@ -53,6 +53,10 @@ for (const [label, action] of [
       const tabs = document.querySelector('ion-tab-bar');
       ['start', 'center', 'end'].forEach((value) => tabs.classList.remove(`tab-bar-position-${value}`));
       tabs.classList.add(`tab-bar-position-${position}`);
+      // Keep the source Web layout usable too: end-aligned tabs and an end FAB
+      // occupy the same space; centered tabs leave too little room on either side.
+      const fab = document.querySelector('app-album-page:not(.ion-page-hidden) ion-fab');
+      fab.style.marginBottom = position === 'start' ? '' : '80px';
     },
   ]),
   [
@@ -89,11 +93,16 @@ panel.append(webInput);
 document.body.append(panel);
 setInterval(() => {
   const input = bar();
+  // Distinguish the focused trailing dismissal from WebKit's cached original Close item.
+  const dismiss = input?.closest('ion-footer').querySelector('.ios-theme-searchable-dismiss ion-button');
+  if (dismiss && dismiss.getAttribute('aria-label') !== 'Dismiss search') dismiss.setAttribute('aria-label', 'Dismiss search');
   const native = input?.closest('ion-footer').hasAttribute('data-native-ui-shell');
   const tabs = document.querySelector('ion-tab-bar');
   const position = ['start', 'center', 'end'].find((value) => tabs?.classList.contains(`tab-bar-position-${value}`)) ?? 'default';
-  const trigger = document.querySelector('app-album-page:not(.ion-page-hidden) ion-fab-button')?.getBoundingClientRect();
-  status.textContent = `Probe ${native ? 'native' : 'web'} value:${input?.value ?? ''} viewport:${innerWidth > innerHeight ? 'landscape' : 'portrait'} clicks:${clicks} focus:${events.filter((e) => e[0] === 'ionFocus').length} clear:${events.filter((e) => e[0] === 'ionClear').length} ime:${events.some((e) => e[2])} position:${position} dir:${document.documentElement.dir || 'ltr'} origin:${trigger ? trigger.x + trigger.width / 2 : 0} settled:${!document.getAnimations().some((a) => a.playState === 'running')}${watch ? ` watch:${watch.running ? 'running' : 'done'} frames:${watch.frames} releases:${watch.releases} exposed:${watch.exposed}` : ''}`;
+  const triggerElement = document.querySelector('app-album-page:not(.ion-page-hidden) ion-fab-button');
+  const trigger = triggerElement?.getBoundingClientRect();
+  const hit = trigger && document.elementFromPoint(trigger.x + trigger.width / 2, trigger.y + trigger.height / 2);
+  status.textContent = `Probe ${native ? 'native' : 'web'} value:${input?.value ?? ''} viewport:${innerWidth > innerHeight ? 'landscape' : 'portrait'} clicks:${clicks} focus:${events.filter((e) => e[0] === 'ionFocus').length} clear:${events.filter((e) => e[0] === 'ionClear').length} ime:${events.some((e) => e[2])} position:${position} dir:${document.documentElement.dir || 'ltr'} origin:${trigger ? trigger.x + trigger.width / 2 : 0} triggerHit:${!!hit && (hit === triggerElement || triggerElement.contains(hit))} settled:${!document.getAnimations().some((a) => a.playState === 'running')}${watch ? ` watch:${watch.running ? 'running' : 'done'} frames:${watch.frames} releases:${watch.releases} exposed:${watch.exposed}` : ''}`;
   window.searchProbe = {
     native,
     value: input?.value,

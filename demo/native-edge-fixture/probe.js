@@ -11,6 +11,7 @@ const status = document.createElement('button');
 status.style.cssText = 'display:block;max-height:30px;overflow:hidden;width:300px;font:9px sans-serif';
 panel.append(status);
 const tabs = () => document.querySelector('ion-tabs > ion-tab-bar');
+const shell = () => document.querySelector('ion-app')?.nativeUIShell;
 for (const [label, action] of [
   ['Edge typography', () => { tabs().querySelectorAll('ion-label').forEach((label) => { label.style.fontSize = '14px'; label.style.fontWeight = label.style.fontWeight === '700' ? '300' : '700'; }); }],
   ['Edge update-badge', () => { tabs().querySelectorAll('ion-badge')[1].textContent = '999'; }],
@@ -44,7 +45,7 @@ for (const [label, action] of [
   }],
   ['Edge dark', () => document.documentElement.classList.add('ion-palette-dark')],
   ['Edge light', () => document.documentElement.classList.remove('ion-palette-dark')],
-  ['Edge Web', () => window.nativeUIShell.destroy()],
+  ['Edge Web', () => shell().destroy()],
   ['Edge narrow', () => (tabs().style.width = '300px')],
   ['Edge auto width', () => tabs().style.removeProperty('width')],
   ['Edge fixed', () => document.querySelectorAll('ion-header[collapse="condense"]').forEach((header) => header.remove())],
@@ -83,7 +84,7 @@ setInterval(() => {
   );
   const value = {
     path: location.pathname,
-    native: window.nativeUIShell?.getStatus().state,
+    native: shell()?.getStatus().state,
     tabs: bar ? rect(bar) : null,
     searchNative: !!document.querySelector('app-album-page:not(.ion-page-hidden) ion-footer[data-native-ui-shell]'),
     tabsNative: bar?.hasAttribute('data-native-ui-shell') ?? false,

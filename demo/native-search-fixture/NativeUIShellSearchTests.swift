@@ -1,7 +1,12 @@
 import XCTest
 final class NativeUIShellSearchTests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false; XCUIDevice.shared.orientation = .portrait }
-    private func searchButton(_ app: XCUIApplication) -> XCUIElement { app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", "Search", "shell-")).firstMatch }
+    private func searchButton(_ app: XCUIApplication) -> XCUIElement {
+        // UIKit's UISearchTab button may omit its UITab identifier in accessibility.
+        // Restrict the label lookup to our native tab bar so a Web fallback cannot satisfy it.
+        app.tabBars.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'"))
+            .buttons["Search"].firstMatch
+    }
     private func openSearch(_ app: XCUIApplication) -> XCUIElement {
         app.launch()
         let library = app.tabBars.buttons["Library"]
@@ -107,9 +112,19 @@ final class NativeUIShellSearchTests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         let field = openSearch(app)
         field.tap()
-        print("JAPANESE KEYBOARD \(app.debugDescription)")
         let kana = app.keyboards.keys["あ"].firstMatch
+        // Installing Kana does not make it the active keyboard; select it through the system switcher.
+        for _ in 0..<4 {
+            if kana.waitForExistence(timeout: 1) { break }
+            let next = app.buttons["Next keyboard"].firstMatch
+            XCTAssertTrue(next.exists, "Install Japanese Kana in the simulator before this test\n" + app.debugDescription)
+            next.tap()
+        }
         XCTAssertTrue(kana.waitForExistence(timeout: 5), app.debugDescription)
+        // iOS may cover the newly selected keyboard with its first-use
+        // “Quickly Change Keyboards” sheet; the underlying Kana keys still exist.
+        let keyboardHelp = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Continue"]
+        if keyboardHelp.waitForExistence(timeout: 2) { keyboardHelp.tap() }
         let visibleKana = NSPredicate { _, _ in kana.exists && kana.isHittable && app.frame.contains(kana.frame) }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: visibleKana, object: app)], timeout: 5), .completed, app.debugDescription)
         kana.tap()
@@ -125,17 +140,22 @@ final class NativeUIShellSearchTests: XCTestCase {
         capture("native-search-japanese-restored")
     }
 
-    func testSearchOriginAndWebKeyboard() throws {
+    func testSearchSourceChangesAndWebKeyboard() throws {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         _ = openSearch(app)
         app.tabBars.buttons["Library"].tap()
         let search = searchButton(app)
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         app.webViews.buttons["Move FAB"].tap()
+        // UIKit owns the search button placement; translating the source itself does not opt it out.
+        XCTAssertTrue(probe(app, contains: "Probe native").waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(search.isHittable)
+        app.webViews.buttons["Move FAB"].tap()
+        app.webViews.buttons["Toggle search theme"].tap()
         XCTAssertTrue(probe(app, contains: "Probe web").waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(search.waitForNonExistence(timeout: 5))
-        capture("native-search-moved-fab-web")
-        app.webViews.buttons["Move FAB"].tap()
+        capture("native-search-disabled-web")
+        app.webViews.buttons["Toggle search theme"].tap()
         XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
         let input = app.webViews.textFields["Web keyboard"]
         input.tap()
@@ -146,16 +166,26 @@ final class NativeUIShellSearchTests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
     }
 
-    func testNativeKeyboardKeepsSearchFieldOrigin() throws {
+    func testNativeKeyboardKeepsWebViewFrameAndSearchVisible() throws {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeuishell.fixture")
         let field = openSearch(app)
-        let before = field.frame
+        let before = app.webViews.firstMatch.frame
         field.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let aboveKeyboard = NSPredicate { _, _ in
+            field.exists && field.frame.maxY <= app.keyboards.firstMatch.frame.minY
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: aboveKeyboard, object: field)], timeout: 5), .completed)
         let after = field.frame
         let keyboard = app.keyboards.firstMatch.frame
-        // WebView keyboard resize must not lift the native search surface again on top of UIKit avoidance.
-        XCTAssertLessThan(before.minY - after.minY, keyboard.height * 0.5, app.debugDescription)
+        // UIKit may move a bottom search field above its keyboard. Verify the independent
+        // Capacitor resize contract directly, rather than constraining UIKit's own avoidance.
+        let web = app.webViews.firstMatch.frame
+        XCTAssertEqual(web.minX, before.minX, accuracy: 1)
+        XCTAssertEqual(web.minY, before.minY, accuracy: 1)
+        XCTAssertEqual(web.width, before.width, accuracy: 1)
+        XCTAssertEqual(web.height, before.height, accuracy: 1)
+        XCTAssertLessThanOrEqual(after.maxY, keyboard.minY, "Native search must remain above the keyboard")
         XCTAssertGreaterThanOrEqual(after.minY, -1)
         XCTAssertTrue(field.isHittable)
         capture("native-search-keyboard-origin")
@@ -177,11 +207,66 @@ final class NativeUIShellSearchTests: XCTestCase {
                 let search = searchButton(app)
                 if status.label.contains("Probe native") {
                     XCTAssertTrue(search.waitForExistence(timeout: 5), app.debugDescription)
-                    let origin = Double(status.label.components(separatedBy: "origin:")[1].components(separatedBy: " ")[0])!
-                    XCTAssertEqual(search.frame.midX, origin, accuracy: 1)
+                    let nativeTabs = app.tabBars.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'"))
+                    let ordinary = nativeTabs.buttons.allElementsBoundByIndex.filter { $0.label != "Search" }
+                    let platter = ordinary.map(\.frame).reduce(CGRect.null) { $0.union($1) }
+                    XCTAssertFalse(platter.isNull)
+                    XCTAssertTrue(app.frame.contains(search.frame), app.debugDescription)
+                    XCTAssertFalse(ordinary.contains { $0.frame.intersects(search.frame) }, "Search must not cover another tab")
+                    if direction == "ltr" { XCTAssertGreaterThan(search.frame.midX, platter.midX) }
+                    else { XCTAssertLessThan(search.frame.midX, platter.midX) }
+                    XCTAssertTrue(search.isHittable)
+                    search.tap()
+                    let field = app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'shell-'" )).firstMatch
+                    XCTAssertTrue(field.waitForExistence(timeout: 10), app.debugDescription)
+                    app.tabBars.buttons["Library"].tap()
+                    XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
                 } else {
                     XCTAssertTrue(search.waitForNonExistence(timeout: 5), app.debugDescription)
-                    XCTAssertTrue(app.tabBars.buttons["Library"].isHittable)
+                    XCTAssertTrue(probe(app, contains: "triggerHit:true").waitForExistence(timeout: 5), "The source Web FAB must not be covered by its tabs: " + status.label)
+                    let webSearch = app.webViews.buttons["Search"].firstMatch
+                    XCTAssertTrue(webSearch.isHittable, app.debugDescription)
+                    webSearch.tap()
+                    let webField = app.webViews.searchFields.firstMatch
+                    XCTAssertTrue(webField.waitForExistence(timeout: 5), app.debugDescription)
+                    webField.tap()
+                    // The Kana scenario may leave the Japanese keyboard selected.
+                    for _ in 0..<5 {
+                        if app.keyboards.keys["a"].exists || app.keyboards.keys["A"].exists { break }
+                        app.buttons["Next keyboard"].firstMatch.tap()
+                    }
+                    let ready = NSPredicate { _, _ in
+                        app.keyboards.keys["a"].isHittable || app.keyboards.keys["A"].isHittable
+                    }
+                    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: ready, object: app)], timeout: 10), .completed, app.debugDescription)
+                    let previous = webField.value as? String ?? ""
+                    if !previous.isEmpty && previous != "Search" {
+                        // A tap may place the caret before retained text. Use Ionic's clear
+                        // control instead of assuming delete starts at the end of the value.
+                        app.webViews.buttons["reset"].firstMatch.tap()
+                        XCTAssertTrue(probe(app, contains: "value: viewport:").waitForExistence(timeout: 5), app.debugDescription)
+                    }
+                    let value = direction + position
+                    for character in value { app.keyboards.keys[String(character)].tap() }
+                    XCTAssertTrue(probe(app, contains: "value:" + value + " viewport:").waitForExistence(timeout: 5), app.debugDescription)
+                    // The focused Web layout appends a trailing Close button and hides the original.
+                    // WebKit can retain the hidden original in AX, so select the appended control.
+                    let close = app.webViews.buttons["Dismiss search"].firstMatch
+                    XCTAssertTrue(close.isHittable, app.debugDescription)
+                    close.tap()
+                    XCTAssertTrue(webSearch.waitForExistence(timeout: 5), app.debugDescription)
+                    let tappable = NSPredicate { _, _ in webSearch.isHittable }
+                    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: tappable, object: webSearch)], timeout: 10), .completed, app.debugDescription)
+                    // A rejected layout can retain native tabs only if they do not cover the Web FAB.
+                    let nativeIndex = app.tabBars.buttons["Index"]
+                    let webIndex = app.webViews.buttons["Index"].firstMatch
+                    let restored = NSPredicate { _, _ in nativeIndex.isHittable || webIndex.isHittable }
+                    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: restored, object: app)], timeout: 10), .completed, app.debugDescription)
+                    if nativeIndex.isHittable { nativeIndex.tap() } else { webIndex.tap() }
+                    XCTAssertTrue(app.webViews.buttons["floating-action-button"].waitForExistence(timeout: 10), app.debugDescription)
+                    let nativeLibrary = app.tabBars.buttons["Library"]
+                    if nativeLibrary.isHittable { nativeLibrary.tap() } else { app.webViews.buttons["Library"].firstMatch.tap() }
+                    XCTAssertTrue(webSearch.waitForExistence(timeout: 10), app.debugDescription)
                 }
                 print("SEARCH POSITION " + status.label)
                 capture("search-position-" + direction + "-" + position)
