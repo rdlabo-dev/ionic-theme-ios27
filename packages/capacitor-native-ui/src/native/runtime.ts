@@ -54,7 +54,7 @@ export const createRuntime = async (
   options: NativeUIShellRuntimeOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
-  onStop?: () => void,
+  onStop?: (cause: 'failure' | 'pagehide') => void,
 ): Promise<NativeUIShellRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
   const win = doc.defaultView!;
   const extensions = options.extensions ?? [];
@@ -384,7 +384,7 @@ export const createRuntime = async (
     reason = error instanceof Error ? error.message : String(error);
     console.warn('[Native UI Shell] Returning to Web:', reason);
     const destruction = handle.destroy();
-    onStop?.();
+    onStop?.('failure');
     await destruction;
     // The Web fallback re-evaluates eligibility once native projection is stopped.
     win.dispatchEvent(new Event('nativeUIShellRefresh'));
@@ -978,7 +978,7 @@ export const createRuntime = async (
     });
     on(win, 'pagehide', () => {
       void handle.destroy();
-      onStop?.();
+      onStop?.('pagehide');
     });
     schedule();
   } catch (error) {

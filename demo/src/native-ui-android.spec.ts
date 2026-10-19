@@ -199,7 +199,7 @@ test('plain HTML extensions follow CSS color-scheme without theme variables', as
   await vi.waitFor(() => expect(bridge.update.mock.calls.at(-1)?.[0].controls[0]?.dark).toBe(false));
 });
 
-test.each(['bridge', 'pagehide'])('a shell stopped by %s releases ownership before explicit restart', async (cause) => {
+test.each(['bridge', 'pagehide', 'bridge then pagehide'])('shell restarts after %s without duplicate ownership', async (cause) => {
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   let count = 0;
   const config = {
@@ -209,12 +209,21 @@ test.each(['bridge', 'pagehide'])('a shell stopped by %s releases ownership befo
   shell = await enableNativeUIShell(config);
   const previous = shell;
   await vi.waitFor(() => expect(previous.getStatus().projected).toBe(2));
-  if (cause === 'bridge') {
+  if (cause !== 'pagehide') {
     bridge.update.mockRejectedValueOnce(new Error('Temporary bridge failure'));
     count++;
     previous.markForCheck();
   } else window.dispatchEvent(new Event('pagehide'));
   await vi.waitFor(() => expect(bridge.clear).toHaveBeenCalled());
+  if (cause !== 'pagehide') {
+    await vi.waitFor(() => expect(previous.getStatus().state).toBe('web'));
+    expect(rail.querySelectorAll('button')).toHaveLength(1);
+    if (cause === 'bridge then pagehide') {
+      window.dispatchEvent(new Event('pagehide'));
+      await vi.waitFor(() => expect(previous.getStatus().state).toBe('stopped'));
+      expect(rail.querySelectorAll('button')).toHaveLength(0);
+    }
+  }
   shell = await enableNativeUIShell(config);
   expect(shell).not.toBe(previous);
   await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(2));

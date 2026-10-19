@@ -42,6 +42,7 @@ export type {
 const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
 export const IonicNativeUIShell = plugin;
 let active: Promise<NativeUIShellRuntimeHandle> | undefined;
+let activeFailed = false;
 let activeRoot: HTMLElement | undefined;
 let activeRailHost: HTMLElement | undefined;
 let activeConfiguration: string | undefined;
@@ -53,6 +54,7 @@ let stopping: Promise<void> | undefined;
 const stopActivation = (owner: Promise<NativeUIShellRuntimeHandle>, destruction: Promise<void>) => {
   if (active !== owner) return;
   active = undefined;
+  activeFailed = false;
   activeConfiguration = undefined;
   activeRoot = undefined;
   activeRailHost = undefined;
@@ -198,6 +200,13 @@ export const enableNativeUIShell = (
     ...(['tabs', 'toolbar', 'segment', 'fab'] as const).map((component) => !controls || controls[component] === true),
     controls?.popover === true,
   ]);
+  if (active && activeFailed) {
+    const previous = active;
+    stopActivation(
+      previous,
+      previous.then((handle) => handle.destroy()),
+    );
+  }
   if (
     active &&
     (activeConfiguration !== configuration ||
@@ -217,9 +226,21 @@ export const enableNativeUIShell = (
   const previousStop = stopping;
   let start: Promise<NativeUIShellRuntimeHandle>;
   const stop = (destruction: Promise<void>) => stopActivation(start, destruction);
-  const runtimeStopped = () => {
-    // Internal bridge failure/pagehide must retire the complete activation, including
-    // fallback projections and listeners, before a new startup can acquire ownership.
+  let releaseNative = async () => {};
+  let retired = false;
+  const pagehide = () => runtimeStopped('pagehide');
+  const runtimeStopped = (cause: 'failure' | 'pagehide') => {
+    if (cause === 'failure') {
+      // Keep the Web rail usable, but replace this degraded activation on the next enable.
+      if (active === start) activeFailed = true;
+      void start
+        .then(async () => {
+          if (!retired) document.defaultView?.addEventListener('pagehide', pagehide, { once: true });
+          await releaseNative();
+        })
+        .catch(() => {});
+      return;
+    }
     const destruction = start.then((handle) => handle.destroy());
     stop(destruction);
     void destruction.catch(() => {});
@@ -242,6 +263,8 @@ export const enableNativeUIShell = (
           reason,
           suspend: () => prehide?.suspend(),
           destroy: () => {
+            retired = true;
+            document.defaultView?.removeEventListener('pagehide', pagehide);
             prehide?.stop();
             stopModals();
           },
@@ -253,6 +276,25 @@ export const enableNativeUIShell = (
       let runtime: NativeUIShellRuntimeHandle | undefined;
       let overlays: OverlayController | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
+      let nativeRelease: Promise<void> | undefined;
+      releaseNative = () =>
+        (nativeRelease ??= (async () => {
+          try {
+            await overlays?.destroy();
+          } finally {
+            if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
+          }
+        })());
+      const cleanup = async () => {
+        retired = true;
+        try {
+          await releaseNative();
+        } finally {
+          document.defaultView?.removeEventListener('pagehide', pagehide);
+          prehide?.stop();
+          stopModals();
+        }
+      };
       try {
         const capabilities = await bounded(plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true }));
         if (!capabilities.supported) return fallback('Native UI is unavailable on this device');
@@ -288,10 +330,7 @@ export const enableNativeUIShell = (
           );
           return manage(runtime, {
             stopping: stop,
-            destroy: async () => {
-              if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
-              stopModals();
-            },
+            destroy: cleanup,
           });
         }
         let deviceEdge: VerticalBarEdge = null;
@@ -349,15 +388,7 @@ export const enableNativeUIShell = (
             };
           },
           stopping: stop,
-          destroy: async () => {
-            try {
-              await overlays?.destroy();
-            } finally {
-              if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
-              prehide?.stop();
-              stopModals();
-            }
-          },
+          destroy: cleanup,
         });
       } catch (error) {
         await overlays?.destroy().catch(() => {});
