@@ -88,6 +88,8 @@ Explicit markup chooses placement: Back goes to the rail and Add keeps native el
 
 Currently the HTML adapter supports buttons and back buttons. Arbitrary HTML tabs, segments, searchbars and FAB structures are not translated. Ionic adapters continue to support their existing controls. Custom element extensions work with the same scoped root; the existing `tab-accessory` extension placement still requires an Ionic tab-bar owner.
 
+For device-driven spacing and placement, see [Use with Capacitor Foldable](vertical-bars.md#use-with-capacitor-foldable). Read its initial placement and subscribe to changes, applying the edge and inset to your own CSS; the theme package is not required.
+
 ## Example
 
 The [plain HTML example](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/main/examples/native-ui-html) demonstrates Add, routerless Home/Details/Back navigation, optional Web rail projection and cleanup. It uses no Ionic or theme CSS.

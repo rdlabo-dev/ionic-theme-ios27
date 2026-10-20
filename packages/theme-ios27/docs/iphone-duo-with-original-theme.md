@@ -20,7 +20,7 @@ Read [how projection works](../../capacitor-native-ui/README.md#how-projection-w
 
 The rest of this page is for **Ionic apps**. Both Ionic `ios` and `md` modes are supported. Tabs and supported toolbar actions move to the side; content and horizontal controls keep their existing appearance.
 
-Available as a **preview** feature. APIs and supported behavior may change.
+iPhone Duo support and Vertical Bars are stable starting with version 2.0.0.
 
 ## Try it in your existing Ionic app
 

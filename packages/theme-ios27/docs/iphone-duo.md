@@ -1,14 +1,14 @@
 ---
-title: iPhone Duo support (preview)
+title: iPhone Duo support
 ---
 
-# iPhone Duo support (preview)
+# iPhone Duo support
 
 Adapt your Ionic app to iPhone Duo: place navigation and actions in its vertical system rail, and adjust your split pane as the device opens and closes. Existing Ionic markup remains the source of labels, icons, routing, and click handlers.
 
 **New here?** Start with [iPhone Duo with your existing theme](iphone-duo-with-original-theme.md) to preview the side layout in Chrome. This page explains device events, placement and split panes. [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md) documents control projection and the runtime API.
 
-Available as a **preview** feature alongside [Native UI](../../capacitor-native-ui/docs/native-ui.md). APIs and supported behavior may change before stable status. Stable status is planned after the official release of Xcode 27.1. The real system rail and hinge reporting require iOS 27.1 or later and an app built with Xcode 27.1 or newer.
+iPhone Duo support is stable starting with version 2.0.0. The real system rail and hinge reporting require iOS 27.1 or later and an app built with Xcode 27.1 or newer.
 
 Use the theme layout and native plugin independently for that hardware. Neither requires the full iOS 27 appearance:
 
@@ -16,6 +16,14 @@ Use the theme layout and native plugin independently for that hardware. Neither 
 - Native UI: `enableNativeUI({ controls: 'verticalOnly' })` — selects eligible tabs and toolbar controls placed in the reserved area. On Capacitor iOS they are rendered by a native SwiftUI `TabView` and toolbar; everywhere else the same controls appear as Web clones.
 
 Device state belongs to [`@erkamyaman/capacitor-foldable`](https://github.com/erkamyaman/capacitor-foldable). The **application** subscribes to its events and chooses its layout. The theme reserves space and adapts the split pane; Native UI projects eligible controls. The theme does not monitor hinge state or bar placement.
+
+| Owner               | Responsibility                                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Foldable            | Report bar placement and hinge posture, initially and when they change.                                     |
+| Application / theme | Subscribe to device events and apply Web layout through `setVerticalBarsLayout` or `applyFoldStateClasses`. |
+| Native UI           | Project eligible controls and determine native rail availability independently.                             |
+
+For the native package's integration, including application-owned CSS and plain HTML, see [Use with Capacitor Foldable](../../capacitor-native-ui/docs/vertical-bars.md#use-with-capacitor-foldable).
 
 ## Choose what to adopt
 

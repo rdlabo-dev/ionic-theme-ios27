@@ -267,9 +267,9 @@ Suspensions are nestable and `resume()` is idempotent. Native projection resumes
 
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
 
-## Support iPhone Duo (preview)
+## Support iPhone Duo
 
-iPhone Duo support, including standalone vertical bars without Native UI, is available as a **preview** alongside Native UI. Its APIs and supported behavior may change.
+iPhone Duo support, including standalone Vertical Bars, is stable starting with version 2.0.0.
 
 The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUI({ controls: 'verticalOnly' })` for this use case; its default selection targets controls placed in the vertical area. Apps already calling `enableNativeUI()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
