@@ -147,6 +147,17 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
       }
     }
     for (const source of owned.keys()) if (!wanted.has(source)) restore(source);
+    const clones = Array.from(wanted, (source) => owned.get(source)!.clone);
+    const order = Array.from(host.children).filter((child): child is HTMLButtonElement => clones.includes(child as HTMLButtonElement));
+    const focused = clones.find((clone) => clone === doc.activeElement);
+    clones.forEach((clone, index) => {
+      if (order[index] === clone) return;
+      host.insertBefore(clone, order[index]);
+      order.splice(order.indexOf(clone), 1);
+      order.splice(index, 0, clone);
+    });
+    // Moving an existing button can blur it; retain keyboard focus across source reordering.
+    if (focused && doc.activeElement !== focused) focused.focus({ preventScroll: true });
     // Ignore our own synchronous DOM writes; later application mutations still schedule a refresh.
     observer.takeRecords();
   };

@@ -94,6 +94,40 @@ test('Web rail forwards source form behavior, updates state, rejects stale click
   expect(options.rail!.host.children.length).toBe(0);
 });
 
+test('Web rail follows source order without replacing proxies or application-owned host content', async () => {
+  const { root, options } = mount(
+    '<button data-native-ui="button" data-native-ui-placement="rail">A</button>' +
+      '<button data-native-ui="button" data-native-ui-placement="rail">B</button>',
+  );
+  const host = options.rail!.host;
+  const heading = document.createElement('h2');
+  heading.textContent = 'Actions';
+  host.append(heading);
+  const handle = createHTMLWebProjection(document, options);
+  handles.push(handle);
+  const proxies = () => Array.from(host.querySelectorAll<HTMLButtonElement>('button'));
+  const [a, b] = proxies();
+  const sourceB = root.lastElementChild as HTMLButtonElement;
+  const click = vi.fn();
+  sourceB.addEventListener('click', click);
+  b.focus();
+  root.prepend(sourceB);
+  await vi.waitFor(() => expect(proxies()).toEqual([b, a]));
+  expect(document.activeElement).toBe(b);
+  b.click();
+  expect(click).toHaveBeenCalledTimes(1);
+
+  const sourceC = sourceB.cloneNode(true) as HTMLButtonElement;
+  sourceC.removeAttribute('data-native-ui-web-source');
+  sourceC.textContent = 'C';
+  sourceC.getBoundingClientRect = sourceB.getBoundingClientRect;
+  root.prepend(sourceC);
+  await vi.waitFor(() => expect(proxies().map((proxy) => proxy.textContent)).toEqual(['C', 'B', 'A']));
+  expect(proxies().slice(1)).toEqual([b, a]);
+  expect(host.firstElementChild).toBe(heading);
+  expect(document.activeElement).toBe(b);
+});
+
 test('routerless back delegates to the source and suspension returns ownership to the Web', async () => {
   const { source, options } = mount('<button type="button" data-native-ui="back-button" data-native-ui-placement="rail">Back</button>');
   const back = vi.fn();
