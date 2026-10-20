@@ -48,7 +48,7 @@ If you also use the iOS 27 theme, install or update both packages together:
 npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
 ```
 
-The theme and Native UI share the same release version; Foldable is versioned independently. Declare Native UI as a direct dependency so Capacitor can discover the plugin. Theme installations also include Foldable. Installing these packages does not activate native controls; application startup chooses projection and connects device layout.
+The theme and Native UI share the same release version; Foldable is versioned independently. Declare Native UI as a direct dependency so Capacitor can discover the plugin. The setup commands install Foldable as a separate application dependency. Installing these packages does not activate native controls; application startup chooses projection and connects device layout.
 
 Continue with [Ionic setup](docs/setup.md), [HTML setup](docs/framework-independent.md), or [extensions](docs/native-ui-extensions.md). After configuring startup, build your application's Web assets, run `npx cap sync` and rebuild the native app. No repository checkout or archive download is needed.
 

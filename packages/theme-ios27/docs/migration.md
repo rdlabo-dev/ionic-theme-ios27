@@ -25,13 +25,13 @@ npm install @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
 
 Replace the former device-layout APIs with Foldable subscriptions:
 
-| Previous API                         | Replacement                                                      |
-| ------------------------------------ | ---------------------------------------------------------------- |
-| `DeviceLayout`, `HingeStatus`        | Foldable's placement and fold-state types                        |
-| `getDeviceLayout()`                  | `Foldable.getBarPlacement()` and `Foldable.getFoldState()`       |
-| `deviceLayoutChange`                 | `barPlacementChange` and `foldStateChange` listeners             |
-| Start/stop device-layout monitoring  | Subscribe with `addListener()`; remove each listener at teardown |
-| One-shot WebView corner-radius reads | Native UI's `getWebViewMetrics()`                                |
+| Previous API                         | Replacement                                                                         |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| `DeviceLayout`, `HingeStatus`        | `BarPlacement`, `FoldState` and `HingeStatus` from `@erkamyaman/capacitor-foldable` |
+| `getDeviceLayout()`                  | `Foldable.getBarPlacement()` and `Foldable.getFoldState()`                          |
+| `deviceLayoutChange`                 | `barPlacementChange` and `foldStateChange` listeners                                |
+| Start/stop device-layout monitoring  | Subscribe with `addListener()`; remove each listener at teardown                    |
+| One-shot WebView corner-radius reads | Native UI's `getWebViewMetrics()`                                                   |
 
 Apply placement with `setVerticalBarsLayout` and posture with `applyFoldStateClasses`, both imported from the theme. Read the initial state as well as subscribing to changes. See [device layout and split panes](vertical-bars-layout.md#read-the-device-layout) and [rail projection](../../capacitor-native-ui/docs/vertical-bars.md#use-with-capacitor-foldable) for the current setup. Installing the packages alone does not subscribe to device events or activate projection.
 

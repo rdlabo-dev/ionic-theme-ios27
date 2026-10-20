@@ -31,7 +31,7 @@ The theme uses the native package's shared transition/search integration interna
 
 ### 1. Update application dependencies
 
-When using both packages, update them together to keep their versions aligned.
+When using the theme and Native UI together, update them to the same version. The commands below also install [Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable) as a separate application dependency for placement and posture reporting. Foldable has its own release versions.
 
 For theme-only apps, update the theme package. Keep existing theme imports and CSS/Sass paths; no native startup or plugin setup is needed for theme-only use.
 

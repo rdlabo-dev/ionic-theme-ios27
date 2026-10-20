@@ -66,7 +66,7 @@ The helper operates on Web CSS only and works without Capacitor or Native UI sta
 
 ## Read the device layout
 
-Foldable is included in the standard theme and Native UI installations. After building your Web assets, sync the native project:
+The standard theme and Native UI setup commands install Foldable as a separate application dependency. After building your Web assets, sync the native project:
 
 ```bash
 npx cap sync

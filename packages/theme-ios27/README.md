@@ -40,5 +40,4 @@ The theme styles toolbars, tabs, lists, buttons, search, and overlays, with ligh
 - [Using ion-item-group](docs/using-ion-item-group.md): inset list markup.
 - [Animation](docs/animation.md): tab, segment, and search effects.
 - [ESLint](docs/eslint.md): catch unsupported list structure.
-- [Vertical Bars layout](docs/vertical-bars-layout.md): spacing, RTL, and layout helpers.
-- [Device layout and posture](docs/vertical-bars-layout.md): connect device placement and hinge posture.
+- [Vertical Bars layout](docs/vertical-bars-layout.md): spacing, RTL, device placement, posture, and split panes.

@@ -10,7 +10,7 @@ Read [how projection works](../../capacitor-native-ui/README.md#how-projection-w
 
 This guide assumes a Capacitor 8 application with an iOS project. Web-only theme users can continue without Capacitor; adding native iOS controls requires setting up that native project first. See [Native UI requirements](../../capacitor-native-ui/README.md#requirements) for supported Ionic, iOS, and Xcode versions.
 
-Install both packages together from npm so the theme and native plugin use the same version:
+Update the theme and Native UI together to keep their versions aligned, and install Foldable as a separate application dependency:
 
 ```sh
 npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
