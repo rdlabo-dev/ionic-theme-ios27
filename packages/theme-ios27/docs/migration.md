@@ -15,6 +15,26 @@ Theme styles and ordinary theme API imports remain supported. If you previously 
 
 Add the native package as a direct application dependency, update imports, rebuild Web assets, and run `npx cap sync ios`. Follow the [Native UI migration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/migration.md) for 1.2.1 startup settings and native project changes. Theme-only apps do not need native startup or plugin setup.
 
+## Device layout in 2.0
+
+Install Foldable alongside the theme as part of the standard setup:
+
+```sh
+npm install @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
+```
+
+Replace the former device-layout APIs with Foldable subscriptions:
+
+| Previous API                         | Replacement                                                      |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| `DeviceLayout`, `HingeStatus`        | Foldable's placement and fold-state types                        |
+| `getDeviceLayout()`                  | `Foldable.getBarPlacement()` and `Foldable.getFoldState()`       |
+| `deviceLayoutChange`                 | `barPlacementChange` and `foldStateChange` listeners             |
+| Start/stop device-layout monitoring  | Subscribe with `addListener()`; remove each listener at teardown |
+| One-shot WebView corner-radius reads | Native UI's `getWebViewMetrics()`                                |
+
+Apply placement with `setVerticalBarsLayout` and posture with `applyFoldStateClasses`, both imported from the theme. Read the initial state as well as subscribing to changes. See [device layout and split panes](vertical-bars-layout.md#read-the-device-layout) and [rail projection](../../capacitor-native-ui/docs/vertical-bars.md#use-with-capacitor-foldable) for the current setup. Installing the packages alone does not subscribe to device events or activate projection.
+
 ## From the iOS 26 theme
 
 For an app using `@rdlabo/ionic-theme-ios26`, the recommended migration keeps that package and adds `@rdlabo/ionic-theme-ios27`. The [adaptive theme setup](adaptive-themes.md) selects iOS 27 or iOS 26 styles by browser capability and leaves Ionic's default iOS appearance on older browsers.
@@ -24,7 +44,7 @@ For an app using `@rdlabo/ionic-theme-ios26`, the recommended migration keeps th
 Keep the iOS 26 package and add iOS 27. The new theme requires `@ionic/core` 8.8.1 or later (Ionic 8 or 9).
 
 ```bash
-npm install @rdlabo/ionic-theme-ios27
+npm install @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
 ```
 
 ### 2. Make the styles adaptive

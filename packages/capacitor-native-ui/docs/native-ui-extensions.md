@@ -15,7 +15,7 @@ Extensions use the same [projection model](../README.md#how-projection-works) as
 Start with an existing Capacitor 8 app and install the plugin if you have not already:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 ```
 
 Choose the native platform you want to support:

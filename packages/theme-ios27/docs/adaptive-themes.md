@@ -7,7 +7,7 @@ Use this optional setup when you want browser capabilities to select iOS styles,
 Install both themes in an existing Ionic 8 or 9 app (`@ionic/core` 8.8.1 or later):
 
 ```bash
-npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27
+npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
 ```
 
 ## 2. Load styles
@@ -106,7 +106,7 @@ Use this markup to preview the inset grouped list look. For the list structure t
 Install all three themes to use iOS 27 on supported Safari versions, fall back to iOS 26 on the preceding Safari generation, and use MD3 whenever Ionic runs in Material Design mode. All three themes require `@ionic/core` 8.8.1 or later:
 
 ```bash
-npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27 @rdlabo/ionic-theme-md3
+npm install @rdlabo/ionic-theme-ios26 @rdlabo/ionic-theme-ios27 @rdlabo/ionic-theme-md3 @erkamyaman/capacitor-foldable
 ```
 
 Keep the two iOS themes behind the same browser feature checks used in step 2 above, then load MD3 unconditionally. Using `meta.load-css()` throughout also keeps the MD3 styles after the conditional iOS styles in the generated CSS:

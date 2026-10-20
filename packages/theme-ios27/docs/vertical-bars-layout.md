@@ -3,7 +3,7 @@
 This optional theme stylesheet owns Web spacing and positioning around a vertical rail. It can be used with your existing theme without loading the full iOS 27 appearance. Native rendering and state synchronization are provided separately by [Capacitor Native UI](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/vertical-bars.md).
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27
+npm install @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
 ```
 
 ```scss
@@ -13,6 +13,8 @@ npm install @rdlabo/ionic-theme-ios27
 The layout behavior below assumes this stylesheet is loaded. For native runtime setup and device placement, follow the [integration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/ionic-vertical-bars.md).
 
 ## Reserve the vertical rail
+
+For device setup, use the installed Foldable plugin and apply its initial placement and events through `setVerticalBarsLayout`; follow the [standard Ionic rail setup](../../capacitor-native-ui/docs/ionic-vertical-bars.md). The classes below describe the stylesheet's layout inputs and optional browser simulation, not a manual device setup step.
 
 Add `.ios-theme-vertical-bars` to `ion-app` to reserve the rail region on the physical right, or add `.ios-theme-vertical-bars-left` as well to use the physical left:
 
@@ -61,6 +63,74 @@ setVerticalBarsLayout({ edge: null }); // restore ordinary Web layout
 ```
 
 The helper operates on Web CSS only and works without Capacitor or Native UI startup. The application supplies device state and owns subscriptions. Starting, disabling or destroying Native UI does not change these layout classes or the reserved inset. Unsupported native rails retain the chosen Web rail; choose `edge: null` explicitly if the application wants a horizontal layout instead.
+
+## Read the device layout
+
+Foldable is included in the standard theme and Native UI installations. After building your Web assets, sync the native project:
+
+```bash
+npx cap sync
+```
+
+Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for iPhone Duo's iOS 27.1 APIs. Foldable supplies placement and posture in the standard setup. Browser simulation can temporarily replace its subscription with fixed layout values. Do not import the plugin's `ionic-tabs.css` alongside this package's rail projection; both would reposition the same tabs.
+
+After `ion-app` is mounted, pass device state to `applyFoldStateClasses`. The application owns subscriptions and cleanup. No projection runtime is needed for posture-driven layout.
+
+```ts
+import { Foldable } from '@erkamyaman/capacitor-foldable';
+import { applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
+
+const root = document.querySelector('ion-app')!;
+const listener = await Foldable.addListener('foldStateChange', (fold) => applyFoldStateClasses(root, fold));
+applyFoldStateClasses(root, await Foldable.getFoldState());
+```
+
+When the application owner is disposed:
+
+```ts
+await listener.remove();
+```
+
+Subscribe to changes, then read the current state. The same helper handles initial values and events.
+
+### Posture classes
+
+`applyFoldStateClasses` updates the supplied root while preserving unrelated classes:
+
+| Class                        | Applied when                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `ios-theme-fold-flat`        | Flat posture.                                                                                                            |
+| `ios-theme-fold-half-opened` | Half-opened posture.                                                                                                     |
+| `ios-theme-fold-closed`      | Closed posture.                                                                                                          |
+| `ios-theme-fold-expanded`    | Half-opened, or flat with hinge geometry. Cleared for flat without geometry (including Web fallback) and closed posture. |
+
+Only one of the first three classes is retained. The helper does not subscribe to the plugin or change Ionic's split-pane `when` property.
+
+## Adapt the split pane
+
+For a side-by-side menu on iPhone Duo, opt the `ion-split-pane` into the separately measured Settings layout. The sidebar is 320pt when fully unfolded and reaches the display midpoint when half-opened (50vw). The application supplies the posture; both states have the same viewport width, so a width media query cannot distinguish them:
+
+```html
+<ion-split-pane class="split-pane-fold-layout" contentId="main-content" when="(min-width: 900px)">
+  <ion-menu contentId="main-content">...</ion-menu>
+  <div id="main-content">...</div>
+</ion-split-pane>
+```
+
+Set the ordinary split-pane width to 320pt in the application's stylesheet, and let the half-open class change only the width value:
+
+```css
+ion-split-pane.split-pane-fold-layout {
+  --ios-theme-menu-width: var(--ios-theme-split-pane-width);
+  --side-width: var(--ios-theme-menu-width);
+  --side-max-width: var(--ios-theme-menu-width);
+  transition: --ios-theme-split-pane-width 300ms ease;
+}
+```
+
+The registered `--ios-theme-split-pane-width` defaults to `320px`. `applyFoldStateClasses` sets `ios-theme-fold-half-opened` on `ion-app`; the stylesheet then sets only descendant split panes with `split-pane-fold-layout` to `50vw`. Add this opt-in class once; no state-dependent class binding is needed. Other split panes retain their existing width.
+
+Ionic's `when` still controls whether the menu is persistent. The example chooses a fixed 900px breakpoint. If your app needs different breakpoints for folded and ordinary displays, use the `ios-theme-fold-expanded` class applied by the helper to select that policy in your application's layout code. The helper only updates state classes, not `when`. This layout does not enable Vertical Bars or move an overlay menu.
 
 ## Migration
 

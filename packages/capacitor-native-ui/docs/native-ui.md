@@ -17,7 +17,7 @@ Already using the iOS theme? Follow [Add Native UI to your theme](https://github
 Install the native package as a direct application dependency so Capacitor can discover it:
 
 ```bash
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 npx cap sync ios
 ```
 
@@ -301,7 +301,7 @@ Custom host animation or transition declarations on the FAB, list or button keep
 
 ## Transitions and recovery
 
-The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUITransition()`, exported by `@rdlabo/ionic-theme-ios27`. See [Connect your navigation animation](ionic-vertical-bars.md#3-connect-your-navigation-animation) for the setup.
+The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUITransition()`, exported by `@rdlabo/ionic-theme-ios27`. See [Connect your navigation animation](ionic-vertical-bars.md#2-connect-your-navigation-animation) for the setup.
 
 Ordinary native/Web handoffs share a 180ms opacity crossfade, including Vertical Bars in both directions. Outgoing visuals cannot receive input or accessibility focus. Reduce Motion and modal presentation use immediate handoffs; search controllers keep their UIKit-managed transition.
 
@@ -405,7 +405,7 @@ The native material and control appearance follow the running iOS version; an iO
 
 iPhone Duo support, including standalone Vertical Bars, is stable starting with version 2.0.0.
 
-The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUI({ controls: 'verticalOnly' })` for this use case; its default selection targets controls placed in the vertical area. Apps already calling `enableNativeUI()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUI({ controls: 'verticalOnly' })` for this use case; its default selection targets controls placed in the vertical area. Apps already calling `enableNativeUI()` should keep that single runtime rather than starting both. See [Device layout and split panes](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
 Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](vertical-bars.md) for rail layout, native fallback and supported overlays.
 

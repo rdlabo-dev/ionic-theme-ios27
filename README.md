@@ -46,7 +46,7 @@ Both packages support Ionic 8.8.1 or later within Ionic 8 or 9. Native UI requir
 
 ## Explore further
 
-- [iPhone Duo layout](packages/theme-ios27/docs/iphone-duo.md) · [Vertical Bars with an existing theme](packages/capacitor-native-ui/docs/ionic-vertical-bars.md).
+- [Device layout and posture](packages/theme-ios27/docs/vertical-bars-layout.md) · [Vertical Bars with an existing theme](packages/capacitor-native-ui/docs/ionic-vertical-bars.md).
 - [Theme migration](packages/theme-ios27/docs/migration.md) · [Native UI migration](packages/capacitor-native-ui/docs/migration.md).
 
 Use standard native buttons without Ionic through the [plain HTML adapter](packages/capacitor-native-ui/docs/framework-independent.md), or keep Ionic markup and enable only [Vertical Bars](packages/capacitor-native-ui/docs/configuration.md). Both use the same native renderers.

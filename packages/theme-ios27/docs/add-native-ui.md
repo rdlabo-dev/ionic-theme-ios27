@@ -13,7 +13,7 @@ This guide assumes a Capacitor 8 application with an iOS project. Web-only theme
 Install both packages together from npm so the theme and native plugin use the same version:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 ```
 
 Keep your existing theme stylesheets. Capacitor's default plugin discovery requires a direct dependency; the copy installed through the theme alone does not register the native plugin.
@@ -46,7 +46,7 @@ Run the app on a supported iOS device or simulator. Eligible fixed controls shou
 
 ## Optional: Vertical Bars
 
-For a side rail, load the [Vertical Bars layout stylesheet](vertical-bars-layout.md) and configure [device placement](iphone-duo.md). The Shell includes the rail runtime; no additional startup call is needed. To automatically select rail controls, use `enableNativeUI({ controls: 'verticalOnly' })` instead of the default startup call. See [configuration options](../../capacitor-native-ui/docs/configuration.md).
+For a side rail, follow the [standard Vertical Bars setup](../../capacitor-native-ui/docs/ionic-vertical-bars.md): load the layout stylesheet and connect the installed Foldable plugin’s initial placement and events. The Shell includes the rail runtime; no additional startup call is needed. To automatically select rail controls, use `enableNativeUI({ controls: 'verticalOnly' })` instead of the default startup call. See [configuration options](../../capacitor-native-ui/docs/configuration.md).
 
 ## Upgrading an existing native integration
 

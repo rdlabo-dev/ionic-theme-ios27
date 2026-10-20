@@ -36,13 +36,13 @@ When using both packages, update them together to keep their versions aligned.
 For theme-only apps, update the theme package. Keep existing theme imports and CSS/Sass paths; no native startup or plugin setup is needed for theme-only use.
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27
+npm install @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
 ```
 
 For apps using both the theme and native controls, install both as direct application dependencies:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 ```
 
 For native controls with your existing Web appearance, follow [Native UI only](setup.md). Install the native package directly and keep your existing Web styles. The plugin no longer requires theme variables to select supported controls; Web layout remains the responsibility of your app or theme. Native startup requires Capacitor 8. The Ionic adapter requires Ionic 8.8.1 or later within Ionic 8 or 9; the `/core` entry does not require Ionic.
@@ -122,7 +122,7 @@ Merge this option into your existing Ionic configuration before initialization. 
 
 Use the adapter only for navigation; leave modal and popover animations unchanged. Your builder must create a fresh `Animation` for each navigation because Ionic destroys it afterward. Keep lifecycle events for control registration and transitions without animation. If the custom builder animates a horizontal back button separately, exclude that effect while `.ios-theme-vertical-bars` is active.
 
-See [Connect your navigation animation](ionic-vertical-bars.md#3-connect-your-navigation-animation) for the setup and supported scope.
+See [Connect your navigation animation](ionic-vertical-bars.md#2-connect-your-navigation-animation) for the setup and supported scope.
 
 ## Startup options
 

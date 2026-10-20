@@ -6,16 +6,16 @@ Use a Capacitor 8 app with an iOS project, Xcode 26+, and an iOS 26+ device or s
 
 Start with [how projection works](../README.md#how-projection-works): the HTML element remains the source while native controls or Web proxies provide its presentation.
 
-**Want only Vertical Bars?** Follow steps 1–2 to install and mark your HTML buttons, then use the [Web rail configuration](#optional-web-rail) in place of step 3. Remove explicit markers from buttons you want to leave on the Web. Style the rail host in your application and build with step 4 for iOS. You do not need Ionic, `@rdlabo/ionic-theme-ios27`, or `vertical-bars.css`.
+**Want only Vertical Bars?** Follow the [device placement setup](#device-placement-for-vertical-bars), alongside steps 1–4 below. Reuse the step 3 runtime without a fixed placement preference. Remove explicit markers from buttons you want to leave on the Web. You do not need Ionic, `@rdlabo/ionic-theme-ios27`, or `vertical-bars.css`.
 
 For Vertical Bars in an app using `ion-tabs`, `ion-toolbar` or other Ionic components with a custom theme, use the [Ionic Vertical Bars setup](ionic-vertical-bars.md#try-it-in-your-existing-ionic-app) instead. The framework (Angular, React or Vue) alone does not determine which adapter to use.
 
 ## 1. Install the plugin
 
-Keep your existing Capacitor 8 installation and add the plugin directly:
+Keep your existing Capacitor installation and add Native UI and Foldable together:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 ```
 
 The `/core` entry requires `@capacitor/core` but no Ionic dependencies. If this is currently a browser-only application, configure its Capacitor 8 iOS project before running native controls.
@@ -70,15 +70,29 @@ For a custom HTML theme, declare `color-scheme: light` or `color-scheme: dark` i
 
 ## 4. Build and run on iOS
 
-Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcode. With the step 3 configuration, Add renders natively and invokes its original click handler. With the rail configuration below, Add retains native element placement and Back uses the native rail when available. In a browser, the same button remains an ordinary Web button. Unmarked HTML remains unchanged.
+Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcode. With the step 3 configuration, Add renders at its source position and invokes its original click handler. Back requests the device-reported native rail when available; connect the device placement below to keep Web spacing in sync. In a browser, the same button remains an ordinary Web button. Unmarked HTML remains unchanged.
 
 If a button stays on the Web on supported iOS, check that it is visible within the configured root, has an accessible name, and that the direct plugin dependency was synced and the iOS app rebuilt.
 
 In an app that also uses Ionic, set `ionic: { auto: false }` to project only explicit sources and registered extensions. See [selective Ionic projection](configuration.md#select-controls-explicitly-in-a-customized-ionic-app).
 
-## Optional Web rail
+## Device placement for Vertical Bars
 
-For a Web fallback rail, use this instead of the startup call in step 3. Call once after both the source root and rail host are mounted; call `await shell.destroy()` when their owner is disposed. Do not start a second shell:
+Foldable is already included in the standard installation in step 1. Connect it to your application layout as follows.
+
+Reuse the runtime from step 3 **without `verticalBars.placement`**. Native UI then follows the device-reported edge; a fixed `edge: 'trailing'` would constrain it and can reject a device's leading rail.
+
+Follow [Foldable integration](vertical-bars.md#with-application-owned-css-or-without-ionic):
+
+1. Subscribe to `barPlacementChange`, then read `getBarPlacement()` for the initial edge and inset.
+2. Apply the edge and inset to your application's CSS. On a null edge, restore ordinary spacing and call `shell.disableVerticalControlArea()`; when an edge returns, call `shell.enableVerticalControlArea()`. Serialize these changes with layout updates.
+3. At teardown, remove the listener and destroy the runtime owned by this application.
+
+Keep the explicit source markers from step 2; they declare the controls and their requested placement. To project only Back, remove `data-native-ui="button"` from Add. `controls` does not disable explicit declarations. Without a Web rail host, unavailable native rail controls stay at their original Web positions. The theme package is not required.
+
+## Optional browser rail preview
+
+For a browser-only layout preview, temporarily use this fixed Web rail instead of the startup call in step 3 and the device subscription. Do not copy the fixed placement into the standard device setup. Call once after the source root and host are mounted, and call `await shell.destroy()` when their owner is disposed:
 
 ```ts
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
@@ -96,11 +110,9 @@ const shell = await enableNativeUI({
 
 The plugin uses device-reported rail availability and resolves leading/trailing through the document direction. A placement preference never forces an unsupported system rail. Native rejection restores Web presentation. With `webHost`, explicitly rail-marked HTML controls have Web proxies when native projection is unavailable. Without it, their originals remain visible. The application styles and positions the host and reserves any content spacing. The host must be outside the source root.
 
-Explicit markup chooses placement: Back goes to the rail and Add keeps native element placement. To project only Back, remove `data-native-ui="button"` from Add. `controls` does not disable explicit source declarations. To change rail use later, call `await shell.disableVerticalControlArea()` or `await shell.enableVerticalControlArea()`. Disabling restores original rail controls and removes Web rail proxies without destroying ordinary native projection.
+Explicit markup chooses placement: Back goes to the preview rail and Add stays at its original position. Disabling rail projection restores original rail controls and removes Web proxies without destroying ordinary native projection. Before building for a device, restore the step 3 runtime and the Foldable subscription above.
 
 Currently the HTML adapter supports buttons and back buttons. Arbitrary HTML tabs, segments, searchbars and FAB structures are not translated. Ionic adapters continue to support their existing controls. Custom element extensions work with the same scoped root; the existing `tab-accessory` extension placement still requires an Ionic tab-bar owner.
-
-For device-driven spacing and placement, see [Use with Capacitor Foldable](vertical-bars.md#use-with-capacitor-foldable). Read its initial placement and subscribe to changes, applying the edge and inset to your own CSS; the theme package is not required.
 
 ## Example
 

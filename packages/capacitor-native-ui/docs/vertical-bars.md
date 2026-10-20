@@ -9,10 +9,10 @@ Vertical Bars moves eligible Ionic controls or explicitly marked HTML buttons in
 Choose your setup before using this reference:
 
 - **Ionic with a custom or default theme:** [Ionic rail setup](ionic-vertical-bars.md#try-it-in-your-existing-ionic-app).
-- **No Ionic:** [HTML setup](framework-independent.md) and its [Web rail configuration](framework-independent.md#optional-web-rail). Use `/core` and your own layout; the Ionic setup below does not apply.
-- **Existing iOS 27 theme and Native UI:** [Connect device placement](../../theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail) using your existing runtime.
+- **No Ionic:** [HTML setup](framework-independent.md) and its [device rail setup](framework-independent.md#device-placement-for-vertical-bars). Use `/core` and your own layout; the Ionic setup below does not apply.
+- **Existing iOS 27 theme and Native UI:** [Connect device placement](../../capacitor-native-ui/docs/vertical-bars.md#use-with-capacitor-foldable) using your existing runtime.
 
-This page covers device-plugin integration, control eligibility, native appearance and runtime options. For posture-driven Ionic split panes, see [iPhone Duo support](../../theme-ios27/docs/iphone-duo.md).
+This page covers device-plugin integration, control eligibility, native appearance and runtime options. For posture-driven Ionic split panes, see [Device layout and split panes](../../theme-ios27/docs/vertical-bars-layout.md).
 
 Vertical Bars and iPhone Duo support are stable starting with version 2.0.0.
 
@@ -20,23 +20,15 @@ See [shared configuration](configuration.md) for all defaults and live `rail.ena
 
 ## Enable Vertical Bars
 
-Install the native package as a direct dependency:
+Install Native UI and the required Foldable device-state plugin as direct application dependencies:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 ```
 
-For Capacitor iOS, build your Web assets and run `npx cap sync ios`. Supply the Web layout through your app or theme as described below.
+For Ionic, follow the [standard setup](ionic-vertical-bars.md): load your rail CSS, configure navigation, then connect Foldable's initial placement and `barPlacementChange` events before starting one runtime. The [integration below](#use-with-capacitor-foldable) also covers existing runtimes and application-owned CSS. Build your Web assets, run `npx cap sync ios`, and rebuild the native app.
 
-For Ionic apps, start one runtime after `ion-app` is mounted:
-
-```ts
-import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
-
-const rail = await enableNativeUI({ controls: 'verticalOnly' });
-```
-
-Configure your Web rail layout and [apply device placement](#use-with-capacitor-foldable) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUI()`, keep that runtime; it includes Vertical Bars. Do not start both.
+A runtime alone does not reserve Web space. Keep the device subscription for the standard setup; manual placement belongs to the [optional browser preview](ionic-vertical-bars.md#optional-browser-preview). If Native UI is already active, reuse it rather than starting another runtime.
 
 The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. Using only the theme’s rail CSS needs no native runtime. For native setup and navigation transitions, follow the [existing-theme guide](ionic-vertical-bars.md).
 
@@ -50,7 +42,7 @@ The [theme's optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme
 
 ## Use with Capacitor Foldable
 
-Use [`@erkamyaman/capacitor-foldable`](https://github.com/erkamyaman/capacitor-foldable) when your Web layout needs to follow the device's bar placement or hinge posture. Native UI does not subscribe to Foldable automatically.
+[`@erkamyaman/capacitor-foldable`](https://github.com/erkamyaman/capacitor-foldable) is required in the standard Vertical Bars setup. Install it with Native UI as shown above, and connect its device placement to your Web layout. Native UI does not subscribe to Foldable automatically.
 
 | Owner                | Responsibility                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------- |
@@ -58,24 +50,19 @@ Use [`@erkamyaman/capacitor-foldable`](https://github.com/erkamyaman/capacitor-f
 | Application or theme | Reserve Web space and choose the layout using the reported logical edge and measured inset. |
 | Native UI            | Check native rail availability independently and project eligible source controls.          |
 
-```sh
-npm install @erkamyaman/capacitor-foldable
-npx cap sync ios
-```
-
 ### With the theme's Ionic rail layout
 
-After loading [the rail stylesheet](../../theme-ios27/docs/vertical-bars-layout.md) and mounting `ion-app`, start the runtime once and connect device placement:
+After loading [the rail stylesheet](../../theme-ios27/docs/vertical-bars-layout.md) and mounting `ion-app`, connect device placement and start the runtime once:
 
 ```ts
 import { Foldable, type BarPlacement } from '@erkamyaman/capacitor-foldable';
 import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
-const rail = await enableNativeUI({ controls: 'verticalOnly' });
 const applyPlacement = ({ verticalBarEdge, inset }: BarPlacement) => setVerticalBarsLayout({ edge: verticalBarEdge, inset });
 const listener = await Foldable.addListener('barPlacementChange', applyPlacement);
 applyPlacement(await Foldable.getBarPlacement());
+const rail = await enableNativeUI({ controls: 'verticalOnly' });
 ```
 
 If a runtime is already active, keep it and add only the placement subscription. `setVerticalBarsLayout` resolves logical edges for RTL; a null edge restores the ordinary Web layout. Use the measured inset instead of a fixed width. Keep the theme's rail stylesheet; Foldable's `ionic-tabs.css` is not needed for this integration.
@@ -89,11 +76,11 @@ await rail.destroy();
 
 ### With application-owned CSS or without Ionic
 
-Use the same `getBarPlacement()` / `barPlacementChange` subscription, but apply the edge and inset to your own CSS instead of calling `setVerticalBarsLayout`. A null edge means your layout should restore its ordinary spacing. For Ionic, retain the rail layout classes described above; for plain HTML, use the `/core` entry and [source placement and an optional Web rail host](framework-independent.md#optional-web-rail). Neither Foldable nor Native UI supplies the application's CSS.
+Use the same `getBarPlacement()` / `barPlacementChange` subscription, but apply the edge and inset to your own CSS instead of calling `setVerticalBarsLayout`. A null edge means your layout should restore its ordinary spacing. For Ionic, retain the rail layout classes described above; for plain HTML, use the `/core` entry and [device rail setup](framework-independent.md#device-placement-for-vertical-bars). Neither Foldable nor Native UI supplies the application's CSS. Explicit HTML rail markers remain active independently of CSS; to return those sources to their original placement on a null edge, call `disableVerticalControlArea()`, then `enableVerticalControlArea()` when a rail edge returns. Serialize these changes with your layout updates.
 
-Keep Web layout updates separate from native availability: do not pass Foldable's edge through the deprecated `nativeEdge` option. Native UI reads that capability itself. A browser layout preview does not require Foldable.
+Keep Web layout updates separate from native availability: do not pass Foldable's edge through the deprecated `nativeEdge` option. Native UI reads that capability itself. Only an optional browser layout preview substitutes simulated placement for this subscription.
 
-For hinge-driven content layout, read `getFoldState()` and subscribe to `foldStateChange` separately. Hinge posture does not select controls or enable the rail; see the theme's [posture subscription and split-pane example](../../theme-ios27/docs/iphone-duo.md#read-the-device-layout).
+For hinge-driven content layout, read `getFoldState()` and subscribe to `foldStateChange` separately. Hinge posture does not select controls or enable the rail; see the theme's [posture subscription and split-pane example](../../theme-ios27/docs/vertical-bars-layout.md#read-the-device-layout).
 
 ## Native rendering
 

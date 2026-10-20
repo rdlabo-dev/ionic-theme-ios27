@@ -694,7 +694,9 @@ jobs:
               : `CI passed for the merge commit \`${shortSha}\``;
             const install = [process.env.PACKAGE_NAME];
             if (process.env.PACKAGE_NAME === '@rdlabo/ionic-theme-ios27') install.push('@rdlabo/capacitor-native-ui');
-            const installCommand = install.map(name => `${name}@${process.env.VERSION}`).join(' ');
+            const packages = install.map(name => `${name}@${process.env.VERSION}`);
+            if (install.includes('@rdlabo/capacitor-native-ui')) packages.push('@erkamyaman/capacitor-foldable');
+            const installCommand = packages.join(' ');
             const body = `${marker}\n### ${title}\n\n${authorization}. Install the immutable version with:\n\n\`\`\`sh\nnpm install ${installCommand}\n\`\`\``;
             await core.summary.addRaw(body).write();
             if (!issueNumber) {

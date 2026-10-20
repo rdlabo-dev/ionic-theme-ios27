@@ -1,6 +1,6 @@
 # Ionic Theme iOS27
 
-Install with `npm install @rdlabo/ionic-theme-ios27`. For 1.x, use the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1).
+Install with `npm install @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable`. For 1.x, use the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1).
 A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Capacitor iOS apps can also opt into a preview Native UI for supported controls.
 
 **[Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) · [Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/) · [Setup guide](docs/setup.md)**
@@ -27,7 +27,7 @@ A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Ca
 
 ## Get started
 
-Use the [four-step setup guide](docs/setup.md) to install the theme, load styles, configure animations, and preview your first screen. It supports Ionic 8.8.1 or later within Ionic 8 or 9, including Angular, React, and Vue. Capacitor is not required.
+Use the [four-step setup guide](docs/setup.md) to install the theme, load styles, configure animations, and preview your first screen. It supports Ionic 8.8.1 or later within Ionic 8 or 9, including Angular, React, and Vue. A native Capacitor project is not required for browser use.
 
 The theme styles toolbars, tabs, lists, buttons, search, and overlays, with light and dark appearances. It does not activate native controls. Once the Web theme is working, you can optionally [add Native UI](docs/add-native-ui.md).
 
@@ -39,4 +39,4 @@ The theme styles toolbars, tabs, lists, buttons, search, and overlays, with ligh
 - [Animation](docs/animation.md): tab, segment, and search effects.
 - [ESLint](docs/eslint.md): catch unsupported list structure.
 - [Vertical Bars layout](docs/vertical-bars-layout.md): spacing, RTL, and layout helpers.
-- [iPhone Duo device layout](docs/iphone-duo.md): connect device placement and hinge posture.
+- [Device layout and posture](docs/vertical-bars-layout.md): connect device placement and hinge posture.

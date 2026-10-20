@@ -24,7 +24,7 @@ If the app does not yet use Capacitor, create and configure its Capacitor iOS pr
 Keep your Capacitor packages on version 8. Add these direct application dependencies:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 ```
 
 The Ionic adapter uses `@ionic/core`, which your Ionic app already supplies. Do not remove your existing Web styles: they style page content and fallback controls.
@@ -140,7 +140,7 @@ These hooks manage the app's lifetime, not individual page transitions. Configur
 For optional Ionic animation coordination, install `@rdlabo/ionic-theme-ios27` and update Native UI together so their versions match. Configure navigation before Ionic initializes. Its adapter can retain Ionic's default transitions without loading theme CSS:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
 ```
 
 ```ts
