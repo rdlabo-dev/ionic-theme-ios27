@@ -8,12 +8,12 @@ Native UI is opt-in and currently a preview. Standard controls on Android, brows
 
 A **projection** is another presentation of a Web control. Your application keeps the original DOM element, state and event handlers. The plugin reads supported labels, icons, selected/disabled state and geometry, then associates the rendered control with that source element. It does not convert the page into a native screen or run a second copy of your application.
 
-| Web source | Projected presentation |
-| --- | --- |
-| Supported Ionic buttons, tabs and segments | Native UIKit/SwiftUI controls on supported iOS |
-| Explicitly marked HTML buttons and back buttons | Native buttons on supported iOS |
-| Eligible controls placed in Vertical Bars | SwiftUI controls in the available system rail; Web rail presentation otherwise |
-| An app-local extension's DOM element | The SwiftUI or Compose content registered by your app, using props read from that element |
+| Web source                                      | Projected presentation                                                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Supported Ionic buttons, tabs and segments      | Native UIKit/SwiftUI controls on supported iOS                                            |
+| Explicitly marked HTML buttons and back buttons | Native buttons on supported iOS                                                           |
+| Eligible controls placed in Vertical Bars       | SwiftUI controls in the available system rail; Web rail presentation otherwise            |
+| An app-local extension's DOM element            | The SwiftUI or Compose content registered by your app, using props read from that element |
 
 The original element **stays in the DOM** while projected. Its bindings and handlers remain attached. Once native presentation is accepted, the runtime hides the source visually, prevents direct pointer interaction and hides it from Web accessibility so there are not two interactive copies. Element projection retains the source's layout box; rail spacing is supplied by your app or theme. A Web rail similarly uses its adapter's Web presentation: Ionic layout/clones or HTML proxy buttons in your `webHost`.
 
@@ -23,14 +23,14 @@ Projection changes presentation; it does not translate arbitrary HTML or CSS int
 
 ## Choose what to build
 
-| Goal | Start here |
-| --- | --- |
-| Render existing Ionic controls natively | [Ionic setup](docs/setup.md) |
-| Use native buttons without Ionic | [HTML setup](docs/framework-independent.md) |
-| Add a side rail to Ionic while keeping your theme | [Vertical Bars step by step](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
-| Add a side rail without Ionic | [HTML rail setup](docs/framework-independent.md) |
-| Add native controls to an existing iOS 27 theme app | [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) |
-| Render custom SwiftUI or Android Compose content | [App-local extensions (experimental)](docs/native-ui-extensions.md) |
+| Goal                                                | Start here                                                                                                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Render existing Ionic controls natively             | [Ionic setup](docs/setup.md)                                                                                                                        |
+| Use native buttons without Ionic                    | [HTML setup](docs/framework-independent.md)                                                                                                         |
+| Add a side rail to Ionic while keeping your theme   | [Vertical Bars step by step](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
+| Add a side rail without Ionic                       | [HTML rail setup](docs/framework-independent.md)                                                                                                    |
+| Add native controls to an existing iOS 27 theme app | [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md)                 |
+| Render custom SwiftUI or Android Compose content    | [App-local extensions (experimental)](docs/native-ui-extensions.md)                                                                                 |
 
 ## Install from npm
 

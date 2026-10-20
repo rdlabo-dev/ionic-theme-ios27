@@ -30,7 +30,6 @@ This keeps routers and component backgrounds full-viewport. `ion-content` moves 
 
 The mode is component-mode independent: an app can keep Ionic `mode: 'md'` on iOS and still enable Vertical Bars. No component needs `mode="ios"`.
 
-
 ## Layout API
 
 ```ts

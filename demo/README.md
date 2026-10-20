@@ -71,9 +71,9 @@ The browser uses Web clones: use it to check layout and actions, not `system` ve
 
 Choose the styling to build (run these commands from `demo`):
 
-| Styling | Browser preview | Build before `npx cap sync ios` | Source default fill |
-| --- | --- | --- | --- |
-| iOS theme | `npm start` | `npm run build -- --configuration=production` | `null` (glass) |
+| Styling                                    | Browser preview                              | Build before `npx cap sync ios`                             | Source default fill         |
+| ------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------- | --------------------------- |
+| iOS theme                                  | `npm start`                                  | `npm run build -- --configuration=production`               | `null` (glass)              |
 | Stock Ionic, with only `vertical-bars.css` | `npm start -- --configuration=ionic-default` | `npm run build -- --configuration=production,ionic-default` | `solid` (set automatically) |
 
 Build, sync and run the iOS app. Both configurations default to `system` projection.

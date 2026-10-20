@@ -21,11 +21,11 @@ For a new native integration, follow [Native UI setup](setup.md) or, if you alre
 
 The theme and native controls now live in separate packages. Choose dependencies by the behavior your app uses:
 
-| App behavior | Package to use directly |
-| --- | --- |
-| Theme styles, Ionic Web behavior, and theme animations | `@rdlabo/ionic-theme-ios27` |
-| Native UI or standalone Vertical Control Area | `@rdlabo/capacitor-native-ui` |
-| Theme styling together with native controls | Both packages |
+| App behavior                                           | Package to use directly       |
+| ------------------------------------------------------ | ----------------------------- |
+| Theme styles, Ionic Web behavior, and theme animations | `@rdlabo/ionic-theme-ios27`   |
+| Native UI or standalone Vertical Control Area          | `@rdlabo/capacitor-native-ui` |
+| Theme styling together with native controls            | Both packages                 |
 
 The theme owns the appearance and behavior of Ionic's Web elements. Native UI owns projecting supported controls into native iOS views and coordinating their lifecycle with Web navigation. Native UI can be used without the iOS 27 theme; installing it does not apply theme styles. Standard controls on Android and browsers retain Web presentation; Android can render [app-local Compose extensions](native-ui-extensions.md#2b-register-compose-content-on-android).
 
@@ -58,13 +58,13 @@ npm install @rdlabo/capacitor-native-ui
 
 ### 2. Replace native imports
 
-| Previous import | Replacement |
-| --- | --- |
-| `@rdlabo/ionic-theme-ios27/native` | `@rdlabo/capacitor-native-ui` |
-| `@rdlabo/ionic-theme-ios27/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
-| `@ionic-theme/capacitor-native-ui` | `@rdlabo/capacitor-native-ui` |
+| Previous import                                  | Replacement                                 |
+| ------------------------------------------------ | ------------------------------------------- |
+| `@rdlabo/ionic-theme-ios27/native`               | `@rdlabo/capacitor-native-ui`               |
+| `@rdlabo/ionic-theme-ios27/vertical-bars`        | `@rdlabo/capacitor-native-ui/vertical-bars` |
+| `@ionic-theme/capacitor-native-ui`               | `@rdlabo/capacitor-native-ui`               |
 | `@ionic-theme/capacitor-native-ui/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
-| `@ionic-theme/capacitor-native-ui/integration` | `@rdlabo/capacitor-native-ui/integration` |
+| `@ionic-theme/capacitor-native-ui/integration`   | `@rdlabo/capacitor-native-ui/integration`   |
 
 Update both value and type imports, including lazy imports, test aliases, and bundler configuration. The old theme `/native` and `/vertical-bars` entries have been removed; there are no compatibility aliases.
 
@@ -100,17 +100,17 @@ Use Capacitor's generated integration for the npm dependency; applications do no
 
 The split package uses Native UI names throughout. These are breaking renames; the old names are not aliases. The historical names below refer to the published theme Preview or pre-release package candidates.
 
-| Previous name | New name |
-| --- | --- |
-| `enableNativeUIShell()` | `enableNativeUI()` |
+| Previous name                                                                                                                                      | New name                                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `enableNativeUIShell()`                                                                                                                            | `enableNativeUI()`                                                                                                   |
 | `NativeUIShellOptions`, `NativeUIShellHandle`, `NativeUIShellStatus`, `NativeUIShellSuspension`, `NativeUIShellControls`, `NativeUIShellComponent` | `NativeUIOptions`, `NativeUIHandle`, `NativeUIStatus`, `NativeUISuspension`, `NativeUIControls`, `NativeUIComponent` |
-| `IonicNativeUIShell` (plugin export and bridge registration) | `NativeUI` |
-| `withNativeUIShellTransition()` | `withNativeUITransition()` (still exported by the theme package) |
-| `IonicNativeUIShellPlugin` (Swift module/native class) | `NativeUIPlugin` |
-| `IonicThemeCapacitorNativeUi` (SPM package/product and pod) | `RdlaboCapacitorNativeUi` |
-| `NativeUIShell.register()` (Swift / Kotlin extensions) | `NativeUI.register()` |
-| `data-shell="disabled"` | `data-native-ui="disabled"` |
-| `.ios-theme-shell-disabled` | `.native-ui-disabled` |
+| `IonicNativeUIShell` (plugin export and bridge registration)                                                                                       | `NativeUI`                                                                                                           |
+| `withNativeUIShellTransition()`                                                                                                                    | `withNativeUITransition()` (still exported by the theme package)                                                     |
+| `IonicNativeUIShellPlugin` (Swift module/native class)                                                                                             | `NativeUIPlugin`                                                                                                     |
+| `IonicThemeCapacitorNativeUi` (SPM package/product and pod)                                                                                        | `RdlaboCapacitorNativeUi`                                                                                            |
+| `NativeUIShell.register()` (Swift / Kotlin extensions)                                                                                             | `NativeUI.register()`                                                                                                |
+| `data-shell="disabled"`                                                                                                                            | `data-native-ui="disabled"`                                                                                          |
+| `.ios-theme-shell-disabled`                                                                                                                        | `.native-ui-disabled`                                                                                                |
 
 Replace the `NativeUIShell` part with `NativeUI` in imports from `/integration` as well (for example `suspendNativeUI` and `setNativeUIIntegration`). App-local Swift extensions now use `import NativeUIPlugin`; Kotlin extensions use `import dev.rdlabo.capacitor.nativeui.NativeUI`.
 

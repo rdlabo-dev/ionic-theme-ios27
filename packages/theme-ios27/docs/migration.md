@@ -8,9 +8,9 @@ title: Theme migration
 
 Theme styles and ordinary theme API imports remain supported. If you previously used native controls through this package, the `/native` and `/vertical-bars` entries have been removed:
 
-| Previous import | Replacement |
-| --- | --- |
-| `@rdlabo/ionic-theme-ios27/native` | `@rdlabo/capacitor-native-ui` |
+| Previous import                           | Replacement                                 |
+| ----------------------------------------- | ------------------------------------------- |
+| `@rdlabo/ionic-theme-ios27/native`        | `@rdlabo/capacitor-native-ui`               |
 | `@rdlabo/ionic-theme-ios27/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
 
 Add the native package as a direct application dependency, update imports, rebuild Web assets, and run `npx cap sync ios`. Follow the [Native UI migration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/migration.md) for the intermediate package rename and old Swift package references. Theme-only apps do not need native startup or plugin setup.

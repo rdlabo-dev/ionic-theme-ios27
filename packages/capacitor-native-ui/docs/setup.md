@@ -66,17 +66,21 @@ const report = (error: unknown) => console.error('Native UI lifecycle failed', e
 export function mountNativeUI(): () => void {
   let disposed = false;
   let shell: NativeUIHandle | undefined;
-  lifecycle = lifecycle.then(async () => {
-    if (disposed) return;
-    shell = await enableNativeUI(); // Put your options here.
-    if (disposed) await shell.destroy();
-  }).catch(report);
+  lifecycle = lifecycle
+    .then(async () => {
+      if (disposed) return;
+      shell = await enableNativeUI(); // Put your options here.
+      if (disposed) await shell.destroy();
+    })
+    .catch(report);
   return () => {
     disposed = true;
-    lifecycle = lifecycle.then(async () => {
-      await shell?.destroy();
-      shell = undefined;
-    }).catch(report);
+    lifecycle = lifecycle
+      .then(async () => {
+        await shell?.destroy();
+        shell = undefined;
+      })
+      .catch(report);
   };
 }
 ```
@@ -114,8 +118,12 @@ import { onMounted, onBeforeUnmount } from 'vue';
 import { mountNativeUI } from './native-ui';
 
 let stop: (() => void) | undefined;
-onMounted(() => { stop = mountNativeUI(); });
-onBeforeUnmount(() => { stop?.(); });
+onMounted(() => {
+  stop = mountNativeUI();
+});
+onBeforeUnmount(() => {
+  stop?.();
+});
 ```
 
 These hooks manage the app's lifetime, not individual page transitions. Configure navigation below as well.
@@ -154,12 +162,12 @@ npx cap sync ios
 
 Run the iOS app from Xcode on an iOS 26+ device or simulator. Supported fixed controls should render natively and still invoke their original handlers. Navigate forward and back, including a canceled swipe-back gesture. A browser or Android build should retain working Web controls.
 
-| If you see… | Check… |
-| --- | --- |
+| If you see…                           | Check…                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | All controls remain on the Web on iOS | The native package is a direct dependency, the app was synced and rebuilt, and startup ran on a supported OS. |
-| Only one control remains on the Web | Compare its markup and styles with [supported controls](native-ui.md#supported-markup). |
-| Controls overlap during navigation | Configure the transition adapter or suspend/resume lifecycle before navigating. |
-| Missing styles or spacing | Retain the app's Web CSS; the plugin does not supply page layout. |
+| Only one control remains on the Web   | Compare its markup and styles with [supported controls](native-ui.md#supported-markup).                       |
+| Controls overlap during navigation    | Configure the transition adapter or suspend/resume lifecycle before navigating.                               |
+| Missing styles or spacing             | Retain the app's Web CSS; the plugin does not supply page layout.                                             |
 
 ## Next steps
 
@@ -193,8 +201,12 @@ async function showPage(current: HTMLElement, next: HTMLElement) {
     next.hidden = false;
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
       const animation = next.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150 });
-      try { await animation.finished; }
-      catch { next.hidden = true; current.hidden = false; }
+      try {
+        await animation.finished;
+      } catch {
+        next.hidden = true;
+        current.hidden = false;
+      }
     }
   } finally {
     await lease.resume();
