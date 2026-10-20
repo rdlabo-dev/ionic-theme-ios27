@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 
+/// Experimental API: registration interfaces and behavior may change in future releases.
 /// App-local SwiftUI renderers. Register once before enabling the shell from JavaScript.
 @MainActor public enum NativeUIShell {
     private static var renderers: [String: (String, NativeUIActions, NativeUIContext) throws -> AnyView] = [:]

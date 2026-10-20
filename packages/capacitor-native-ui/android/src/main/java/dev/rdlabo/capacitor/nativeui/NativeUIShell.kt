@@ -5,7 +5,10 @@ import androidx.compose.runtime.Composable
 import org.json.JSONObject
 import java.util.Collections
 
-/** App-local Compose renderers. Register on the main thread before starting the shell. */
+/**
+ * App-local Compose renderers. Register on the main thread before starting the shell.
+ * Experimental API: registration interfaces and behavior may change in future releases.
+ */
 object NativeUIShell {
     internal val renderers = linkedMapOf<String, (JSONObject, NativeUIActions, NativeUIContext) -> (@Composable () -> Unit)>()
 

@@ -2,9 +2,9 @@
 
 > **Unreleased package:** the first npm release of `@rdlabo/capacitor-native-ui` is pending. The registry install commands in these guides apply after that release. To try the current code now, install a candidate archive as described below.
 
-Render supported Web controls with UIKit and SwiftUI on iOS while keeping your application state, routing, and handlers in the WebView. Use existing Ionic markup or explicit HTML buttons; custom SwiftUI or Android Compose content can be added through app-local extensions.
+Render supported Web controls with UIKit and SwiftUI on iOS while keeping your application state, routing, and handlers in the WebView. Use existing Ionic markup or explicit HTML buttons; custom SwiftUI or Android Compose content can be added through experimental app-local extensions.
 
-Native UI is opt-in and currently a preview. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
+Native UI is opt-in and currently a preview. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports experimental app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
 
 ## Choose what to build
 
@@ -14,7 +14,7 @@ Native UI is opt-in and currently a preview. Standard controls on Android, brows
 | Use native buttons without Ionic | [HTML setup](docs/framework-independent.md) |
 | Project only tabs and toolbar actions into a side rail | [Vertical Bars step by step](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
 | Add native controls to an existing iOS 27 theme app | [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) |
-| Render custom SwiftUI or Android Compose content | [App-local extensions](docs/native-ui-extensions.md) |
+| Render custom SwiftUI or Android Compose content | [App-local extensions (experimental)](docs/native-ui-extensions.md) |
 
 ## Try the unreleased packages
 

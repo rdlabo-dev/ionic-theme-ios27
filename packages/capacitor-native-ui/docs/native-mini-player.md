@@ -4,6 +4,8 @@ title: Native UI Extension: Now Playing
 
 # Native UI Extension: Now Playing
 
+This example uses the experimental extension API, which may change in future releases.
+
 Use the [app-local extension API](native-ui-extensions.md) to add a SwiftUI mini-player with a Web fallback. The demo's Index → Native UI Extension page provides a sample you can copy into your application.
 
 - [Web component](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/app/mini-player/mini-player.component.ts): owns playback state and the Now Playing modal. Play/pause is separate from opening the player. Tap or swipe up on the track opens the same modal.

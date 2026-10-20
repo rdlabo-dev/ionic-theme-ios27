@@ -1,8 +1,10 @@
 ---
-title: App-local Native UI extensions
+title: App-local Native UI extensions (experimental)
 ---
 
-# App-local Native UI extensions
+# App-local Native UI extensions (experimental)
+
+> **Experimental:** The extension API, native registration interfaces and behavior may change in future releases. This applies to both SwiftUI and Kotlin/Compose extensions, including `element` and `tab-accessory` placement.
 
 > This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
 

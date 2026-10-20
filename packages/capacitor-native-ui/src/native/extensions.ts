@@ -15,7 +15,9 @@ export interface NativeUIReadContext {
   image(element: SVGElement | HTMLElement | null, options?: { template?: boolean }): NativeUIImageReference | null;
 }
 
-/** An app-local DOM projection. Swift or Kotlin registers its native content under the same name. */
+/** An app-local DOM projection. Swift or Kotlin registers its native content under the same name.
+ * @experimental API and behavior may change in future releases.
+ */
 export interface NativeUIExtension {
   readonly name: string;
   readonly selector: string;
@@ -32,7 +34,9 @@ export interface NativeUIExtension {
   } | null;
 }
 
-/** Defines a projection locally; it does not start native work or register a Capacitor plugin. */
+/** Defines a projection locally; it does not start native work or register a Capacitor plugin.
+ * @experimental API and behavior may change in future releases.
+ */
 export const defineNativeUI = <T extends NativeUIExtension>(extension: T): Readonly<T> => Object.freeze({ ...extension });
 
 export const validateExtensions = (extensions: readonly NativeUIExtension[], doc: Document): void => {

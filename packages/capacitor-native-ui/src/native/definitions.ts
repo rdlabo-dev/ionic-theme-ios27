@@ -27,7 +27,9 @@ export interface ToolbarProjectionOptions {
 }
 
 export interface VerticalControlAreaOptions {
-  /** App-local DOM readers with matching SwiftUI or Compose registrations. */
+  /** App-local DOM readers with matching SwiftUI or Compose registrations.
+   * @experimental API and behavior may change in future releases.
+   */
   extensions?: readonly NativeUIExtension[];
   /** Opt-in popovers anchored to native Vertical Bars buttons. */
   controls?: Pick<NativeUIShellControls, 'popover'>;
