@@ -14,8 +14,9 @@ assert(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version), 'Invalid package ver
 const staging = mkdtempSync(join(tmpdir(), 'native-ui-pack-'));
 try {
   mkdirSync(destination, { recursive: true });
-  const packages = JSON.parse(
-    execFileSync('npm', ['pack', '--workspaces', '--ignore-scripts', '--dry-run', '--json'], { cwd: root, encoding: 'utf8' }),
+  // npm <=11 returns an array; npm 12 returns an object keyed by package name.
+  const packages = Object.values(
+    JSON.parse(execFileSync('npm', ['pack', '--workspaces', '--ignore-scripts', '--dry-run', '--json'], { cwd: root, encoding: 'utf8' })),
   );
   const locations = new Map(
     packages.map((pkg) => [
@@ -41,8 +42,8 @@ try {
     }
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
     archives.push(
-      ...JSON.parse(
-        execFileSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', destination], { cwd: target, encoding: 'utf8' }),
+      ...Object.values(
+        JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', destination], { cwd: target, encoding: 'utf8' })),
       ),
     );
   }
