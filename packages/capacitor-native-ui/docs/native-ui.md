@@ -65,11 +65,12 @@ Here, ordinary toolbar actions project individually and eligible rail actions ca
 
 Restart the runtime to change these startup options.
 
-Use `data-horizontal-bars="true|false"` for local horizontal overrides, and
-`data-vertical-bars="true|false"` for vertical overrides. Each attribute applies
-only in its corresponding layout. On a button/back button it controls selection;
-on `ion-buttons` it controls grouping only. Neither attribute is inherited.
-Invalid or empty values fall back to the matching startup option.
+| Attribute              | Applies in              | `true`                                                 | `false`                                                   |
+| ---------------------- | ----------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| `data-horizontal-bars` | Ordinary placement      | Select the action, or allow grouping on `ion-buttons`. | Exclude the action, or disable grouping on `ion-buttons`. |
+| `data-vertical-bars`   | Vertical rail placement | Select the action, or allow grouping on `ion-buttons`. | Exclude the action, or disable grouping on `ion-buttons`. |
+
+On a button/back button these attributes control selection; on `ion-buttons` they control grouping only. Neither is inherited. Missing, invalid or empty values use the matching `controls` default. Vertical action opt-ins and their eligibility rules are detailed in [Vertical Bars](vertical-bars.md#explicit-action-selection-and-local-grouping).
 
 ```html
 <ion-buttons data-horizontal-bars="false" data-vertical-bars="true">

@@ -135,11 +135,14 @@ This does not disable tab projection or tab rail CSS.
 Use `data-vertical-bars="true|false"` on the element whose behavior you want to
 override. The attribute is **not inherited**.
 
-| Element                          | Meaning of its attribute                                                              | Fallback when absent or invalid                  |
-| -------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `ion-button` / `ion-menu-button` | Select or exclude this action. Explicit `true` bypasses the icon-only selection rule. | `button` and the automatic shape rules           |
-| `ion-buttons`                    | Enable or disable grouping of already-selected actions. Never selects children.       | `buttonGroup` and the existing grouping rules    |
-| `ion-back-button`                | Select or exclude this back button.                                                   | `backButton` and the supported back-button rules |
+| Element                          | `data-vertical-bars="true"`                                                    | `data-vertical-bars="false"`                                    | Default when absent or invalid                     |
+| -------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------------------------- |
+| `ion-button` / `ion-menu-button` | Select the action, including supported text actions without an icon-only slot. | Exclude the action from the rail.                               | `controls.button` and automatic shape rules.       |
+| `ion-buttons`                    | Allow grouping of already-selected actions.                                    | Project selected actions individually.                          | `controls.buttonGroup` and grouping eligibility.   |
+| `ion-back-button`                | Select back navigation independently of its group.                             | Exclude this back button from the rail.                         | `controls.backButton` and back-button eligibility. |
+| `ion-tab-bar`                    | Select eligible rail tabs and their native search presentation.                | Disable native rail tab selection; existing Web layout remains. | `controls.tabs` and tab-bar eligibility.           |
+
+The group's attribute never selects or excludes its children. All opt-ins remain subject to structural exclusions and rail availability.
 
 Empty or unknown attribute values are ignored. To disable automatic action
 selection and explicitly select a text button:
@@ -206,9 +209,15 @@ remain opt-outs; those are distinct from the grouping setting.
 
 ### Placement versus appearance
 
-`data-vertical-bars` controls selection or grouping as described above.
-`data-projection="source|system"` controls native appearance and follows its own
-button-then-group inheritance rules. Neither appearance value selects an action.
+| Setting                    | Values                              | Responsibility                                              | Applies to                                                                                                         |
+| -------------------------- | ----------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `data-native-ui`           | `button`, `back-button`, `disabled` | Declare an explicit source or exclude a subtree.            | [Explicit source elements](framework-independent.md#2-mark-source-controls); `disabled` also applies to ancestors. |
+| `data-native-ui-placement` | `element`, `rail`                   | Choose the original element position or request the rail.   | Explicit sources; `element` also keeps automatic Ionic controls at their original position.                        |
+| `data-vertical-bars`       | `true`, `false`                     | Override rail selection or grouping defaults.               | Ionic actions and groups listed above.                                                                             |
+| `data-horizontal-bars`     | `true`, `false`                     | Override ordinary-placement selection or grouping defaults. | [Ordinary Ionic controls](native-ui.md#toolbar-selection-and-grouping).                                            |
+| `data-projection`          | `system`, `source`                  | Choose native appearance without selecting an action.       | Native vertical `ion-button` and `ion-menu-button`; inherited from the nearest `ion-buttons`.                      |
+
+Selection attributes are not inherited. Appearance follows the button-then-group priority described below. An attribute never makes unsupported markup or a missing native rail available.
 
 ### Choose button appearance
 
