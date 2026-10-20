@@ -1,4 +1,3 @@
-import { toolbarOptions } from '../../packages/capacitor-native-ui/src/native/shared/toolbar-options';
 import { afterEach, expect, test } from 'vitest';
 import { readCandidate, selector } from '../../packages/capacitor-native-ui/src/native/components';
 import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
@@ -117,9 +116,10 @@ test('vertical false still allows local action, grouping and back overrides', ()
   }
 });
 
-test('omitted layout fields default to true', () => {
-  expect(toolbarOptions({}, true)).toEqual({ buttonGroup: true, button: true, backButton: true });
-  expect(toolbarOptions({ controls: { button: false } }, true)).toEqual({ buttonGroup: true, button: false, backButton: true });
+test('partial controls preserve selection and grouping for omitted kinds', () => {
+  mount();
+  expect(candidates({ controls: { backButton: false } })).toEqual(['group']);
+  expect(candidates({ controls: { button: false } })).toEqual(['back']);
 });
 
 test.each(['ion-button', 'ion-menu-button', 'ion-back-button'])(

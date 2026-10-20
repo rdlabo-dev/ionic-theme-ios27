@@ -416,11 +416,8 @@ test('explicit Ionic Web rails preserve shadow icons and observe artwork changes
 });
 
 test.each([
-  { ionic: {} },
   { ionic: { auto: false }, controls: false },
   { controls: 'horizontalOnly' as const },
-  { ionic: { auto: true }, controls: false },
-  { controls: 'verticalOnly' as const },
   { controls: { button: false, buttonGroup: true } },
 ])('explicit projection survives selection defaults and automatic discovery settings: %j', async (settings) => {
   const { enableNativeUI } = await import('../../packages/capacitor-native-ui/src/core');

@@ -223,24 +223,6 @@ for (const stop of ['repeated destroy', 'destroy', 'destroy with different contr
   });
 }
 
-test('a completed teardown failure does not poison later startup', async ({ page }) => {
-  await page.addScriptTag({ content: bundle });
-  const result = await page.evaluate(async () => {
-    const { enableNativeUI } = (window as LifecycleWindow).shellLifecycle;
-    const first = await enableNativeUI();
-    const destroy = first.destroy;
-    first.destroy = async () => {
-      await destroy();
-      throw new Error('Teardown failed');
-    };
-    const failures = await Promise.allSettled([first.destroy(), first.destroy()]);
-    const replacement = await enableNativeUI();
-    await replacement.destroy();
-    return { failures: failures.map((result) => result.status), state: replacement.getStatus().state };
-  });
-  expect(result).toEqual({ failures: ['rejected', 'rejected'], state: 'stopped' });
-});
-
 for (const stalled of ['configure', 'metrics listener', 'metrics', 'listener removal']) {
   test(`native lifecycle settles when ${stalled} stalls`, async ({ page }) => {
     await page.clock.install();

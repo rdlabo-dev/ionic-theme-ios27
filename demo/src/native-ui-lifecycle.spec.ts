@@ -45,12 +45,13 @@ test('a second startup cannot silently replace the active configuration', async 
 test('a new activation survives the previous runtime finishing its destroy', async () => {
   const options = { controls: 'verticalOnly' } as const;
   const first = await enableNativeUI(options);
-  const disabling = first.destroy();
+  const destroying = first.destroy();
   const second = await enableNativeUI(options);
   expect(second).not.toBe(first);
-  await disabling;
+  await destroying;
   // The stale destroy must not clear the newer activation's shared slot.
   await first.destroy();
+  expect(await enableNativeUI(options)).toBe(second);
   await second.destroy();
   expect(second.getStatus().state).toBe('stopped');
 });
@@ -100,7 +101,7 @@ test('layout-specific options participate in runtime configuration identity', as
   }
 });
 
-test('boolean layout shorthands share configuration identity with equivalent objects', async () => {
+test('scalar controls share configuration identity with equivalent objects', async () => {
   const first = await enableNativeUI({ controls: 'verticalOnly' });
   try {
     expect(

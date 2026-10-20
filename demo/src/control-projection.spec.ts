@@ -1,11 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';
-import type {
-  ControlProjection,
-  NativeUIPlugin,
-  NativeUIRuntimeHandle,
-  NativeUISnapshot,
-} from '../../packages/capacitor-native-ui/src/native/definitions';
+import type { NativeUIPlugin, NativeUIRuntimeHandle, NativeUISnapshot } from '../../packages/capacitor-native-ui/src/native/definitions';
 
 let runtime: NativeUIRuntimeHandle | undefined;
 afterEach(async () => {
@@ -57,7 +52,7 @@ for (const vertical of [false, true]) {
       },
       clear: async () => {},
     } as unknown as NativeUIPlugin;
-    runtime = await createRuntime(document, plugin, { controls: { tabs: controls as ControlProjection } });
+    runtime = await createRuntime(document, plugin, { controls: { tabs: controls } });
     await vi.waitFor(() => expect(updates.length).toBeGreaterThan(0));
     expect(updates.at(-1)!.controls.map((control) => control.kind)).toEqual(selected ? ['tab-bar'] : []);
     if (selected) expect(updates.at(-1)!.controls[0].placement).toBe(vertical ? 'vertical-bars' : undefined);
