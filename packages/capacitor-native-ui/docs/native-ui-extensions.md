@@ -8,6 +8,8 @@ title: App-local Native UI extensions (experimental)
 
 An extension projects your existing Web UI into a SwiftUI View on iOS or Jetpack Compose content on Android. Keep both definitions in your application: no npm package, separate library, or Capacitor plugin is required. The Web element remains the source of truth and the fallback UI.
 
+Extensions use the same [projection model](../README.md#how-projection-works) as built-in controls. Define the DOM data and actions to expose, then provide their native presentation.
+
 ## Before you start
 
 Start with an existing Capacitor 8 app and install the plugin if you have not already:
@@ -360,4 +362,6 @@ Element placement requires the source to fit fully inside the viewport and its a
 
 The [demo reader](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/counter.ts) and [demo SwiftUI View](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/ios/App/App/NativeUICounter.swift) show both placements using app-local files. Open the Native UI demo page to compare native projection with its Web fallback.
 
-For a complete application feature, see the [SwiftUI mini-player example](native-mini-player.md): artwork, track metadata, playback controls and swipe-to-open, all defined in the demo application.
+## Example: mini-player
+
+The demo mini-player shows the same pattern with track metadata and playback actions: a [DOM reader and Web fallback](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/mini-player.ts) paired with an [app-local SwiftUI View](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/ios/App/App/NativeMiniPlayer.swift). The Web app owns playback state and modal presentation; native `open` and `toggle` actions activate its original buttons. This is a UI example, not an audio engine. Adapt the files after completing the extension setup above.

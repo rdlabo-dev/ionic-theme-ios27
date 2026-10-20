@@ -1,12 +1,24 @@
 ---
-title: Add Vertical Bars to your Ionic app
+title: Add Vertical Bars while keeping your theme
 ---
 
-# Add Vertical Bars to your Ionic app
+# Add Vertical Bars while keeping your theme
 
-Add a vertical navigation area to your Ionic app while keeping its existing theme. Tabs and supported toolbar actions move to the side of the screen; your content and horizontal controls keep their current appearance. Both Ionic `ios` and `md` modes are supported.
+Keep your app's existing appearance and add Vertical Bars. Choose the setup for your app's components, whether you use Angular, React, Vue or another framework.
 
-**Try it in Chrome first.** You can preview the layout with Web controls before setting up an iPhone Duo or an iOS build. On supported Capacitor iOS, the same Ionic markup supplies native SwiftUI controls in the system rail.
+Read [how projection works](../../capacitor-native-ui/README.md#how-projection-works) for the relationship between source DOM, projected controls and actions. Then choose your setup below.
+
+## Choose your setup
+
+| Your app | Start here | What you add |
+| --- | --- | --- |
+| Ionic components with your own theme, Ionic's default styles, or another theme | [Ionic setup below](#try-it-in-your-existing-ionic-app) | Standalone rail CSS and the Ionic Native UI adapter. Keep your existing theme. |
+| No Ionic components (plain HTML, React, Vue, Angular, etc.) | [HTML setup](../../capacitor-native-ui/docs/framework-independent.md), then its [Web rail configuration](../../capacitor-native-ui/docs/framework-independent.md#optional-web-rail) | Only `@rdlabo/capacitor-native-ui`, using its `/core` entry. Your app supplies the rail layout. |
+| Already using the iOS 27 theme and Native UI | [Connect device placement](iphone-duo.md#project-controls-into-the-rail) | Reuse your existing runtime. Do not start another one. |
+
+**Without Ionic, follow the HTML guide instead of the steps below.** You do not need this theme package, `vertical-bars.css`, `ion-app`, or Ionic navigation animations. Explicitly marked HTML buttons and back buttons are supported; arbitrary HTML tabs are not automatically converted. A browser preview requires an application-styled `webHost`; native rail presentation also requires supported iOS hardware and software.
+
+The rest of this page is for **Ionic apps**. Both Ionic `ios` and `md` modes are supported. Tabs and supported toolbar actions move to the side; content and horizontal controls keep their existing appearance.
 
 Available in `1.2.0` as a **preview** feature. APIs and supported behavior may change.
 
@@ -14,10 +26,10 @@ Available in `1.2.0` as a **preview** feature. APIs and supported behavior may c
 
 ### 1. Install and load the standalone stylesheet
 
-This guide assumes an existing Ionic app with Ionic `>=8.8.1 <10` and Capacitor Core `>=8 <9`. Keep your existing Capacitor 8 installation. If your app uses another Capacitor major, migrate its Core, CLI, and platform packages together before following this guide. For a Web-only app without Capacitor, also install `@capacitor/core@^8`; the JavaScript entry point needs it even in Chrome.
+Start with your existing Ionic app (Ionic `>=8.8.1 <10`, Capacitor 8). Add the two packages:
 
 ```bash
-npm install @capacitor/core@^8 @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
 ```
 
 Keep your existing theme imports. Add this to your global Sass file:
@@ -26,7 +38,7 @@ Keep your existing theme imports. Add this to your global Sass file:
 @use '@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css';
 ```
 
-The command includes Capacitor Core for browser previews too. The full iOS 27 theme stylesheets are not required.
+The full iOS 27 theme stylesheets are not required. Preview these steps in Chrome before connecting an iPhone Duo.
 
 ### 2. Opt your app into the side layout
 
@@ -139,7 +151,7 @@ npm install @erkamyaman/capacitor-foldable
 npx cap sync ios
 ```
 
-Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for actual rail placement and hinge posture on iOS 27.1. Native UI uses Swift Package Manager; existing CocoaPods apps can follow [Native UI setup](../../capacitor-native-ui/docs/native-ui.md#enable-the-shell). Keep this package's `vertical-bars.css`; the device plugin's `ionic-tabs.css` is not needed with our rail projection.
+Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for actual rail placement and hinge posture on iOS 27.1. Keep your existing SPM or CocoaPods integration; see [Native UI setup](../../capacitor-native-ui/docs/setup.md#4-build-sync-and-run). Keep this package's `vertical-bars.css`; the device plugin's `ionic-tabs.css` is not needed with our rail projection.
 
 Replace the browser-only startup with the [device placement setup](iphone-duo.md#project-controls-into-the-rail). That setup sends initial values and `barPlacementChange` events to `setVerticalBarsLayout({ edge: verticalBarEdge, inset })`, with subscriptions and cleanup kept in your application.
 
@@ -155,4 +167,4 @@ See [Read the device layout](iphone-duo.md#read-the-device-layout) for the subsc
 
 ## Shared layout rules and API
 
-Safe-area handling, overlays, RTL, control eligibility, Web simulation, and the handle API are documented in [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md). Those rules apply to this standalone setup too.
+Safe-area handling, overlays, RTL, control eligibility, Web simulation, and the handle API are documented in [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md). Read that reference when you need to customize this setup; it is not an additional installation step.

@@ -4,9 +4,15 @@ title: Vertical Bars (preview)
 
 # Vertical Bars (preview)
 
-Vertical Bars moves eligible Ionic navigation and actions into a side rail while keeping the original components as the source of labels, icons and behavior. It works with the iOS theme or an existing Ionic theme, independently of hinge posture and the full Native UI.
+Vertical Bars moves eligible Ionic controls or explicitly marked HTML buttons into a side rail while keeping the original elements as the source of labels, icons and behavior. It works with the iOS theme or an existing Ionic theme, independently of hinge posture and the full Native UI.
 
-Use this page for layout, control eligibility, native button appearance and the runtime API. For device events and split panes, see [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md). For a step-by-step browser preview and native setup, start with [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
+Choose your setup before using this reference:
+
+- **Ionic with a custom or default theme:** [Ionic rail setup](../../theme-ios27/docs/iphone-duo-with-original-theme.md#try-it-in-your-existing-ionic-app).
+- **No Ionic:** [HTML setup](framework-independent.md) and its [Web rail configuration](framework-independent.md#optional-web-rail). Use `/core` and your own layout; the Ionic setup below does not apply.
+- **Existing iOS 27 theme and Native UI:** [Connect device placement](../../theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail) using your existing runtime.
+
+Return to this page for control eligibility, native button appearance and runtime options. Device events and Ionic split panes are covered in [iPhone Duo support](../../theme-ios27/docs/iphone-duo.md).
 
 Available in `1.2.0` as a **preview** feature. APIs and supported behavior may change.
 
@@ -22,7 +28,7 @@ npm install @rdlabo/capacitor-native-ui
 
 For Capacitor iOS, build your Web assets and run `npx cap sync ios`. Supply the Web layout through your app or theme as described below.
 
-After `ion-app` is mounted, start one runtime:
+For Ionic apps, start one runtime after `ion-app` is mounted:
 
 ```ts
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui';

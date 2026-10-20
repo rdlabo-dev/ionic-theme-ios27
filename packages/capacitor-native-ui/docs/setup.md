@@ -4,6 +4,8 @@ Keep your existing Web appearance and render supported Ionic controls natively o
 
 Already using the iOS 27 theme? Follow [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). Without Ionic, follow the [HTML setup](framework-independent.md) instead.
 
+Read [how projection works](../README.md#how-projection-works) first if you are new to Native UI. This guide connects your existing Ionic controls to that presentation.
+
 ## Before you start
 
 Use an existing Ionic `>=8.8.1 <10` application with Capacitor 8 and an iOS project. Build with Xcode 26 or later; ordinary native controls require iOS 26 or later. Vertical Bars have separate [device requirements](vertical-bars.md). Keep your current SPM or CocoaPods integration.
