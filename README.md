@@ -45,9 +45,13 @@ Both packages support Ionic 8.8.1 or later within Ionic 8 or 9. Native UI requir
 
 ## Explore further
 
-- Maintainers: [release both packages](docs/releasing.md) · [CI and test reports](docs/ci.md).
-
 - [iPhone Duo layout](packages/theme-ios27/docs/iphone-duo.md) · [Vertical Bars with an existing theme](packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 - [Theme migration](packages/theme-ios27/docs/migration.md) · [Native UI migration](packages/capacitor-native-ui/docs/migration.md).
 
 Use standard native buttons without Ionic through the [plain HTML adapter](packages/capacitor-native-ui/docs/framework-independent.md), or keep Ionic markup and enable only [Vertical Bars](packages/capacitor-native-ui/docs/configuration.md). Both use the same native renderers.
+
+## Maintenance
+
+From a clean, up-to-date `main`, run `npm run release` to release both packages at the same version (`npm run release -- premajor` for a major prerelease). Maintainers can request a PR beta with `/beta`. See [.github/workflows](.github/workflows) for CI and release behavior.
+
+If a versioned release publishes only one package before failing, use a new shared version for the next release.
