@@ -1,3 +1,5 @@
+import { localToolbarOption, toolbarOptions } from './shared/toolbar-options';
+import type { VerticalControlAreaOptions } from './definitions';
 import { modalUsesVerticalBars } from './shared/modal';
 import { LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE, LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE } from './shared/events';
 import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration';
@@ -31,12 +33,19 @@ const backSupported = (element: HTMLElement): boolean => {
 };
 const eligibleBack = verticalBarsBackCandidate;
 const eligible = verticalBarsActionCandidate;
+const localPlacement = (element: HTMLElement) => localToolbarOption(element, true);
+const selectedAction = (element: HTMLElement, options: VerticalControlAreaOptions): boolean => {
+  if (!element.matches('ion-button, ion-menu-button')) return false;
+  const explicit = localPlacement(element);
+  return explicit ?? (toolbarOptions(options, true).button && isVerticalBarsToolbarActionShape(element));
+};
 
 /** Capture toolbar placement once per routed-page epoch, before Ionic paints its transition. */
 export const prehideVerticalBarsToolbarSources = (
   doc: Document,
   enabled: () => boolean = () => true,
   sourceRoot: HTMLElement = doc.body,
+  options: VerticalControlAreaOptions = {},
 ): { suspend: () => () => void; stop: () => void } => {
   doc.documentElement.classList.toggle(prehideRootClass, enabled());
   const scopes = new Map<HTMLElement, Set<HTMLElement>>();
@@ -88,8 +97,9 @@ export const prehideVerticalBarsToolbarSources = (
         return;
       if (element.matches('ion-buttons')) {
         const children = childElements(element);
-        const actions = children.filter((child) => eligible(child) && isVerticalBarsToolbarActionShape(child));
+        const actions = children.filter((child) => eligible(child) && selectedAction(child, options));
         const group =
+          (localPlacement(element) ?? toolbarOptions(options, true).buttons) &&
           eligible(element) &&
           actions.length === children.length &&
           (actions.length > 1 || (actions.length === 1 && actions[0].matches('ion-menu-button')));
@@ -133,8 +143,8 @@ export const prehideVerticalBarsToolbarSources = (
         place(
           element,
           element.matches('ion-back-button')
-            ? eligibleBack(element) && backSupported(element)
-            : eligible(element) && isVerticalBarsToolbarActionShape(element),
+            ? (localPlacement(element) ?? toolbarOptions(options, true).backButton) && eligibleBack(element) && backSupported(element)
+            : eligible(element) && selectedAction(element, options),
         );
       }
     });

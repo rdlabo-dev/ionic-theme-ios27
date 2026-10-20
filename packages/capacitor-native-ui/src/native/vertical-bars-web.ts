@@ -32,13 +32,13 @@ const toolbarControlSize = 46;
 const toolbarControlGap = 10;
 
 interface ToolbarProjection {
-  source: HTMLIonButtonsElement;
+  source: HTMLElement;
   projection: HTMLElement;
   actions: { source: HTMLElement; projection: HTMLElement; previousAriaHidden: string | null }[];
 }
 
 interface ToolbarSource {
-  group: HTMLIonButtonsElement;
+  group: HTMLElement;
   actions: HTMLElement[];
 }
 
@@ -126,6 +126,10 @@ export const createVerticalBarsWebProjection = (
         return inEligibleToolbar(group) && unprojected(projectedSources(), () => isRendered(group)) ? [{ group, actions }] : [];
       },
     );
+    for (const action of Array.from(doc.querySelectorAll<HTMLElement>('ion-button, ion-menu-button'))) {
+      if (action.closest('ion-buttons') || !verticalBarsOwned(action) || !inEligibleToolbar(action)) continue;
+      if (unprojected(projectedSources(), () => isRendered(action))) candidates.push({ group: action, actions: [action] });
+    }
     const highestPage = Math.max(...candidates.map(({ group }) => pageOrder(group)));
     return candidates.filter(({ group }) => pageOrder(group) === highestPage);
   };
@@ -194,7 +198,7 @@ export const createVerticalBarsWebProjection = (
       const icon = original.querySelector<HTMLElement>('ion-icon, svg');
       const clonedIcon = icon?.cloneNode(true) as HTMLElement | undefined;
       clonedIcon?.setAttribute('slot', 'icon-only');
-      target.replaceChildren(...(clonedIcon ? [clonedIcon] : []));
+      target.replaceChildren(...(clonedIcon ? [clonedIcon] : [document.createTextNode(original.textContent?.trim() || label || '')]));
     }
   };
   const sameSources = (back: HTMLIonBackButtonElement | undefined, groups: ToolbarSource[]) =>

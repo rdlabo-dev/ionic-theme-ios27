@@ -129,3 +129,114 @@ test('late horizontal-only placement restores a captured Web search action', asy
     document.documentElement.className = '';
   }
 });
+
+test.each([
+  [{}, [true, true, true, true]],
+  [{ buttons: false }, [true, true, true, true]],
+  [{ button: false }, [false, false, false, true]],
+  [{ backButton: false }, [true, true, true, false]],
+  [{ buttons: false, button: false, backButton: false }, [false, false, false, false]],
+] as const)('automatic vertical selection %j', (options, expected) => {
+  document.body.innerHTML = `
+    <ion-app class="ios-theme-vertical-bars"><main class="ion-page">
+    <ion-header><ion-toolbar>
+      <ion-buttons><ion-button id="a"><ion-icon slot="icon-only"></ion-icon></ion-button>
+      <ion-button id="b"><ion-icon slot="icon-only"></ion-icon></ion-button>
+      <ion-back-button id="back"></ion-back-button></ion-buttons>
+      <ion-button id="single"><ion-icon slot="icon-only"></ion-icon></ion-button>
+    </ion-toolbar></ion-header></main></ion-app>`;
+  document.querySelector('#back')!.attachShadow({ mode: 'open' });
+  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, { vertical: options });
+  try {
+    expect(['a', 'b', 'single', 'back'].map((id) => verticalBarsOwned(document.getElementById(id)!))).toEqual(expected);
+  } finally {
+    handle.stop();
+    document.body.innerHTML = '';
+  }
+});
+
+test('group attributes never select children and explicit children override automatic selection', () => {
+  document.body.innerHTML = `
+    <ion-app class="ios-theme-vertical-bars"><main class="ion-page">
+    <ion-header><ion-toolbar>
+      <ion-buttons data-vertical-bars="true">
+        <ion-button id="text">Save</ion-button>
+        <ion-button id="excluded" data-vertical-bars="false">Cancel</ion-button>
+        <ion-back-button id="back"></ion-back-button>
+      </ion-buttons>
+      <ion-buttons data-vertical-bars="false"><ion-button id="override" data-vertical-bars="true">Done</ion-button></ion-buttons>
+      <ion-button id="single" data-vertical-bars="true">Add</ion-button>
+      <ion-button id="invalid" data-vertical-bars="invalid">Ignore</ion-button>
+    </ion-toolbar></ion-header>
+    <ion-content><ion-button id="content" data-vertical-bars="true">Content</ion-button></ion-content>
+    </main></ion-app>`;
+  document.querySelector('#back')!.attachShadow({ mode: 'open' });
+  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, {
+    vertical: { buttons: false, button: false, backButton: false },
+  });
+  try {
+    expect(
+      ['text', 'excluded', 'back', 'override', 'single', 'invalid', 'content'].map((id) => verticalBarsOwned(document.getElementById(id)!)),
+    ).toEqual([false, false, false, true, true, false, false]);
+  } finally {
+    handle.stop();
+    document.body.innerHTML = '';
+  }
+});
+
+test.each([
+  [true, true, true, true],
+  [false, true, false, true],
+  [true, false, false, false],
+  [false, false, false, false],
+] as const)('grouping %s and selection %s are independent', (buttons, button, grouped, selected) => {
+  document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars"><main class="ion-page">
+    <ion-header><ion-toolbar><ion-buttons>
+      <ion-button><ion-icon slot="icon-only"></ion-icon></ion-button>
+      <ion-button><ion-icon slot="icon-only"></ion-icon></ion-button>
+    </ion-buttons></ion-toolbar></ion-header></main></ion-app>`;
+  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, { vertical: { buttons, button } });
+  try {
+    expect(verticalBarsOwned(document.querySelector('ion-buttons')!)).toBe(grouped);
+    expect(Array.from(document.querySelectorAll<HTMLElement>('ion-button')).map(verticalBarsOwned)).toEqual([selected, selected]);
+  } finally {
+    handle.stop();
+    document.body.innerHTML = '';
+  }
+});
+
+test.each(['true', 'false'] as const)('group override %s only changes grouping of explicitly selected actions', (attribute) => {
+  document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars"><main class="ion-page">
+    <ion-header><ion-toolbar><ion-buttons data-vertical-bars="${attribute}">
+      <ion-button data-vertical-bars="true">Save</ion-button>
+      <ion-button data-vertical-bars="true">Done</ion-button>
+    </ion-buttons></ion-toolbar></ion-header></main></ion-app>`;
+  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, {
+    vertical: { buttons: attribute !== 'true', button: false },
+  });
+  try {
+    expect(verticalBarsOwned(document.querySelector('ion-buttons')!)).toBe(attribute === 'true');
+    expect(Array.from(document.querySelectorAll<HTMLElement>('ion-button')).map(verticalBarsOwned)).toEqual([true, true]);
+  } finally {
+    handle.stop();
+    document.body.innerHTML = '';
+  }
+});
+
+test.each(['true', 'false'] as const)('back selection ignores group attribute %s and both action options', (attribute) => {
+  document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars"><main class="ion-page">
+    <ion-header><ion-toolbar><ion-buttons data-vertical-bars="${attribute}">
+      <ion-back-button data-vertical-bars="true"></ion-back-button>
+    </ion-buttons></ion-toolbar></ion-header></main></ion-app>`;
+  document.querySelector('ion-back-button')!.attachShadow({ mode: 'open' });
+  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, {
+    vertical: { buttons: false, button: false, backButton: false },
+  });
+  try {
+    expect(verticalBarsOwned(document.querySelector('ion-back-button')!)).toBe(true);
+    expect(verticalBarsOwned(document.querySelector('ion-buttons')!)).toBe(false);
+  } finally {
+    handle.stop();
+    document.body.innerHTML = '';
+  }
+});

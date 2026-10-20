@@ -19,6 +19,7 @@ export type {
   VerticalBarEdge,
   VerticalBarPlacement,
   VerticalControlAreaHandle,
+  ToolbarProjectionOptions,
   VerticalControlAreaOptions,
   WebViewMetrics,
 } from './definitions';
@@ -29,6 +30,8 @@ export const enableNativeUIShell = (options: NativeUIShellOptions = {}) =>
 export const enableVerticalControlArea = async (options: VerticalControlAreaOptions = {}): Promise<VerticalControlAreaHandle> => {
   const handle = await enableNativeUIShell({
     extensions: options.extensions,
+    horizontal: options.horizontal,
+    vertical: options.vertical,
     buttonProjection: options.buttonProjection,
     buttonDefaultFill: options.buttonDefaultFill,
     controls: { tabs: true, toolbar: true, popover: options.controls?.popover === true },

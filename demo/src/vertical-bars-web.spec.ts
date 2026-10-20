@@ -1,3 +1,4 @@
+import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
 import { expect, test } from 'vitest';
 import { createVerticalBarsWebProjection } from '../../packages/capacitor-native-ui/src/native/vertical-bars-web';
 import { setVerticalBarsPlacement } from '../../packages/capacitor-native-ui/src/native/shared/dom';
@@ -60,4 +61,32 @@ test('a back button inside an ion-buttons group is projected only through the ba
   } finally {
     await handle.destroy();
   }
+});
+
+test('explicit standalone text action projects, forwards clicks and restores its source', async () => {
+  document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars"><main class="ion-page">
+    <ion-header><ion-toolbar><ion-button data-vertical-bars="true">Save</ion-button></ion-toolbar></ion-header>
+    </main></ion-app>`;
+  const source = document.querySelector<HTMLElement>('ion-button')!;
+  source.style.display = 'block';
+  source.style.visibility = 'visible';
+  source.getBoundingClientRect = () => ({ width: 44, height: 44 }) as DOMRect;
+  let clicks = 0;
+  source.addEventListener('click', () => clicks++);
+  const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, { vertical: { button: false } });
+  const handle = createVerticalBarsWebProjection(document, {});
+  try {
+    await nextFrame();
+    const clone = document.querySelector<HTMLElement>('.ios-theme-vertical-bars-toolbar-projection')!;
+    expect(clone).not.toBeNull();
+    expect(clone.textContent).toBe('Save');
+    clone.click();
+    expect(clicks).toBe(1);
+    expect(source.getAttribute('aria-hidden')).toBe('true');
+  } finally {
+    await handle.destroy();
+    prehide.stop();
+  }
+  expect(source.hasAttribute('aria-hidden')).toBe(false);
+  expect(document.querySelector('.ios-theme-vertical-bars-toolbar-projection')).toBeNull();
 });

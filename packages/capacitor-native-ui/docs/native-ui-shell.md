@@ -45,13 +45,80 @@ This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry 
 
 Native appearance follows the applied class, system or always-dark theme CSS. System theme changes are synchronized while the runtime is active.
 
+## Toolbar selection and grouping
+
+Configure ordinary and vertical toolbars independently:
+
+```ts
+const shell = await enableNativeUIShell({
+  horizontal: { buttons: false, button: true, backButton: true },
+  vertical: { buttons: true, button: true, backButton: true },
+});
+```
+
+Each layout accepts `boolean | ToolbarProjectionOptions`:
+
+| Value | Meaning |
+| --- | --- |
+| `true` or omitted | All three options default to `true`. |
+| `false` | All three options are `false`; local attributes may still opt in. |
+| Object | Set individual options; omitted fields default to `true`. |
+
+For toolbar actions that automatically project only in vertical layout:
+
+```ts
+const shell = await enableNativeUIShell({ horizontal: false, vertical: true });
+```
+
+This selects by active layout, not by the Duo model, and does not disable tabs,
+segments or FABs. These settings refine automatic Ionic toolbar projection;
+`ionic.auto` remains its master switch. Explicit `data-native-ui` sources are independent.
+
+`button` selects ordinary actions whether grouped
+in the source or standalone; `buttons` only enables grouping of selected actions.
+With `buttons: true, button: false`, no ordinary action projects unless explicitly
+selected. `backButton` independently controls back navigation, including back
+buttons inside `ion-buttons`.
+
+Restart the runtime to change these startup options.
+
+Use `data-horizontal-bars="true|false"` for local horizontal overrides, and
+`data-vertical-bars="true|false"` for vertical overrides. Each attribute applies
+only in its corresponding layout. On a button/back button it controls selection;
+on `ion-buttons` it controls grouping only. Neither attribute is inherited.
+Invalid or empty values fall back to the matching startup option.
+
+```html
+<ion-buttons data-horizontal-bars="false" data-vertical-bars="true">
+  <ion-button fill="clear">First</ion-button>
+  <ion-button fill="clear">Second</ion-button>
+</ion-buttons>
+```
+
+The horizontal actions above project individually when otherwise eligible.
+The vertical attribute allows grouping but does not select the text-only children;
+add `data-vertical-bars="true"` to each button to select them explicitly.
+
+These settings do not remove CSS or change the source layout. If the app removes
+the source group's glass styling, `horizontal.buttons: false` also prevents a
+shared native group surface. Existing component-mode, fixed-toolbar,
+fill/color and shell opt-out requirements still apply. A horizontal clear button
+inside `ion-buttons` can project individually when grouping is disabled or the
+whole group does not qualify. Back buttons never become ordinary group members.
+Horizontal local overrides are re-evaluated live; vertical placement retains its
+per-page-visit rules. `data-projection="source|system"` remains a separate native
+vertical appearance setting.
+
+`enableVerticalControlArea()` remains vertical-only. Use `enableNativeUIShell()`
+when horizontal projection is needed, and run only one of the two runtimes.
+
 ## Supported markup
 
 The table below describes the ordinary Native UI Shell. Vertical Bars uses the separate [toolbar action rules](vertical-bars.md#toolbar-actions).
 
 | Ionic component                               | Supported appearance and placement                                                                        | Native rendering                                                      |
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `ion-button`                                  | `fill="default"`, standard glass, in a fixed header/footer toolbar                                        | Glass `UIButton`                                                      |
+| `ion-button`                                  | `fill="default"`, or clear inside an ungrouped `ion-buttons`, in a fixed header/footer toolbar                                        | Glass `UIButton`                                                      |
 | `ion-buttons`                                 | Fixed toolbar, two or more direct clear `ion-button` / `ion-menu-button` children sharing the theme glass | One `UIGlassEffect` surface with independent native buttons           |
 | `ion-back-button`                             | Standard icon and color in a fixed header/footer toolbar                                                  | Glass `UIButton`, using the resolved Ionic label/icon                 |
 | `ion-menu-button`                             | Fixed toolbar, inside the theme glass `ion-buttons`                                                       | Glass `UIButton`; original Ionic menu toggle                          |
@@ -223,7 +290,7 @@ The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/v
 
 Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](vertical-bars.md) for rail layout, native fallback and supported overlays.
 
-In Vertical Bars, fixed-toolbar `ion-button` actions need an `ion-icon` or SVG with `slot="icon-only"`. All fills and Ionic colors are eligible; submit buttons follow the same placement rule. Add `.ios-theme-horizontal-only` to a button or its `ion-buttons` group to keep it horizontal. See [Toolbar actions](vertical-bars.md#toolbar-actions) for placement and exclusion rules.
+In Vertical Bars, automatic selection of fixed-toolbar `ion-button` actions requires an `ion-icon` or SVG with `slot="icon-only"`; `data-vertical-bars="true"` can explicitly select other supported buttons. All fills and Ionic colors are eligible; submit buttons follow the same placement rule. Add `.ios-theme-horizontal-only` to a button or its `ion-buttons` group to keep it horizontal. See [Toolbar actions](vertical-bars.md#toolbar-actions) for placement and exclusion rules.
 
 **Native button appearance:** `1.2.0` defaults native vertical buttons to `buttonProjection: 'system'`. Use `source` to project Ionic fill and colors, with `data-projection="source|system"` or the equivalent `ios-theme-projection-source` / `ios-theme-projection-system` classes for local exceptions. These settings affect native vertical `ion-button` and `ion-menu-button` actions only. Horizontal controls and Web clones keep their existing behavior. See [Choose button appearance](vertical-bars.md#choose-button-appearance) for migration, priority and fill rules.
 

@@ -17,11 +17,30 @@ export interface NativeUIShellStatus {
   reason?: string;
 }
 
+export interface ToolbarProjectionOptions {
+  /** Group selected actions; never selects children or back buttons. Defaults to true. */
+  buttons?: boolean;
+  /** Automatically select ordinary actions, inside or outside groups. Defaults to true. */
+  button?: boolean;
+  /** Automatically select back navigation independently of groups. Defaults to true. */
+  backButton?: boolean;
+}
+
 export interface VerticalControlAreaOptions {
   /** App-local DOM readers with matching SwiftUI or Compose registrations. */
   extensions?: readonly NativeUIExtension[];
   /** Opt-in popovers anchored to native Vertical Bars buttons. */
   controls?: Pick<NativeUIShellControls, 'popover'>;
+  /** Ordinary horizontal toolbar selection/grouping. true enables all three options; false disables them.
+   * Object fields default to true. Local data-horizontal-bars overrides still apply.
+   * Only enableNativeUIShell projects horizontal controls.
+   */
+  horizontal?: boolean | ToolbarProjectionOptions;
+  /** Vertical toolbar selection/grouping. true enables all three options; false disables them.
+   * Object fields default to true. Local data-vertical-bars overrides still apply.
+   * Neither layout setting controls tabs, segments or FABs.
+   */
+  vertical?: boolean | ToolbarProjectionOptions;
   /** Appearance of native vertical ion-button and ion-menu-button actions.
    * `system` (default) uses SwiftUI styling and template icons; `source` projects supported Ionic fill and colors.
    * Local data-projection="source|system" or ios-theme-projection-source / ios-theme-projection-system take precedence:

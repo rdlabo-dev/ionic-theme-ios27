@@ -1,5 +1,6 @@
+import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
 import { afterEach, expect, test } from 'vitest';
-import { readCandidate } from '../../packages/capacitor-native-ui/src/native/components';
+import { readCandidate, selector } from '../../packages/capacitor-native-ui/src/native/components';
 import { setVerticalBarsPlacement } from '../../packages/capacitor-native-ui/src/native/shared/dom';
 import { enableVerticalControlArea } from '../../packages/capacitor-native-ui/src/vertical-bars';
 
@@ -177,4 +178,29 @@ test('horizontal controls project without theme variables and retain visibility 
   expect(readCandidate(button, () => 'button')?.control.items).toHaveLength(1);
   button.hidden = true;
   expect(readCandidate(button, () => 'button')).toBeUndefined();
+});
+
+test.each([true, false])('native menu action is discovered with grouping %s', (buttons) => {
+  document.body.innerHTML = `<ion-app class="ios-theme-vertical-bars"><main class="ion-page">
+    <ion-header><ion-toolbar><ion-buttons><ion-menu-button></ion-menu-button></ion-buttons></ion-toolbar></ion-header>
+    </main></ion-app>`;
+  document.querySelectorAll<HTMLElement>('*').forEach((element) => {
+    element.style.cssText = 'display: block; visibility: visible; opacity: 1';
+    element.getBoundingClientRect = () => ({ x: 0, y: 0, width: 44, height: 44, top: 0, left: 0, right: 44, bottom: 44 }) as DOMRect;
+  });
+  const menu = document.querySelector('ion-menu-button') as HTMLIonMenuButtonElement;
+  menu.type = 'button';
+  menu.textContent = 'Menu';
+  const shadow = menu.shadowRoot ?? menu.attachShadow({ mode: 'open' });
+  shadow.innerHTML = '<span>Menu</span>';
+  const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, { vertical: { buttons, button: true } });
+  try {
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector))
+      .map((element) => readCandidate(element, (source) => source.localName))
+      .filter((candidate) => !!candidate);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]!.element.localName).toBe(buttons ? 'ion-buttons' : 'ion-menu-button');
+  } finally {
+    prehide.stop();
+  }
 });

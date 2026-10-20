@@ -1,3 +1,4 @@
+import { toolbarOptions } from './shared/toolbar-options';
 import { createDiagnostics } from './shared/diagnostics';
 import { createHTMLWebProjection } from './html';
 import { validateExtensions, type NativeUIExtension } from './extensions';
@@ -194,6 +195,8 @@ export const enableNativeUIShell = (
     options.verticalBars?.placement?.edge,
     options.rail?.edge,
     options.verticalBarsOnly === true,
+    toolbarOptions(options, false),
+    toolbarOptions(options, true),
     options.buttonProjection ?? 'system',
     // Local source overrides can use this even when the startup projection is system.
     options.buttonDefaultFill ?? null,
@@ -255,7 +258,7 @@ export const enableNativeUIShell = (
       const stopModals = options.source === 'html' ? () => {} : observeVerticalBarsModals(document);
       const prehide =
         platform !== 'android' && options.source !== 'html' && (options.controls === undefined || options.controls.toolbar === true)
-          ? prehideVerticalBarsToolbarSources(document, () => options.verticalBars?.enabled !== false, options.root)
+          ? prehideVerticalBarsToolbarSources(document, () => options.verticalBars?.enabled !== false, options.root, options)
           : undefined;
       const fallback = (reason: string) => {
         diagnose(`web-fallback: ${reason}`);

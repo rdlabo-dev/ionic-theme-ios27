@@ -5,6 +5,7 @@ export type {
   VerticalBarEdge,
   VerticalControlAreaHandle,
   VerticalControlAreaOptions,
+  ToolbarProjectionOptions,
 } from './native';
 
 export { applyFoldStateClasses } from './native/foldable/fold-state';

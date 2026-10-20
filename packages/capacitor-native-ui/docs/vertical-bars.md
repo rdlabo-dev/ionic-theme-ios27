@@ -68,7 +68,7 @@ Use an `ion-popover` whose `trigger` identifies the projected button, or pass th
 
 A standard `ion-back-button` can project from outside a fixed toolbar, including routed content or a persistent app shell. `ion-menu-button` and other toolbar actions require a fixed toolbar.
 
-An `ion-button` moves into the rail when it contains an `ion-icon` or SVG with `slot="icon-only"`. The button must be in a fixed `ion-toolbar` directly inside `ion-header` or `ion-footer`, outside scrolling `ion-content`.
+By default, an `ion-button` moves into the rail when it contains an `ion-icon` or SVG with `slot="icon-only"`. The button must be in a fixed `ion-toolbar` directly inside `ion-header` or `ion-footer`, outside scrolling `ion-content`.
 
 | Icon markup | Placement |
 | --- | --- |
@@ -93,6 +93,126 @@ All fills (`default`, `clear`, `solid`, and `outline`) and Ionic colors follow t
 The rule applies to individual buttons and buttons inside `ion-buttons`, on ordinary pages and in the topmost full-width modal. Centered modals, menus, and popovers keep their own toolbar layout. Add `.ios-theme-horizontal-only` to a group or individual button to keep it horizontal. Placement is chosen when a routed page enters; changing an existing button's content or icon slot does not move it between the toolbar and rail until the page leaves and re-enters.
 
 A toolbar whose content has all moved into the rail collapses while projection is active. Toolbars containing a title, direct text, other content or a horizontal-only control remain visible. Removing projection restores the original toolbar.
+
+### Select actions and grouping independently
+
+Use `vertical: { buttons, button, backButton }` to configure toolbar actions.
+All fields default to `true`. `vertical: false` disables automatic toolbar
+selection and grouping; local attributes may still opt in.
+For vertical-layout-only automatic toolbar projection, use
+`enableNativeUIShell({ horizontal: false, vertical: true })`.
+This selects by layout, not device model, and leaves tabs, segments and FABs unchanged.
+See [toolbar configuration](native-ui-shell.md#toolbar-selection-and-grouping)
+for horizontal settings, boolean shorthands and defaults.
+
+| Option | Responsibility | What it does not do |
+| --- | --- | --- |
+| `button` | Automatically select eligible `ion-button` and `ion-menu-button` actions, whether inside or outside `ion-buttons`. | Does not select back buttons. |
+| `buttons` | Allow selected actions in `ion-buttons` to project as a group when the existing grouping rules allow it. | Does not select, enable or disable any child action. |
+| `backButton` | Automatically select eligible `ion-back-button` elements, independently of their parent group. | Does not group back buttons with other actions. |
+
+For ordinary icon-only buttons in a group, with no local attributes:
+
+| `buttons` | `button` | Result |
+| --- | --- | --- |
+| `true` | `true` | Eligible buttons project together when the group qualifies. |
+| `false` | `true` | Eligible buttons project individually. |
+| `true` | `false` | No ordinary buttons project; grouping alone selects nothing. |
+| `false` | `false` | No ordinary buttons project. |
+
+These results concern ordinary actions only. Back navigation, tabs and native
+search are independent. For example, to select only back navigation among toolbar
+actions:
+
+```ts
+const rail = await enableNativeUIShell({
+  verticalBars: { only: true },
+  vertical: { buttons: false, button: false, backButton: true },
+});
+```
+
+This does not disable tab projection or tab rail CSS.
+
+### Explicit action selection and local grouping
+
+Use `data-vertical-bars="true|false"` on the element whose behavior you want to
+override. The attribute is **not inherited**.
+
+| Element | Meaning of its attribute | Fallback when absent or invalid |
+| --- | --- | --- |
+| `ion-button` / `ion-menu-button` | Select or exclude this action. Explicit `true` bypasses the icon-only selection rule. | `button` and the automatic shape rules |
+| `ion-buttons` | Enable or disable grouping of already-selected actions. Never selects children. | `buttons` and the existing grouping rules |
+| `ion-back-button` | Select or exclude this back button. | `backButton` and the supported back-button rules |
+
+Empty or unknown attribute values are ignored. To disable automatic action
+selection and explicitly select a text button:
+
+```ts
+const rail = await enableNativeUIShell({
+  verticalBars: { only: true },
+  vertical: { buttons: true, button: false, backButton: false },
+});
+```
+
+```html
+<ion-buttons>
+  <ion-button data-vertical-bars="true">Save</ion-button>
+  <ion-button>Cancel</ion-button>
+</ion-buttons>
+```
+
+Only Save moves; Cancel stays in the horizontal toolbar. Adding
+`data-vertical-bars="true"` to the group would not select Cancel.
+
+To group two explicitly selected actions even when `buttons: false`:
+
+```html
+<ion-buttons data-vertical-bars="true">
+  <ion-button data-vertical-bars="true">Save</ion-button>
+  <ion-button data-vertical-bars="true">Done</ion-button>
+</ion-buttons>
+```
+
+Set the group's attribute to `false` to project the same actions individually.
+Grouping keeps the existing eligibility rules: the entire group must qualify,
+and a single ordinary button projects on its own. A group with horizontal
+content projects its selected actions individually. The source group and its
+unselected children remain in their original toolbar.
+
+Explicit action selection still requires a fixed header/footer toolbar.
+Shell opt-outs, horizontal-only classes and overlay restrictions still apply.
+Placement and grouping are captured for the routed-page visit: attribute changes
+take effect after leaving and re-entering the page. Restart the runtime to change
+startup options.
+
+### Back buttons inside groups
+
+An `ion-back-button` remains a navigation action even inside `ion-buttons`.
+It ignores `buttons`, `button`, and the group's `data-vertical-bars` attribute.
+Its own attribute overrides `backButton`. It uses the dedicated back position,
+never an ordinary action group, and is not duplicated as a toolbar action.
+
+```html
+<ion-buttons data-vertical-bars="false">
+  <!-- Still projects when backButton is true. -->
+  <ion-back-button></ion-back-button>
+</ion-buttons>
+```
+
+The Ionic DOM container does not redefine the navigation role. The theme forwards
+the projected back action to Ionic; it does not replace Ionic routing with a
+native navigation stack. Native layout remains system-managed.
+
+Existing back-button eligibility still applies, including the supported default
+icon/color and page-position rules. Ancestor `data-shell="disabled"`,
+`.ios-theme-horizontal-only` on `ion-buttons`, and other structural exclusions
+remain opt-outs; those are distinct from the grouping setting.
+
+### Placement versus appearance
+
+`data-vertical-bars` controls selection or grouping as described above.
+`data-projection="source|system"` controls native appearance and follows its own
+button-then-group inheritance rules. Neither appearance value selects an action.
 
 ### Choose button appearance
 

@@ -93,3 +93,33 @@ test('iOS without a registered native plugin retains Web controls and transition
     platform.mockRestore();
   }
 });
+
+test('layout-specific options participate in runtime configuration identity', async () => {
+  const first = await enableNativeUIShell({ vertical: { buttons: false }, horizontal: { buttons: false } });
+  try {
+    expect(await enableNativeUIShell({ vertical: { buttons: false }, horizontal: { buttons: false } })).toBe(first);
+    await expect(enableNativeUIShell({ vertical: { buttons: false }, horizontal: { buttons: true } })).rejects.toThrow(
+      'different controls',
+    );
+    await expect(enableNativeUIShell({ vertical: { buttons: true }, horizontal: { buttons: false } })).rejects.toThrow(
+      'different controls',
+    );
+  } finally {
+    await first.destroy();
+  }
+});
+
+test('boolean layout shorthands share configuration identity with equivalent objects', async () => {
+  const first = await enableNativeUIShell({ horizontal: false, vertical: true });
+  try {
+    expect(
+      await enableNativeUIShell({
+        horizontal: { buttons: false, button: false, backButton: false },
+        vertical: { buttons: true, button: true, backButton: true },
+      }),
+    ).toBe(first);
+    await expect(enableNativeUIShell({ horizontal: true, vertical: true })).rejects.toThrow('different controls');
+  } finally {
+    await first.destroy();
+  }
+});

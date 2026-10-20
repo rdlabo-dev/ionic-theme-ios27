@@ -1,5 +1,5 @@
+import { horizontalToolbarGroup, inVerticalToolbarLayout } from '../shared/toolbar-options';
 import type { VerticalControlAreaOptions } from '../definitions';
-import { modalUsesVerticalBars } from '../shared/modal';
 import { createCandidate, appendItem } from '../shared/candidate';
 import type { Candidate, Identify } from '../shared/candidate';
 import { childElements, verticalBarsToolbarActions, inFixedToolbar, isVerticalBarsToolbarGroup } from '../shared/dom';
@@ -11,10 +11,9 @@ export const tracksMotion = true;
 export const read = (element: HTMLElement, id: Identify, options: VerticalControlAreaOptions = {}): Candidate | undefined => {
   if (!inFixedToolbar(element)) return;
   let children = childElements(element);
+  const verticalBars = inVerticalToolbarLayout(element);
+  if (verticalBars ? !isVerticalBarsToolbarGroup(element) : !horizontalToolbarGroup(element, options)) return;
   if (children.length === 1) return menuButton.read(element, id, options);
-  const verticalBars =
-    !element.closest('ion-menu, ion-popover') && modalUsesVerticalBars(element) && !!element.closest('ion-app.ios-theme-vertical-bars');
-  if (verticalBars && !isVerticalBarsToolbarGroup(element)) return;
   if (verticalBars) children = verticalBarsToolbarActions(element);
   if (
     !children.length ||

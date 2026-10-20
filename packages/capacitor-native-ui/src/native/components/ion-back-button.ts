@@ -1,12 +1,15 @@
+import type { VerticalControlAreaOptions } from '../definitions';
+import { horizontalSelected, inVerticalToolbarLayout } from '../shared/toolbar-options';
 import { createCandidate, appendItem } from '../shared/candidate';
 import type { Candidate, Identify } from '../shared/candidate';
 import { inFixedToolbar, isVerticalBarsSource } from '../shared/dom';
 
 export const tag = 'ion-back-button';
 
-export const read = (element: HTMLElement, id: Identify): Candidate | undefined => {
+export const read = (element: HTMLElement, id: Identify, options: VerticalControlAreaOptions = {}): Candidate | undefined => {
   const button = element as HTMLIonBackButtonElement;
   if (
+    (inVerticalToolbarLayout(element) ? !isVerticalBarsSource(element) : !horizontalSelected(element, options)) ||
     !button.shadowRoot ||
     button.icon !== undefined ||
     button.color !== undefined ||
