@@ -210,7 +210,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     self.bridge?.webView?.layoutIfNeeded()
                     // Ionic already paints the header edge; a second native effect can
                     // add a dark scrim when the OS and Web themes differ.
-                    if call.getBool("verticalBarsOnly") != true, let effect = self.bridge?.webView?.scrollView.topEdgeEffect {
+                    if call.getBool("suppressScrollEdgeEffect") == true, let effect = self.bridge?.webView?.scrollView.topEdgeEffect {
                         let hidden = effect.isHidden
                         effect.isHidden = true
                         self.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }

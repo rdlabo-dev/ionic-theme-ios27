@@ -127,11 +127,23 @@ try {
   writeFileSync(consumer, `
     import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
     async function start(root: HTMLElement) {
-      const shell = await enableNativeUI({ root, controls: { tabs: false }, verticalBars: { enabled: true, only: true } });
+      const shell = await enableNativeUI({ root, controls: { tabs: false }, verticalBars: { enabled: true } });
       await shell.disableVerticalControlArea();
       await shell.enableVerticalControlArea();
       await shell.destroy();
     }
+    enableNativeUI({ controls: 'verticalOnly', ionic: { auto: false } });
+    enableNativeUI({ controls: { buttonGroup: 'horizontalOnly', button: false, backButton: true, tabs: 'verticalOnly' } });
+    // @ts-expect-error Grouping uses buttonGroup; there is no buttons alias.
+    enableNativeUI({ controls: { buttons: true } });
+    // @ts-expect-error Ionic auto is a discovery switch, not another selection object.
+    enableNativeUI({ ionic: { auto: { tabs: true } } });
+    // @ts-expect-error Rail scope uses controls defaults, not an only gate.
+    enableNativeUI({ verticalBars: { only: true } });
+    // @ts-expect-error Appearance is Ionic-specific.
+    enableNativeUI({ verticalBars: { buttonProjection: 'source' } });
+    // @ts-expect-error Placement names are typed.
+    enableNativeUI({ controls: 'vertical' });
     // @ts-expect-error Availability is automatic; enabled is boolean only.
     enableNativeUI({ verticalBars: { enabled: 'auto' } });
   `);

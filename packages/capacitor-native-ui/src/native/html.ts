@@ -19,11 +19,6 @@ export const readHTMLControl = (element: HTMLElement, id: Identify, options: Nat
   if (!element.matches('button, ion-button, [role="button"]') || !visible(element, htmlRailSource(element))) return;
   if (element.contains(element.ownerDocument.activeElement)) return;
   if (!htmlRailSource(element) && !fitsClip(element)) return;
-  if (
-    options.explicitControls === false ||
-    (options.explicitControls === undefined && (options.controls?.toolbar === false || options.controls?.buttons === false))
-  )
-    return;
   if (htmlRailSource(element) && options.verticalBars?.enabled === false) return;
   const kind = element.getAttribute('data-native-ui') === 'back-button' ? 'back-button' : 'button';
   const candidate = createCandidate(element, kind, id, options);

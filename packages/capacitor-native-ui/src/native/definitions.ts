@@ -17,102 +17,59 @@ export interface NativeUIStatus {
   reason?: string;
 }
 
-export interface ToolbarProjectionOptions {
-  /** Group selected actions; never selects children or back buttons. Defaults to true. */
-  buttons?: boolean;
-  /** Automatically select ordinary actions, inside or outside groups. Defaults to true. */
-  button?: boolean;
-  /** Automatically select back navigation independently of groups. Defaults to true. */
-  backButton?: boolean;
+/** Default selection in ordinary (horizontal) or rail (vertical) placement.
+ * Explicit source settings override these defaults. This does not choose placement.
+ */
+export type ControlProjection = boolean | 'horizontalOnly' | 'verticalOnly';
+
+export interface NativeUIControls {
+  /** Group selected ordinary buttons. Does not select children or include back buttons. */
+  buttonGroup?: ControlProjection;
+  /** Select ordinary actions, including menu buttons. */
+  button?: ControlProjection;
+  backButton?: ControlProjection;
+  tabs?: ControlProjection;
+  segment?: ControlProjection;
+  fab?: ControlProjection;
 }
 
-export interface VerticalControlAreaOptions {
-  /** App-local DOM readers with matching SwiftUI or Compose registrations.
-   * @experimental API and behavior may change in future releases.
+export interface IonicProjectionOptions {
+  /** Discover supported Ionic controls automatically. Explicit sources remain independent. Defaults to true. */
+  auto?: boolean;
+  verticalBars?: {
+    /** Native appearance of vertical Ionic buttons. Local source settings take precedence. Defaults to system. */
+    buttonProjection?: 'system' | 'source';
+    /** Source-style standalone ion-button default; ion-buttons still defaults to clear. Defaults to glass. */
+    buttonDefaultFill?: 'glass' | 'solid';
+    /** Relay Ionic popovers anchored to native rail buttons. Defaults to false. */
+    popover?: boolean;
+  };
+}
+
+export interface NativeUIOptions {
+  /** Connected source subtree. Defaults to document.body. */
+  root?: HTMLElement;
+  /** Default selection and grouping. Scalars apply to every kind; omitted fields default to true. */
+  controls?: ControlProjection | NativeUIControls;
+  verticalBars?: NativeUIVerticalBarsOptions;
+  /** App-local projection definitions, independent of controls.
+   * @experimental API and behavior may change.
    */
   extensions?: readonly NativeUIExtension[];
-  /** Opt-in popovers anchored to native Vertical Bars buttons. */
-  controls?: Pick<NativeUIControls, 'popover'>;
-  /** Ordinary horizontal toolbar selection/grouping. true enables all three options; false disables them.
-   * Object fields default to true. Local data-horizontal-bars overrides still apply.
-   * Only enableNativeUI projects horizontal controls.
-   */
-  horizontal?: boolean | ToolbarProjectionOptions;
-  /** Vertical toolbar selection/grouping. true enables all three options; false disables them.
-   * Object fields default to true. Local data-vertical-bars overrides still apply.
-   * Neither layout setting controls tabs, segments or FABs.
-   */
-  vertical?: boolean | ToolbarProjectionOptions;
-  /** Appearance of native vertical ion-button and ion-menu-button actions.
-   * `system` (default) uses SwiftUI styling and template icons; `source` projects supported Ionic fill and colors.
-   * Local data-projection="source|system" or ios-theme-projection-source / ios-theme-projection-system take precedence:
-   * the button itself, then its nearest ion-buttons, then this option. On the same element, a valid attribute wins;
-   * otherwise system wins if both classes are present. Invalid attribute values are ignored.
-   * Local settings update live; removing them restores inheritance. Actions, disabled state and grouping are preserved.
-   * Does not affect back buttons, tabs, FABs, horizontal controls, source elements or Web clones.
-   */
-  buttonProjection?: 'source' | 'system';
-  /** Default fill for native vertical ion-button actions resolved to `source`, including local overrides.
-   * Use `solid` for Ionic's default design, or `null` (also the omitted default) for the iOS theme's glass design.
-   * Applies when fill is omitted or `default`, outside ion-buttons. Inside ion-buttons the default is clear.
-   * Explicit clear, solid and outline take precedence; clear and outline cannot be configured as defaults.
-   * Source elements and Web clones are unchanged.
-   */
-  buttonDefaultFill?: 'solid' | null;
+  ionic?: IonicProjectionOptions;
+  /** Log Web fallback reasons. Defaults to false. */
+  debug?: boolean;
 }
 
-export interface NativeUIOptions extends VerticalControlAreaOptions {
-  /** Log Web fallback reasons and their source elements once per reason during this activation. Defaults to false. */
-  debug?: boolean;
-  verticalBars?: NativeUIVerticalBarsOptions;
-  /** Ionic adapter settings. Explicit data-native-ui sources and extensions remain independent. */
-  ionic?: IonicProjectionOptions;
-  /** Source subtree. Defaults to document.body. */
-  root?: HTMLElement;
-  /** @deprecated Call destroy() on the running handle to stop the shell. */
-  enabled?: boolean;
-  /** @deprecated Use ionic.auto for automatic Ionic projection and verticalBars.popover for popovers. */
-  controls?: NativeUIControls;
-  /** @deprecated Use verticalBars.only. */
-  verticalBarsOnly?: boolean;
-}
+/** Options for the standalone rail entry. */
+export type VerticalControlAreaOptions = NativeUIOptions;
 
 /** @internal Resolved adapter state; not an application configuration API. */
 export interface NativeUIRuntimeOptions extends NativeUIOptions {
   source?: 'ionic' | 'html' | 'auto' | 'extensions';
-  /** @internal Preserves legacy controls.buttons behavior for explicit sources. */
-  explicitControls?: boolean;
   nativeState?: { edge?: 'left' | 'right' };
-  /** @internal Keep unavailable definitions discoverable for diagnostics without calling their readers. */
   unavailableExtensions?: ReadonlyMap<string, string>;
   rail?: { host: HTMLElement; edge: 'left' | 'right' };
-}
-
-export interface IonicProjectionOptions {
-  /** Automatic Ionic projection. Defaults to true; partial objects keep omitted kinds enabled. */
-  auto?: boolean | AutoIonicControls;
-}
-
-export interface AutoIonicControls {
-  buttons?: boolean;
-  tabs?: boolean;
-  segment?: boolean;
-  fab?: boolean;
-}
-
-export interface NativeUIControls {
-  /** Toolbar actions and explicitly marked HTML buttons. Defaults to true. */
-  buttons?: boolean;
-  /** Projects tab bars and their native search presentation. */
-  tabs?: boolean;
-  /** @deprecated Use buttons. Projects toolbar buttons, including back and menu buttons. */
-  toolbar?: boolean;
-  /** Projects segments. */
-  segment?: boolean;
-  /** Projects floating action buttons. */
-  fab?: boolean;
-  /** Relays popovers anchored to native Vertical Bars buttons. Defaults to false. */
-  popover?: boolean;
 }
 
 /** A running shell. Placement changes preserve all other startup settings. */
@@ -126,13 +83,6 @@ export interface NativeUIHandle extends NativeUIRuntimeHandle {
 export interface NativeUIVerticalBarsOptions {
   /** Defaults to true. Availability is always determined separately. */
   enabled?: boolean;
-  /** Project only rail controls; unavailable or disabled rails leave controls on the Web. */
-  only?: boolean;
-  buttonProjection?: 'system' | 'source';
-  /** Source-style standalone buttons with no explicit fill. Defaults to glass. */
-  buttonDefaultFill?: 'glass' | 'solid';
-  /** Ionic popover relay. Defaults to false. */
-  popover?: boolean;
   /** Placement preference, not a declaration of device capability. */
   placement?: { edge: Exclude<VerticalBarEdge, null>; webHost?: HTMLElement };
 }
@@ -290,7 +240,7 @@ export interface WebViewMetrics {
 }
 
 export interface NativeUIPlugin {
-  configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean; extensions?: string[] }>;
+  configure(options?: { suppressScrollEdgeEffect?: boolean }): Promise<{ supported: boolean; extensions?: string[] }>;
   completeExtensionAction(options: { requestId: string; accepted: boolean }): Promise<void>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   getVerticalBarsGeometry(options: { viewportWidth: number; ids: string[] }): Promise<{ revision?: number; items: Record<string, Frame> }>;

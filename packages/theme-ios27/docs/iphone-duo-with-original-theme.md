@@ -20,7 +20,7 @@ Read [how projection works](../../capacitor-native-ui/README.md#how-projection-w
 
 The rest of this page is for **Ionic apps**. Both Ionic `ios` and `md` modes are supported. Tabs and supported toolbar actions move to the side; content and horizontal controls keep their existing appearance.
 
-Available in `1.2.0` as a **preview** feature. APIs and supported behavior may change.
+Available as a **preview** feature. APIs and supported behavior may change.
 
 ## Try it in your existing Ionic app
 
@@ -113,7 +113,7 @@ Call this once from your application startup after `ion-app` exists in the DOM:
 ```ts
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
-const rail = await enableNativeUI({ verticalBars: { only: true } });
+const rail = await enableNativeUI({ controls: 'verticalOnly' });
 ```
 
 **What you should see:** your existing tab bar moves to the side, and fixed-toolbar buttons with an `ion-icon` or SVG using `slot="icon-only"` appear there too. Content keeps its existing theme and leaves room for the controls. The Web tab rail displays icons; pressing and dragging reveals tab labels.
@@ -124,12 +124,15 @@ When the application owner is disposed, call `await rail.destroy()` to restore t
 
 ### Optional: choose native button appearance
 
-`buttonProjection` and local projection settings are available in `1.2.0`. See [Choose button appearance](../../capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance) for availability and migration details.
+See [Choose button appearance](../../capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance) for appearance settings and local overrides.
 
 The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, replace the startup call in step 4 with:
 
 ```ts
-const rail = await enableNativeUI({ verticalBars: { only: true, buttonProjection: 'source', buttonDefaultFill: 'solid' } });
+const rail = await enableNativeUI({
+  controls: 'verticalOnly',
+  ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill: 'solid' } },
+});
 ```
 
 The `solid` default suits ordinary Ionic buttons. Buttons inside `ion-buttons` still default to clear; set `fill="solid"` explicitly to project their background. For one-off exceptions, use the [local projection settings](../../capacitor-native-ui/docs/vertical-bars.md#override-individual-buttons-or-groups). These settings affect native vertical buttons only; Web clones keep their existing appearance.
@@ -139,7 +142,7 @@ The `solid` default suits ordinary Ionic buttons. Buttons inside `ion-buttons` s
 | What you see                                | What to check                                                                                                                                                                                                                                                                                                          |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No space at the side                        | Load `vertical-bars.css` and put the class on `ion-app`.                                                                                                                                                                                                                                                               |
-| Space appears, but controls stay horizontal | Start `enableNativeUI({ verticalBars: { only: true } })` after mounting the app root. Use existing tabs or `slot="icon-only"` actions in a fixed header/footer toolbar.                                                                                                                                                |
+| Space appears, but controls stay horizontal | Start `enableNativeUI({ controls: 'verticalOnly' })` after mounting the app root. Use existing tabs or `slot="icon-only"` actions in a fixed header/footer toolbar.                                                                                                                                                    |
 | One action stays horizontal                 | Check for `slot="icon-only"` on the icon and a fixed toolbar outside scrolling content. Explicitly excluded controls and controls in centered modals stay horizontal; `fill` and `type="submit"` do not prevent movement. See [control requirements](../../capacitor-native-ui/docs/vertical-bars.md#toolbar-actions). |
 
 ## Connect an iPhone Duo

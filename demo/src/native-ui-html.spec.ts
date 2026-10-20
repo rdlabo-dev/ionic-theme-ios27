@@ -183,7 +183,7 @@ test('public shell changes Vertical Bars without restarting and restores source 
   const shell = await enableNativeUI({
     root: options.root,
     controls: { tabs: false },
-    verticalBars: { only: true, placement: { edge: 'trailing', webHost: host } },
+    verticalBars: { placement: { edge: 'trailing', webHost: host } },
   });
   handles.push(shell);
   await vi.waitFor(() => expect(host.querySelector('button')).not.toBeNull());
@@ -202,13 +202,13 @@ test('public shell changes Vertical Bars without restarting and restores source 
   await expect(shell.enableVerticalControlArea()).rejects.toThrow('destroyed');
 });
 
-test('disabled startup and buttons opt-out keep HTML sources on the Web', async () => {
+test('rail availability gates explicit HTML, but selection defaults do not', async () => {
   const { enableNativeUI } = await import('../../packages/capacitor-native-ui/src/core');
   const { source, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Add</button>');
   const host = options.rail!.host;
   const shell = await enableNativeUI({
     root: options.root,
-    verticalBars: { enabled: false, only: true, placement: { edge: 'trailing', webHost: host } },
+    verticalBars: { enabled: false, placement: { edge: 'trailing', webHost: host } },
   });
   handles.push(shell);
   expect(host.childElementCount).toBe(0);
@@ -218,11 +218,11 @@ test('disabled startup and buttons opt-out keep HTML sources on the Web', async 
   await shell.destroy();
   const disabled = await enableNativeUI({
     root: options.root,
-    controls: { buttons: false },
+    controls: false,
     verticalBars: { placement: { edge: 'trailing', webHost: host } },
   });
   handles.push(disabled);
-  expect(host.childElementCount).toBe(0);
+  await vi.waitFor(() => expect(host.childElementCount).toBe(1));
 });
 
 test('markForCheck batches property-only changes, skips equal snapshots, and stops after teardown', async () => {
@@ -389,8 +389,7 @@ test.each(['auto', 'extensions'] as const)('projection mode %s keeps only its el
   const runtime = await createRuntime(document, plugin, {
     ...options,
     source,
-    explicitControls: true,
-    controls: { toolbar: false, tabs: false, segment: false, fab: false },
+    controls: false,
     extensions: [{ name: 'counter', selector: '[data-counter]', read: () => ({ props: {} }) }],
   });
   handles.push(runtime);
@@ -418,12 +417,12 @@ test('explicit Ionic Web rails preserve shadow icons and observe artwork changes
 
 test.each([
   { ionic: {} },
-  { ionic: { auto: false }, controls: { buttons: false } },
-  { controls: { buttons: true, toolbar: false } },
-  { ionic: { auto: true }, controls: { buttons: false } },
-  { ionic: { auto: { buttons: false } } },
-  { ionic: { auto: { tabs: false } } },
-])('explicit projection survives new automatic settings and legacy alias precedence: %j', async (settings) => {
+  { ionic: { auto: false }, controls: false },
+  { controls: 'horizontalOnly' as const },
+  { ionic: { auto: true }, controls: false },
+  { controls: 'verticalOnly' as const },
+  { controls: { button: false, buttonGroup: true } },
+])('explicit projection survives selection defaults and automatic discovery settings: %j', async (settings) => {
   const { enableNativeUI } = await import('../../packages/capacitor-native-ui/src/core');
   const { root, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Explicit</button>');
   const shell = await enableNativeUI({

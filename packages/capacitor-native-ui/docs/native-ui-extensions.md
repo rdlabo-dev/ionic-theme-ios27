@@ -229,7 +229,7 @@ For source-specific fallback reasons, temporarily enable [`debug: true`](configu
 
 For `tab-accessory`, place the source inside its owning `ion-tabs`. The shell resolves that tabs element's `ion-tab-bar`; applications do not pass native controller references. Currently only the **Vertical Bars SwiftUI tab host** supports this placement. Ordinary UIKit tab bars, missing native tabs, iOS 26.0, or multiple competing accessories keep the source on the Web. The shell does not approximate a system accessory with a floating overlay. Keep an equivalent Web layout (for example, a fixed footer); the source retains its layout space while hidden.
 
-`enableVerticalControlArea({ extensions: [...] })` also accepts extensions. In this standalone mode only accessories belonging to native Vertical Bars are eligible; ordinary element projections require `enableNativeUI`.
+Extensions are independent of `controls` and `ionic.auto`, including with `enableVerticalControlArea()`. The application controls their presentation: return `null` from the reader when a source should stay on the Web, then call `markForCheck()` when that condition changes. Accessories still require their supported native tab host.
 
 ## Read source geometry and presentation state
 

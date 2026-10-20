@@ -20,7 +20,7 @@ const mountEligibleBackButton = () => {
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-test('toolbar opt-out leaves an otherwise eligible verticalBars back button under application ownership', async () => {
+test('disabling Ionic discovery leaves an otherwise eligible verticalBars back button under application ownership', async () => {
   mountEligibleBackButton();
   const enabled = createVerticalBarsWebProjection(document, {});
   await nextFrame();
@@ -29,7 +29,7 @@ test('toolbar opt-out leaves an otherwise eligible verticalBars back button unde
   await enabled.destroy();
 
   mountEligibleBackButton();
-  const handle = createVerticalBarsWebProjection(document, { controls: { tabs: true } });
+  const handle = createVerticalBarsWebProjection(document, { ionic: { auto: false } });
   await nextFrame();
 
   expect(handle.getStatus()).toEqual({ state: 'web', projected: 0, updates: 0 });
@@ -73,7 +73,7 @@ test('explicit standalone text action projects, forwards clicks and restores its
   source.getBoundingClientRect = () => ({ width: 44, height: 44 }) as DOMRect;
   let clicks = 0;
   source.addEventListener('click', () => clicks++);
-  const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, { vertical: { button: false } });
+  const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, { controls: { button: false } });
   const handle = createVerticalBarsWebProjection(document, {});
   try {
     await nextFrame();

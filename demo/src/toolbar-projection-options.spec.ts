@@ -35,7 +35,7 @@ test.each([
   [false, false, ['back']],
 ] as const)('horizontal grouping=%s selection=%s', (buttons, button, expected) => {
   mount();
-  expect(candidates({ horizontal: { buttons, button }, vertical: { button: false, backButton: false } })).toEqual(expected);
+  expect(candidates({ controls: { buttonGroup: buttons, button, backButton: 'horizontalOnly' } })).toEqual(expected);
 });
 
 test('horizontal local selection and grouping are independent from vertical attributes', () => {
@@ -45,9 +45,9 @@ test('horizontal local selection and grouping are independent from vertical attr
   document.querySelector('#a')!.setAttribute('data-horizontal-bars', 'true');
   document.querySelector('#b')!.setAttribute('data-vertical-bars', 'true');
   document.querySelector('#back')!.setAttribute('data-horizontal-bars', 'false');
-  expect(candidates({ horizontal: { buttons: false, button: false } })).toEqual(['a']);
+  expect(candidates({ controls: { buttonGroup: false, button: false } })).toEqual(['a']);
   document.querySelector('#b')!.setAttribute('data-horizontal-bars', 'true');
-  expect(candidates({ horizontal: { buttons: false, button: false } })).toEqual(['group']);
+  expect(candidates({ controls: { buttonGroup: false, button: false } })).toEqual(['group']);
 });
 
 test('vertical configuration never reads horizontal settings or attributes', () => {
@@ -56,8 +56,7 @@ test('vertical configuration never reads horizontal settings or attributes', () 
   document.querySelector('#group')!.setAttribute('data-horizontal-bars', 'false');
   for (const id of ['a', 'b']) document.getElementById(id)!.setAttribute('data-vertical-bars', 'true');
   const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, {
-    horizontal: { buttons: false, button: false, backButton: true },
-    vertical: { buttons: true, button: false, backButton: false },
+    controls: { buttonGroup: 'verticalOnly', button: false, backButton: 'horizontalOnly' },
   });
   try {
     expect(['group', 'a', 'b', 'back'].map((id) => verticalBarsOwned(document.getElementById(id)!))).toEqual([true, true, true, false]);
@@ -72,39 +71,45 @@ test('horizontal back button can opt in independently inside an ungrouped contai
   document.querySelector('#group')!.append(back);
   document.querySelector('#group')!.setAttribute('data-horizontal-bars', 'false');
   back.setAttribute('data-horizontal-bars', 'true');
-  expect(candidates({ horizontal: { buttons: false, button: false, backButton: false } })).toEqual(['back']);
+  expect(candidates({ controls: false })).toEqual(['back']);
 });
 
-test.each([undefined, true, false] as const)('horizontal shorthand %s controls all actions', (horizontal) => {
-  mount();
-  expect(candidates({ horizontal, vertical: false })).toEqual(horizontal === false ? [] : ['group', 'back']);
-});
+test.each([undefined, true, false, 'horizontalOnly', 'verticalOnly'] as const)(
+  'horizontal shorthand %s controls all actions',
+  (horizontal) => {
+    mount();
+    expect(candidates({ controls: horizontal })).toEqual(horizontal === false || horizontal === 'verticalOnly' ? [] : ['group', 'back']);
+  },
+);
 
 test('horizontal false still allows local action, grouping and back overrides', () => {
   mount();
   for (const id of ['group', 'a', 'b', 'back']) document.getElementById(id)!.setAttribute('data-horizontal-bars', 'true');
-  expect(candidates({ horizontal: false })).toEqual(['group', 'back']);
+  expect(candidates({ controls: false })).toEqual(['group', 'back']);
 });
 
-test.each([undefined, true, false] as const)('vertical shorthand %s controls all eligible actions', (vertical) => {
-  mount();
-  document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
-  for (const button of document.querySelectorAll('ion-button')) button.innerHTML = '<ion-icon slot="icon-only"></ion-icon>';
-  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, { horizontal: false, vertical });
-  try {
-    expect(['group', 'a', 'b', 'back'].map((id) => verticalBarsOwned(document.getElementById(id)!))).toEqual(
-      Array(4).fill(vertical !== false),
-    );
-  } finally {
-    handle.stop();
-  }
-});
+test.each([undefined, true, false, 'horizontalOnly', 'verticalOnly'] as const)(
+  'vertical shorthand %s controls all eligible actions',
+  (vertical) => {
+    mount();
+    document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
+    for (const button of document.querySelectorAll('ion-button')) button.innerHTML = '<ion-icon slot="icon-only"></ion-icon>';
+    const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, { controls: vertical });
+    try {
+      expect(['group', 'a', 'b', 'back'].map((id) => verticalBarsOwned(document.getElementById(id)!))).toEqual(
+        Array(4).fill(vertical !== false && vertical !== 'horizontalOnly'),
+      );
+    } finally {
+      handle.stop();
+    }
+  },
+);
 
 test('vertical false still allows local action, grouping and back overrides', () => {
   mount();
   document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
   for (const id of ['group', 'a', 'b', 'back']) document.getElementById(id)!.setAttribute('data-vertical-bars', 'true');
-  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, { vertical: false });
+  const handle = prehideVerticalBarsToolbarSources(document, undefined, undefined, { controls: false });
   try {
     expect(['group', 'a', 'b', 'back'].map((id) => verticalBarsOwned(document.getElementById(id)!))).toEqual([true, true, true, true]);
   } finally {
@@ -113,8 +118,8 @@ test('vertical false still allows local action, grouping and back overrides', ()
 });
 
 test('omitted layout fields default to true', () => {
-  expect(toolbarOptions({}, true)).toEqual({ buttons: true, button: true, backButton: true });
-  expect(toolbarOptions({ vertical: { button: false } }, true)).toEqual({ buttons: true, button: false, backButton: true });
+  expect(toolbarOptions({}, true)).toEqual({ buttonGroup: true, button: true, backButton: true });
+  expect(toolbarOptions({ controls: { button: false } }, true)).toEqual({ buttonGroup: true, button: false, backButton: true });
 });
 
 test.each(['ion-button', 'ion-menu-button', 'ion-back-button'])(
@@ -130,7 +135,7 @@ test.each(['ion-button', 'ion-menu-button', 'ion-back-button'])(
     action.getBoundingClientRect = () => ({ x: 0, y: 0, width: 44, height: 44 }) as DOMRect;
     action.attachShadow({ mode: 'open' }).innerHTML = '<span part="text">Action</span>';
     document.querySelector('#group')!.replaceChildren(action);
-    const options = { horizontal: true, vertical: false };
+    const options = { controls: 'horizontalOnly' as const };
     const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, options);
     try {
       expect(candidates(options)).toEqual([]);
@@ -144,5 +149,5 @@ test('a shell opt-out in a group prevents sibling projection even with local opt
   mount();
   document.querySelector('#a')!.setAttribute('data-native-ui', 'disabled');
   document.querySelector('#b')!.setAttribute('data-horizontal-bars', 'true');
-  expect(candidates({ horizontal: { buttons: false } })).toEqual(['back']);
+  expect(candidates({ controls: { buttonGroup: false } })).toEqual(['back']);
 });

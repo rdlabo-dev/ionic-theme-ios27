@@ -1,3 +1,4 @@
+import { controlSelected } from './shared/control-options';
 import { createCrossfade, fadeMarker } from './shared/crossfade';
 import { alignVerticalBarClone, verticalBarFrame } from './shared/vertical-bars-geometry';
 import { createVerticalBarsWebSearch, searchProjectionClass } from './vertical-bars-web-search';
@@ -50,7 +51,7 @@ export const createVerticalBarsWebProjection = (
   const win = doc.defaultView!;
   const crossfade = createCrossfade(win);
   let incomingInstant: boolean | undefined;
-  const toolbarEnabled = options.controls === undefined || options.controls.toolbar === true;
+  const toolbarEnabled = options.ionic?.auto !== false;
   let root: HTMLElement | undefined;
   let backSource: HTMLIonBackButtonElement | undefined;
   let backProjection: HTMLIonBackButtonElement | undefined;
@@ -79,7 +80,8 @@ export const createVerticalBarsWebProjection = (
   const search = createVerticalBarsWebSearch(
     doc,
     (element) =>
-      (options.controls === undefined || options.controls.tabs === true) &&
+      options.ionic?.auto !== false &&
+      controlSelected(element, options, 'tabs', true) &&
       !!verticalBarsRoot()?.contains(element) &&
       (!options.root || options.root.contains(element)) &&
       !element.closest('[data-native-ui-placement="element"]') &&

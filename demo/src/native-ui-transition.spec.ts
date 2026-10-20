@@ -225,9 +225,7 @@ test('without native support the Web handle supports suspension and teardown', a
   await suspension.resume();
   await suspension.resume();
   await handle.destroy();
-  const disabled = await enableNativeUI({ enabled: false, controls: { tabs: true } });
-  expect(disabled.getStatus()).toMatchObject({ state: 'web', reason: 'Disabled' });
-  await disabled.destroy();
+  expect(handle.getStatus().state).toBe('stopped');
 });
 
 test('re-registering a cached search footer replaces its binding without waiting for GC', () => {

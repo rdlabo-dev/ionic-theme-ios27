@@ -36,27 +36,28 @@ test('placement requires ion-app and clears it when disabled', () => {
 });
 
 test('a second startup cannot silently replace the active configuration', async () => {
-  const first = await enableNativeUI({ controls: { tabs: true }, verticalBarsOnly: true });
-  expect(await enableNativeUI({ controls: { tabs: true }, verticalBarsOnly: true })).toBe(first);
-  await expect(enableNativeUI({ controls: { toolbar: true } })).rejects.toThrow('different controls');
+  const first = await enableNativeUI({ controls: 'verticalOnly' });
+  expect(await enableNativeUI({ controls: 'verticalOnly' })).toBe(first);
+  await expect(enableNativeUI({ controls: false })).rejects.toThrow('different controls');
   await first.destroy();
 });
 
 test('a new activation survives the previous runtime finishing its destroy', async () => {
-  const options = { controls: { toolbar: true }, verticalBarsOnly: true } as const;
+  const options = { controls: 'verticalOnly' } as const;
   const first = await enableNativeUI(options);
-  const disabling = enableNativeUI({ enabled: false });
+  const disabling = first.destroy();
   const second = await enableNativeUI(options);
   expect(second).not.toBe(first);
   await disabling;
   // The stale destroy must not clear the newer activation's shared slot.
-  await enableNativeUI({ enabled: false });
+  await first.destroy();
+  await second.destroy();
   expect(second.getStatus().state).toBe('stopped');
 });
 
 test('standalone Vertical Bars forwards popover opt-in into the shared runtime', async () => {
-  const handle = await enableVerticalControlArea({ controls: { popover: true } });
-  await expect(enableNativeUI({ controls: { tabs: true, toolbar: true, popover: true }, verticalBarsOnly: true })).resolves.toBeDefined();
+  const handle = await enableVerticalControlArea({ ionic: { verticalBars: { popover: true } } });
+  await expect(enableNativeUI({ controls: 'verticalOnly', ionic: { verticalBars: { popover: true } } })).resolves.toBeDefined();
   await expect(enableVerticalControlArea()).rejects.toThrow('different controls');
   await handle.destroy();
 });
@@ -89,26 +90,32 @@ test('iOS without a registered native plugin retains Web controls and transition
 });
 
 test('layout-specific options participate in runtime configuration identity', async () => {
-  const first = await enableNativeUI({ vertical: { buttons: false }, horizontal: { buttons: false } });
+  const first = await enableNativeUI({ controls: { buttonGroup: false } });
   try {
-    expect(await enableNativeUI({ vertical: { buttons: false }, horizontal: { buttons: false } })).toBe(first);
-    await expect(enableNativeUI({ vertical: { buttons: false }, horizontal: { buttons: true } })).rejects.toThrow('different controls');
-    await expect(enableNativeUI({ vertical: { buttons: true }, horizontal: { buttons: false } })).rejects.toThrow('different controls');
+    expect(await enableNativeUI({ controls: { buttonGroup: false } })).toBe(first);
+    await expect(enableNativeUI({ controls: { buttonGroup: 'horizontalOnly' } })).rejects.toThrow('different controls');
+    await expect(enableNativeUI({ controls: { buttonGroup: 'verticalOnly' } })).rejects.toThrow('different controls');
   } finally {
     await first.destroy();
   }
 });
 
 test('boolean layout shorthands share configuration identity with equivalent objects', async () => {
-  const first = await enableNativeUI({ horizontal: false, vertical: true });
+  const first = await enableNativeUI({ controls: 'verticalOnly' });
   try {
     expect(
       await enableNativeUI({
-        horizontal: { buttons: false, button: false, backButton: false },
-        vertical: { buttons: true, button: true, backButton: true },
+        controls: {
+          buttonGroup: 'verticalOnly',
+          button: 'verticalOnly',
+          backButton: 'verticalOnly',
+          tabs: 'verticalOnly',
+          segment: 'verticalOnly',
+          fab: 'verticalOnly',
+        },
       }),
     ).toBe(first);
-    await expect(enableNativeUI({ horizontal: true, vertical: true })).rejects.toThrow('different controls');
+    await expect(enableNativeUI({ controls: true })).rejects.toThrow('different controls');
   } finally {
     await first.destroy();
   }

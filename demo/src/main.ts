@@ -48,8 +48,9 @@ const buttonDefaultFill =
   stockIonic || new URLSearchParams(window.location.search).get('buttonDefaultFill') === 'solid' ? 'solid' : 'glass';
 const buttonProjection = new URLSearchParams(window.location.search).get('buttonProjection') === 'source' ? 'source' : 'system';
 void enableNativeUI({
-  extensions: [counter, accessoryCounter, miniPlayer],
-  verticalBars: { only: verticalBarsOnly, buttonProjection, buttonDefaultFill, popover: true },
+  controls: verticalBarsOnly ? 'verticalOnly' : true,
+  extensions: verticalBarsOnly ? [] : [counter, accessoryCounter, miniPlayer],
+  ionic: { verticalBars: { buttonProjection, buttonDefaultFill, popover: true } },
 }).then((handle) => {
   const app = document.querySelector('ion-app');
   if (app) Object.assign(app, { nativeUI: handle });

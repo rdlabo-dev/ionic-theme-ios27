@@ -46,7 +46,7 @@ Run the app on a supported iOS device or simulator. Eligible fixed controls shou
 
 ## Optional: Vertical Bars
 
-For a side rail, load the [Vertical Bars layout stylesheet](vertical-bars-layout.md) and configure [device placement](iphone-duo.md). The Shell includes the rail runtime; no additional startup call is needed. To project only rail controls, use `enableNativeUI({ verticalBars: { only: true } })` instead of the default startup call. See [configuration options](../../capacitor-native-ui/docs/configuration.md).
+For a side rail, load the [Vertical Bars layout stylesheet](vertical-bars-layout.md) and configure [device placement](iphone-duo.md). The Shell includes the rail runtime; no additional startup call is needed. To automatically select rail controls, use `enableNativeUI({ controls: 'verticalOnly' })` instead of the default startup call. See [configuration options](../../capacitor-native-ui/docs/configuration.md).
 
 ## Upgrading an existing native integration
 

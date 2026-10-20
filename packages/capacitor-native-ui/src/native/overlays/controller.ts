@@ -227,7 +227,7 @@ export const createOverlayController = async (
       overlay.localName === 'ion-popover' &&
       overlay.mode !== 'md' &&
       !overlay.classList.contains('md') &&
-      options.controls?.popover === true &&
+      options.ionic?.verticalBars?.popover === true &&
       nativeVerticalBars() &&
       verticalBarsPopoverAnchor(overlay) !== undefined;
     if (stopped || suspensions.size || !enabled || excluded(overlay)) {

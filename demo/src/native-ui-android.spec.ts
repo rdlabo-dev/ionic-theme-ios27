@@ -88,19 +88,24 @@ test.each([true, false])(
   },
 );
 
-test('Android Compose extensions coexist with Web rails and survive disabling only the rail', async () => {
-  shell = await enableNativeUI({
-    ...options(),
-    extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: { count: 0 } }) }],
-  });
-  await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(2));
-  expect(shell.getStatus().state).toBe('native');
-  expect(bridge.update.mock.calls.at(-1)![0].controls.map((control) => control.kind)).toEqual(['extension']);
-  await shell.disableVerticalControlArea();
-  await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(1));
-  expect(root.querySelector('[data-counter]')!.hasAttribute('data-native-ui-projected')).toBe(true);
-  expect(rail.children).toHaveLength(0);
-});
+test.each([false, 'verticalOnly', 'horizontalOnly'] as const)(
+  'Android extensions and explicit Web rails are independent of controls=%s',
+  async (controls) => {
+    shell = await enableNativeUI({
+      ...options(),
+      controls,
+      ionic: { auto: false },
+      extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: { count: 0 } }) }],
+    });
+    await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(2));
+    expect(shell.getStatus().state).toBe('native');
+    expect(bridge.update.mock.calls.at(-1)![0].controls.map((control) => control.kind)).toEqual(['extension']);
+    await shell.disableVerticalControlArea();
+    await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(1));
+    expect(root.querySelector('[data-counter]')!.hasAttribute('data-native-ui-projected')).toBe(true);
+    expect(rail.children).toHaveLength(0);
+  },
+);
 
 test('native extension ownership suppresses a Web rail proxy and rejection restores its original action', async () => {
   const source = root.querySelector('button')!;

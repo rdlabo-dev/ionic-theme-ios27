@@ -4,8 +4,8 @@ import { iconSource, type createIconRenderer } from './icons';
 
 export interface Candidate {
   assets?: { signature: string; render(renderer: ReturnType<typeof createIconRenderer>): Promise<void> };
-  buttonProjection?: VerticalControlAreaOptions['buttonProjection'];
-  buttonDefaultFill?: VerticalControlAreaOptions['buttonDefaultFill'];
+  buttonProjection?: 'system' | 'source';
+  buttonDefaultFill?: 'solid' | null;
   element: HTMLElement;
   sources?: HTMLElement[];
   control: NativeUIControl;
@@ -26,8 +26,8 @@ export const createCandidate = (
   const style = getComputedStyle(element);
   return {
     element,
-    buttonProjection: options.buttonProjection,
-    buttonDefaultFill: options.buttonDefaultFill,
+    buttonProjection: options.ionic?.verticalBars?.buttonProjection ?? 'system',
+    buttonDefaultFill: options.ionic?.verticalBars?.buttonDefaultFill === 'solid' ? 'solid' : null,
     control: {
       id: id(element),
       kind:

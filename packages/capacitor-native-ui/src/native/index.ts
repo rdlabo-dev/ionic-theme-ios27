@@ -10,7 +10,7 @@ export type {
   NativeUIVerticalBarsOptions,
   NativeUIComponent,
   NativeUIControls,
-  AutoIonicControls,
+  ControlProjection,
   IonicProjectionOptions,
   NativeUIHandle,
   NativeUIOptions,
@@ -19,7 +19,6 @@ export type {
   VerticalBarEdge,
   VerticalBarPlacement,
   VerticalControlAreaHandle,
-  ToolbarProjectionOptions,
   VerticalControlAreaOptions,
   WebViewMetrics,
 } from './definitions';
@@ -28,14 +27,6 @@ export const enableNativeUI = (options: NativeUIOptions = {}) =>
   activate(options, async (...args) => (await import('./overlays/controller')).createOverlayController(...args));
 
 export const enableVerticalControlArea = async (options: VerticalControlAreaOptions = {}): Promise<VerticalControlAreaHandle> => {
-  const handle = await enableNativeUI({
-    extensions: options.extensions,
-    horizontal: options.horizontal,
-    vertical: options.vertical,
-    buttonProjection: options.buttonProjection,
-    buttonDefaultFill: options.buttonDefaultFill,
-    controls: { tabs: true, toolbar: true, popover: options.controls?.popover === true },
-    verticalBarsOnly: true,
-  });
+  const handle = await enableNativeUI({ ...options, controls: options.controls ?? 'verticalOnly' });
   return { ...handle, setPlacement: setVerticalControlAreaPlacement };
 };

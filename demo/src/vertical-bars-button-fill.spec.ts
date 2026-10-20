@@ -30,8 +30,10 @@ const mount = (fills: (string | undefined)[], grouped = false) => {
 };
 afterEach(() => document.body.replaceChildren());
 
-test.each([undefined, null])('default %s preserves the existing glass projection', (buttonDefaultFill) => {
-  const item = readCandidate(mount([undefined]), () => 'button', { buttonProjection: 'source', buttonDefaultFill })!.control.items[0];
+test.each([undefined, 'glass'] as const)('default %s preserves the existing glass projection', (buttonDefaultFill) => {
+  const item = readCandidate(mount([undefined]), () => 'button', {
+    ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill } },
+  })!.control.items[0];
   expect(item.color).toBe('rgb(255, 255, 255)');
   expect(item.backgroundColor).toBeUndefined();
   expect(item.borderColor).toBeUndefined();
@@ -39,52 +41,64 @@ test.each([undefined, null])('default %s preserves the existing glass projection
 
 test.each([undefined, 'default'])('solid default retains computed colors for fill %s without changing the source', (fill) => {
   const element = mount([fill]);
-  const item = readCandidate(element, () => 'button', { buttonProjection: 'source', buttonDefaultFill: 'solid' })!.control.items[0];
+  const item = readCandidate(element, () => 'button', {
+    ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill: 'solid' } },
+  })!.control.items[0];
   expect(item.color).toBe('rgb(255, 255, 255)');
   expect(item.backgroundColor).toBe('rgba(0, 0, 0, 0.24)');
   expect((element as HTMLIonButtonElement).fill).toBe(fill);
 });
 
-test.each([undefined, null, 'solid'] as const)(
+test.each([undefined, 'glass', 'solid'] as const)(
   'grouped buttons default to clear with option %s and preserve explicit fills',
   (buttonDefaultFill) => {
     const element = mount([undefined, 'clear', 'outline', 'solid'], true);
-    const items = readCandidate(element, (e) => e.localName, { buttonProjection: 'source', buttonDefaultFill })!.control.items;
+    const items = readCandidate(element, (e) => e.localName, {
+      ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill } },
+    })!.control.items;
     expect(items.map((item) => item.backgroundColor)).toEqual([undefined, undefined, undefined, 'rgba(0, 0, 0, 0.24)']);
     expect(items[2].borderColor).toBe('rgb(255, 0, 0)');
     expect(items[2].borderWidth).toBe(2);
   },
 );
 
-test('explicit solid wins over a null default', () => {
-  const item = readCandidate(mount(['solid']), () => 'button', { buttonProjection: 'source', buttonDefaultFill: null })!.control.items[0];
+test('explicit solid wins over a glass default', () => {
+  const item = readCandidate(mount(['solid']), () => 'button', {
+    ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill: 'glass' } },
+  })!.control.items[0];
   expect(item.backgroundColor).toBe('rgba(0, 0, 0, 0.24)');
 });
 
 test('startup rejects a different default until the previous owner is destroyed', async () => {
-  const first = await enableVerticalControlArea({ buttonProjection: 'source' });
+  const first = await enableVerticalControlArea({ ionic: { verticalBars: { buttonProjection: 'source' } } });
   try {
-    await expect(enableVerticalControlArea({ buttonProjection: 'source', buttonDefaultFill: null })).resolves.toBeDefined();
-    await expect(enableVerticalControlArea({ buttonProjection: 'source', buttonDefaultFill: 'solid' })).rejects.toThrow(
-      'different controls',
-    );
+    await expect(
+      enableVerticalControlArea({ ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill: 'glass' } } }),
+    ).resolves.toBeDefined();
+    await expect(
+      enableVerticalControlArea({ ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill: 'solid' } } }),
+    ).rejects.toThrow('different controls');
   } finally {
     await first.destroy();
   }
-  const next = await enableVerticalControlArea({ buttonProjection: 'source', buttonDefaultFill: 'solid' });
+  const next = await enableVerticalControlArea({ ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill: 'solid' } } });
   await next.destroy();
 });
 
 // Disabling the themed group keeps its buttons eligible for individual projection.
-test.each([undefined, null, 'solid'] as const)(
+test.each([undefined, 'glass', 'solid'] as const)(
   'individual buttons in a disabled group respect clear with option %s',
   (buttonDefaultFill) => {
     const group = mount([undefined, 'default', 'clear', 'solid', 'outline'], true);
     group.classList.add('ios-theme-disabled');
-    expect(readCandidate(group, (e) => e.localName, { buttonProjection: 'source', buttonDefaultFill })).toBeUndefined();
+    expect(
+      readCandidate(group, (e) => e.localName, { ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill } } }),
+    ).toBeUndefined();
     const buttons = Array.from(group.querySelectorAll('ion-button'));
     const items = buttons.map(
-      (button) => readCandidate(button, (e) => e.localName, { buttonProjection: 'source', buttonDefaultFill })!.control.items[0],
+      (button) =>
+        readCandidate(button, (e) => e.localName, { ionic: { verticalBars: { buttonProjection: 'source', buttonDefaultFill } } })!.control
+          .items[0],
     );
     expect(items.map((item) => item.backgroundColor)).toEqual([undefined, undefined, undefined, 'rgba(0, 0, 0, 0.24)', undefined]);
     expect(items[4].borderColor).toBe('rgb(255, 0, 0)');
@@ -98,7 +112,9 @@ test.each([undefined, 'system'] as const)('projection %s ignores source styling 
   const group = mount([undefined, 'clear', 'solid', 'outline'], true);
   const disabled = group.querySelectorAll('ion-button')[2];
   disabled.disabled = true;
-  const candidate = readCandidate(group, (e) => e.id || e.localName, { buttonProjection, buttonDefaultFill: 'solid' })!;
+  const candidate = readCandidate(group, (e) => e.id || e.localName, {
+    ionic: { verticalBars: { buttonProjection, buttonDefaultFill: 'solid' } },
+  })!;
   expect(candidate.control.kind).toBe('button-group');
   expect(candidate.control.items).toHaveLength(4);
   for (const item of candidate.control.items) {
@@ -116,9 +132,15 @@ test.each([undefined, 'system'] as const)('projection %s ignores source styling 
 test('system is the default but retains default fill for local source overrides', async () => {
   const first = await enableVerticalControlArea();
   try {
-    await expect(enableVerticalControlArea({ buttonProjection: 'system', buttonDefaultFill: null })).resolves.toBeDefined();
-    await expect(enableVerticalControlArea({ buttonDefaultFill: 'solid' })).rejects.toThrow('different controls');
-    await expect(enableVerticalControlArea({ buttonProjection: 'source' })).rejects.toThrow('different controls');
+    await expect(
+      enableVerticalControlArea({ ionic: { verticalBars: { buttonProjection: 'system', buttonDefaultFill: 'glass' } } }),
+    ).resolves.toBeDefined();
+    await expect(enableVerticalControlArea({ ionic: { verticalBars: { buttonDefaultFill: 'solid' } } })).rejects.toThrow(
+      'different controls',
+    );
+    await expect(enableVerticalControlArea({ ionic: { verticalBars: { buttonProjection: 'source' } } })).rejects.toThrow(
+      'different controls',
+    );
   } finally {
     await first.destroy();
   }
@@ -128,7 +150,7 @@ test.each(['source', 'system'] as const)('local projection overrides button, gro
   const group = mount(['solid', 'solid'], true);
   const button = group.querySelector('ion-button')!;
   const opposite = buttonProjection === 'source' ? 'system' : 'source';
-  const read = () => readCandidate(group, (e) => e.id || e.localName, { buttonProjection })!.control.items[0];
+  const read = () => readCandidate(group, (e) => e.id || e.localName, { ionic: { verticalBars: { buttonProjection } } })!.control.items[0];
   const expectedFill = (projection: string) => (projection === 'source' ? 'solid' : undefined);
   group.classList.add(`ios-theme-projection-${opposite}`);
   expect(read().buttonFill).toBe(expectedFill(opposite));
@@ -161,9 +183,10 @@ test.each(['source', 'system'] as const)('local projection overrides button, gro
 
   const standalone = mount([undefined]);
   standalone.setAttribute('data-projection', 'source');
-  expect(readCandidate(standalone, () => 'button', { buttonProjection, buttonDefaultFill: 'solid' })!.control.items[0].buttonFill).toBe(
-    'solid',
-  );
+  expect(
+    readCandidate(standalone, () => 'button', { ionic: { verticalBars: { buttonProjection, buttonDefaultFill: 'solid' } } })!.control
+      .items[0].buttonFill,
+  ).toBe('solid');
 });
 
 test('horizontal controls project without theme variables and retain visibility exclusions', () => {
@@ -193,7 +216,7 @@ test.each([true, false])('native menu action is discovered with grouping %s', (b
   menu.textContent = 'Menu';
   const shadow = menu.shadowRoot ?? menu.attachShadow({ mode: 'open' });
   shadow.innerHTML = '<span>Menu</span>';
-  const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, { vertical: { buttons, button: true } });
+  const prehide = prehideVerticalBarsToolbarSources(document, undefined, undefined, { controls: { buttonGroup: buttons, button: true } });
   try {
     const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector))
       .map((element) => readCandidate(element, (source) => source.localName))

@@ -85,7 +85,7 @@ for (const eventName of ['overlay', 'activate', 'search']) {
               ? api.createOverlayController(
                   document,
                   plugin,
-                  { controls: { popover: true } },
+                  { ionic: { verticalBars: { popover: true } } },
                   () => () => {},
                   () => true,
                 )
@@ -134,7 +134,7 @@ for (const eventName of ['overlay', 'activate', 'search']) {
   }
 }
 
-for (const stop of ['disable', 'destroy then disable', 'destroy', 'destroy with different controls']) {
+for (const stop of ['repeated destroy', 'destroy', 'destroy with different controls']) {
   test(`replacement startup waits for native teardown (${stop})`, async ({ page }) => {
     await page.clock.install();
     await page.evaluate(() => {
@@ -188,11 +188,11 @@ for (const stop of ['disable', 'destroy then disable', 'destroy', 'destroy with 
     await page.addScriptTag({ content: bundle });
     await page.evaluate(async (stop) => {
       const { enableNativeUI } = (window as LifecycleWindow).shellLifecycle;
-      const options = { verticalBarsOnly: true, controls: {} };
+      const options = { controls: 'verticalOnly' as const };
       const first = await enableNativeUI(options);
-      const destroying = stop !== 'disable' ? first.destroy() : undefined;
-      const disabling = stop.includes('disable') ? enableNativeUI({ enabled: false }) : destroying;
-      const second = enableNativeUI(stop === 'destroy with different controls' ? { ...options, controls: { toolbar: true } } : options);
+      const destroying = first.destroy();
+      const disabling = stop === 'repeated destroy' ? first.destroy() : destroying;
+      const second = enableNativeUI(stop === 'destroy with different controls' ? { ...options, controls: true } : options);
       Object.assign(window, {
         restartCompleted: Promise.all([disabling, second]).then(([, handle]) => {
           Object.assign(window, { restartedHandle: handle });
@@ -223,29 +223,22 @@ for (const stop of ['disable', 'destroy then disable', 'destroy', 'destroy with 
   });
 }
 
-test('a completed teardown failure does not poison later disable calls', async ({ page }) => {
+test('a completed teardown failure does not poison later startup', async ({ page }) => {
   await page.addScriptTag({ content: bundle });
   const result = await page.evaluate(async () => {
     const { enableNativeUI } = (window as LifecycleWindow).shellLifecycle;
     const first = await enableNativeUI();
     const destroy = first.destroy;
-    // Fail at the teardown boundary after releasing the actual Web resources.
     first.destroy = async () => {
       await destroy();
       throw new Error('Teardown failed');
     };
-    const failures = await Promise.allSettled([enableNativeUI({ enabled: false }), enableNativeUI({ enabled: false })]);
-    const disabled = await enableNativeUI({ enabled: false });
+    const failures = await Promise.allSettled([first.destroy(), first.destroy()]);
     const replacement = await enableNativeUI();
     await replacement.destroy();
-    const disabledAgain = await enableNativeUI({ enabled: false });
-    return {
-      failures: failures.map((result) => result.status),
-      disabled: disabled.getStatus().reason,
-      disabledAgain: disabledAgain.getStatus().reason,
-    };
+    return { failures: failures.map((result) => result.status), state: replacement.getStatus().state };
   });
-  expect(result).toEqual({ failures: ['rejected', 'rejected'], disabled: 'Disabled', disabledAgain: 'Disabled' });
+  expect(result).toEqual({ failures: ['rejected', 'rejected'], state: 'stopped' });
 });
 
 for (const stalled of ['configure', 'metrics listener', 'metrics', 'listener removal']) {

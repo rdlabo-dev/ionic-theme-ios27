@@ -14,7 +14,7 @@ Choose your setup before using this reference:
 
 Return to this page for control eligibility, native button appearance and runtime options. Device events and Ionic split panes are covered in [iPhone Duo support](../../theme-ios27/docs/iphone-duo.md).
 
-Available in `1.2.0` as a **preview** feature. APIs and supported behavior may change.
+Available as a **preview** feature. APIs and supported behavior may change.
 
 See [shared configuration](configuration.md) for all defaults and live `rail.enableVerticalControlArea()` / `rail.disableVerticalControlArea()` methods. [Plain HTML controls](framework-independent.md) use the same native rail renderers.
 
@@ -33,7 +33,7 @@ For Ionic apps, start one runtime after `ion-app` is mounted:
 ```ts
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
-const rail = await enableNativeUI({ verticalBars: { only: true } });
+const rail = await enableNativeUI({ controls: 'verticalOnly' });
 ```
 
 Configure your Web rail layout and [apply device placement](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUI()`, keep that runtime; it includes Vertical Bars. Do not start both.
@@ -62,7 +62,8 @@ Native popover presentation is limited to popovers anchored to accepted native V
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
 const rail = await enableNativeUI({
-  verticalBars: { only: true, popover: true },
+  controls: 'verticalOnly',
+  ionic: { verticalBars: { popover: true } },
 });
 ```
 
@@ -100,29 +101,22 @@ A toolbar whose content has all moved into the rail collapses while projection i
 
 ### Select actions and grouping independently
 
-Use `vertical: { buttons, button, backButton }` to configure toolbar actions.
-All fields default to `true`. `vertical: false` disables automatic toolbar
-selection and grouping; local attributes may still opt in.
-For vertical-layout-only automatic toolbar projection, use
-`enableNativeUI({ horizontal: false, vertical: true })`.
-This selects by layout, not device model, and leaves tabs, segments and FABs unchanged.
-See [toolbar configuration](native-ui.md#toolbar-selection-and-grouping)
-for horizontal settings, boolean shorthands and defaults.
+Use `controls` to configure toolbar selection and grouping. Each field accepts `true`, `false`, `'horizontalOnly'`, or `'verticalOnly'`, with omitted fields defaulting to `true`. Use `controls: 'verticalOnly'` for all default selection in the rail. Local attributes can override selection; explicit sources and extensions remain independent. See [all selection defaults](configuration.md#selection-defaults).
 
-| Option       | Responsibility                                                                                                     | What it does not do                                  |
-| ------------ | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `button`     | Automatically select eligible `ion-button` and `ion-menu-button` actions, whether inside or outside `ion-buttons`. | Does not select back buttons.                        |
-| `buttons`    | Allow selected actions in `ion-buttons` to project as a group when the existing grouping rules allow it.           | Does not select, enable or disable any child action. |
-| `backButton` | Automatically select eligible `ion-back-button` elements, independently of their parent group.                     | Does not group back buttons with other actions.      |
+| Option        | Responsibility                                                                                                     | What it does not do                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `button`      | Automatically select eligible `ion-button` and `ion-menu-button` actions, whether inside or outside `ion-buttons`. | Does not select back buttons.                        |
+| `buttonGroup` | Allow selected actions in `ion-buttons` to project as a group when the existing grouping rules allow it.           | Does not select, enable or disable any child action. |
+| `backButton`  | Automatically select eligible `ion-back-button` elements, independently of their parent group.                     | Does not group back buttons with other actions.      |
 
 For ordinary icon-only buttons in a group, with no local attributes:
 
-| `buttons` | `button` | Result                                                       |
-| --------- | -------- | ------------------------------------------------------------ |
-| `true`    | `true`   | Eligible buttons project together when the group qualifies.  |
-| `false`   | `true`   | Eligible buttons project individually.                       |
-| `true`    | `false`  | No ordinary buttons project; grouping alone selects nothing. |
-| `false`   | `false`  | No ordinary buttons project.                                 |
+| `buttonGroup` | `button` | Result                                                       |
+| ------------- | -------- | ------------------------------------------------------------ |
+| `true`        | `true`   | Eligible buttons project together when the group qualifies.  |
+| `false`       | `true`   | Eligible buttons project individually.                       |
+| `true`        | `false`  | No ordinary buttons project; grouping alone selects nothing. |
+| `false`       | `false`  | No ordinary buttons project.                                 |
 
 These results concern ordinary actions only. Back navigation, tabs and native
 search are independent. For example, to select only back navigation among toolbar
@@ -130,8 +124,7 @@ actions:
 
 ```ts
 const rail = await enableNativeUI({
-  verticalBars: { only: true },
-  vertical: { buttons: false, button: false, backButton: true },
+  controls: { buttonGroup: false, button: false, backButton: 'verticalOnly', tabs: 'verticalOnly', segment: false, fab: false },
 });
 ```
 
@@ -145,7 +138,7 @@ override. The attribute is **not inherited**.
 | Element                          | Meaning of its attribute                                                              | Fallback when absent or invalid                  |
 | -------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | `ion-button` / `ion-menu-button` | Select or exclude this action. Explicit `true` bypasses the icon-only selection rule. | `button` and the automatic shape rules           |
-| `ion-buttons`                    | Enable or disable grouping of already-selected actions. Never selects children.       | `buttons` and the existing grouping rules        |
+| `ion-buttons`                    | Enable or disable grouping of already-selected actions. Never selects children.       | `buttonGroup` and the existing grouping rules    |
 | `ion-back-button`                | Select or exclude this back button.                                                   | `backButton` and the supported back-button rules |
 
 Empty or unknown attribute values are ignored. To disable automatic action
@@ -153,8 +146,7 @@ selection and explicitly select a text button:
 
 ```ts
 const rail = await enableNativeUI({
-  verticalBars: { only: true },
-  vertical: { buttons: true, button: false, backButton: false },
+  controls: { buttonGroup: 'verticalOnly', button: false, backButton: false, tabs: 'verticalOnly', segment: false, fab: false },
 });
 ```
 
@@ -168,7 +160,7 @@ const rail = await enableNativeUI({
 Only Save moves; Cancel stays in the horizontal toolbar. Adding
 `data-vertical-bars="true"` to the group would not select Cancel.
 
-To group two explicitly selected actions even when `buttons: false`:
+To group two explicitly selected actions even when `buttonGroup: false`:
 
 ```html
 <ion-buttons data-vertical-bars="true">
@@ -192,7 +184,7 @@ startup options.
 ### Back buttons inside groups
 
 An `ion-back-button` remains a navigation action even inside `ion-buttons`.
-It ignores `buttons`, `button`, and the group's `data-vertical-bars` attribute.
+It ignores `buttonGroup`, `button`, and the group's `data-vertical-bars` attribute.
 Its own attribute overrides `backButton`. It uses the dedicated back position,
 never an ordinary action group, and is not duplicated as a toolbar action.
 
@@ -220,7 +212,7 @@ button-then-group inheritance rules. Neither appearance value selects an action.
 
 ### Choose button appearance
 
-`buttonProjection` and the local projection settings below are available in `1.2.0`.
+Use `ionic.verticalBars.buttonProjection` to choose native button appearance.
 
 For native vertical `ion-button` and `ion-menu-button` actions, choose who controls appearance:
 
@@ -230,12 +222,10 @@ For native vertical `ion-button` and `ion-menu-button` actions, choose who contr
 | `'source'`           | Projects the supported Ionic fill and computed colors described in [Source fill rules](#source-fill-rules). |
 
 ```ts
-const rail = await enableNativeUI({ verticalBars: { only: true, buttonProjection: 'source' } });
+const rail = await enableNativeUI({ controls: 'verticalOnly', ionic: { verticalBars: { buttonProjection: 'source' } } });
 ```
 
-`enableNativeUI()` accepts these settings inside `verticalBars`; the legacy global `enableVerticalControlArea()` still accepts its original top-level settings. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. Disabled icons use the native disabled appearance. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
-
-**Migration from the experimental releases:** the default changes from source styling to `system`. Set `buttonProjection: 'source'` to retain the previous projection behavior.
+`enableNativeUI()` and the standalone `enableVerticalControlArea()` accept these settings inside `ionic.verticalBars`. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. Disabled icons use the native disabled appearance. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
 
 ### Override individual buttons or groups
 
@@ -281,7 +271,7 @@ For an `ion-button` resolved to `source`, fill is chosen separately from the pro
 
 ```ts
 // Keep system styling globally; local source buttons use Ionic's default fill.
-const rail = await enableNativeUI({ verticalBars: { only: true, buttonDefaultFill: 'solid' } });
+const rail = await enableNativeUI({ controls: 'verticalOnly', ionic: { verticalBars: { buttonDefaultFill: 'solid' } } });
 ```
 
 ```html

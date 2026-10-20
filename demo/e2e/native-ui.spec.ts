@@ -14,7 +14,7 @@ interface NativeUIMock extends NativeUIMockCore {
   rejectInactiveSearch: boolean;
   rejectAllSearch: boolean;
   rejectControlLabel: string;
-  configuredWith?: { verticalBarsOnly?: boolean };
+  configuredWith?: { suppressScrollEdgeEffect?: boolean };
   lateSearch?: () => void;
   tabRetirements: number;
   retirementDetails: { path: string; tabs: string }[];
@@ -32,7 +32,7 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       rejectInactiveSearch: false,
       rejectAllSearch: false,
       rejectControlLabel: '',
-      configuredWith: undefined as { verticalBarsOnly?: boolean } | undefined,
+      configuredWith: undefined as { suppressScrollEdgeEffect?: boolean } | undefined,
       lateSearch: undefined as (() => void) | undefined,
       tabRetirements: 0,
       retirementDetails: [] as { path: string; tabs: string }[],
@@ -55,7 +55,7 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       },
       async closeOverlay() {},
       async stopOverlays() {},
-      async configure(options: { verticalBarsOnly?: boolean }) {
+      async configure(options: { suppressScrollEdgeEffect?: boolean }) {
         this.configuredWith = options;
         return { supported: true, verticalBars: nativeEdge !== null };
       },
@@ -415,7 +415,7 @@ test('verticalBars tabs request native adaptive rail placement', async ({ page }
   await expect(bar).toHaveClass(/ios27-enable-gesture/);
 });
 
-test('standalone Vertical Control Area never snapshots ordinary Native UI controls', async ({ page }) => {
+test('vertical-only defaults keep ordinary controls on the Web', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui?verticalBarsOnly=1');
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
@@ -423,17 +423,21 @@ test('standalone Vertical Control Area never snapshots ordinary Native UI contro
     .poll(() =>
       page.evaluate(() => {
         const { configuredWith, updates } = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
-        const controls = updates.at(-1)?.controls ?? [];
-        return (
-          configuredWith?.verticalBarsOnly === true &&
-          controls.length > 0 &&
-          updates
-            .flatMap((update: NativeUISnapshot) => update.controls)
-            .every((control: NativeUIControl) => control.placement === 'vertical-bars')
-        );
+        return {
+          suppressScrollEdgeEffect: configuredWith?.suppressScrollEdgeEffect,
+          hasRailControls: (updates.at(-1)?.controls.length ?? 0) > 0,
+          ordinaryKinds: [
+            ...new Set(
+              updates
+                .flatMap((update: NativeUISnapshot) => update.controls)
+                .filter((control: NativeUIControl) => control.placement !== 'vertical-bars')
+                .map((control: NativeUIControl) => control.kind),
+            ),
+          ],
+        };
       }),
     )
-    .toBe(true);
+    .toEqual({ suppressScrollEdgeEffect: false, hasRailControls: true, ordinaryKinds: [] });
 });
 
 for (const standalone of [false, true]) {

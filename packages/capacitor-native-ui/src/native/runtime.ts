@@ -1,3 +1,4 @@
+import { controlSelected } from './shared/control-options';
 import { createDiagnostics } from './shared/diagnostics';
 import { htmlSelector, readHTMLControl } from './html';
 import { extensionAncestors, readExtension } from './extensions';
@@ -53,7 +54,6 @@ export const createRuntime = async (
   plugin: NativeUIPlugin,
   options: NativeUIRuntimeOptions = {},
   nativeVerticalBars: () => boolean = () => true,
-  verticalBarsOnly = false,
   onStop?: (cause: 'failure' | 'pagehide') => void,
 ): Promise<NativeUIRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
   const win = doc.defaultView!;
@@ -118,16 +118,12 @@ export const createRuntime = async (
   let listener: PluginListenerHandle | undefined;
   let searchListener: PluginListenerHandle | undefined;
   let waiters: (() => void)[] = [];
-  const control = (kind: Candidate['control']['kind']): keyof NonNullable<NativeUIRuntimeOptions['controls']> => {
-    if (kind === 'tab-bar') return 'tabs';
-    if (kind === 'segment') return 'segment';
-    if (kind === 'floating-action-button') return 'fab';
-    return 'toolbar';
-  };
   const controlEnabled = (candidate: Candidate) => {
-    if (candidate.control.kind === 'extension') return true;
-    const controls = options.controls;
-    return controls === undefined || controls[control(candidate.control.kind)] === true;
+    const kind = candidate.control.kind;
+    // Button readers apply selection/grouping per child; explicit HTML and extensions
+    // are independent opt-ins. Only other automatic kinds need this final selection.
+    const key = kind === 'tab-bar' ? 'tabs' : kind === 'segment' ? 'segment' : kind === 'floating-action-button' ? 'fab' : undefined;
+    return !key || controlSelected(candidate.element, options, key, candidate.control.placement === 'vertical-bars');
   };
   const id = (element: Element) => {
     let value = ids.get(element);
@@ -200,10 +196,6 @@ export const createRuntime = async (
         return;
       }
       const candidate = readExtension(element, extensions, id, (reason) => diagnose(`${extension.name}: ${reason}`, element));
-      if (verticalBarsOnly && (!candidate?.control.extension?.tabBarId || !nativeVerticalBars())) {
-        if (candidate) diagnose('rail-only: element extensions stay on the Web when verticalBars.only is true.', element);
-        return;
-      }
       return candidate;
     }
     if (options.source === 'extensions') return;
@@ -217,12 +209,11 @@ export const createRuntime = async (
         return;
       }
       const rail = candidate.control.placement === 'vertical-bars';
-      if (verticalBarsOnly && !rail) return;
       if (rail && !nativeVerticalBars()) return;
       return candidate;
     }
     if (element.querySelector(htmlSelector)) return; // A shared automatic surface must not cover explicitly selected descendants.
-    if (verticalBarsOnly && (!isVerticalBarsCandidate(element) || element.closest('[data-native-ui-placement="element"]'))) return;
+    if (options.ionic?.auto === false) return;
     if (options.verticalBars?.enabled === false && isVerticalBarsCandidate(element)) return;
     const pointerPage = isVerticalBarsCandidate(element) ? element.closest<HTMLElement>('.ion-page') : undefined;
     let candidate: Candidate | undefined;

@@ -6,7 +6,7 @@ Use a Capacitor 8 app with an iOS project, Xcode 26+, and an iOS 26+ device or s
 
 Start with [how projection works](../README.md#how-projection-works): the HTML element remains the source while native controls or Web proxies provide its presentation.
 
-**Want only Vertical Bars?** Follow steps 1–2 to install and mark your HTML buttons, then use the [Web rail configuration](#optional-web-rail) in place of step 3. Style the rail host in your application and build with step 4 for iOS. You do not need Ionic, `@rdlabo/ionic-theme-ios27`, or `vertical-bars.css`.
+**Want only Vertical Bars?** Follow steps 1–2 to install and mark your HTML buttons, then use the [Web rail configuration](#optional-web-rail) in place of step 3. Remove explicit markers from buttons you want to leave on the Web. Style the rail host in your application and build with step 4 for iOS. You do not need Ionic, `@rdlabo/ionic-theme-ios27`, or `vertical-bars.css`.
 
 For Vertical Bars in an app using `ion-tabs`, `ion-toolbar` or other Ionic components with a custom theme, use the [Ionic Vertical Bars setup](../../theme-ios27/docs/iphone-duo-with-original-theme.md#try-it-in-your-existing-ionic-app) instead. The framework (Angular, React or Vue) alone does not determine which adapter to use.
 
@@ -53,7 +53,7 @@ Call once after the source root exists. Keep the handle and call `await shell.de
 
 ## 4. Build and run on iOS
 
-Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcode. With the step 3 configuration, Add renders natively and invokes its original click handler. With the rail-only configuration below, Add stays on the Web and Back uses the native rail when available. In a browser, the same button remains an ordinary Web button. Unmarked HTML remains unchanged.
+Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcode. With the step 3 configuration, Add renders natively and invokes its original click handler. With the rail configuration below, Add retains native element placement and Back uses the native rail when available. In a browser, the same button remains an ordinary Web button. Unmarked HTML remains unchanged.
 
 If a button stays on the Web on supported iOS, check that it is visible within the configured root, has an accessible name, and that the direct plugin dependency was synced and the iOS app rebuilt.
 
@@ -61,7 +61,7 @@ In an app that also uses Ionic, set `ionic: { auto: false }` to project only exp
 
 ## Optional Web rail
 
-For Vertical Bars only, use this instead of the startup call in step 3. Call once after both the source root and rail host are mounted; call `await shell.destroy()` when their owner is disposed. Do not start a second shell:
+For a Web fallback rail, use this instead of the startup call in step 3. Call once after both the source root and rail host are mounted; call `await shell.destroy()` when their owner is disposed. Do not start a second shell:
 
 ```ts
 import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
@@ -69,7 +69,6 @@ import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
 const shell = await enableNativeUI({
   root: document.querySelector<HTMLElement>('#app')!,
   verticalBars: {
-    only: true,
     placement: {
       edge: 'trailing',
       webHost: document.querySelector<HTMLElement>('#rail')!,
@@ -80,7 +79,7 @@ const shell = await enableNativeUI({
 
 The plugin uses device-reported rail availability and resolves leading/trailing through the document direction. A placement preference never forces an unsupported system rail. Native rejection restores Web presentation. With `webHost`, explicitly rail-marked HTML controls have Web proxies when native projection is unavailable. Without it, their originals remain visible. The application styles and positions the host and reserves any content spacing. The host must be outside the source root.
 
-This configuration projects only rail controls: in the example above, Back goes to the rail and Add remains a Web button. Set `verticalBars.only: false` if you also want ordinary element buttons rendered natively. To change rail use later, call `await shell.disableVerticalControlArea()` or `await shell.enableVerticalControlArea()`. Disabling restores original controls and removes Web rail proxies without destroying ordinary native projection. `only: true` keeps ordinary controls on the Web throughout.
+Explicit markup chooses placement: Back goes to the rail and Add keeps native element placement. To project only Back, remove `data-native-ui="button"` from Add. `controls` does not disable explicit source declarations. To change rail use later, call `await shell.disableVerticalControlArea()` or `await shell.enableVerticalControlArea()`. Disabling restores original rail controls and removes Web rail proxies without destroying ordinary native projection.
 
 Currently the HTML adapter supports buttons and back buttons. Arbitrary HTML tabs, segments, searchbars and FAB structures are not translated. Ionic adapters continue to support their existing controls. Custom element extensions work with the same scoped root; the existing `tab-accessory` extension placement still requires an Ionic tab-bar owner.
 

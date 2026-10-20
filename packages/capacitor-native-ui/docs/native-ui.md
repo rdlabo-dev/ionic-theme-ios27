@@ -45,38 +45,23 @@ Native appearance follows the applied class, system or always-dark theme CSS. Sy
 
 ## Toolbar selection and grouping
 
-Configure ordinary and vertical toolbars independently:
+Use `controls` to choose selection and grouping by placement:
 
 ```ts
 const shell = await enableNativeUI({
-  horizontal: { buttons: false, button: true, backButton: true },
-  vertical: { buttons: true, button: true, backButton: true },
+  controls: {
+    buttonGroup: 'verticalOnly',
+    button: true,
+    backButton: true,
+  },
 });
 ```
 
-Each layout accepts `boolean | ToolbarProjectionOptions`:
+Here, ordinary toolbar actions project individually and eligible rail actions can group. All six control fields accept `true`, `false`, `'horizontalOnly'`, or `'verticalOnly'`; omitted fields are `true`. For all automatic controls only in the rail, use `controls: 'verticalOnly'`. See [selection defaults](configuration.md#selection-defaults) for the complete table.
 
-| Value             | Meaning                                                           |
-| ----------------- | ----------------------------------------------------------------- |
-| `true` or omitted | All three options default to `true`.                              |
-| `false`           | All three options are `false`; local attributes may still opt in. |
-| Object            | Set individual options; omitted fields default to `true`.         |
+`button` selects ordinary actions inside or outside a group, including menu buttons. `buttonGroup` only groups already selected actions. With `buttonGroup: true, button: false`, no ordinary action projects without explicit selection. `backButton` independently selects back navigation, including back buttons inside `ion-buttons`; back buttons never join ordinary groups.
 
-For toolbar actions that automatically project only in vertical layout:
-
-```ts
-const shell = await enableNativeUI({ horizontal: false, vertical: true });
-```
-
-This selects by active layout, not by the Duo model, and does not disable tabs,
-segments or FABs. These settings refine automatic Ionic toolbar projection;
-`ionic.auto` remains its master switch. Explicit `data-native-ui` sources are independent.
-
-`button` selects ordinary actions whether grouped
-in the source or standalone; `buttons` only enables grouping of selected actions.
-With `buttons: true, button: false`, no ordinary action projects unless explicitly
-selected. `backButton` independently controls back navigation, including back
-buttons inside `ion-buttons`.
+`ionic.auto` enables or disables automatic Ionic discovery. Explicit `data-native-ui` sources and extensions remain independent of both `controls` and `ionic.auto`.
 
 Restart the runtime to change these startup options.
 
@@ -98,7 +83,7 @@ The vertical attribute allows grouping but does not select the text-only childre
 add `data-vertical-bars="true"` to each button to select them explicitly.
 
 These settings do not remove CSS or change the source layout. If the app removes
-the source group's glass styling, `horizontal.buttons: false` also prevents a
+the source group's glass styling, `controls: { buttonGroup: 'verticalOnly' }` also prevents a
 shared native group surface. Existing component-mode, fixed-toolbar,
 fill/color and shell opt-out requirements still apply. A horizontal clear button
 inside `ion-buttons` can project individually when grouping is disabled or the
@@ -107,8 +92,7 @@ Horizontal local overrides are re-evaluated live; vertical placement retains its
 per-page-visit rules. `data-projection="source|system"` remains a separate native
 vertical appearance setting.
 
-`enableVerticalControlArea()` remains vertical-only. Use `enableNativeUI()`
-when horizontal projection is needed, and run only one of the two runtimes.
+The standalone `enableVerticalControlArea()` defaults `controls` to `'verticalOnly'`. Explicit sources and extensions remain independent. Use one startup entry per application.
 
 ## Supported markup
 
@@ -136,13 +120,15 @@ Only the exact value `disabled` opts out; an empty or unknown value does not opt
 </ion-toolbar>
 ```
 
-If a child inside a shared native surface opts out, the entire surface stays on the Web: this includes button groups, tab bars, segments and FAB lists. Opting out of the search FAB or any part of the search footer disables native search integration; the tab bar can still render natively if it remains eligible.
+In ordinary placement, an explicit `data-native-ui="disabled"` or `.native-ui-disabled` opt-out inside a shared surface keeps that surface and its children on the Web, including button groups, tab bars, segments and FAB lists. This is different from disabling grouping with `buttonGroup`. Opting out of the search FAB or any part of the search footer disables native search integration; the tab bar can still render natively if it remains eligible.
 
 Placement is required even when the appearance is glass. In the ordinary Native UI, buttons, back buttons, menu-button groups and segments need a toolbar directly inside `ion-header` or `ion-footer`, with no `ion-content` ancestor around the control. Buttons directly inside a header/footer, standalone toolbars, and toolbars or headers nested in scrolling content stay on the Web. FABs without `slot="fixed"` also stay on the Web. Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility. When `.ios-theme-vertical-bars` is enabled, a standard `ion-back-button` can instead be projected to the Vertical Control Area from outside a fixed toolbar, including routed content or a persistent app shell. The application chooses where to enable this mode and which Ionic component mode to use; Vertical Bars projection does not require `ios` mode classes. Collapsed headers, opted-out controls and departed pages are excluded. Full-width foreground modals can participate in Vertical Bars as described below; other overlay surfaces keep their own layout.
 
 Native tabs accept equal-width items with Ionic's default `layout="icon-top"`. The native bar uses a local compact horizontal and regular vertical size class to preserve the Web's stacked icon/label arrangement on iPad and in landscape. This does not change the app's size class. Label size and weight follow the Web snapshot. Other explicit Ionic layouts (`icon-start`, `icon-end`, `icon-bottom`, `icon-hide`, `label-hide`) and unequal item widths keep the entire tab bar on the Web. Start, center and end placement follow the original `ion-tab-bar`, including RTL. Directional `ion-icon` artwork preserves its rendered RTL flip.
 
-Outside Vertical Bars, standalone clear, solid and outline buttons are excluded. A glass `ion-buttons` group of two or more clear buttons is projected as one surface; its children retain separate actions. Menu buttons can also share that group. A single menu button uses its parent `ion-buttons` as the glass surface, so no Web glass is left underneath the native button. A menu button outside this theme glass remains on the Web. Mixed fills, unsupported children, or a theme-disabled child keep the group on the Web. Single clear buttons remain on the Web. Custom button colors, custom back icons/colors, collapsing headers, toolbars inside scrolling content, modal content, scrollable/expanded segments and segment-view integration remain on the Web. Complex slots and unsupported SVG features also fall back to Web. The plugin does not translate arbitrary application CSS into UIKit styles.
+Outside Vertical Bars, clear buttons can project individually inside `ion-buttons`; standalone clear, solid and outline buttons remain on the Web. With grouping enabled, two or more eligible clear buttons share one native surface while retaining separate actions. Menu buttons can also join that group; a single menu button uses its parent group as the surface. If grouping is disabled or the group contains mixed fills or unsupported children, eligible actions can still project individually. Back buttons never join the group.
+
+Custom button colors, custom back icons/colors, collapsing headers, toolbars inside scrolling content, modal content, scrollable/expanded segments and segment-view integration remain on the Web. Complex slots and unsupported SVG features also fall back to Web. The plugin does not translate arbitrary application CSS into UIKit styles.
 
 Native glass samples the Web content actually drawn behind it. Existing toolbar backgrounds and header blur still affect that content. For content to scroll beneath a header, use Ionic's normal translucent-header/fullscreen-content layout; the plugin does not move page content or override an application-owned opaque toolbar background.
 
@@ -218,7 +204,7 @@ During retirement, the source is restored and allowed to paint before its native
 
 If a bridge update fails or times out, the runtime stops and restores Web rendering. It does not automatically reconnect. `getStatus()` reports `stopped` and the reason; to retry deliberately, call `destroy()` on that handle and then `enableNativeUI()` again.
 
-Failures or timeouts in required startup bridge calls return a Web fallback handle. Optional WebView metrics may fail without disabling native controls. Both `destroy()` and `enableNativeUI({ enabled: false })` wait for teardown; repeated calls share its completion. A new activation requested while teardown is running waits for it, including when the application calls `destroy()` without awaiting it. Await these promises when the next application operation depends on cleanup, and handle any rejection.
+Failures or timeouts in required startup bridge calls return a Web fallback handle. Optional WebView metrics may fail without disabling native controls. `destroy()` waits for teardown; repeated calls share its completion. A new activation requested while teardown is running waits for it, including when the application calls `destroy()` without awaiting it. Await these promises when the next application operation depends on cleanup, and handle any rejection.
 
 For diagnostics or application teardown:
 
@@ -231,7 +217,7 @@ await shell.destroy(); // restore DOM, remove native controls and release listen
 Projection is enabled by calling the startup API. Partial settings override defaults:
 
 ```ts
-const shell = await enableNativeUI({ ionic: { auto: { tabs: false } } }); // automatic Ionic projection except tabs
+const shell = await enableNativeUI({ controls: { tabs: false } }); // automatic Ionic projection except tabs
 await shell.disableVerticalControlArea(); // retain ordinary native controls
 await shell.enableVerticalControlArea();
 await shell.destroy(); // stop all projection
@@ -241,13 +227,13 @@ See [all configuration options](configuration.md) for defaults, rail-only usage 
 
 ### Popovers anchored to Vertical Bars
 
-**Native popover presentation is Vertical Bars only.** It requires an accepted native Vertical Bars `ion-button` anchor; enabling `verticalBars.popover` does not make ordinary toolbar or body popovers native. This feature also works with the standalone Vertical Bars runtime, without enabling the full Native UI.
+**Native popover presentation is Vertical Bars only.** It requires an accepted native Vertical Bars `ion-button` anchor; enabling `ionic.verticalBars.popover` does not make ordinary toolbar or body popovers native. This feature also works with the standalone Vertical Bars runtime, without enabling the full Native UI.
 
-Enable `verticalBars.popover` to present popovers from accepted native Vertical Bars `ion-button` controls. Automatic Ionic button projection is enabled by default; when `ionic.auto` is `false`, mark individual anchors with `data-native-ui="button"`:
+Enable `ionic.verticalBars.popover` to present popovers from accepted native Vertical Bars `ion-button` controls. Automatic Ionic button projection is enabled by default; when `ionic.auto` is `false`, mark individual anchors with `data-native-ui="button"`:
 
 ```ts
 await enableNativeUI({
-  verticalBars: { popover: true },
+  ionic: { verticalBars: { popover: true } },
 });
 ```
 
@@ -282,15 +268,15 @@ The native material and control appearance follow the running iOS version; an iO
 
 ## Support iPhone Duo (preview)
 
-iPhone Duo support, including standalone vertical bars without Native UI, is available as a **preview** in `1.2.0` alongside Native UI. Its APIs and supported behavior may change.
+iPhone Duo support, including standalone vertical bars without Native UI, is available as a **preview** alongside Native UI. Its APIs and supported behavior may change.
 
-The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUI({ verticalBars: { only: true } })` for this use case; it projects only controls placed in the vertical area. Apps already calling `enableNativeUI()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
+The standalone Vertical Control Area entry point (`@rdlabo/capacitor-native-ui/vertical-bars`) works with application-supplied Web layout. The theme package offers an [optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md), `@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css`, which can be used without loading the full iOS 27 appearance. Call `enableNativeUI({ controls: 'verticalOnly' })` for this use case; its default selection targets controls placed in the vertical area. Apps already calling `enableNativeUI()` should keep that single runtime rather than starting both. See [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md) for the complete setup, including hinge posture and the split-pane layout for apps that do not use this shell at all.
 
 Vertical Bars uses a SwiftUI `TabView` and toolbar in the system rail. Ionic remains the source of labels, icons, selected/disabled state and actions. See [Vertical Bars](vertical-bars.md) for rail layout, native fallback and supported overlays.
 
 In Vertical Bars, automatic selection of fixed-toolbar `ion-button` actions requires an `ion-icon` or SVG with `slot="icon-only"`; `data-vertical-bars="true"` can explicitly select other supported buttons. All fills and Ionic colors are eligible; submit buttons follow the same placement rule. Add `.ios-theme-horizontal-only` to a button or its `ion-buttons` group to keep it horizontal. See [Toolbar actions](vertical-bars.md#toolbar-actions) for placement and exclusion rules.
 
-**Native button appearance:** `1.2.0` defaults native vertical buttons to `buttonProjection: 'system'`. Use `source` to project Ionic fill and colors, with `data-projection="source|system"` or the equivalent `ios-theme-projection-source` / `ios-theme-projection-system` classes for local exceptions. These settings affect native vertical `ion-button` and `ion-menu-button` actions only. Horizontal controls and Web clones keep their existing behavior. See [Choose button appearance](vertical-bars.md#choose-button-appearance) for migration, priority and fill rules.
+**Native button appearance:** Native vertical buttons default to `buttonProjection: 'system'`. Use `source` to project Ionic fill and colors, with `data-projection="source|system"` or the equivalent `ios-theme-projection-source` / `ios-theme-projection-system` classes for local exceptions. These settings affect native vertical `ion-button` and `ion-menu-button` actions only. Horizontal controls and Web clones keep their existing behavior. See [Choose button appearance](vertical-bars.md#choose-button-appearance) for priority and fill rules.
 
 For standalone setup while keeping your existing theme, see [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 

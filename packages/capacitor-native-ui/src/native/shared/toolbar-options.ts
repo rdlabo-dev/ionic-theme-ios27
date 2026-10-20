@@ -1,17 +1,13 @@
 import { modalUsesVerticalBars } from './modal';
-import type { ToolbarProjectionOptions, VerticalControlAreaOptions } from '../definitions';
+import type { VerticalControlAreaOptions } from '../definitions';
+import { controlDefault } from './control-options';
 import { childElements, inFixedToolbar, isExcluded, isNativeUIDisabled } from './dom';
 
-export const toolbarOptions = (options: VerticalControlAreaOptions, vertical: boolean): Required<ToolbarProjectionOptions> => {
-  const layout = vertical ? options.vertical : options.horizontal;
-  if (typeof layout === 'boolean') return { buttons: layout, button: layout, backButton: layout };
-  const settings = layout ?? {};
-  return {
-    buttons: settings.buttons ?? true,
-    button: settings.button ?? true,
-    backButton: settings.backButton ?? true,
-  };
-};
+export const toolbarOptions = (options: VerticalControlAreaOptions, vertical: boolean) => ({
+  buttonGroup: controlDefault(options, 'buttonGroup', vertical),
+  button: controlDefault(options, 'button', vertical),
+  backButton: controlDefault(options, 'backButton', vertical),
+});
 
 export const localToolbarOption = (element: HTMLElement, vertical: boolean): boolean | undefined => {
   const value = element.getAttribute(vertical ? 'data-vertical-bars' : 'data-horizontal-bars');
@@ -29,7 +25,7 @@ export const horizontalSelected = (element: HTMLElement, options: VerticalContro
 export const horizontalToolbarGroup = (element: HTMLElement, options: VerticalControlAreaOptions): boolean => {
   if (
     !element.matches('ion-buttons.ios') ||
-    !(localToolbarOption(element, false) ?? toolbarOptions(options, false).buttons) ||
+    !(localToolbarOption(element, false) ?? toolbarOptions(options, false).buttonGroup) ||
     !inFixedToolbar(element) ||
     isExcluded(element) ||
     isNativeUIDisabled(element)

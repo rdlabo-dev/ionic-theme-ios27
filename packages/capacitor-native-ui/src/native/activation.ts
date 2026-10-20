@@ -1,3 +1,4 @@
+import { controlDefault } from './shared/control-options';
 import { toolbarOptions } from './shared/toolbar-options';
 import { createDiagnostics } from './shared/diagnostics';
 import { createHTMLWebProjection } from './html';
@@ -160,15 +161,6 @@ const webProjection = (doc: Document, options: NativeUIRuntimeOptions, enabled: 
 
 /** Call once at application startup. Ionic markup remains the source of truth. */
 export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFactory?: OverlayFactory): Promise<NativeUIRuntimeHandle> => {
-  if (options.enabled === false) {
-    const current = active;
-    if (current)
-      stopActivation(
-        current,
-        current.then((handle) => handle.destroy()),
-      );
-    return (stopping ?? Promise.resolve()).then(() => web('Disabled'));
-  }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
   const extensions = [...(options.extensions ?? [])];
   const nativeState: NonNullable<NativeUIRuntimeOptions['nativeState']> = (options.nativeState = {});
@@ -177,22 +169,20 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
   } catch (error) {
     return Promise.reject(error);
   }
-  const controls = options.controls;
   const configuration = JSON.stringify([
     options.source ?? 'ionic',
     options.debug === true,
-    options.explicitControls !== false,
+    options.ionic?.auto !== false,
     options.verticalBars?.enabled !== false,
     options.verticalBars?.placement?.edge,
     options.rail?.edge,
-    options.verticalBarsOnly === true,
     toolbarOptions(options, false),
     toolbarOptions(options, true),
-    options.buttonProjection ?? 'system',
+    options.ionic?.verticalBars?.buttonProjection ?? 'system',
     // Local source overrides can use this even when the startup projection is system.
-    options.buttonDefaultFill ?? null,
-    ...(['tabs', 'toolbar', 'segment', 'fab'] as const).map((component) => !controls || controls[component] === true),
-    controls?.popover === true,
+    options.ionic?.verticalBars?.buttonDefaultFill ?? 'glass',
+    ...(['tabs', 'segment', 'fab'] as const).flatMap((kind) => [controlDefault(options, kind, false), controlDefault(options, kind, true)]),
+    options.ionic?.verticalBars?.popover === true,
   ]);
   if (active && activeFailed) {
     const previous = active;
@@ -248,7 +238,7 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
       const diagnose = createDiagnostics(options.debug);
       const stopModals = options.source === 'html' ? () => {} : observeVerticalBarsModals(document);
       const prehide =
-        platform !== 'android' && options.source !== 'html' && (options.controls === undefined || options.controls.toolbar === true)
+        platform !== 'android' && options.source !== 'html' && options.ionic?.auto !== false
           ? prehideVerticalBarsToolbarSources(document, () => options.verticalBars?.enabled !== false, options.root, options)
           : undefined;
       const fallback = (reason: string) => {
@@ -290,7 +280,10 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
         }
       };
       try {
-        const capabilities = await bounded(plugin.configure({ verticalBarsOnly: options.verticalBarsOnly === true }));
+        const ordinaryControls = (['button', 'backButton', 'tabs', 'segment', 'fab'] as const).some((kind) =>
+          controlDefault(options, kind, false),
+        );
+        const capabilities = await bounded(plugin.configure({ suppressScrollEdgeEffect: ordinaryControls }));
         if (!capabilities.supported) return fallback('Native UI is unavailable on this device');
         const unavailableExtensions = new Map<string, string>();
         for (const extension of extensions) {
@@ -313,7 +306,6 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
               unavailableExtensions,
             },
             () => false,
-            options.verticalBarsOnly === true,
             runtimeStopped,
           );
           runtime = combine(runtime, webProjection(document, options));
@@ -349,7 +341,7 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
           return physicalEdge === nativeState.edge;
         };
         const applyMetrics = (metrics: WebViewMetrics) => {
-          if (!options.verticalBarsOnly) nativeWebViewMetrics.radius = metrics.radius;
+          if (ordinaryControls) nativeWebViewMetrics.radius = metrics.radius;
           deviceEdge = metrics.verticalBarEdge ?? null;
           updateNativeEdge();
           document.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
@@ -363,14 +355,13 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
           plugin,
           { ...options, extensions, unavailableExtensions },
           nativeVerticalBars,
-          options.verticalBarsOnly === true,
           runtimeStopped,
         );
         runtime = combine(
           native,
           webProjection(document, options, () => !nativeVerticalBars() || native.getStatus().projected === 0),
         );
-        if (controls?.popover === true && overlayFactory)
+        if (options.ionic?.verticalBars?.popover === true && overlayFactory)
           overlays = await overlayFactory(document, plugin, options, native.retain, nativeVerticalBars);
         return manage(runtime, {
           suspend: async () => {
