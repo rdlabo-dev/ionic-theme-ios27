@@ -1185,7 +1185,7 @@ test('shell opt-out restores the element and descendants while preserving Web gl
   ].entries()) {
     await target.evaluate(
       (element, useAttribute) => {
-        if (useAttribute) element.setAttribute('data-native-ui-state', 'disabled');
+        if (useAttribute) element.setAttribute('data-native-ui', 'disabled');
         else element.classList.add('native-ui-disabled');
       },
       index % 2 === 0,
@@ -1196,16 +1196,16 @@ test('shell opt-out restores the element and descendants while preserving Web gl
     expect(await glass()).toEqual(original);
     await expect(tabs).toHaveAttribute('data-native-ui-projected', '');
     await target.evaluate((element) => {
-      element.removeAttribute('data-native-ui-state');
+      element.removeAttribute('data-native-ui');
       element.classList.remove('native-ui-disabled');
     });
     await expect(button).toHaveAttribute('data-native-ui-projected', '');
   }
-  await page.locator('html').evaluate((element) => element.setAttribute('data-native-ui-state', 'disabled'));
+  await page.locator('html').evaluate((element) => element.setAttribute('data-native-ui', 'disabled'));
   await expect(page.locator('[data-native-ui-projected]')).toHaveCount(0);
   await button.click();
   await expect(page.locator('[data-save-count]')).toHaveText('1');
-  await page.locator('html').evaluate((element) => element.removeAttribute('data-native-ui-state'));
+  await page.locator('html').evaluate((element) => element.removeAttribute('data-native-ui'));
   await expect(tabs).toHaveAttribute('data-native-ui-projected', '');
 });
 
@@ -1214,7 +1214,7 @@ for (const renderer of ['native', 'web'] as const) {
     await mockNative(page, renderer === 'web');
     await page.goto('/main/index/native-ui?verticalBarsOnly');
     await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
-    for (const attribute of ['class', 'data-native-ui-state']) {
+    for (const attribute of ['class', 'data-native-ui']) {
       const value = attribute === 'class' ? 'native-ui-disabled' : 'disabled';
       await page.locator('app-native-ui ion-header').evaluate(
         (header, { attribute, value }) => {
@@ -1260,12 +1260,12 @@ test('shell opt-out in shared surface children keeps the whole surface on Web', 
     const surface = page.locator(surfaceSelector);
     const child = surface.locator(childSelector).first();
     await expect(surface).toHaveAttribute('data-native-ui-projected', '');
-    await child.evaluate((element) => element.setAttribute('data-native-ui-state', 'disabled'));
+    await child.evaluate((element) => element.setAttribute('data-native-ui', 'disabled'));
     await expect(surface).not.toHaveAttribute('data-native-ui-projected');
     await expect(surface.locator('[data-native-ui-projected]')).toHaveCount(0);
     await expect(child).toHaveCSS('visibility', 'visible');
     await expect(button).toHaveAttribute('data-native-ui-projected', '');
-    await child.evaluate((element) => element.removeAttribute('data-native-ui-state'));
+    await child.evaluate((element) => element.removeAttribute('data-native-ui'));
     await expect(surface).toHaveAttribute('data-native-ui-projected', '');
   }
 });
@@ -3626,7 +3626,7 @@ for (const refusal of ['disabled', 'md'])
     const trigger = page.locator('#native-popover-trigger');
     await expect(trigger).toHaveAttribute('data-native-ui-vertical-bars-member', '');
     await page.locator('ion-popover[trigger="native-popover-trigger"]').evaluate((overlay: HTMLIonPopoverElement, refusal) => {
-      if (refusal === 'disabled') overlay.setAttribute('data-native-ui-state', 'disabled');
+      if (refusal === 'disabled') overlay.setAttribute('data-native-ui', 'disabled');
       else overlay.mode = 'md';
     }, refusal);
     await activate(page, 'Open popover');
@@ -3914,7 +3914,7 @@ for (const partial of [false, true])
         ...Object.fromEntries(tabs.items.map((item, index) => [item.id, { x: 632, y: 604 + index * 50, width: 40, height: 50 }])),
       };
     });
-    if (partial) await bar.evaluate((el) => el.setAttribute('data-native-ui-state', 'disabled'));
+    if (partial) await bar.evaluate((el) => el.setAttribute('data-native-ui', 'disabled'));
     else await page.getByText('present:button-only', { exact: true }).click();
     await expect(bar).not.toHaveAttribute('data-native-ui-vertical-bars');
     await expect(bar).not.toHaveAttribute('data-native-ui-fading');
@@ -3929,7 +3929,7 @@ for (const partial of [false, true])
         return animation;
       };
     });
-    if (partial) await bar.evaluate((el) => el.removeAttribute('data-native-ui-state'));
+    if (partial) await bar.evaluate((el) => el.removeAttribute('data-native-ui'));
     else await page.locator('ion-alert').evaluate((el: HTMLIonAlertElement) => el.dismiss());
     await expect(bar).toHaveAttribute('data-native-ui-vertical-bars', '');
     await expect(bar).toHaveAttribute('data-native-ui-fading', '');

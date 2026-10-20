@@ -111,7 +111,7 @@ The split package uses Native UI names throughout. These are breaking renames; t
 | `IonicNativeUIShellPlugin` (Swift module/native class) | `NativeUIPlugin` |
 | `IonicThemeCapacitorNativeUi` (SPM package/product and pod) | `RdlaboCapacitorNativeUi` |
 | `NativeUIShell.register()` (Swift / Kotlin extensions) | `NativeUI.register()` |
-| `data-shell="disabled"` | `data-native-ui-state="disabled"` |
+| `data-shell="disabled"` | `data-native-ui="disabled"` |
 | `.ios-theme-shell-disabled` | `.native-ui-disabled` |
 
 Replace the `NativeUIShell` part with `NativeUI` in imports from `/integration` as well (for example `suspendNativeUI` and `setNativeUIIntegration`). App-local Swift extensions now use `import NativeUIPlugin`; Kotlin extensions use `import dev.rdlabo.capacitor.nativeui.NativeUI`.

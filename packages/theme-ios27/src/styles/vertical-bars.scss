@@ -304,7 +304,7 @@ html.native-ui-prehide
     [color],
     .ios-theme-vertical-bars-back-web-owned,
     .native-ui-disabled,
-    [data-native-ui-state='disabled'],
+    [data-native-ui='disabled'],
     .ios-theme-disabled,
     .ios26-disabled,
     .ios-theme-vertical-bars-back-button-projection
@@ -317,7 +317,7 @@ html.native-ui-prehide
       ion-footer[collapse] *,
       ion-buttons.ios-theme-horizontal-only *,
       .native-ui-disabled *,
-      [data-native-ui-state='disabled'] *,
+      [data-native-ui='disabled'] *,
       .ios-theme-disabled *,
       .ios26-disabled *
     )

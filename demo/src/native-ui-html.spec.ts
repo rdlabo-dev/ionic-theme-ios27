@@ -150,6 +150,16 @@ test('native bridge uses the same standard model, revalidates actions, and retir
   await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
   expect(source.getAttribute('data-native-ui')).toBe('button');
   expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  source.setAttribute('data-native-ui', 'disabled');
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(0));
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  source.setAttribute('data-native-ui', 'button');
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
+  options.root!.setAttribute('data-native-ui', 'disabled');
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(0));
+  expect(source.getAttribute('data-native-ui')).toBe('button');
+  options.root!.removeAttribute('data-native-ui');
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
   const snapshot = snapshots.at(-1)!;
   expect(snapshot.controls.map((control) => control.kind)).toEqual(['button']);
   const id = snapshot.controls[0].items[0].id;

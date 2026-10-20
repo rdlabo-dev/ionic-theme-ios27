@@ -255,7 +255,7 @@ export const prehideVerticalBarsToolbarSources = (
     characterData: true,
     attributes: true,
     attributeOldValue: true,
-    attributeFilter: ['class', 'data-native-ui-state', 'hidden', 'inert', 'icon', 'color'],
+    attributeFilter: ['class', 'data-native-ui', 'hidden', 'inert', 'icon', 'color'],
   });
   return {
     suspend: () => {

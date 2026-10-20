@@ -62,7 +62,7 @@ test('captures a group whose child accessors are virtualized', () => {
 });
 
 // Initial opt-out and later toggles must both preserve the ability to join the rail.
-test.each(['class', 'data-native-ui-state'] as const)('shell opt-out via %s can be removed before page re-entry', async (attribute) => {
+test.each(['class', 'data-native-ui'] as const)('shell opt-out via %s can be removed before page re-entry', async (attribute) => {
   document.documentElement.className = '';
   document.body.innerHTML = markup;
   const toolbar = document.querySelector<HTMLElement>('ion-toolbar')!;

@@ -163,7 +163,7 @@ export const createOverlayController = async (
         if (!overlay.isConnected || !nativeVerticalBars() || excluded(overlay) || isNativeUIDisabled(content.root))
           void release(connection).catch(console.error);
       });
-      const attributes = { attributes: true, attributeFilter: ['class', 'data-native-ui-state', 'hidden', 'inert'] };
+      const attributes = { attributes: true, attributeFilter: ['class', 'data-native-ui', 'hidden', 'inert'] };
       for (let node: HTMLElement | null = overlay; node; node = node.parentElement) {
         exclusions.observe(node, attributes);
         exclusions.observe(node, { childList: true });

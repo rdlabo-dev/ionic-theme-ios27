@@ -93,7 +93,7 @@ export const createVerticalBarsPageState = () => {
   };
 };
 const disabledButtonGroup = 'ion-buttons:is(.ios-theme-disabled, .ios26-disabled)';
-const nativeUIDisabledSelector = '.native-ui-disabled, [data-native-ui-state="disabled"]';
+const nativeUIDisabledSelector = '.native-ui-disabled, [data-native-ui="disabled"]';
 
 export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
   element.matches('ion-button') && element.parentElement?.matches(disabledButtonGroup) === true;

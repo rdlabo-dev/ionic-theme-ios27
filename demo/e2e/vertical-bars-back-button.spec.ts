@@ -135,7 +135,7 @@ test('turning verticalBars on during a transition honors its success or cancella
   await expect(projection).toHaveCount(0);
 });
 
-for (const optOut of ['class', 'data-native-ui-state']) {
+for (const optOut of ['class', 'data-native-ui']) {
   test(`verticalBars back projection respects ${optOut} opt-out regardless of Ionic mode`, async ({ page }) => {
     await page.goto('/main/index/button');
     const app = page.locator('ion-app');
@@ -145,7 +145,7 @@ for (const optOut of ['class', 'data-native-ui-state']) {
 
     await source.evaluate((element, optOut) => {
       if (optOut === 'class') element.classList.add('native-ui-disabled');
-      else element.setAttribute('data-native-ui-state', 'disabled');
+      else element.setAttribute('data-native-ui', 'disabled');
     }, optOut);
     await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
     await expect(projection).toHaveCount(0);
@@ -153,7 +153,7 @@ for (const optOut of ['class', 'data-native-ui-state']) {
 
     await source.evaluate((element) => {
       element.classList.remove('native-ui-disabled');
-      element.removeAttribute('data-native-ui-state');
+      element.removeAttribute('data-native-ui');
       (element as HTMLIonBackButtonElement).mode = 'md';
     });
     await toolbar.evaluate((element) => element.classList.remove('ios'));
@@ -248,10 +248,10 @@ test('Web search follows vertical tabs before native projection and restores its
   await source.evaluate((button: HTMLIonFabButtonElement) => {
     button.disabled = false;
   });
-  await footer.evaluate((element) => element.setAttribute('data-native-ui-state', 'disabled'));
+  await footer.evaluate((element) => element.setAttribute('data-native-ui', 'disabled'));
   await expect(projection).toHaveCount(0);
   await expect(source).toBeVisible();
-  await footer.evaluate((element) => element.removeAttribute('data-native-ui-state'));
+  await footer.evaluate((element) => element.removeAttribute('data-native-ui'));
   await expect(projection).toBeVisible();
   for (const left of [false, true]) {
     await app.evaluate((element, value) => element.classList.toggle('ios-theme-vertical-bars-left', value), left);
@@ -264,9 +264,9 @@ test('Web search follows vertical tabs before native projection and restores its
       .toBeLessThan(1);
     const button = (await projection.boundingBox())!;
     expect(button.y + button.height).toBeLessThan((await tabs.boundingBox())!.y);
-    await tabs.evaluate((element) => element.setAttribute('data-native-ui-state', 'disabled'));
+    await tabs.evaluate((element) => element.setAttribute('data-native-ui', 'disabled'));
     await expect.poll(async () => (await projection.boundingBox())!.y).toBe(button.y);
-    await tabs.evaluate((element) => element.removeAttribute('data-native-ui-state'));
+    await tabs.evaluate((element) => element.removeAttribute('data-native-ui'));
     await tabs.evaluate((element) => element.style.setProperty('display', 'none'));
     await expect(projection).toBeVisible();
     await expect

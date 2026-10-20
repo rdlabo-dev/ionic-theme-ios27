@@ -204,7 +204,7 @@ the projected back action to Ionic; it does not replace Ionic routing with a
 native navigation stack. Native layout remains system-managed.
 
 Existing back-button eligibility still applies, including the supported default
-icon/color and page-position rules. Ancestor `data-native-ui-state="disabled"`,
+icon/color and page-position rules. Ancestor `data-native-ui="disabled"`,
 `.ios-theme-horizontal-only` on `ion-buttons`, and other structural exclusions
 remain opt-outs; those are distinct from the grouping setting.
 
@@ -261,7 +261,7 @@ The first matching setting wins:
 
 On the same element, a valid `data-projection` value takes precedence over the classes. Empty or unknown values are ignored. Without a valid attribute, `system` wins if both classes are present. Removing an attribute falls back to the element's classes, then the next level above. Attribute and class changes apply without restarting the runtime; grouping and placement stay unchanged.
 
-Only native vertical `ion-button` and `ion-menu-button` actions interpret these settings. Other ancestors, back buttons, tabs and FABs do not. They do not change Web styling. To keep a control or subtree on the Web entirely, use [`data-native-ui-state="disabled"`](native-ui.md#supported-markup).
+Only native vertical `ion-button` and `ion-menu-button` actions interpret these settings. Other ancestors, back buttons, tabs and FABs do not. They do not change Web styling. To keep a control or subtree on the Web entirely, use [`data-native-ui="disabled"`](native-ui.md#supported-markup).
 
 ### Source fill rules
 

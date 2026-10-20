@@ -128,12 +128,12 @@ The table below describes the ordinary Native UI. Vertical Bars uses the separat
 
 For the ordinary Native UI, only supported iOS-mode components are eligible. Theme variables are not required; calling `enableNativeUI()` opts into native projection. Explicitly enabled Vertical Bars is mode-independent as described below. `ios-theme-disabled` and the legacy `ios26-disabled` on an element or ancestor always exclude it. A disabled theme on one tab/segment item keeps its whole group on the Web.
 
-Use `data-native-ui-state="disabled"` (or the equivalent `native-ui-disabled` class) to disable only the iOS Native UI while keeping the Web theme. It excludes the element and all its descendants. Adding or removing the attribute or class at runtime automatically restores Web rendering or re-evaluates native eligibility.
+Use `data-native-ui="disabled"` (or the equivalent `native-ui-disabled` class) to disable only the iOS Native UI while keeping the Web theme. It excludes the element and all its descendants. Adding or removing the attribute or class at runtime automatically restores Web rendering or re-evaluates native eligibility.
 
-Only the exact value `disabled` opts out; an empty or unknown value is ignored. Remove the attribute to re-enable projection. If the class is also present, remove both to re-enable projection. This does not disable clicks or change the Web theme. For the previous opt-out attribute, see [migration](migration.md#native-ui-naming-changes).
+Only the exact value `disabled` opts out; an empty or unknown value does not opt out. Remove the attribute to restore automatic Ionic projection. For explicitly declared HTML controls, restore the original `data-native-ui="button"` or `data-native-ui="back-button"` value instead. Alternatively, set `data-native-ui="disabled"` on a parent to disable a subtree while preserving its children's declarations. If the `native-ui-disabled` class is also present, remove it as well. This does not disable clicks or change the Web theme. The runtime-owned `data-native-ui-projected` marker is separate; applications should not set it. For the previous opt-out attribute, see [migration](migration.md#native-ui-naming-changes).
 
 ```html
-<ion-toolbar data-native-ui-state="disabled">
+<ion-toolbar data-native-ui="disabled">
   <ion-button>Web glass button</ion-button>
 </ion-toolbar>
 ```
