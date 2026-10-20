@@ -61,9 +61,25 @@ const effect = supportSeachbarCancelButtonIcon(searchbar);
 // effect.destroy();
 ```
 
-Register after the Ionic element has initialized (for example, Angular's `ngAfterViewInit`). The helper preserves Ionic's button and event handlers, and `destroy()` restores its text content. It does not apply to MD mode, `searchbar-classic`, `ios-theme-disabled`, or `ios26-disabled` searchbars. The CSS animation follows `animated` and respects `prefers-reduced-motion`. Standard searchbar CSS variables such as `--background`, `--box-shadow`, `--border-radius`, and `--cancel-button-color` remain available.
+### Registration and exclusions
 
-The clear button shares the 44px glass design and appears beside the input. It uses Ionic's `clearIcon`, `showClearButton`, and `--clear-button-color`; clearing retains input focus, while cancel ends the search. Clear and cancel can be displayed together. Set `clearIcon` and `cancelButtonIcon` to the same icon to give them the same appearance.
+Register after the Ionic element has initialized (for example, Angular's `ngAfterViewInit`).
+
+| Condition                                                              | Behavior                                                                                        |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Supported iOS-mode searchbar                                           | Preserves Ionic's button and event handlers; `destroy()` restores text content.                 |
+| MD mode, `searchbar-classic`, `ios-theme-disabled` or `ios26-disabled` | Helper does not apply.                                                                          |
+| `animated` / `prefers-reduced-motion`                                  | Respected by the CSS animation.                                                                 |
+| CSS customization                                                      | `--background`, `--box-shadow`, `--border-radius` and `--cancel-button-color` remain available. |
+
+### Clear and cancel buttons
+
+| Button | Ionic appearance settings                              | Action                              |
+| ------ | ------------------------------------------------------ | ----------------------------------- |
+| Clear  | `clearIcon`, `showClearButton`, `--clear-button-color` | Clears while retaining input focus. |
+| Cancel | `cancelButtonIcon`, `--cancel-button-color`            | Ends the search.                    |
+
+Both can appear together beside the input. Set `clearIcon` and `cancelButtonIcon` to the same icon for matching appearance.
 
 Both external glass buttons use a 44px resting size and expand while pressed. Reduced motion disables scaling. The clear button appears outside the text field; Ionic supplies the icons.
 

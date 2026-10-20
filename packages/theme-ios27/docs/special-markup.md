@@ -28,15 +28,38 @@ buttons: [
 ];
 ```
 
-Buttons with no role or `default` keep the normal text color. `cancel` retains Ionic's cancellation behavior, `selected` remains a selection state, and `destructive` uses `--ios-theme-destructive-color`. An existing `confirm` role is not treated as preferred. Use `preferred` for the recommended action, not simply any action that confirms a choice.
+Choose the role by action semantics:
+
+| Role                 | Appearance and behavior                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `preferred`          | Filled primary action; dismissal reports `preferred`. Does not automatically select or invoke it. |
+| No role or `default` | Normal text color.                                                                                |
+| `cancel`             | Retains Ionic's cancellation behavior.                                                            |
+| `selected`           | Retains selection state.                                                                          |
+| `destructive`        | Uses `--ios-theme-destructive-color`.                                                             |
+| `confirm`            | Not treated as preferred. Use `preferred` for a recommended action, not simply any confirmation.  |
 
 ## Floating iPad sheets
 
-Set `expandToScroll: false` on a sheet modal to use floating lower corners and a 20px bottom gap on iPad. Ionic then sizes the visible page at each breakpoint, so the theme can style it with CSS alone. Content scrolls within the current breakpoint; dragging the handle still resizes the sheet. With the default `expandToScroll: true`, the sheet keeps Ionic's bottom-attached layout and scroll-to-expand behavior.
+Choose the sheet's scrolling behavior with `expandToScroll`:
+
+| Setting          | iPad appearance                               | Scrolling and resizing                                                                                                                                     |
+| ---------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `false`          | Floating lower corners and a 20px bottom gap. | Content scrolls within the current breakpoint; dragging the handle resizes the sheet. Ionic sizes the visible page at each breakpoint so CSS can style it. |
+| `true` (default) | Ionic's bottom-attached layout.               | Scroll-to-expand behavior.                                                                                                                                 |
 
 ## Tab bar position
 
-Add one of `tab-bar-position-start`, `tab-bar-position-center`, or `tab-bar-position-end` to an iOS `ion-tab-bar` to position the whole bar within its safe area. These classes work with both `slot="top"` and `slot="bottom"` and preserve the bar's width and press animation. Start and end follow the text direction (reversed in RTL). Without a class, the existing placement is unchanged.
+Choose a class on an iOS `ion-tab-bar` to position the whole bar within its safe area:
+
+| Class                     | Placement                       |
+| ------------------------- | ------------------------------- |
+| `tab-bar-position-start`  | Start of the reading direction. |
+| `tab-bar-position-center` | Center.                         |
+| `tab-bar-position-end`    | End of the reading direction.   |
+| None                      | Existing placement unchanged.   |
+
+All three classes support `slot="top"` and `slot="bottom"`, preserve width and press animation, and resolve start/end in RTL.
 
 ```html
 <ion-tab-bar slot="bottom" class="tab-bar-position-center">
@@ -115,7 +138,15 @@ For colored segments, use Ionic's `color` property (for example, `color="primary
 
 Add `.segment-expand` when segment buttons should divide the available width evenly. The class also changes the Liquid Glass effect sizing when `registerSegmentEffect` is used.
 
-Segments use a 32px minimum height in content and a 48px minimum height inside `ion-toolbar`. `.segment-expand` keeps the compact 32px layout in a toolbar. Compact segments retain Ionic's flat background and indicator colors; only the regular toolbar variant has a glass container and scales its outer container while pressed. Content and expanded segments keep their outer bounds. The optional moving glass lens is independent of the container's background.
+### Segment size and press behavior
+
+| Placement                                 | Minimum height | Container behavior                                               |
+| ----------------------------------------- | -------------- | ---------------------------------------------------------------- |
+| In content                                | 32px           | Compact, flat background and indicator; outer bounds stay fixed. |
+| Inside `ion-toolbar`                      | 48px           | Glass container; outer container scales while pressed.           |
+| `.segment-expand`, including in a toolbar | 32px           | Compact, flat background and indicator; outer bounds stay fixed. |
+
+The optional moving glass lens is independent of the container's background.
 
 ```html preview
 <ion-segment class="segment-expand" value="new">

@@ -37,7 +37,19 @@ import { configureNativeTransition } from '@rdlabo/capacitor-native-ui';
 await configureNativeTransition();
 ```
 
-If using the theme’s `iosTransitionAnimation`, keep that setting; it already coordinates native transitions. For Ionic default or custom animations, configure the [transition adapter](migration.md#native-ui-transition-adapter). No per-page registration, component list, native callback, or Swift view controller is required. Run `npx cap sync ios` after installing or updating the package. The package supplies both Swift Package Manager (SPM) and CocoaPods integration. Keep your existing dependency manager when syncing. If you choose to migrate an existing CocoaPods app to SPM, run `npx cap spm-migration-assistant` and link the generated `CapApp-SPM` package to the app target in Xcode. Build with Xcode 26 or later and Capacitor 8; native glass requires iOS 26 or later. Web, Android, SSR and older iOS keep the Web implementation.
+### Navigation and native builds
+
+| Setup                               | Action                                                                                                          |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Theme's `iosTransitionAnimation`    | Keep it; native transitions are already coordinated.                                                            |
+| Ionic default or custom animation   | Configure the [transition adapter](migration.md#native-ui-transition-adapter).                                  |
+| Plugin installed or updated         | Run `npx cap sync ios`, then rebuild the native app.                                                            |
+| SPM or CocoaPods                    | Keep the existing dependency manager; both are supported.                                                       |
+| Optional CocoaPods-to-SPM migration | Run `npx cap spm-migration-assistant`, then link the generated `CapApp-SPM` package to the app target in Xcode. |
+| Ordinary native glass               | Requires Xcode 26+, Capacitor 8 and iOS 26+.                                                                    |
+| Web, Android, SSR or older iOS      | Retain the Web implementation.                                                                                  |
+
+No per-page registration, component list, native callback or Swift view controller is required.
 
 This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry point does not import Capacitor. Native runtime entry points require `@capacitor/core`, including in browser builds. Native sources are still detected and built by Capacitor's sync when `@rdlabo/capacitor-native-ui` is a direct dependency of a Capacitor project, even if the application does not call `enableNativeUI()`.
 
@@ -111,6 +123,8 @@ The table below describes the ordinary Native UI. Vertical Bars uses the separat
 
 For the ordinary Native UI, only supported iOS-mode components are eligible. Theme variables are not required; calling `enableNativeUI()` opts into native projection. Explicitly enabled Vertical Bars is mode-independent as described below. `ios-theme-disabled` and the legacy `ios26-disabled` on an element or ancestor always exclude it. A disabled theme on one tab/segment item keeps its whole group on the Web.
 
+### Opt out of native projection
+
 Use `data-native-ui="disabled"` (or the equivalent `native-ui-disabled` class) to disable only the iOS Native UI while keeping the Web theme. It excludes the element and all its descendants. Adding or removing the attribute or class at runtime automatically restores Web rendering or re-evaluates native eligibility.
 
 Only the exact value `disabled` opts out; an empty or unknown value does not opt out. Remove the attribute to restore automatic Ionic projection. For explicitly declared HTML controls, restore the original `data-native-ui="button"` or `data-native-ui="back-button"` value instead. Alternatively, set `data-native-ui="disabled"` on a parent to disable a subtree while preserving its children's declarations. If the `native-ui-disabled` class is also present, remove it as well. This does not disable clicks or change the Web theme. The runtime-owned `data-native-ui-projected` marker is separate; applications should not set it. For the previous opt-out attribute, see [migration](migration.md#native-ui-naming-changes).
@@ -123,13 +137,58 @@ Only the exact value `disabled` opts out; an empty or unknown value does not opt
 
 In ordinary placement, an explicit `data-native-ui="disabled"` or `.native-ui-disabled` opt-out inside a shared surface keeps that surface and its children on the Web, including button groups, tab bars, segments and FAB lists. This is different from disabling grouping with `buttonGroup`. Opting out of the search FAB or any part of the search footer disables native search integration; the tab bar can still render natively if it remains eligible.
 
-Placement is required even when the appearance is glass. In the ordinary Native UI, buttons, back buttons, menu-button groups and segments need a toolbar directly inside `ion-header` or `ion-footer`, with no `ion-content` ancestor around the control. Buttons directly inside a header/footer, standalone toolbars, and toolbars or headers nested in scrolling content stay on the Web. FABs without `slot="fixed"` also stay on the Web. Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility. When `.ios-theme-vertical-bars` is enabled, a standard `ion-back-button` can instead be projected to the Vertical Control Area from outside a fixed toolbar, including routed content or a persistent app shell. The application chooses where to enable this mode and which Ionic component mode to use; Vertical Bars projection does not require `ios` mode classes. Collapsed headers, opted-out controls and departed pages are excluded. Full-width foreground modals can participate in Vertical Bars as described below; other overlay surfaces keep their own layout.
+### Placement requirements
 
-Native tabs accept equal-width items with Ionic's default `layout="icon-top"`. The native bar uses a local compact horizontal and regular vertical size class to preserve the Web's stacked icon/label arrangement on iPad and in landscape. This does not change the app's size class. Label size and weight follow the Web snapshot. Other explicit Ionic layouts (`icon-start`, `icon-end`, `icon-bottom`, `icon-hide`, `label-hide`) and unequal item widths keep the entire tab bar on the Web. Start, center and end placement follow the original `ion-tab-bar`, including RTL. Directional `ion-icon` artwork preserves its rendered RTL flip.
+Glass appearance alone is not enough. Ordinary projection requires fixed controls:
 
-Outside Vertical Bars, clear buttons can project individually inside `ion-buttons`; standalone clear, solid and outline buttons remain on the Web. With grouping enabled, two or more eligible clear buttons share one native surface while retaining separate actions. Menu buttons can also join that group; a single menu button uses its parent group as the surface. If grouping is disabled or the group contains mixed fills or unsupported children, eligible actions can still project individually. Back buttons never join the group.
+| Control or location                                                                                    | Eligibility                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Buttons, back buttons, menu-button groups and segments                                                 | Toolbar directly inside `ion-header` or `ion-footer`, with no `ion-content` ancestor around the control.                            |
+| Buttons directly inside a header/footer, standalone toolbars, or toolbars/headers in scrolling content | Stay on the Web.                                                                                                                    |
+| FAB                                                                                                    | Must use the `ion-content` fixed slot.                                                                                              |
+| Back button with `.ios-theme-vertical-bars` enabled                                                    | Can project outside a fixed toolbar, including routed content or a persistent app shell. Vertical Bars does not require `ios` mode. |
+| Collapsed headers, opted-out controls and departed pages                                               | Excluded.                                                                                                                           |
+| Full-width foreground modal                                                                            | Can participate in Vertical Bars; other overlay surfaces keep their own layout.                                                     |
 
-Custom button colors, custom back icons/colors, collapsing headers, toolbars inside scrolling content, modal content, scrollable/expanded segments and segment-view integration remain on the Web. Complex slots and unsupported SVG features also fall back to Web. The plugin does not translate arbitrary application CSS into UIKit styles.
+Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility. The application chooses where to enable Vertical Bars and which Ionic component mode to use.
+
+### Tab layout
+
+| Source layout                                                        | Result                                                          |
+| -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Equal-width items with the default `layout="icon-top"`               | Native stacked icon/label layout, including iPad and landscape. |
+| `icon-start`, `icon-end`, `icon-bottom`, `icon-hide` or `label-hide` | Entire tab bar stays on the Web.                                |
+| Unequal item widths                                                  | Entire tab bar stays on the Web.                                |
+| Start, center or end placement                                       | Follows the source bar, including RTL.                          |
+| Directional `ion-icon` artwork                                       | Preserves its rendered RTL flip.                                |
+
+The native bar uses local compact horizontal and regular vertical size classes without changing the app's size class. Label size and weight follow the Web snapshot.
+
+### Ordinary button grouping
+
+These rules apply outside Vertical Bars:
+
+| Source or setting                                            | Result                                                                                                            |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Clear button inside `ion-buttons`                            | Can project individually.                                                                                         |
+| Standalone clear, solid or outline button                    | Stays on the Web.                                                                                                 |
+| Grouping enabled with two or more eligible clear buttons     | One native surface with separate actions. Menu buttons can join.                                                  |
+| Single menu button                                           | Uses its parent group as the surface.                                                                             |
+| Grouping disabled, mixed fills or unsupported group children | Eligible actions can still project individually. Explicit subtree opt-outs follow the shared-surface rules above. |
+| Back button                                                  | Never joins an ordinary action group.                                                                             |
+
+### Unsupported content
+
+The following remain on the Web; the plugin does not translate arbitrary application CSS into UIKit styles:
+
+| Area       | Unsupported configuration                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Buttons    | Custom button colors or custom back icons/colors.                                                                                     |
+| Containers | Collapsing headers, toolbars inside scrolling content, and ordinary modal content. See the separate Vertical Bars modal policy below. |
+| Segments   | Scrollable/expanded segments and segment-view integration.                                                                            |
+| Content    | Complex slots and unsupported SVG features.                                                                                           |
+
+### Backgrounds and fallback handoffs
 
 Native glass samples the Web content actually drawn behind it. Existing toolbar backgrounds and header blur still affect that content. For content to scroll beneath a header, use Ionic's normal translucent-header/fullscreen-content layout; the plugin does not move page content or override an application-owned opaque toolbar background.
 
@@ -139,13 +198,52 @@ When an existing control becomes unsupported, its Web source is painted before i
 
 ## State and events
 
+### Menu actions
+
 Menu buttons use Ionic's resolved default/configured icon or a supported slot icon/label. Native activation clicks the original `ion-menu-button`, preserving `menu` targeting. Non-default menu button types (`submit` / `reset`) remain on the Web. `disabled`, `autoHide`, menu availability and split-pane visibility follow the actual DOM. Opening a menu restores Web controls and retires their native covers; closing it reprojects eligible controls.
 
-The DOM owns labels, SVG content, placement, selected values and application behavior. The placement reference is `ion-tab-bar` itself. The native tab content uses that rectangle as its sizing proposal and placement anchor, accounting for UITabBar's larger outer frame: `tab-bar-position-start`, `tab-bar-position-center`, and `tab-bar-position-end` control the horizontal anchor (including RTL), while `slot="bottom"` retains the bottom edge and `slot="top"` retains the top edge. Class changes are reconciled automatically. UIKit owns internal margins and platter sizing, while the supported stacked layout and label typography follow the Web. UIKit can cap the content width even with fill positioning. On viewports at least 768px wide, the Web theme caps standard two-, three-, four- and five-item bars near the iPad stacked platter measurements (188, 274, 336 and 414pt). Smaller viewports retain the phone sizing. The standard bar is 62pt high, with a 54pt selection and a 4pt inset. Adjacent buttons overlap like UIKit’s controls; icon and label alignment is checked against simulator screenshots. These are default appearance targets, not a guarantee for custom fonts, icons or labels; UIKit still determines its intrinsic width. A different native width or height does not reject projection. Badge and title updates retain native item identities and remeasure the platter at the same placement anchor. The plugin does not stretch icons or modify UIKit's internal controls to force CSS item widths. The plugin measures the view subtree containing the native tab controls without private class names or fixed inset corrections; an unrecognized layout restores Web rendering. The runtime watches structural changes, affected shadow roots, sizing, page lifecycle events and overlays. Ancestor `display: none`, `hidden`, theme classes, component removal and disabled changes are reconciled automatically. Native touch events are checked against the current DOM and revision before clicking the original Ionic element.
+### Tab geometry and state updates
+
+The DOM owns labels, SVG content, placement, selected values and application behavior. `ion-tab-bar` itself is the placement reference; UIKit owns internal margins and platter sizing.
+
+| Source or viewport                                                          | Native behavior                                                                  |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Source bar rectangle                                                        | Sizing proposal and placement anchor, accounting for UIKit's larger outer frame. |
+| `tab-bar-position-start`, `tab-bar-position-center`, `tab-bar-position-end` | Horizontal anchor, including RTL; class changes reconcile automatically.         |
+| `slot="bottom"` / `slot="top"`                                              | Retains the corresponding bottom/top edge.                                       |
+| Supported stacked layout and label typography                               | Follow the Web snapshot. UIKit can cap content width even with fill positioning. |
+| Badge or title updates                                                      | Retain native item identities and remeasure at the same anchor.                  |
+| Different native width or height                                            | Does not reject projection; icons are not stretched to force CSS item widths.    |
+| Unrecognized native layout                                                  | Restores Web rendering.                                                          |
+
+The Web theme's standard appearance targets are:
+
+| Measurement                                      | Target                                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Viewport at least 768px wide, 2 / 3 / 4 / 5 tabs | Platter widths near 188 / 274 / 336 / 414pt respectively. Smaller viewports retain phone sizing. |
+| Bar height                                       | 62pt                                                                                             |
+| Selection height / inset                         | 54pt / 4pt                                                                                       |
+| Adjacent buttons                                 | Overlap like UIKit controls.                                                                     |
+
+These targets do not guarantee identical custom fonts, icons or labels; UIKit determines intrinsic width. Icon and label alignment is checked against simulator screenshots. The plugin measures the native tab subtree without private class names or fixed inset corrections.
+
+The runtime rechecks:
+
+- Structural changes, affected shadow roots and sizing.
+- Page lifecycle events and overlays.
+- Ancestor `display: none`, `hidden`, theme classes, component removal and disabled changes.
+
+Native touch events are checked against the current DOM and revision before clicking the original Ionic element.
+
+### Forms and segment values
 
 For forms, retain `ion-button type="submit"` and the form's existing submit handler. An external form is still passed as `[form]="formRef"`. The plugin does not call `form.submit()`, add a second submit path or change Angular form ownership. Segment values retain their original type because the original `ion-segment-button` is clicked; programmatic value changes do not emit a synthetic `ionChange`.
 
+### Text and artwork
+
 Labels use native text. Local static SVGs and resolved `ion-icon` SVGs (including `name` and changes to `name`) are rasterized at the display scale and cached. Source projection preserves their colors; system projection of vertical toolbar buttons uses template icons tinted by SwiftUI. Tab SVGs that follow text color use native template rendering, so icons and labels change selection color together without waiting for another bridge image. Multicolor tab artwork retains its original colors. External references, `<use>`, animation, embedded HTML/images, SVG text and stylesheets are excluded. Web fonts and arbitrary slot layouts are not reproduced exactly.
+
+### Touch, badges and accessibility
 
 The native host accepts input only within native controls. Tab interaction and accessibility are provided by the standard [UITabBar](https://developer.apple.com/documentation/uikit/uitabbar) control. Empty areas pass touches to the WebView. Ionic iOS hides empty badges by default. An empty visible `ion-badge` becomes a native notification dot; a non-empty badge displays its text. Badge background and text colors come from computed DOM styles, including Ionic `color` palettes. Hidden or removed badges clear the native badge. Tabs use UIKit’s standard tab control for selection, touch behavior, badges and accessibility, retaining item identity across selection updates. UIKit owns the item layout within the measured bar, so arbitrary CSS item placement is not reproduced. Native controls expose names, disabled/selected traits and badges to accessibility; the source is hidden from Web accessibility while projected. This is not a guarantee of identical VoiceOver traversal between Web and UIKit.
 
@@ -163,7 +261,16 @@ Opening search preserves the selected Ionic tab and does not automatically show 
 
 Native edits pass through Ionic's input handlers, preserving `ionInput` debounce, `ionChange`, `ionFocus`, `ionBlur`, and `ionClear`. Programmatic `value` changes do not emit `ionInput`; synchronous application corrections and stale native input are distinguished. Native editing owns marked text and the caret. Returning through the footer's close action retains the value and does not emit `ionCancel` or `ionClear`.
 
-The first supported search configuration uses iOS-mode glass searchbars with the standard search keyboard, default clear control, no internal cancel button, and default autocorrection/capitalization settings. Custom input modes, return-key hints, min/max length, autocomplete, autocorrection, spellcheck, clear icons and classic searchbars remain on the Web. `disabled`, `placeholder`, `value` and `setFocus()` are synchronized for supported groups. General standalone searchbars are outside this feature.
+### Supported search configuration
+
+| Area                       | Native support                                                      | Remains on the Web                                                                                         |
+| -------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Search group               | Registered searchable tabs with an iOS-mode glass searchbar.        | General standalone searchbars and classic searchbars.                                                      |
+| Keyboard and text settings | Standard search keyboard and default autocorrection/capitalization. | Custom input modes, return-key hints, min/max length, autocomplete, autocorrection or spellcheck settings. |
+| Clear/cancel controls      | Default clear control, no internal cancel button.                   | Custom clear icons or an internal cancel button.                                                           |
+| State and focus            | Synchronizes `disabled`, `placeholder`, `value` and `setFocus()`.   | Unsupported group configurations use Web rendering.                                                        |
+
+### Search lifetime and recovery
 
 Page retirement, overlays, theme exclusion and lost native ownership close the native presentation and preserve the latest synchronized/application value. A later search starts from that closed state. The registration survives cached page transitions; reattaching on every return is not required. Bridge waits are finite. When an opening request loses the bridge, its pending Enter can complete through the existing Web animation. A disconnected bridge cannot recover native characters that were never delivered to JavaScript.
 
@@ -173,13 +280,26 @@ While enabled, Native UI suppresses the WebView’s top scroll-edge effect becau
 
 The native search controller remains visible over its own keyboard. Other projected controls are hidden while a Web input opens the keyboard. UIKit's own accessibility and Reduce Motion behavior apply to the standard controls; full VoiceOver traversal is not a verified parity guarantee.
 
-## Transitions and recovery
+## FAB behavior
 
 FABs retain Ionic's `activated`, per-child `show`, `close()` and original click handlers. Multiple lists, initial expansion, small buttons and `edge` use each button's measured layout. The native side reflects Ionic's staggered visibility without adding another timer or open/close controller. Main-button icon changes crossfade using the resolved `closeIcon`; Reduce Motion disables this crossfade. Native FAB button instances persist across open/close updates. The source FAB stays projected throughout ordinary opening and closing.
 
-FAB support covers the standard circular glass appearance, text and resolved static SVG/`ion-icon` content, including RTL icon mirroring. One unsupported child keeps the whole FAB in Web rendering, including when its list is closed. Colored solid buttons, submit/reset or href FABs, custom host backgrounds/shapes/motion, non-fixed-slot placement and unsupported artwork remain Web. For example, the demo's red-background `floating-action-button-fixed` page retains its existing Web appearance. A fixed-slot FAB must be a direct child of `ion-content`; a `slot="fixed"` attribute on a page sibling is not a content slot.
+### FAB eligibility
+
+One unsupported child keeps the whole FAB on the Web, even when its list is closed.
+
+| Area       | Supported                                                         | Remains on the Web                                              |
+| ---------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| Appearance | Standard circular glass.                                          | Colored solid buttons or custom host backgrounds/shapes/motion. |
+| Content    | Text and resolved static SVG/`ion-icon`, including RTL mirroring. | Unsupported artwork.                                            |
+| Actions    | Original click handlers.                                          | Submit/reset or `href` FABs.                                    |
+| Placement  | `slot="fixed"` on a direct child of `ion-content`.                | Non-fixed placement or `slot="fixed"` on a page sibling.        |
+
+For example, the demo's red-background `floating-action-button-fixed` page retains its Web appearance.
 
 Custom host animation or transition declarations on the FAB, list or button keep the group on the Web until removed. Button transforms support the standard identity and hidden-child scale(0), not custom scaling. For children inside a `display:none` list, browsers can report a computed transform of `none` even when a custom transform is declared. Such transforms are checked when layout becomes available; the whole FAB then returns to Web if needed. The plugin does not parse application stylesheets or temporarily open lists to predict hidden layout.
+
+## Transitions and recovery
 
 The built-in `iosTransitionAnimation` waits for native retirement before starting the Web animation. Interactive progress and completion/cancellation are queued while that retirement is in progress. Stationary shared tabs are retained. First render and transitions without an animation builder are covered by the startup runtime and Ionic lifecycle events. Default Ionic and custom navigation builders can use the same integration through `withNativeUITransition()`, exported by `@rdlabo/ionic-theme-ios27`. See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup.
 
@@ -248,7 +368,21 @@ Only one popover is relayed at a time. A nested popover or modal created in the 
 
 Native presentation owns the arrow, corners and animation; custom Web enter/leave animations do not replace them. The source enter builder runs once with zero duration and delay (including child animations), using the native anchor rectangle for the default `reference="trigger"` layout and visible state for Web fallback. Explicit `reference="event"` retains Ionic’s event-coordinate semantics. An explicit `enterAnimation` is honored; otherwise this package’s iOS popover builder is used. Set `enterAnimation` on the overlay to use a custom builder rather than relying on global `popoverEnter` configuration. Material Design (`md`) popovers keep Ionic’s Web presentation. Initial content dimensions come from Ionic.
 
-The relay copies document and popover shadow styles and preserves the content border spacing. Before native presentation it compares selected computed layout and appearance properties at the source dimensions. Detected differences, unsupported ancestor visual effects or size containers, and content exceeding 1,000 elements restore the live Web popover. Changes to mirrored ancestor attributes or source head styles also restore Web rendering. This is a conservative compatibility check, not a guarantee for arbitrary CSS (including pseudo-elements and dynamic CSSOM changes), document-bound queries, or full VoiceOver/hardware-keyboard parity. Failure to prepare or find the native anchor restores the Web popover. A popover opened from a Vertical Bars button also returns the rail to Web projection for the remainder of that presentation; dismissal restores native projection.
+#### Popover fallback conditions
+
+The relay copies document and popover shadow styles and preserves content border spacing. Before presentation, it compares selected computed layout and appearance properties at the source dimensions.
+
+| Condition                                                 | Result                         |
+| --------------------------------------------------------- | ------------------------------ |
+| Detected style/layout differences                         | Restores the live Web popover. |
+| Unsupported ancestor visual effects or size containers    | Restores the live Web popover. |
+| Content exceeds 1,000 elements                            | Restores the live Web popover. |
+| Mirrored ancestor attributes or source head styles change | Restores Web rendering.        |
+| Preparation fails or the native anchor is unavailable     | Restores the Web popover.      |
+
+A rail-button popover falling back to Web also returns the rail to Web projection until dismissal. This compatibility check does not guarantee arbitrary CSS (including pseudo-elements and dynamic CSSOM changes), document-bound queries, or full VoiceOver/hardware-keyboard parity.
+
+### Custom overlay suspension
 
 For a custom modal or overlay that Native UI cannot detect, acquire a suspension before presenting it. The resolved suspension means projected controls have returned to Web rendering. Always release it after dismissal:
 

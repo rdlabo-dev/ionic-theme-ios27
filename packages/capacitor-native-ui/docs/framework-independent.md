@@ -40,7 +40,15 @@ The `/core` entry requires `@capacitor/core` but no Ionic dependencies. If this 
 
 Apply `button` and `back-button` to `<button>`, explicitly marked `ion-button`, or elements exposing `role="button"` and click behavior. Unmarked HTML is never inferred to be a control. `data-native-ui-placement` chooses placement for a declared source; it does not opt an unmarked HTML element into projection.
 
-Keep the accessible name, supported static SVG, disabled state and application handlers on the source. Names resolve from `aria-labelledby`, `aria-label`, then text. Native `disabled`, a disabled fieldset and `aria-disabled="true"` are respected. Hidden, removed, excluded or out-of-scope sources are retired and stale actions are rejected.
+Keep the control's data and behavior on its source:
+
+| Source property      | Projection behavior                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| Accessible name      | Resolves from `aria-labelledby`, then `aria-label`, then text.                             |
+| Artwork              | Uses supported static SVG.                                                                 |
+| Disabled state       | Respects native `disabled`, a disabled fieldset, and `aria-disabled="true"`.               |
+| Visibility and scope | Hidden, removed, excluded or out-of-scope sources are retired; stale actions are rejected. |
+| Application handlers | Remain on the original element.                                                            |
 
 Native and Web-proxy actions click the original element. An ordinary `<button type="submit">` therefore keeps its original form behavior. Use `type="button"` for actions that must not submit. The native bridge does not preserve browser user-activation privileges for APIs such as popup opening.
 

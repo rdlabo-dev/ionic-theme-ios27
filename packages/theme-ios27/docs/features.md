@@ -11,9 +11,13 @@ Customize the theme with CSS variables and Sass mixins, or adopt it one componen
 To customize the library's default styles to match your design, several CSS variables are provided. See this file for details:
 [Default variables](../src/styles/default-variables.scss)
 
-For menus, `--ios-theme-menu-background-rgb` sets the surface RGB channels (light: `225, 230, 240`; dark: `26, 31, 34`). `--ios-theme-menu-background-opacity` controls opacity and defaults to `0.96`. Both are public customization variables and can be set on `ion-menu`.
+| Variable                              | Default                                    | Purpose                                                           |
+| ------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| `--ios-theme-menu-background-rgb`     | Light: `225, 230, 240`; dark: `26, 31, 34` | Menu surface RGB channels; set on `ion-menu`.                     |
+| `--ios-theme-menu-background-opacity` | `0.96`                                     | Menu surface opacity; set on `ion-menu`.                          |
+| `--ios-theme-button-press-duration`   | `380ms`                                    | Duration of the button's `:active` scaling with slight overshoot. |
 
-Button press scaling follows `:active` with a slight overshoot. Set `--ios-theme-button-press-duration` (default: `380ms`) to customize its duration instead of the shared activated-transition duration variables.
+Use `--ios-theme-button-press-duration` instead of the shared activated-transition duration variables to customize button press scaling.
 
 ## Liquid Glass mixin
 

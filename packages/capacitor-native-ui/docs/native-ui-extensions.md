@@ -66,7 +66,15 @@ source.querySelector('button')!.addEventListener('click', () => {
 
 The shell observes DOM changes and sends the new props to the native content. State rendered into DOM attributes or text is observed automatically. For properties or external state read by the reader that do not mutate the DOM, call `shell.markForCheck()` after changing them.
 
-The reader is synchronous and read-only. Return `null` when the source should stay on the Web. Props are a JSON object (finite numbers, strings, booleans, null, arrays and objects), limited to 64K characters. Action names map to the source itself or its descendants; missing, hidden and disabled targets cannot be activated. Up to 30 actions are supported per source.
+### Reader contract
+
+| Part           | Requirement                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------------- |
+| Execution      | Synchronous and read-only.                                                                                     |
+| Web fallback   | Return `null` when the source should stay on the Web.                                                          |
+| `props`        | JSON object containing finite numbers, strings, booleans, null, arrays and objects; limited to 64K characters. |
+| Action targets | The source itself or its descendants. Missing, hidden and disabled targets cannot be activated.                |
+| Action count   | Up to 30 per source.                                                                                           |
 
 ## 2a. Register a SwiftUI View on iOS
 
@@ -227,9 +235,18 @@ For source-specific fallback reasons, temporarily enable [`debug: true`](configu
 | Omitted or `'element'` | Hosts native content in the source element's Web frame on iOS 26+ or Android API 24+. |
 | `'tab-accessory'`      | Attaches the View to a projected tab bar's system SwiftUI tab accessory on iOS 26.1+. |
 
-For `tab-accessory`, place the source inside its owning `ion-tabs`. The shell resolves that tabs element's `ion-tab-bar`; applications do not pass native controller references. Currently only the **Vertical Bars SwiftUI tab host** supports this placement. Ordinary UIKit tab bars, missing native tabs, iOS 26.0, or multiple competing accessories keep the source on the Web. The shell does not approximate a system accessory with a floating overlay. Keep an equivalent Web layout (for example, a fixed footer); the source retains its layout space while hidden.
-
 Extensions are independent of `controls` and `ionic.auto`, including with `enableVerticalControlArea()`. The application controls their presentation: return `null` from the reader when a source should stay on the Web, then call `markForCheck()` when that condition changes. Accessories still require their supported native tab host.
+
+### Tab accessory requirements
+
+| Requirement         | Supported configuration                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| Source location     | Inside its owning `ion-tabs`; the shell resolves that element's `ion-tab-bar`.                    |
+| Native host         | Vertical Bars SwiftUI tab host on iOS 26.1+.                                                      |
+| Accessory count     | A single accessory for the host.                                                                  |
+| Web fallback layout | Keep an equivalent Web layout, such as a fixed footer; the source retains its space while hidden. |
+
+Ordinary UIKit tab bars, missing native tabs, iOS 26.0 or competing accessories keep the source on the Web. Applications do not pass native controller references, and the shell does not approximate a system accessory with a floating overlay.
 
 ## Read source geometry and presentation state
 
@@ -359,7 +376,16 @@ The shell owns discovery, geometry, state synchronization, native controller con
 
 Element placement requires the source to fit fully inside the viewport and its ancestors' overflow clipping bounds, including Ionic's shadow scroll containers. Partially clipped sources stay on the Web and become eligible again when scrolled fully into view. Tab accessories use the system host's placement instead.
 
-`try await actions.activate(name)` completes after the original Web element receives its click. It does **not** wait for application work launched by the click handler (network requests, navigation or modal presentation). Disabled, removed or stale actions reject; teardown, native task cancellation and bridge timeouts settle pending calls. The bridge acknowledgement is a Capacitor Promise method.
+### Action completion
+
+| Event                                                              | Result of `try await actions.activate(name)` |
+| ------------------------------------------------------------------ | -------------------------------------------- |
+| Original Web element receives its click                            | Completes.                                   |
+| Handler starts a network request, navigation or modal presentation | Does not wait for that application work.     |
+| Action is disabled, removed or stale                               | Rejects.                                     |
+| Teardown, native task cancellation or bridge timeout               | Settles pending calls.                       |
+
+The bridge acknowledgement is a Capacitor Promise method.
 
 The [demo reader](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/counter.ts) and [demo SwiftUI View](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/ios/App/App/NativeUICounter.swift) show both placements using app-local files. Open the Native UI demo page to compare native projection with its Web fallback.
 

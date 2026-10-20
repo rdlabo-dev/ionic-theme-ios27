@@ -74,9 +74,31 @@ await listener.remove();
 
 Subscribe to changes, then read the current state. The same helper handles initial values and events.
 
-`applyFoldStateClasses` keeps one of `ios-theme-fold-flat`, `ios-theme-fold-half-opened`, and `ios-theme-fold-closed` on the supplied root, preserving unrelated classes. It also sets `ios-theme-fold-expanded` for a half-opened state or a flat state with hinge geometry. A flat state without geometry (including the Web fallback) and a closed state clear that class. The helper does not subscribe to the plugin or change Ionic's split-pane `when` property.
+### Posture classes
 
-For rail placement, use `setVerticalBarsLayout` as shown below. Import this Web layout helper from the theme and pass the reported logical `edge` with the measured `inset`. It does not report native availability or activate projection. Leading is the physical left in LTR and the physical right in RTL. A null edge restores the ordinary layout; an inset of zero clears the explicit width. No start/stop monitoring calls are needed.
+`applyFoldStateClasses` updates the supplied root while preserving unrelated classes:
+
+| Class                        | Applied when                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `ios-theme-fold-flat`        | Flat posture.                                                                                                            |
+| `ios-theme-fold-half-opened` | Half-opened posture.                                                                                                     |
+| `ios-theme-fold-closed`      | Closed posture.                                                                                                          |
+| `ios-theme-fold-expanded`    | Half-opened, or flat with hinge geometry. Cleared for flat without geometry (including Web fallback) and closed posture. |
+
+Only one of the first three classes is retained. The helper does not subscribe to the plugin or change Ionic's split-pane `when` property.
+
+### Placement values
+
+For rail placement, import `setVerticalBarsLayout` from the theme and pass the reported logical `edge` with the measured `inset`:
+
+| Value              | Web layout effect                                    |
+| ------------------ | ---------------------------------------------------- |
+| `edge: 'leading'`  | Physical left in LTR; physical right in RTL.         |
+| `edge: 'trailing'` | Physical right in LTR; physical left in RTL.         |
+| `edge: null`       | Restores ordinary layout.                            |
+| Measured `inset`   | Reserves that width; zero clears the explicit width. |
+
+The helper does not report native availability or activate projection. No start/stop monitoring calls are needed. See [Project controls into the rail](#project-controls-into-the-rail) for the subscription.
 
 WebView corner radius remains a rendering concern: `configureNativeTransition()` uses the shell's `getWebViewMetrics()` API, independently of `Foldable`.
 

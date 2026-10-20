@@ -8,7 +8,14 @@ Read [how projection works](../README.md#how-projection-works) first if you are 
 
 ## Before you start
 
-Use an existing Ionic `>=8.8.1 <10` application with Capacitor 8 and an iOS project. Build with Xcode 26 or later; ordinary native controls require iOS 26 or later. Vertical Bars have separate [device requirements](vertical-bars.md). Keep your current SPM or CocoaPods integration.
+| Requirement               | Ordinary native controls                                                   |
+| ------------------------- | -------------------------------------------------------------------------- |
+| Ionic                     | `>=8.8.1 <10`                                                              |
+| Native project            | Capacitor 8 with an iOS project                                            |
+| Build tools               | Xcode 26 or later                                                          |
+| Device or simulator       | iOS 26 or later                                                            |
+| Native dependency manager | Keep your existing SPM or CocoaPods integration.                           |
+| Vertical Bars             | See the separate [device requirements](vertical-bars.md#native-rendering). |
 
 If the app does not yet use Capacitor, create and configure its Capacitor iOS project before following the native steps below. Browser previews retain Web controls and do not demonstrate UIKit or SwiftUI rendering.
 

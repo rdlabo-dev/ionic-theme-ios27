@@ -22,11 +22,31 @@ Add `.ios-theme-vertical-bars` to `ion-app` to reserve the rail region on the ph
 
 The classes are physical — `-left` always means the physical left edge — because CSS and the native renderer work in physical coordinates. `setVerticalBarsLayout` applies the logical `verticalBarEdge` reported by the device plugin and resolves it through the document's direction, so an RTL app does not need its own conversion.
 
-For Chrome development, no native plugin is needed — the class alone reserves `80px` to simulate iPhone Duo. When `setVerticalBarsLayout` receives `{ edge, inset }`, the inset replaces the fallback width, even when it is less than `80px`. Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right` when simulating a different layout.
+### Rail width
 
-This keeps routers and component backgrounds full-viewport. `ion-content` moves its scroll foreground, `ion-toolbar` moves its container foreground, and `ion-fab` adjusts only when placed beside the system UI. The corresponding Ionic safe-area variable is reset inside those foreground components so descendants do not add the inset again.
+| Source                                   | Reserved width                                                                                      |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Classes alone, including Chrome previews | `80px`; no native plugin required.                                                                  |
+| `setVerticalBarsLayout({ edge, inset })` | The supplied inset, even below `80px`.                                                              |
+| Custom CSS preview                       | Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right`. |
 
-`ion-modal` applies the same foreground correction when its visible dialog spans the viewport width. With the Vertical Control Area runtime enabled, the topmost full-width modal also projects eligible toolbar buttons into its own rail; centered dialogs keep their toolbar buttons and receive no page-rail inset. This includes full-width sheet modals: their rail follows the visible sheet bounds as the breakpoint changes. Eligibility follows the visible dialog width, not the hinge posture or modal type. `ion-menu` and `ion-popover` are handled as separate surfaces: their internal foreground components do not receive the main-page conversion and retain Ionic's standard safe-area handling. A menu presented beside the system UI keeps Ionic's full-viewport animation host and offsets only its visible container by the corresponding inset; a menu from the opposite side is unchanged. Left and right remain physical coordinates in RTL, while Ionic's `side="start"` and `side="end"` values remain logical.
+### Content and overlay layout
+
+| Surface                                  | Layout with the rail stylesheet                                                                                                                                                              |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Routers and component backgrounds        | Remain full-viewport.                                                                                                                                                                        |
+| `ion-content`                            | Insets its scroll foreground.                                                                                                                                                                |
+| `ion-toolbar`                            | Insets its container foreground.                                                                                                                                                             |
+| `ion-fab`                                | Adjusts only when placed beside the system UI.                                                                                                                                               |
+| Full-width `ion-modal`, including sheets | Applies the foreground inset. With the runtime enabled, the topmost modal projects eligible toolbar controls into its own rail; sheet rails follow visible bounds as the breakpoint changes. |
+| Centered modal                           | Keeps toolbar buttons and receives no page-rail inset.                                                                                                                                       |
+| `ion-menu` / `ion-popover`               | Internal foreground components retain Ionic's standard safe-area handling, without the main-page conversion.                                                                                 |
+| Menu beside the system UI                | Keeps its full-viewport animation host; offsets only the visible container by the inset.                                                                                                     |
+| Menu on the opposite side                | Unchanged.                                                                                                                                                                                   |
+
+The corresponding Ionic safe-area variable is reset inside inset foreground components so descendants do not add the inset again.
+
+Modal eligibility follows the visible dialog width, not hinge posture or modal type. Left and right remain physical coordinates in RTL; Ionic's `side="start"` and `side="end"` remain logical.
 
 The mode is component-mode independent: an app can keep Ionic `mode: 'md'` on iOS and still enable Vertical Bars. No component needs `mode="ios"`.
 
@@ -40,7 +60,7 @@ setVerticalBarsLayout({ edge: 'trailing', inset: 80 });
 setVerticalBarsLayout({ edge: null }); // restore ordinary Web layout
 ```
 
-The helper operates on Web CSS only and work without Capacitor or Native UI startup. The application supplies device state and owns subscriptions. Starting, disabling or destroying Native UI does not change these layout classes or the reserved inset. Unsupported native rails retain the chosen Web rail; choose `edge: null` explicitly if the application wants a horizontal layout instead.
+The helper operates on Web CSS only and works without Capacitor or Native UI startup. The application supplies device state and owns subscriptions. Starting, disabling or destroying Native UI does not change these layout classes or the reserved inset. Unsupported native rails retain the chosen Web rail; choose `edge: null` explicitly if the application wants a horizontal layout instead.
 
 ## Migration
 

@@ -13,7 +13,7 @@ Theme styles and ordinary theme API imports remain supported. If you previously 
 | `@rdlabo/ionic-theme-ios27/native`        | `@rdlabo/capacitor-native-ui`               |
 | `@rdlabo/ionic-theme-ios27/vertical-bars` | `@rdlabo/capacitor-native-ui/vertical-bars` |
 
-Add the native package as a direct application dependency, update imports, rebuild Web assets, and run `npx cap sync ios`. Follow the [Native UI migration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/migration.md) for the intermediate package rename and old Swift package references. Theme-only apps do not need native startup or plugin setup.
+Add the native package as a direct application dependency, update imports, rebuild Web assets, and run `npx cap sync ios`. Follow the [Native UI migration guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/migration.md) for 1.2.1 startup settings and native project changes. Theme-only apps do not need native startup or plugin setup.
 
 ## From the iOS 26 theme
 
@@ -121,9 +121,12 @@ Change the animation import from `@rdlabo/ionic-theme-ios26` to `@rdlabo/ionic-t
 
 For the iOS 27 branch or an iOS 27-only app, use `@rdlabo/ionic-theme-ios27`. Its stylesheets are `ionic-theme-ios27.scss` or `ionic-theme-ios27.css`, including the `-dark-always`, `-dark-system`, and `-dark-class` variants. Keep the iOS 26 stylesheet names in the iOS 26 branch of an adaptive setup.
 
-Use the version-independent `--ios-theme-*` CSS variables. The corresponding `--ios26-*` variables remain supported as deprecated fallbacks. When both are set, the new name takes precedence. For example, use `--ios-theme-content-box-shadow-rgb` instead of `--ios26-content-box-shadow-rgb`.
+| Customization       | Current name                                                      | Legacy behavior                                                                                   |
+| ------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| CSS variables       | `--ios-theme-*`, for example `--ios-theme-content-box-shadow-rgb` | Corresponding `--ios26-*` names remain deprecated fallbacks. Current names win when both are set. |
+| Theme opt-out class | `ios-theme-disabled`                                              | `ios26-disabled` remains a deprecated alias; migrate existing markup when convenient.             |
 
-For opting out of the theme, use the version-independent `ios-theme-disabled` class. The `ios26-disabled` class remains supported as a deprecated alias; migrate existing markup when convenient.
+Use the version-independent names for new customizations.
 
 See [Special markup and classes](special-markup.md) and [Default variables](../src/styles/default-variables.scss) for the current names.
 
