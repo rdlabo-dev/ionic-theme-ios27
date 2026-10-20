@@ -17,13 +17,13 @@ A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Ca
 
 ## What would you like to do?
 
-| Goal                                                  | Guide                                                                |
-| ----------------------------------------------------- | -------------------------------------------------------------------- |
-| Style an existing Ionic app                           | [Get started](docs/setup.md)                                         |
-| Select iOS 26/27 styles and optionally use MD3        | [Adaptive themes](docs/adaptive-themes.md)                           |
-| Add native iOS controls after setting up the theme    | [Add Native UI](docs/add-native-ui.md)                               |
-| Add a side rail to Ionic while keeping your own theme | [Vertical Bars step by step](docs/iphone-duo-with-original-theme.md) |
-| Upgrade an existing installation                      | [Migration](docs/migration.md)                                       |
+| Goal                                                  | Guide                                                                            |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Style an existing Ionic app                           | [Get started](docs/setup.md)                                                     |
+| Select iOS 26/27 styles and optionally use MD3        | [Adaptive themes](docs/adaptive-themes.md)                                       |
+| Add native iOS controls after setting up the theme    | [Add Native UI](docs/add-native-ui.md)                                           |
+| Add a side rail to Ionic while keeping your own theme | [Vertical Bars step by step](../capacitor-native-ui/docs/ionic-vertical-bars.md) |
+| Upgrade an existing installation                      | [Migration](docs/migration.md)                                                   |
 
 ## Get started
 

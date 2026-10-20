@@ -88,5 +88,5 @@ You should see an inset group with rounded edges. Switch the system between ligh
 
 - [Customize styles and components](features.md).
 - [Add Native UI](add-native-ui.md) for supported controls in a Capacitor iOS app. Theme installation alone does not enable native controls.
-- [Add Vertical Bars with an existing theme](iphone-duo-with-original-theme.md).
+- [Add Vertical Bars with an existing theme](../../capacitor-native-ui/docs/ionic-vertical-bars.md).
 - [Migrate an existing app](migration.md).

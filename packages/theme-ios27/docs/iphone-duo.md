@@ -6,7 +6,7 @@ title: iPhone Duo support
 
 Adapt your Ionic app to iPhone Duo: place navigation and actions in its vertical system rail, and adjust your split pane as the device opens and closes. Existing Ionic markup remains the source of labels, icons, routing, and click handlers.
 
-**New here?** Start with [iPhone Duo with your existing theme](iphone-duo-with-original-theme.md) to preview the side layout in Chrome. This page explains device events, placement and split panes. [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md) documents control projection and the runtime API.
+**New here?** Start with [iPhone Duo with your existing theme](../../capacitor-native-ui/docs/ionic-vertical-bars.md) to preview the side layout in Chrome. This page explains device events, placement and split panes. [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md) documents control projection and the runtime API.
 
 iPhone Duo support is stable starting with version 2.0.0. The real system rail and hinge reporting require iOS 27.1 or later and an app built with Xcode 27.1 or newer.
 
@@ -27,7 +27,7 @@ For the native package's integration, including application-owned CSS and plain 
 
 ## Choose what to adopt
 
-To keep your existing theme and add only the standalone support, follow [iPhone Duo with your existing theme](iphone-duo-with-original-theme.md). This page covers the shared device-layout rules.
+To keep your existing theme and add only the standalone support, follow [iPhone Duo with your existing theme](../../capacitor-native-ui/docs/ionic-vertical-bars.md). This page covers the shared device-layout rules.
 
 | Goal                                       | Stylesheet          | Runtime                                        |
 | ------------------------------------------ | ------------------- | ---------------------------------------------- |

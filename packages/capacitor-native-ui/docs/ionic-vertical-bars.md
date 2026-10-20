@@ -6,17 +6,17 @@ title: Add Vertical Bars while keeping your theme
 
 Keep your app's existing appearance and add Vertical Bars. Choose the setup for your app's components, whether you use Angular, React, Vue or another framework.
 
-Read [how projection works](../../capacitor-native-ui/README.md#how-projection-works) for the relationship between source DOM, projected controls and actions. Then choose your setup below.
+Read [how projection works](../README.md#how-projection-works) for the relationship between source DOM, projected controls and actions. Then choose your setup below.
 
 ## Choose your setup
 
-| Your app                                                                       | Start here                                                                                                                                                                          | What you add                                                                                    |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Ionic components with your own theme, Ionic's default styles, or another theme | [Ionic setup below](#try-it-in-your-existing-ionic-app)                                                                                                                             | Standalone rail CSS and the Ionic Native UI adapter. Keep your existing theme.                  |
-| No Ionic components (plain HTML, React, Vue, Angular, etc.)                    | [HTML setup](../../capacitor-native-ui/docs/framework-independent.md), then its [Web rail configuration](../../capacitor-native-ui/docs/framework-independent.md#optional-web-rail) | Only `@rdlabo/capacitor-native-ui`, using its `/core` entry. Your app supplies the rail layout. |
-| Already using the iOS 27 theme and Native UI                                   | [Connect device placement](iphone-duo.md#project-controls-into-the-rail)                                                                                                            | Reuse your existing runtime. Do not start another one.                                          |
+| Your app                                                                       | Start here                                                                                                            | What you add                                                                                    |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Ionic components with your own theme, Ionic's default styles, or another theme | [Ionic setup below](#try-it-in-your-existing-ionic-app)                                                               | Standalone rail CSS and the Ionic Native UI adapter. Keep your existing theme.                  |
+| No Ionic components (plain HTML, React, Vue, Angular, etc.)                    | [HTML setup](framework-independent.md), then its [Web rail configuration](framework-independent.md#optional-web-rail) | Only `@rdlabo/capacitor-native-ui`, using its `/core` entry. Your app supplies the rail layout. |
+| Already using the iOS 27 theme and Native UI                                   | [Connect device placement](../../theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail)                       | Reuse your existing runtime. Do not start another one.                                          |
 
-**Without Ionic, follow the HTML guide instead of the steps below.** You do not need this theme package, `vertical-bars.css`, `ion-app`, or Ionic navigation animations. Explicitly marked HTML buttons and back buttons are supported; arbitrary HTML tabs are not automatically converted. A browser preview requires an application-styled `webHost`; native rail presentation also requires supported iOS hardware and software.
+**Without Ionic, follow the HTML guide instead of the steps below.** You do not need `@rdlabo/ionic-theme-ios27`, `vertical-bars.css`, `ion-app`, or Ionic navigation animations. Explicitly marked HTML buttons and back buttons are supported; arbitrary HTML tabs are not automatically converted. A browser preview requires an application-styled `webHost`; native rail presentation also requires supported iOS hardware and software.
 
 The rest of this page is for **Ionic apps**. Both Ionic `ios` and `md` modes are supported. Tabs and supported toolbar actions move to the side; content and horizontal controls keep their existing appearance.
 
@@ -74,7 +74,7 @@ const ionicConfig = {
 
 Merge this option into your existing Ionic configuration before initialization: pass it to Angular's `provideIonicAngular()`, React's `setupIonicReact()`, or Vue's `IonicVue` plugin options. Keep your existing theme stylesheet imports. No iOS 27 theme stylesheet is required.
 
-#### Use this package's iOS animation
+#### Use the theme's iOS animation
 
 If you already use the iOS 27 transition, keep this configuration. It includes the native adapter and excludes the horizontal back-button effect in vertical layouts; no additional wrapper is needed. Importing this JavaScript entry point does not load the theme stylesheets.
 
@@ -120,11 +120,11 @@ const rail = await enableNativeUI({ controls: 'verticalOnly' });
 
 Use your existing Ionic click handlers, routing, and form associations. All button fills (`default`, `clear`, `solid`, and `outline`) use the same `icon-only` rule, including submit buttons. Actions without that slot remain horizontal. Add `.ios-theme-horizontal-only` to an `ion-buttons` group or individual `ion-button` to keep an action in the horizontal toolbar.
 
-When the application owner is disposed, call `await rail.destroy()` to restore the original controls and release the runtime. If you already use `enableNativeUI()`, keep that runtime and follow the [shared placement guide](iphone-duo.md#project-controls-into-the-rail).
+When the application owner is disposed, call `await rail.destroy()` to restore the original controls and release the runtime. If you already use `enableNativeUI()`, keep that runtime and follow the [shared placement guide](../../theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail).
 
 ### Optional: choose native button appearance
 
-See [Choose button appearance](../../capacitor-native-ui/docs/vertical-bars.md#choose-button-appearance) for appearance settings and local overrides.
+See [Choose button appearance](vertical-bars.md#choose-button-appearance) for appearance settings and local overrides.
 
 The default is `system`: SwiftUI styles vertical buttons and tints their icons. If your existing theme should supply their fill and colors, replace the startup call in step 4 with:
 
@@ -135,15 +135,15 @@ const rail = await enableNativeUI({
 });
 ```
 
-The `solid` default suits ordinary Ionic buttons. Buttons inside `ion-buttons` still default to clear; set `fill="solid"` explicitly to project their background. For one-off exceptions, use the [local projection settings](../../capacitor-native-ui/docs/vertical-bars.md#override-individual-buttons-or-groups). These settings affect native vertical buttons only; Web clones keep their existing appearance.
+The `solid` default suits ordinary Ionic buttons. Buttons inside `ion-buttons` still default to clear; set `fill="solid"` explicitly to project their background. For one-off exceptions, use the [local projection settings](vertical-bars.md#override-individual-buttons-or-groups). These settings affect native vertical buttons only; Web clones keep their existing appearance.
 
 ### If the preview does not appear
 
-| What you see                                | What to check                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No space at the side                        | Load `vertical-bars.css` and put the class on `ion-app`.                                                                                                                                                                                                                                                               |
-| Space appears, but controls stay horizontal | Start `enableNativeUI({ controls: 'verticalOnly' })` after mounting the app root. Use existing tabs or `slot="icon-only"` actions in a fixed header/footer toolbar.                                                                                                                                                    |
-| One action stays horizontal                 | Check for `slot="icon-only"` on the icon and a fixed toolbar outside scrolling content. Explicitly excluded controls and controls in centered modals stay horizontal; `fill` and `type="submit"` do not prevent movement. See [control requirements](../../capacitor-native-ui/docs/vertical-bars.md#toolbar-actions). |
+| What you see                                | What to check                                                                                                                                                                                                                                                                           |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No space at the side                        | Load `vertical-bars.css` and put the class on `ion-app`.                                                                                                                                                                                                                                |
+| Space appears, but controls stay horizontal | Start `enableNativeUI({ controls: 'verticalOnly' })` after mounting the app root. Use existing tabs or `slot="icon-only"` actions in a fixed header/footer toolbar.                                                                                                                     |
+| One action stays horizontal                 | Check for `slot="icon-only"` on the icon and a fixed toolbar outside scrolling content. Explicitly excluded controls and controls in centered modals stay horizontal; `fill` and `type="submit"` do not prevent movement. See [control requirements](vertical-bars.md#toolbar-actions). |
 
 ## Connect an iPhone Duo
 
@@ -154,9 +154,9 @@ npm install @erkamyaman/capacitor-foldable
 npx cap sync ios
 ```
 
-Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for actual rail placement and hinge posture on iOS 27.1. Keep your existing SPM or CocoaPods integration; see [Native UI setup](../../capacitor-native-ui/docs/setup.md#4-build-sync-and-run). Keep this package's `vertical-bars.css`; the device plugin's `ionic-tabs.css` is not needed with our rail projection.
+Use Capacitor 8.5 or later and build with Xcode 27.1 or newer for actual rail placement and hinge posture on iOS 27.1. Keep your existing SPM or CocoaPods integration; see [Native UI setup](setup.md#4-build-sync-and-run). Keep the theme's `vertical-bars.css`; the device plugin's `ionic-tabs.css` is not needed with our rail projection.
 
-Replace the browser-only startup with the [device placement setup](iphone-duo.md#project-controls-into-the-rail). That setup sends initial values and `barPlacementChange` events to `setVerticalBarsLayout({ edge: verticalBarEdge, inset })`, with subscriptions and cleanup kept in your application.
+Replace the browser-only startup with the [device placement setup](../../theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail). That setup sends initial values and `barPlacementChange` events to `setVerticalBarsLayout({ edge: verticalBarEdge, inset })`, with subscriptions and cleanup kept in your application.
 
 Pass Foldable's reported logical edge and measured inset to `setVerticalBarsLayout`. The helper resolves RTL. A null edge restores the ordinary Web layout; Native UI detects native rail availability independently.
 
@@ -166,8 +166,8 @@ On supported iOS, controls in the rail use native SwiftUI rendering; your custom
 
 If your existing theme needs only a posture-driven split pane or a layout switch, do not start a projection runtime or add `.ios-theme-vertical-bars`. Pass `Foldable.getFoldState()` results and `foldStateChange` events to `applyFoldStateClasses(root, fold)`, removing the listener when finished. There is no separate start/stop monitoring call.
 
-See [Read the device layout](iphone-duo.md#read-the-device-layout) for the subscription example, null values, and monitoring lifetime. See [Adapt the split pane](iphone-duo.md#adapt-the-split-pane) for the opt-in width rules and half-open state.
+See [Read the device layout](../../theme-ios27/docs/iphone-duo.md#read-the-device-layout) for the subscription example, null values, and monitoring lifetime. See [Adapt the split pane](../../theme-ios27/docs/iphone-duo.md#adapt-the-split-pane) for the opt-in width rules and half-open state.
 
 ## Shared layout rules and API
 
-Safe-area handling, overlays, RTL, control eligibility, Web simulation, and the handle API are documented in [Vertical Bars](../../capacitor-native-ui/docs/vertical-bars.md). Read that reference when you need to customize this setup; it is not an additional installation step.
+Safe-area handling, overlays, RTL, control eligibility, Web simulation, and the handle API are documented in [Vertical Bars](vertical-bars.md). Read that reference when you need to customize this setup; it is not an additional installation step.

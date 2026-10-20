@@ -8,7 +8,7 @@ Start with [how projection works](../README.md#how-projection-works): the HTML e
 
 **Want only Vertical Bars?** Follow steps 1–2 to install and mark your HTML buttons, then use the [Web rail configuration](#optional-web-rail) in place of step 3. Remove explicit markers from buttons you want to leave on the Web. Style the rail host in your application and build with step 4 for iOS. You do not need Ionic, `@rdlabo/ionic-theme-ios27`, or `vertical-bars.css`.
 
-For Vertical Bars in an app using `ion-tabs`, `ion-toolbar` or other Ionic components with a custom theme, use the [Ionic Vertical Bars setup](../../theme-ios27/docs/iphone-duo-with-original-theme.md#try-it-in-your-existing-ionic-app) instead. The framework (Angular, React or Vue) alone does not determine which adapter to use.
+For Vertical Bars in an app using `ion-tabs`, `ion-toolbar` or other Ionic components with a custom theme, use the [Ionic Vertical Bars setup](ionic-vertical-bars.md#try-it-in-your-existing-ionic-app) instead. The framework (Angular, React or Vue) alone does not determine which adapter to use.
 
 ## 1. Install the plugin
 

@@ -8,7 +8,7 @@ Vertical Bars moves eligible Ionic controls or explicitly marked HTML buttons in
 
 Choose your setup before using this reference:
 
-- **Ionic with a custom or default theme:** [Ionic rail setup](../../theme-ios27/docs/iphone-duo-with-original-theme.md#try-it-in-your-existing-ionic-app).
+- **Ionic with a custom or default theme:** [Ionic rail setup](ionic-vertical-bars.md#try-it-in-your-existing-ionic-app).
 - **No Ionic:** [HTML setup](framework-independent.md) and its [Web rail configuration](framework-independent.md#optional-web-rail). Use `/core` and your own layout; the Ionic setup below does not apply.
 - **Existing iOS 27 theme and Native UI:** [Connect device placement](../../theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail) using your existing runtime.
 
@@ -38,7 +38,7 @@ const rail = await enableNativeUI({ controls: 'verticalOnly' });
 
 Configure your Web rail layout and [apply device placement](#use-with-capacitor-foldable) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUI()`, keep that runtime; it includes Vertical Bars. Do not start both.
 
-The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. Using only the theme’s rail CSS needs no native runtime. For native setup and navigation transitions, follow the [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
+The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. Using only the theme’s rail CSS needs no native runtime. For native setup and navigation transitions, follow the [existing-theme guide](ionic-vertical-bars.md).
 
 On supported Capacitor iOS, eligible controls use native SwiftUI rendering. Web, Android and unavailable native projection use Web clones. A browser preview can verify layout and actions, but cannot compare native button appearance.
 

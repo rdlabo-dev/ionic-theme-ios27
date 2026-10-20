@@ -178,7 +178,7 @@ Run the iOS app from Xcode on an iOS 26+ device or simulator. Supported fixed co
 
 ## Next steps
 
-- [Vertical Bars only](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md): a step-by-step rail setup with your existing theme.
+- [Vertical Bars only](ionic-vertical-bars.md): a step-by-step rail setup with your existing theme.
 - [Configuration](configuration.md): choose controls and change rail settings at runtime.
 - [Custom SwiftUI or Compose content](native-ui-extensions.md): create an app-local extension.
 - [Migration](migration.md): update older package names, imports, and native projects.

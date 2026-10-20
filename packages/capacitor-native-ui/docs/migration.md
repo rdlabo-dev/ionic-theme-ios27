@@ -105,8 +105,8 @@ The Ionic transition adapter now belongs to `@rdlabo/ionic-theme-ios27`. Replace
 
 Use `withNativeUITransition()` to keep your existing Ionic navigation animation while coordinating Native UI controls.
 
-- If you already import `iosTransitionAnimation` from `@rdlabo/ionic-theme-ios27`, keep the [package animation setup](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md#use-this-packages-ios-animation); no configuration change is needed. It now uses the shared adapter internally; do not add another wrapper.
-- If you use Ionic's default animation without a `navAnimation` option, follow [Keep Ionic's default animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md#keep-ionics-default-animation). The example selects Ionic's standard iOS or MD builder from the transition mode.
+- If you already import `iosTransitionAnimation` from `@rdlabo/ionic-theme-ios27`, keep the [package animation setup](ionic-vertical-bars.md#use-the-themes-ios-animation); no configuration change is needed. It now uses the shared adapter internally; do not add another wrapper.
+- If you use Ionic's default animation without a `navAnimation` option, follow [Keep Ionic's default animation](ionic-vertical-bars.md#keep-ionics-default-animation). The example selects Ionic's standard iOS or MD builder from the transition mode.
 - If you use a custom navigation animation with Native UI or the standalone Vertical Control Area, wrap your existing builder when configuring Ionic:
 
 ```diff
@@ -122,7 +122,7 @@ Merge this option into your existing Ionic configuration before initialization. 
 
 Use the adapter only for navigation; leave modal and popover animations unchanged. Your builder must create a fresh `Animation` for each navigation because Ionic destroys it afterward. Keep lifecycle events for control registration and transitions without animation. If the custom builder animates a horizontal back button separately, exclude that effect while `.ios-theme-vertical-bars` is active.
 
-See [Connect your navigation animation](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md#3-connect-your-navigation-animation) for the setup and supported scope.
+See [Connect your navigation animation](ionic-vertical-bars.md#3-connect-your-navigation-animation) for the setup and supported scope.
 
 ## Startup options
 

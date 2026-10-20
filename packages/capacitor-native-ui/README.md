@@ -23,14 +23,14 @@ Projection changes presentation; it does not translate arbitrary HTML or CSS int
 
 ## Choose what to build
 
-| Goal                                                | Start here                                                                                                                                          |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Render existing Ionic controls natively             | [Ionic setup](docs/setup.md)                                                                                                                        |
-| Use native buttons without Ionic                    | [HTML setup](docs/framework-independent.md)                                                                                                         |
-| Add a side rail to Ionic while keeping your theme   | [Vertical Bars step by step](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
-| Add a side rail without Ionic                       | [HTML rail setup](docs/framework-independent.md)                                                                                                    |
-| Add native controls to an existing iOS 27 theme app | [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md)                 |
-| Render custom SwiftUI or Android Compose content    | [App-local extensions (experimental)](docs/native-ui-extensions.md)                                                                                 |
+| Goal                                                | Start here                                                                                                                          |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Render existing Ionic controls natively             | [Ionic setup](docs/setup.md)                                                                                                        |
+| Use native buttons without Ionic                    | [HTML setup](docs/framework-independent.md)                                                                                         |
+| Add a side rail to Ionic while keeping your theme   | [Vertical Bars step by step](docs/ionic-vertical-bars.md)                                                                           |
+| Add a side rail without Ionic                       | [HTML rail setup](docs/framework-independent.md)                                                                                    |
+| Add native controls to an existing iOS 27 theme app | [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md) |
+| Render custom SwiftUI or Android Compose content    | [App-local extensions (experimental)](docs/native-ui-extensions.md)                                                                 |
 
 ## Install from npm
 
