@@ -109,7 +109,7 @@ const prepareVerticalBarsBackButton = async (page: Page, direction: 'ltr' | 'rtl
 const prepareVerticalBarsToolbar = async (page: Page) => {
   await page.addInitScript(() => (document.IONIC_E2E_TESTING = true));
   await page.setViewportSize({ width: 700, height: 900 });
-  await page.goto('/main/index/native-ui-shell', { waitUntil: 'networkidle' });
+  await page.goto('/main/index/native-ui', { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
   await page.locator('ion-app').evaluate((app) => {
     app.style.setProperty('--ios-theme-vertical-bars-safe-area-right', '84px');

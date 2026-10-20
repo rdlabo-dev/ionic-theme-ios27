@@ -31,16 +31,16 @@ The `/core` entry requires `@capacitor/core` but no Ionic dependencies. If this 
 - `data-native-ui-placement="rail"` requests Vertical Bars. Without it, the source rectangle is used. `element` explicitly preserves that rectangle.
 - Sources must be `<button>`, explicitly marked `ion-button`, or custom elements exposing `role="button"` and click behavior. Unmarked HTML is never inferred to be a control.
 
-Keep the accessible name, supported static SVG, disabled state and application handlers on the source. Names resolve from `aria-labelledby`, `aria-label`, then text. Native `disabled`, a disabled fieldset and `aria-disabled="true"` are respected. Hidden, removed, excluded or out-of-scope sources are retired and stale actions are rejected. Use `data-shell="disabled"` to exclude a subtree.
+Keep the accessible name, supported static SVG, disabled state and application handlers on the source. Names resolve from `aria-labelledby`, `aria-label`, then text. Native `disabled`, a disabled fieldset and `aria-disabled="true"` are respected. Hidden, removed, excluded or out-of-scope sources are retired and stale actions are rejected. Use `data-native-ui-state="disabled"` to exclude a subtree.
 
 Native and Web-proxy actions click the original element. An ordinary `<button type="submit">` therefore keeps its original form behavior. Use `type="button"` for actions that must not submit. The native bridge does not preserve browser user-activation privileges for APIs such as popup opening.
 
 ## 3. Start after mounting the controls
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui/core';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
 
-const shell = await enableNativeUIShell({
+const shell = await enableNativeUI({
   root: document.querySelector<HTMLElement>('#app')!,
 });
 ```
@@ -60,7 +60,7 @@ In an app that also uses Ionic, set `ionic: { auto: false }` to project only exp
 Replace the startup call in step 3 with the following configuration; do not start a second shell:
 
 ```ts
-const shell = await enableNativeUIShell({
+const shell = await enableNativeUI({
   root: document.querySelector<HTMLElement>('#app')!,
   verticalBars: {
     placement: {

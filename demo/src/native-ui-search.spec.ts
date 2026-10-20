@@ -126,10 +126,10 @@ test.each(['footer opt-out', 'trigger color', 'trigger theme opt-out', 'trigger 
       ({ x, y: 400, left: x, right: x + width, top: 400, bottom: 462, width, height: 62 }) as DOMRect;
     tabs.getBoundingClientRect = () => rect(tabX, 299);
     trigger.getBoundingClientRect = () => rect(325, 61);
-    if (reason === 'footer opt-out') footer.setAttribute('data-shell', 'disabled');
+    if (reason === 'footer opt-out') footer.setAttribute('data-native-ui-state', 'disabled');
     else if (reason === 'trigger color') Object.assign(trigger, { color: 'primary' });
     else if (reason === 'trigger theme opt-out') trigger.classList.add('ios-theme-disabled');
-    else if (reason === 'trigger shell opt-out') trigger.setAttribute('data-shell', 'disabled');
+    else if (reason === 'trigger shell opt-out') trigger.setAttribute('data-native-ui-state', 'disabled');
     else bar.maxlength = 12;
     page.classList.remove('ion-page-hidden');
     try {

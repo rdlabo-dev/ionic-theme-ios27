@@ -33,7 +33,7 @@ test('toolbar opt-out leaves an otherwise eligible verticalBars back button unde
   await nextFrame();
 
   expect(handle.getStatus()).toEqual({ state: 'web', projected: 0, updates: 0 });
-  expect(document.querySelector('ion-back-button')?.hasAttribute('data-native-ui-shell')).toBe(false);
+  expect(document.querySelector('ion-back-button')?.hasAttribute('data-native-ui-projected')).toBe(false);
   expect(document.querySelector('.ios-theme-vertical-bars-back-button-projection')).toBeNull();
 
   await handle.destroy();

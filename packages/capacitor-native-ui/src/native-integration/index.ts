@@ -1,6 +1,6 @@
 /// <reference lib="es2021.weakref" />
 
-export interface NativeUIShellIntegration {
+export interface NativeUIIntegration {
   suspend(scopes: HTMLElement[]): Promise<(canceled?: boolean) => void>;
   search?(binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean>;
 }
@@ -20,7 +20,7 @@ export const registerNativeSearch = (tabBar: HTMLElement, trigger: HTMLElement, 
   const entries = (searches.get(tabBar.ownerDocument) ?? []).filter((entry) => entry.deref() && entry.deref()?.footer !== footer);
   entries.push(new WeakRef(binding));
   searches.set(tabBar.ownerDocument, entries);
-  tabBar.ownerDocument.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+  tabBar.ownerDocument.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
   return binding;
 };
 
@@ -30,19 +30,19 @@ export const getNativeSearchBindings = (doc: Document): NativeSearchBinding[] =>
 export const requestNativeSearch = async (binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean> =>
   (await runtimes.get(binding.tabBar.ownerDocument)?.search?.(binding, active, focus)) ?? false;
 
-const runtimes = new WeakMap<Document, NativeUIShellIntegration>();
+const runtimes = new WeakMap<Document, NativeUIIntegration>();
 export const VERTICAL_BARS_TRANSITION_CANCELED = 'iosThemeVerticalBarsTransitionCanceled';
 
-export const setNativeUIShellIntegration = (doc: Document, runtime?: NativeUIShellIntegration) => {
+export const setNativeUIIntegration = (doc: Document, runtime?: NativeUIIntegration) => {
   if (runtime) runtimes.set(doc, runtime);
   else runtimes.delete(doc);
 };
 
-export const hasNativeUIShellIntegration = (doc: Document): boolean => runtimes.has(doc);
+export const hasNativeUIIntegration = (doc: Document): boolean => runtimes.has(doc);
 
-export const isNativeUIShell = (element: HTMLElement) => element.hasAttribute('data-native-ui-shell');
+export const isNativeUI = (element: HTMLElement) => element.hasAttribute('data-native-ui-projected');
 
-export const suspendNativeUIShell = async (scopes: HTMLElement[]): Promise<(canceled?: boolean) => void> =>
+export const suspendNativeUI = async (scopes: HTMLElement[]): Promise<(canceled?: boolean) => void> =>
   (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes)) ?? (() => {});
 
 /** Shared geometry used by the theme's transition adapter; no theme import in the plugin. */

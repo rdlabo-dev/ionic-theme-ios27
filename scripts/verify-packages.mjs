@@ -86,9 +86,16 @@ try {
       assert(readFileSync(join(packageRoot, 'Package.swift'), 'utf8').includes('name: "RdlaboCapacitorNativeUi"'), 'Capacitor-generated SPM product must exist');
       assert(files.has('android/build.gradle'));
       assert(files.has('android/proguard-rules.pro'));
-      assert(files.has('IonicThemeCapacitorNativeUi.podspec'));
-      assert(files.has('ios/Sources/IonicNativeUIShellPlugin/IonicNativeUIShellPlugin.swift'));
-      assert(files.has('android/src/main/java/dev/rdlabo/capacitor/nativeui/IonicNativeUIShellPlugin.kt'));
+      assert(files.has('RdlaboCapacitorNativeUi.podspec'));
+      assert(files.has('ios/Sources/NativeUIPlugin/NativeUIPlugin.swift'));
+      assert(files.has('android/src/main/java/dev/rdlabo/capacitor/nativeui/NativeUIPlugin.kt'));
+      // The published JavaScript and native binaries must register the same bridge.
+      for (const [file, registration] of [
+        ['src/native/activation.ts', "registerPlugin<NativeUIPlugin>('NativeUI')"],
+        ['ios/Sources/NativeUIPlugin/NativeUIPlugin.swift', 'jsName = "NativeUI"'],
+        ['android/src/main/java/dev/rdlabo/capacitor/nativeui/NativeUIPlugin.kt', '@CapacitorPlugin(name = "NativeUI")'],
+      ]) assert(readFileSync(join(packageRoot, file), 'utf8').includes(registration), `Bridge registration mismatch: ${file}`);
+
       assert(!manifest.dependencies?.['@rdlabo/ionic-theme-ios27'], 'Native UI must not depend on the theme');
       assert(!files.has('dist/native-integration/transition.js'), 'Ionic transition adapter belongs to the theme');
     } else {
@@ -117,22 +124,22 @@ try {
   symlinkSync(resolve('node_modules/@capacitor'), join(dir, 'node_modules/@capacitor'), 'dir');
   execFileSync(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
-    import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui/core';
-    assert.equal(typeof enableNativeUIShell, 'function');
+    import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
+    assert.equal(typeof enableNativeUI, 'function');
     await assert.rejects(import('@ionic/core'), { code: 'ERR_MODULE_NOT_FOUND' });
     await assert.rejects(import('@rdlabo/ionic-theme-utils'), { code: 'ERR_MODULE_NOT_FOUND' });
   `], { cwd: dir, stdio: 'inherit' });
   const consumer = join(dir, 'consumer.ts');
   writeFileSync(consumer, `
-    import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui/core';
+    import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
     async function start(root: HTMLElement) {
-      const shell = await enableNativeUIShell({ root, controls: { tabs: false }, verticalBars: { enabled: true, only: true } });
+      const shell = await enableNativeUI({ root, controls: { tabs: false }, verticalBars: { enabled: true, only: true } });
       await shell.disableVerticalControlArea();
       await shell.enableVerticalControlArea();
       await shell.destroy();
     }
     // @ts-expect-error Availability is automatic; enabled is boolean only.
-    enableNativeUIShell({ verticalBars: { enabled: 'auto' } });
+    enableNativeUI({ verticalBars: { enabled: 'auto' } });
   `);
   execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], {cwd: dir, stdio: 'inherit'});
   // Only external dependencies come from the workspace; both packages resolve from archives.
@@ -148,12 +155,12 @@ try {
     import assert from 'node:assert/strict';
     import * as native from '@rdlabo/capacitor-native-ui';
     import * as vertical from '@rdlabo/capacitor-native-ui/vertical-bars';
-    assert.equal(typeof native.enableNativeUIShell, 'function');
+    assert.equal(typeof native.enableNativeUI, 'function');
     assert.equal(typeof vertical.enableVerticalControlArea, 'function');
-    assert.equal(vertical.withNativeUIShellTransition, undefined);
+    assert.equal(vertical.withNativeUITransition, undefined);
     const integration = await import('@rdlabo/capacitor-native-ui/integration');
-    assert.equal(integration.connectNativeUIShellTransition, undefined);
-    assert.equal(typeof integration.suspendNativeUIShell, 'function');
+    assert.equal(integration.connectNativeUITransition, undefined);
+    assert.equal(typeof integration.suspendNativeUI, 'function');
     for (const entry of ['native', 'vertical-bars']) {
       await assert.rejects(import('@rdlabo/ionic-theme-ios27/' + entry), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
     }
@@ -175,18 +182,18 @@ try {
   rmSync(join(dir, 'node_modules/@capacitor'));
   execFileSync(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
-    import { iosTransitionAnimation, withNativeUIShellTransition, setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
+    import { iosTransitionAnimation, withNativeUITransition, setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
     assert.equal(typeof iosTransitionAnimation, 'function');
     assert.equal(typeof setVerticalBarsLayout, 'function');
     assert.equal(typeof applyFoldStateClasses, 'function');
     setVerticalBarsLayout({ edge: null });
     const animation = { play() {} };
-    assert.equal(withNativeUIShellTransition(() => animation)({}), animation);
+    assert.equal(withNativeUITransition(() => animation)({}), animation);
     await assert.rejects(import('@capacitor/core'), { code: 'ERR_MODULE_NOT_FOUND' });
   `], { cwd: dir, stdio: 'inherit' });
   writeFileSync(consumer, `
-    import { iosTransitionAnimation, withNativeUIShellTransition, setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
-    withNativeUIShellTransition(iosTransitionAnimation);
+    import { iosTransitionAnimation, withNativeUITransition, setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';
+    withNativeUITransition(iosTransitionAnimation);
   `);
   execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], { cwd: dir, stdio: 'inherit' });
   console.log('Both package archives, public exports, plugin ownership, dependency direction and standalone Sass verified.');

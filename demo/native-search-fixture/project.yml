@@ -1,23 +1,23 @@
-name: NativeUIShellSearchTests
+name: NativeUISearchTests
 options:
   deploymentTarget:
     iOS: '26.0'
 targets:
-  NativeUIShellSearchTests:
+  NativeUISearchTests:
     type: bundle.ui-testing
     platform: iOS
     sources:
-      - NativeUIShellSearchTests.swift
+      - NativeUISearchTests.swift
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: io.ionic.theme.nativeuishell.tests
+        PRODUCT_BUNDLE_IDENTIFIER: io.ionic.theme.nativeui.tests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: '5.0'
 schemes:
-  NativeUIShellSearchTests:
+  NativeUISearchTests:
     build:
       targets:
-        NativeUIShellSearchTests: [test]
+        NativeUISearchTests: [test]
     test:
       targets:
-        - NativeUIShellSearchTests
+        - NativeUISearchTests

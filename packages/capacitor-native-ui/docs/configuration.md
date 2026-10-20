@@ -1,11 +1,11 @@
 # Configure Native UI
 
-Call `enableNativeUIShell()` once after your application's DOM is mounted. Ionic and explicitly marked HTML controls share the standard Swift renderers. The theme is optional; Web layout, safe areas and spacing belong to your app or theme.
+Call `enableNativeUI()` once after your application's DOM is mounted. Ionic and explicitly marked HTML controls share the standard Swift renderers. The theme is optional; Web layout, safe areas and spacing belong to your app or theme.
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
-const shell = await enableNativeUIShell();
+const shell = await enableNativeUI();
 ```
 
 Without Ionic, import the same API from `@rdlabo/capacitor-native-ui/core`. That entry does not load Ionic's optional popover integration. See [plain HTML](framework-independent.md).
@@ -27,7 +27,7 @@ Web rails require the Ionic rail layout or an application-owned HTML `webHost`. 
 All nested objects merge with their defaults. For example, `ionic: { auto: { tabs: false } }` disables only tabs.
 
 ```ts
-const shell = await enableNativeUIShell({
+const shell = await enableNativeUI({
   root: document.body,
   debug: false,
   ionic: {
@@ -55,7 +55,7 @@ const shell = await enableNativeUIShell({
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `ionic.auto` | `true` | `true` or omitted enables automatic Ionic projection; `false` disables it; an object selects kinds. Explicit `data-native-ui` sources and extensions are unaffected. |
-| `horizontal` / `vertical` | `true` | Automatic Ionic toolbar selection and grouping per layout: boolean or `{ buttons, button, backButton }`. Omitted fields are `true`; local attributes may override. See [toolbar settings](native-ui-shell.md#toolbar-selection-and-grouping). |
+| `horizontal` / `vertical` | `true` | Automatic Ionic toolbar selection and grouping per layout: boolean or `{ buttons, button, backButton }`. Omitted fields are `true`; local attributes may override. See [toolbar settings](native-ui.md#toolbar-selection-and-grouping). |
 | `debug` | `false` | Log source elements and Web fallback reasons to the developer console; no props or application exception messages. |
 | `root` | `document.body` | Connected source subtree. Controls outside it are not projected. |
 | `ionic.auto.buttons` | `true` | Automatic Ionic toolbar/back/menu controls. Explicitly marked buttons are independent. |
@@ -78,13 +78,13 @@ HTML currently supports buttons and back buttons. Tab, segment and FAB readers r
 
 ```ts
 // Ionic or HTML: all supported controls, rail support enabled by default.
-const shell = await enableNativeUIShell();
+const shell = await enableNativeUI();
 
 // Alternative startup: Ionic with only Vertical Bars native presentation.
-const railOnly = await enableNativeUIShell({ verticalBars: { only: true } });
+const railOnly = await enableNativeUI({ verticalBars: { only: true } });
 
 // Alternative startup: automatically project only Ionic tabs; explicit sources remain independent.
-const tabsOnly = await enableNativeUIShell({
+const tabsOnly = await enableNativeUI({
   ionic: { auto: { buttons: false, segment: false, fab: false } },
 });
 ```
@@ -105,7 +105,7 @@ These are alternatives: start only one shell. Repeating the same startup returns
 Disable automatic Ionic projection while retaining the native rail and your custom extensions:
 
 ```ts
-const shell = await enableNativeUIShell({
+const shell = await enableNativeUI({
   root: document.querySelector<HTMLElement>('#content')!,
   ionic: { auto: false },
   verticalBars: { enabled: true, placement: {
@@ -161,7 +161,7 @@ Use this after changing a property or reader state that does not cause a DOM mut
 Temporarily add `debug: true` to your existing startup options, then rebuild the Web app. Do not start a second shell to enable diagnostics:
 
 ```ts
-const shell = await enableNativeUIShell({ debug: true, extensions: [myExtension] });
+const shell = await enableNativeUI({ debug: true, extensions: [myExtension] });
 console.info(shell.getStatus());
 ```
 

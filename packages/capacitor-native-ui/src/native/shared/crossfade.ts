@@ -1,5 +1,5 @@
 export const handoffDuration = 180;
-export const fadeMarker = 'data-native-ui-shell-fading';
+export const fadeMarker = 'data-native-ui-fading';
 
 /** Only visual opacity animates; the runtime transfers input/accessibility ownership once. */
 export const createCrossfade = (win: Window) => {

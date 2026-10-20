@@ -91,8 +91,8 @@ export class IndexPageComponent {
     return !!this.#document.querySelector('ion-app.ios-theme-vertical-bars');
   }
 
-  async navigateNativeUiShell() {
-    await this.#router.navigate(['native-ui-shell'], { relativeTo: this.#route });
+  async navigateNativeUi() {
+    await this.#router.navigate(['native-ui'], { relativeTo: this.#route });
   }
 
   async navigateComponent(item: IComponent) {

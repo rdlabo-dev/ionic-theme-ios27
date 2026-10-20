@@ -1,20 +1,20 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import type { NativeUIShellHandle, ShellSnapshot } from '../../packages/capacitor-native-ui/src/native/definitions';
+import type { NativeUIHandle, NativeUISnapshot } from '../../packages/capacitor-native-ui/src/native/definitions';
 
 const bridge = vi.hoisted(() => ({
   available: true,
   configure: vi.fn(async () => ({ supported: true, extensions: ['app.counter'] })),
   addListener: vi.fn(async () => ({ remove: async () => {} })),
-  update: vi.fn(async (snapshot: ShellSnapshot) => ({ revision: snapshot.revision, rejectedControls: [] as string[] })),
+  update: vi.fn(async (snapshot: NativeUISnapshot) => ({ revision: snapshot.revision, rejectedControls: [] as string[] })),
   clear: vi.fn(async () => {}),
 }));
 vi.mock('@capacitor/core', () => ({
   Capacitor: { getPlatform: () => 'android', isPluginAvailable: () => bridge.available },
   registerPlugin: () => bridge,
 }));
-import { enableNativeUIShell } from '../../packages/capacitor-native-ui/src/core';
+import { enableNativeUI } from '../../packages/capacitor-native-ui/src/core';
 
-let shell: NativeUIShellHandle | undefined;
+let shell: NativeUIHandle | undefined;
 let root: HTMLElement;
 let rail: HTMLElement;
 const prepare = (element: HTMLElement) => {
@@ -67,11 +67,11 @@ test.each([true, false])(
     const source = root.querySelector('button')!;
     const click = vi.fn();
     source.addEventListener('click', click);
-    shell = await enableNativeUIShell(options());
+    shell = await enableNativeUI(options());
     await vi.waitFor(() => expect(rail.querySelector('button')).not.toBeNull());
     rail.querySelector('button')!.click();
     expect(click).toHaveBeenCalledOnce();
-    expect(source.hasAttribute('data-native-ui-shell')).toBe(false);
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
     expect(bridge.update.mock.calls.every(([snapshot]) => snapshot.controls.length === 0)).toBe(true);
     await shell.disableVerticalControlArea();
     await vi.waitFor(() => expect(rail.children).toHaveLength(0));
@@ -89,7 +89,7 @@ test.each([true, false])(
 );
 
 test('Android Compose extensions coexist with Web rails and survive disabling only the rail', async () => {
-  shell = await enableNativeUIShell({
+  shell = await enableNativeUI({
     ...options(),
     extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: { count: 0 } }) }],
   });
@@ -98,7 +98,7 @@ test('Android Compose extensions coexist with Web rails and survive disabling on
   expect(bridge.update.mock.calls.at(-1)![0].controls.map((control) => control.kind)).toEqual(['extension']);
   await shell.disableVerticalControlArea();
   await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(1));
-  expect(root.querySelector('[data-counter]')!.hasAttribute('data-native-ui-shell')).toBe(true);
+  expect(root.querySelector('[data-counter]')!.hasAttribute('data-native-ui-projected')).toBe(true);
   expect(rail.children).toHaveLength(0);
 });
 
@@ -109,12 +109,12 @@ test('native extension ownership suppresses a Web rail proxy and rejection resto
   const click = vi.fn();
   source.addEventListener('click', click);
   let count = 0;
-  shell = await enableNativeUIShell({
+  shell = await enableNativeUI({
     ...options(),
     extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: { count } }) }],
   });
   await vi.waitFor(() => {
-    expect(source.hasAttribute('data-native-ui-shell')).toBe(true);
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
     expect(rail.children).toHaveLength(0);
   });
   bridge.update.mockImplementation(async (snapshot) => ({
@@ -124,7 +124,7 @@ test('native extension ownership suppresses a Web rail proxy and rejection resto
   count++;
   shell.markForCheck();
   await vi.waitFor(() => {
-    expect(source.hasAttribute('data-native-ui-shell')).toBe(false);
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
     expect(rail.querySelector('button')).not.toBeNull();
   });
   rail.querySelector('button')!.click();
@@ -135,7 +135,7 @@ test('diagnostics identify late unregistered sources and reader failures without
   const log = vi.spyOn(console, 'info').mockImplementation(() => {});
   const missing = vi.fn(() => ({ props: {} }));
   let broken = true;
-  shell = await enableNativeUIShell({
+  shell = await enableNativeUI({
     ...options(),
     debug: true,
     extensions: [
@@ -167,7 +167,7 @@ test('diagnostics identify late unregistered sources and reader failures without
   expect(log.mock.calls.some(([message]) => String(message).includes('private-state'))).toBe(false);
   broken = false;
   shell.markForCheck();
-  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-shell')).toBe(true));
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
 });
 
 test.each([true, false])('native rejection retains usable Web source with debug=%s', async (debug) => {
@@ -176,13 +176,13 @@ test.each([true, false])('native rejection retains usable Web source with debug=
     revision: snapshot.revision,
     rejectedControls: snapshot.controls.map((control) => control.id),
   }));
-  shell = await enableNativeUIShell({
+  shell = await enableNativeUI({
     ...options(),
     debug,
     extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: {} }) }],
   });
   await vi.waitFor(() => expect(bridge.update).toHaveBeenCalled());
-  await vi.waitFor(() => expect(root.querySelector('[data-counter]')!.hasAttribute('data-native-ui-shell')).toBe(false));
+  await vi.waitFor(() => expect(root.querySelector('[data-counter]')!.hasAttribute('data-native-ui-projected')).toBe(false));
   if (debug) await vi.waitFor(() => expect(log.mock.calls.some(([message]) => String(message).includes('native-rejected'))).toBe(true));
   else expect(log).not.toHaveBeenCalled();
 });
@@ -190,7 +190,7 @@ test.each([true, false])('native rejection retains usable Web source with debug=
 test('plain HTML extensions follow CSS color-scheme without theme variables', async () => {
   const source = root.querySelector<HTMLElement>('[data-counter]')!;
   source.style.colorScheme = 'dark';
-  shell = await enableNativeUIShell({
+  shell = await enableNativeUI({
     ...options(),
     extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: {} }) }],
   });
@@ -206,7 +206,7 @@ test.each(['bridge', 'pagehide', 'bridge then pagehide'])('shell restarts after 
     ...options(),
     extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: { count } }) }],
   };
-  shell = await enableNativeUIShell(config);
+  shell = await enableNativeUI(config);
   const previous = shell;
   await vi.waitFor(() => expect(previous.getStatus().projected).toBe(2));
   if (cause !== 'pagehide') {
@@ -224,7 +224,7 @@ test.each(['bridge', 'pagehide', 'bridge then pagehide'])('shell restarts after 
       expect(rail.querySelectorAll('button')).toHaveLength(0);
     }
   }
-  shell = await enableNativeUIShell(config);
+  shell = await enableNativeUI(config);
   expect(shell).not.toBe(previous);
   await vi.waitFor(() => expect(shell!.getStatus().projected).toBe(2));
   expect(previous.getStatus().state).toBe('stopped');

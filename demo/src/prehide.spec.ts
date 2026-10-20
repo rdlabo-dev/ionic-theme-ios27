@@ -62,12 +62,12 @@ test('captures a group whose child accessors are virtualized', () => {
 });
 
 // Initial opt-out and later toggles must both preserve the ability to join the rail.
-test.each(['class', 'data-shell'] as const)('shell opt-out via %s can be removed before page re-entry', async (attribute) => {
+test.each(['class', 'data-native-ui-state'] as const)('shell opt-out via %s can be removed before page re-entry', async (attribute) => {
   document.documentElement.className = '';
   document.body.innerHTML = markup;
   const toolbar = document.querySelector<HTMLElement>('ion-toolbar')!;
   const group = document.querySelector<HTMLElement>('ion-buttons')!;
-  const value = attribute === 'class' ? 'ios-theme-shell-disabled' : 'disabled';
+  const value = attribute === 'class' ? 'native-ui-disabled' : 'disabled';
   toolbar.setAttribute(attribute, value);
   const prehide = prehideVerticalBarsToolbarSources(document);
   try {
@@ -98,12 +98,12 @@ test('disabling rail projection releases prehidden sources without losing placem
   try {
     expect(source.classList.contains(prehiddenClass)).toBe(true);
     enabled = false;
-    window.dispatchEvent(new Event('nativeUIShellRefresh'));
+    window.dispatchEvent(new Event('nativeUIRefresh'));
     expect(source.classList.contains(prehiddenClass)).toBe(false);
     expect(document.documentElement.classList.contains(prehideRootClass)).toBe(false);
     expect(verticalBarsOwned(source)).toBe(true);
     enabled = true;
-    window.dispatchEvent(new Event('nativeUIShellRefresh'));
+    window.dispatchEvent(new Event('nativeUIRefresh'));
     expect(source.classList.contains(prehiddenClass)).toBe(true);
   } finally {
     controller.stop();

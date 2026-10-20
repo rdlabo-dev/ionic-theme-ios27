@@ -1,5 +1,5 @@
 import type { registeredEffect } from '../sheets-of-glass/interfaces';
-import { isNativeUIShell } from '@rdlabo/capacitor-native-ui/integration';
+import { isNativeUI } from '@rdlabo/capacitor-native-ui/integration';
 
 interface LensRect {
   x: number;
@@ -216,7 +216,7 @@ export const registerSegmentEffect = (targetElement: HTMLElement): registeredEff
     );
   };
   const down = (event: PointerEvent) => {
-    if (pointer || event.button !== 0 || segment.disabled || reducedMotion.matches || isNativeUIShell(segment)) return;
+    if (pointer || event.button !== 0 || segment.disabled || reducedMotion.matches || isNativeUI(segment)) return;
     const button = (event.target as Element).closest<HTMLIonSegmentButtonElement>('ion-segment-button');
     const old = selected();
     if (!button || button.disabled || !old) return;
@@ -368,7 +368,7 @@ export const registerSegmentEffect = (targetElement: HTMLElement): registeredEff
     { signal: listeners.signal },
   );
   reducedMotion.addEventListener('change', abort, { signal: listeners.signal });
-  segment.addEventListener('nativeUIShellChange', abort, { signal: listeners.signal });
+  segment.addEventListener('nativeUIChange', abort, { signal: listeners.signal });
   return {
     destroy: () => {
       destroyed = true;

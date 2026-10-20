@@ -3,7 +3,7 @@ import { modalUsesVerticalBars } from './modal';
 
 import type { Frame } from '../definitions';
 
-export const marker = 'data-native-ui-shell';
+export const marker = 'data-native-ui-projected';
 // Scoped runtimes (Stencil slot emulation) patch child accessors on upgraded
 // elements and may report none before hydration; the prototype getter still
 // reports the real light DOM.
@@ -12,9 +12,9 @@ export const childNodesOf = (element: Element): Node[] =>
   childNodesGet ? Array.from(childNodesGet.call(element)) : Array.from(element.childNodes);
 export const childElements = (element: Element): HTMLElement[] =>
   childNodesOf(element).filter((node) => node.nodeType === 1) as HTMLElement[];
-export const prehiddenClass = 'ios-theme-native-ui-shell-prehidden';
-export const prehideRootClass = 'ios-theme-native-ui-shell-prehide';
-export const rejectedClass = 'ios-theme-native-ui-shell-rejected';
+export const prehiddenClass = 'native-ui-prehidden';
+export const prehideRootClass = 'native-ui-prehide';
+export const rejectedClass = 'native-ui-rejected';
 export const verticalBarsBackWebClass = 'ios-theme-vertical-bars-back-web-owned';
 const prehideClasses = new Set([prehiddenClass, prehideRootClass]);
 export const prehideOnlyMutation = (record: MutationRecord): boolean => {
@@ -93,7 +93,7 @@ export const createVerticalBarsPageState = () => {
   };
 };
 const disabledButtonGroup = 'ion-buttons:is(.ios-theme-disabled, .ios26-disabled)';
-const shellDisabledSelector = '.ios-theme-shell-disabled, [data-shell="disabled"]';
+const nativeUIDisabledSelector = '.native-ui-disabled, [data-native-ui-state="disabled"]';
 
 export const isDisabledButtonGroupChild = (element: HTMLElement): boolean =>
   element.matches('ion-button') && element.parentElement?.matches(disabledButtonGroup) === true;
@@ -147,8 +147,8 @@ export const isExcluded = (element: HTMLElement, enteringPage?: HTMLElement): bo
   excludedBy(element, `${permanentlyExcluded}, .ion-page-hidden`) || (!!element.closest('.ion-page-invisible') && !enteringPage);
 
 // A shared native surface must not cover an opted-out descendant either.
-export const isShellDisabled = (element: Element): boolean =>
-  !!element.closest(shellDisabledSelector) || !!element.querySelector(shellDisabledSelector);
+export const isNativeUIDisabled = (element: Element): boolean =>
+  !!element.closest(nativeUIDisabledSelector) || !!element.querySelector(nativeUIDisabledSelector);
 
 export const isVerticalBarsToolbarActionShape = (element: HTMLElement): boolean =>
   element.matches('ion-menu-button') ||
@@ -169,7 +169,7 @@ export const verticalBarsOwned = (element: HTMLElement): boolean =>
   !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only');
 
 export const isVerticalBarsToolbarAction = (element: HTMLElement): boolean =>
-  verticalBarsOwned(element) && !isExcluded(element, verticalBarsEnteringPage(element)) && !isShellDisabled(element);
+  verticalBarsOwned(element) && !isExcluded(element, verticalBarsEnteringPage(element)) && !isNativeUIDisabled(element);
 
 const overlays = 'ion-menu, ion-popover';
 
@@ -180,7 +180,7 @@ export const verticalBarsActionCandidate = (element: HTMLElement): boolean =>
   inFixedToolbar(element) &&
   !element.closest('ion-buttons.ios-theme-horizontal-only, ion-button.ios-theme-horizontal-only') &&
   !isPermanentlyExcluded(element) &&
-  !isShellDisabled(element) &&
+  !isNativeUIDisabled(element) &&
   !element.closest(overlays) &&
   modalUsesVerticalBars(element);
 
@@ -190,7 +190,7 @@ export const verticalBarsBackCandidate = (element: HTMLElement): boolean =>
   isVerticalBarsBackPosition(element) &&
   !element.closest('ion-buttons.ios-theme-horizontal-only') &&
   !isPermanentlyExcluded(element) &&
-  !isShellDisabled(element) &&
+  !isNativeUIDisabled(element) &&
   !element.closest(overlays) &&
   modalUsesVerticalBars(element);
 
@@ -203,11 +203,11 @@ export const isVerticalBarsToolbarGroup = (element: HTMLElement): boolean => {
     element.matches('ion-buttons') &&
     verticalBarsOwned(element) &&
     !element.matches('.ios-theme-disabled, .ios26-disabled') &&
-    !isShellDisabled(element)
+    !isNativeUIDisabled(element)
   );
 };
 
-export const toolbarTextMarker = 'data-native-ui-shell-toolbar-text';
+export const toolbarTextMarker = 'data-native-ui-toolbar-text';
 
 export const syncToolbarText = (doc: Document): void => {
   for (const toolbar of Array.from(
@@ -244,7 +244,7 @@ export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): 
 
 const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boolean => {
   const enteringPage = isVerticalBarsSource(element) ? verticalBarsEnteringPage(element) : undefined;
-  if (!element.isConnected || isExcluded(element, enteringPage) || isShellDisabled(element)) return false;
+  if (!element.isConnected || isExcluded(element, enteringPage) || isNativeUIDisabled(element)) return false;
   for (let current: HTMLElement | null = element; current; current = current.parentElement) {
     const style = getComputedStyle(current);
     if (

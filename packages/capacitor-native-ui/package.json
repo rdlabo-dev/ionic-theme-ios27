@@ -51,14 +51,14 @@
     "ios/Sources",
     "ios/Tests",
     "Package.swift",
-    "IonicThemeCapacitorNativeUi.podspec",
+    "RdlaboCapacitorNativeUi.podspec",
     "LICENSE",
     "README.md",
     "docs"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc --noEmit && rdlabo-build-theme",
-    "docgen": "docgen --project tsconfig.docgen.json --api NativeUIShellHandle --output-readme docs/native-ui-shell.md && docgen --project tsconfig.docgen.json --api VerticalControlAreaHandle --output-readme docs/vertical-bars.md"
+    "docgen": "docgen --project tsconfig.docgen.json --api NativeUIHandle --output-readme docs/native-ui.md && docgen --project tsconfig.docgen.json --api VerticalControlAreaHandle --output-readme docs/vertical-bars.md"
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0 <9",

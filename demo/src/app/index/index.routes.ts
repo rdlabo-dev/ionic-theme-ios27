@@ -11,8 +11,8 @@ export const routes: Routes = [
     loadComponent: () => import('../button-projection/button-projection.page').then((m) => m.ButtonProjectionPage),
   },
   {
-    path: 'native-ui-shell',
-    loadComponent: () => import('../native-ui-shell/native-ui-shell.page').then((m) => m.NativeUIShellPage),
+    path: 'native-ui',
+    loadComponent: () => import('../native-ui/native-ui.page').then((m) => m.NativeUIPage),
   },
   {
     path: '',

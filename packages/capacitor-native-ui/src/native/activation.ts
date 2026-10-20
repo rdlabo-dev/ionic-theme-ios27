@@ -4,13 +4,7 @@ import { createHTMLWebProjection } from './html';
 import { validateExtensions, type NativeUIExtension } from './extensions';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { nativeWebViewMetrics } from '../native-integration';
-import type {
-  NativeUIShellRuntimeHandle,
-  NativeUIShellRuntimeOptions,
-  NativeUIShellPlugin,
-  VerticalBarEdge,
-  WebViewMetrics,
-} from './definitions';
+import type { NativeUIRuntimeHandle, NativeUIRuntimeOptions, NativeUIPlugin, VerticalBarEdge, WebViewMetrics } from './definitions';
 import { createRuntime } from './runtime';
 import { bounded, boundedListener } from './shared/bridge';
 interface OverlayController {
@@ -19,8 +13,8 @@ interface OverlayController {
 }
 type OverlayFactory = (
   doc: Document,
-  plugin: NativeUIShellPlugin,
-  options: NativeUIShellRuntimeOptions,
+  plugin: NativeUIPlugin,
+  options: NativeUIRuntimeOptions,
   retain: (deferActivation?: (id: string) => boolean) => () => void,
   nativeRail: () => boolean,
 ) => Promise<OverlayController>;
@@ -30,19 +24,19 @@ import { observeVerticalBarsModals } from './shared/modal';
 export { defineNativeUI } from './extensions';
 export type { NativeUIExtension, NativeUIValue } from './extensions';
 export type {
-  NativeUIShellComponent,
-  NativeUIShellControls,
-  NativeUIShellRuntimeHandle,
-  NativeUIShellRuntimeOptions,
-  NativeUIShellStatus,
-  NativeUIShellSuspension,
+  NativeUIComponent,
+  NativeUIControls,
+  NativeUIRuntimeHandle,
+  NativeUIRuntimeOptions,
+  NativeUIStatus,
+  NativeUISuspension,
   VerticalBarEdge,
   WebViewMetrics,
 } from './definitions';
 
-const plugin = registerPlugin<NativeUIShellPlugin>('IonicNativeUIShell');
-export const IonicNativeUIShell = plugin;
-let active: Promise<NativeUIShellRuntimeHandle> | undefined;
+const plugin = registerPlugin<NativeUIPlugin>('NativeUI');
+export const NativeUI = plugin;
+let active: Promise<NativeUIRuntimeHandle> | undefined;
 let activeFailed = false;
 let activeRoot: HTMLElement | undefined;
 let activeRailHost: HTMLElement | undefined;
@@ -52,7 +46,7 @@ let stopping: Promise<void> | undefined;
 
 // Every stop entry point releases the activation immediately but reserves the
 // shared native/DOM resources until its teardown has settled.
-const stopActivation = (owner: Promise<NativeUIShellRuntimeHandle>, destruction: Promise<void>) => {
+const stopActivation = (owner: Promise<NativeUIRuntimeHandle>, destruction: Promise<void>) => {
   if (active !== owner) return;
   active = undefined;
   activeFailed = false;
@@ -66,14 +60,14 @@ const stopActivation = (owner: Promise<NativeUIShellRuntimeHandle>, destruction:
   };
   void destruction.then(release, release);
 };
-const web = (reason: string): NativeUIShellRuntimeHandle => ({
+const web = (reason: string): NativeUIRuntimeHandle => ({
   markForCheck: () => {},
   getStatus: () => ({ state: 'web', projected: 0, updates: 0, reason }),
   suspend: async () => ({ resume: async () => {} }),
   destroy: async () => {},
 });
 
-const combine = (native: NativeUIShellRuntimeHandle, fallback: NativeUIShellRuntimeHandle): NativeUIShellRuntimeHandle => ({
+const combine = (native: NativeUIRuntimeHandle, fallback: NativeUIRuntimeHandle): NativeUIRuntimeHandle => ({
   markForCheck() {
     native.markForCheck();
     fallback.markForCheck();
@@ -100,7 +94,7 @@ const combine = (native: NativeUIShellRuntimeHandle, fallback: NativeUIShellRunt
 
 /** Wraps a runtime handle with the shared enable-lifecycle: reason, suspend hooks and idempotent destroy. */
 const manage = (
-  handle: NativeUIShellRuntimeHandle,
+  handle: NativeUIRuntimeHandle,
   lifecycle: {
     reason?: string;
     suspend?: () => (() => void) | undefined | Promise<(() => void) | undefined>;
@@ -108,7 +102,7 @@ const manage = (
     stopping?: (destruction: Promise<void>) => void;
     destroy?: () => void | Promise<void>;
   } = {},
-): NativeUIShellRuntimeHandle => {
+): NativeUIRuntimeHandle => {
   let destruction: Promise<void> | undefined;
   return {
     markForCheck: () => {
@@ -144,7 +138,7 @@ const manage = (
 /** Reads the current native WebView geometry and applies it to page transitions. */
 export const configureNativeTransition = async (): Promise<WebViewMetrics> => {
   const metrics =
-    typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' && Capacitor.isPluginAvailable('IonicNativeUIShell')
+    typeof document !== 'undefined' && Capacitor.getPlatform() === 'ios' && Capacitor.isPluginAvailable('NativeUI')
       ? await bounded(plugin.getWebViewMetrics())
       : { radius: 0 };
   nativeWebViewMetrics.radius = metrics.radius;
@@ -157,7 +151,7 @@ const physicalVerticalBarEdge = (edge: Exclude<VerticalBarEdge, null>, rtl: bool
 
 const elementRtl = (element: Element): boolean => element.closest('[dir]')?.getAttribute('dir') === 'rtl';
 
-const webProjection = (doc: Document, options: NativeUIShellRuntimeOptions, enabled: () => boolean = () => true) => {
+const webProjection = (doc: Document, options: NativeUIRuntimeOptions, enabled: () => boolean = () => true) => {
   const ionic = () => createVerticalBarsWebProjection(doc, options, () => options.verticalBars?.enabled !== false && enabled());
   if (options.source === 'html') return createHTMLWebProjection(doc, options);
   if (options.source === 'auto') return combine(ionic(), createHTMLWebProjection(doc, options));
@@ -165,10 +159,7 @@ const webProjection = (doc: Document, options: NativeUIShellRuntimeOptions, enab
 };
 
 /** Call once at application startup. Ionic markup remains the source of truth. */
-export const enableNativeUIShell = (
-  options: NativeUIShellRuntimeOptions = {},
-  overlayFactory?: OverlayFactory,
-): Promise<NativeUIShellRuntimeHandle> => {
+export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFactory?: OverlayFactory): Promise<NativeUIRuntimeHandle> => {
   if (options.enabled === false) {
     const current = active;
     if (current)
@@ -180,7 +171,7 @@ export const enableNativeUIShell = (
   }
   if (typeof document === 'undefined') return Promise.resolve(web('Requires a document'));
   const extensions = [...(options.extensions ?? [])];
-  const nativeState: NonNullable<NativeUIShellRuntimeOptions['nativeState']> = (options.nativeState = {});
+  const nativeState: NonNullable<NativeUIRuntimeOptions['nativeState']> = (options.nativeState = {});
   try {
     validateExtensions(extensions, document);
   } catch (error) {
@@ -219,7 +210,7 @@ export const enableNativeUIShell = (
       extensions.some((extension, index) => extension !== activeExtensions[index]))
   )
     return Promise.reject(
-      new Error('Native UI Shell is already running with different controls or extensions; destroy it before changing configuration.'),
+      new Error('Native UI is already running with different controls or extensions; destroy it before changing configuration.'),
     );
   if (active) return active;
   activeConfiguration = configuration;
@@ -227,7 +218,7 @@ export const enableNativeUIShell = (
   activeRailHost = options.rail?.host;
   activeExtensions = extensions;
   const previousStop = stopping;
-  let start: Promise<NativeUIShellRuntimeHandle>;
+  let start: Promise<NativeUIRuntimeHandle>;
   const stop = (destruction: Promise<void>) => stopActivation(start, destruction);
   let releaseNative = async () => {};
   let retired = false;
@@ -275,8 +266,8 @@ export const enableNativeUIShell = (
         });
       };
       if (platform !== 'ios' && platform !== 'android') return fallback('Requires Capacitor iOS or Android');
-      if (!Capacitor.isPluginAvailable('IonicNativeUIShell')) return fallback('Native UI plugin is not registered');
-      let runtime: NativeUIShellRuntimeHandle | undefined;
+      if (!Capacitor.isPluginAvailable('NativeUI')) return fallback('Native UI plugin is not registered');
+      let runtime: NativeUIRuntimeHandle | undefined;
       let overlays: OverlayController | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
       let nativeRelease: Promise<void> | undefined;
@@ -328,7 +319,7 @@ export const enableNativeUIShell = (
           runtime = combine(runtime, webProjection(document, options));
           metricsListener = await boundedListener(
             plugin.addListener('webViewMetricsChange', () => {
-              document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+              document.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
             }),
           );
           return manage(runtime, {
@@ -361,7 +352,7 @@ export const enableNativeUIShell = (
           if (!options.verticalBarsOnly) nativeWebViewMetrics.radius = metrics.radius;
           deviceEdge = metrics.verticalBarEdge ?? null;
           updateNativeEdge();
-          document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+          document.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
         };
         metricsListener = await boundedListener(plugin.addListener('webViewMetricsChange', applyMetrics));
         await bounded(Promise.resolve().then(() => plugin.getWebViewMetrics()))

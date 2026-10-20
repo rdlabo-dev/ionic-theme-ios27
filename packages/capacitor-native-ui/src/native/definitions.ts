@@ -1,7 +1,7 @@
 import type { NativeUIExtension } from './extensions';
 import type { PluginListenerHandle } from '@capacitor/core';
 
-export type NativeUIShellComponent =
+export type NativeUIComponent =
   | 'ion-button'
   | 'ion-buttons'
   | 'ion-back-button'
@@ -10,7 +10,7 @@ export type NativeUIShellComponent =
   | 'ion-segment'
   | 'ion-fab';
 
-export interface NativeUIShellStatus {
+export interface NativeUIStatus {
   state: 'web' | 'native' | 'stopped';
   projected: number;
   updates: number;
@@ -32,10 +32,10 @@ export interface VerticalControlAreaOptions {
    */
   extensions?: readonly NativeUIExtension[];
   /** Opt-in popovers anchored to native Vertical Bars buttons. */
-  controls?: Pick<NativeUIShellControls, 'popover'>;
+  controls?: Pick<NativeUIControls, 'popover'>;
   /** Ordinary horizontal toolbar selection/grouping. true enables all three options; false disables them.
    * Object fields default to true. Local data-horizontal-bars overrides still apply.
-   * Only enableNativeUIShell projects horizontal controls.
+   * Only enableNativeUI projects horizontal controls.
    */
   horizontal?: boolean | ToolbarProjectionOptions;
   /** Vertical toolbar selection/grouping. true enables all three options; false disables them.
@@ -61,7 +61,7 @@ export interface VerticalControlAreaOptions {
   buttonDefaultFill?: 'solid' | null;
 }
 
-export interface NativeUIShellOptions extends VerticalControlAreaOptions {
+export interface NativeUIOptions extends VerticalControlAreaOptions {
   /** Log Web fallback reasons and their source elements once per reason during this activation. Defaults to false. */
   debug?: boolean;
   verticalBars?: NativeUIVerticalBarsOptions;
@@ -72,13 +72,13 @@ export interface NativeUIShellOptions extends VerticalControlAreaOptions {
   /** @deprecated Call destroy() on the running handle to stop the shell. */
   enabled?: boolean;
   /** @deprecated Use ionic.auto for automatic Ionic projection and verticalBars.popover for popovers. */
-  controls?: NativeUIShellControls;
+  controls?: NativeUIControls;
   /** @deprecated Use verticalBars.only. */
   verticalBarsOnly?: boolean;
 }
 
 /** @internal Resolved adapter state; not an application configuration API. */
-export interface NativeUIShellRuntimeOptions extends NativeUIShellOptions {
+export interface NativeUIRuntimeOptions extends NativeUIOptions {
   source?: 'ionic' | 'html' | 'auto' | 'extensions';
   /** @internal Preserves legacy controls.buttons behavior for explicit sources. */
   explicitControls?: boolean;
@@ -100,7 +100,7 @@ export interface AutoIonicControls {
   fab?: boolean;
 }
 
-export interface NativeUIShellControls {
+export interface NativeUIControls {
   /** Toolbar actions and explicitly marked HTML buttons. Defaults to true. */
   buttons?: boolean;
   /** Projects tab bars and their native search presentation. */
@@ -116,7 +116,7 @@ export interface NativeUIShellControls {
 }
 
 /** A running shell. Placement changes preserve all other startup settings. */
-export interface NativeUIShellHandle extends NativeUIShellRuntimeHandle {
+export interface NativeUIHandle extends NativeUIRuntimeHandle {
   /** Enable rail projection when available, preserving other settings. Rejects after destroy. */
   enableVerticalControlArea(): Promise<void>;
   /** Restore rail sources to the Web without stopping ordinary native controls. Rejects after destroy. */
@@ -137,13 +137,13 @@ export interface NativeUIVerticalBarsOptions {
   placement?: { edge: Exclude<VerticalBarEdge, null>; webHost?: HTMLElement };
 }
 
-export interface NativeUIShellRuntimeHandle {
+export interface NativeUIRuntimeHandle {
   /** Schedule a source recheck. Calls coalesce; unchanged snapshots are not sent. No-op after destroy or without a runtime. */
   markForCheck(): void;
   /** Returns the current Web/native projection state. */
-  getStatus(): NativeUIShellStatus;
+  getStatus(): NativeUIStatus;
   /** Restores projected controls to the Web until the returned lease is resumed. */
-  suspend(): Promise<NativeUIShellSuspension>;
+  suspend(): Promise<NativeUISuspension>;
   /** Stops synchronization, restores Web controls and releases native resources. */
   destroy(): Promise<void>;
 }
@@ -161,14 +161,14 @@ export interface VerticalBarPlacement {
   nativeEdge?: VerticalBarEdge;
 }
 
-export interface VerticalControlAreaHandle extends NativeUIShellHandle {
+export interface VerticalControlAreaHandle extends NativeUIHandle {
   /** Legacy Web CSS adapter. Use the theme setVerticalBarsLayout helper instead.
    * @deprecated Web layout belongs to the theme or application.
    */
   setPlacement(placement: VerticalBarEdge | VerticalBarPlacement, rtl?: boolean): void;
 }
 
-export interface NativeUIShellSuspension {
+export interface NativeUISuspension {
   /** Releases this suspension. Native projection resumes after all active suspensions are released. */
   resume(): Promise<void>;
 }
@@ -180,13 +180,13 @@ export interface Frame {
   height: number;
 }
 
-export interface ShellBadge {
+export interface NativeUIBadge {
   value: string;
   color: string;
   textColor: string;
 }
 
-export interface ShellItem extends Frame {
+export interface NativeUIItem extends Frame {
   id: string;
   label: string;
   accessibilityLabel: string;
@@ -200,7 +200,7 @@ export interface ShellItem extends Frame {
   backgroundColor?: string;
   borderColor?: string;
   borderWidth?: number;
-  badge?: ShellBadge;
+  badge?: NativeUIBadge;
   icon?: string;
   iconWidth?: number;
   iconHeight?: number;
@@ -226,7 +226,7 @@ export type NativeUIControlKind =
   | 'segment'
   | 'floating-action-button';
 
-export interface ShellControl extends Frame {
+export interface NativeUIControl extends Frame {
   id: string;
   kind: NativeUIControlKind | 'extension';
   extension?: { name: string; props: string; actions: Record<string, string>; tabBarId?: string };
@@ -234,17 +234,17 @@ export interface ShellControl extends Frame {
   placement?: 'vertical-bars';
   /** Logical Ionic toolbar slot, preserved when projecting to the vertical rail. */
   toolbarSlot?: 'start' | 'end';
-  items: ShellItem[];
+  items: NativeUIItem[];
   dark: boolean;
   rtl: boolean;
   tabBarAnchor?: { x: 0 | 0.5 | 1; y: 0 | 1 };
-  search?: ShellSearch;
+  search?: NativeUISearch;
 }
 
-export interface ShellSearch {
+export interface NativeUISearch {
   id: string;
-  field: ShellItem;
-  trigger: ShellItem;
+  field: NativeUIItem;
+  trigger: NativeUIItem;
   closeId: string;
   active: boolean;
   available: boolean;
@@ -256,14 +256,14 @@ export interface ShellSearch {
   valueVersion: number;
 }
 
-export interface ShellSearchEvent extends ShellActivation {
+export interface NativeUISearchEvent extends NativeUIActivation {
   valueVersion: number;
   phase: 'input' | 'focus' | 'blur' | 'clear' | 'commit';
   value: string;
   composing: boolean;
 }
 
-export interface ShellSnapshot {
+export interface NativeUISnapshot {
   revision: number;
   transitionDuration?: number;
   viewportWidth: number;
@@ -271,10 +271,10 @@ export interface ShellSnapshot {
   verticalBarEdge?: 'left' | 'right';
   /** Visible foreground modal bounds; omitted for the full page. */
   verticalBarFrame?: Frame;
-  controls: ShellControl[];
+  controls: NativeUIControl[];
 }
 
-export interface ShellActivation {
+export interface NativeUIActivation {
   revision: number;
   id: string;
   sequence: number;
@@ -289,25 +289,25 @@ export interface WebViewMetrics {
   verticalBarEdge?: VerticalBarEdge;
 }
 
-export interface NativeUIShellPlugin {
+export interface NativeUIPlugin {
   configure(options?: { verticalBarsOnly?: boolean }): Promise<{ supported: boolean; extensions?: string[] }>;
   completeExtensionAction(options: { requestId: string; accepted: boolean }): Promise<void>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   getVerticalBarsGeometry(options: { viewportWidth: number; ids: string[] }): Promise<{ revision?: number; items: Record<string, Frame> }>;
   prepareOverlay(options: { id: string }): Promise<void>;
-  presentOverlay(options: { id: string; presentation?: ShellPopoverPresentation }): Promise<void>;
+  presentOverlay(options: { id: string; presentation?: NativeUIPopoverPresentation }): Promise<void>;
   dismissOverlay(options: { id: string; animated: boolean }): Promise<void>;
   closeOverlay(options: { id: string }): Promise<void>;
   stopOverlays(): Promise<void>;
-  update(snapshot: ShellSnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
+  update(snapshot: NativeUISnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
   clear(options: { revision: number }): Promise<void>;
-  addListener(name: 'activate', listener: (event: ShellActivation) => void): Promise<PluginListenerHandle>;
-  addListener(name: 'search', listener: (event: ShellSearchEvent) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'activate', listener: (event: NativeUIActivation) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'search', listener: (event: NativeUISearchEvent) => void): Promise<PluginListenerHandle>;
   addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
-  addListener(name: 'overlay', listener: (event: ShellOverlayEvent) => void): Promise<PluginListenerHandle>;
+  addListener(name: 'overlay', listener: (event: NativeUIOverlayEvent) => void): Promise<PluginListenerHandle>;
 }
 
-export interface ShellPopoverPresentation {
+export interface NativeUIPopoverPresentation {
   kind: 'popover';
   animated: boolean;
   dark: boolean;
@@ -318,7 +318,7 @@ export interface ShellPopoverPresentation {
   backdropDismiss: boolean;
 }
 
-export interface ShellOverlayEvent {
+export interface NativeUIOverlayEvent {
   id: string;
   action: 'dismiss';
 }

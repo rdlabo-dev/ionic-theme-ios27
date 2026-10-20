@@ -95,12 +95,9 @@ ion-app.ios-theme-vertical-bars
   // Reserve the final layout before a page transition, using the same prehide
   // decision as its rail controls. Horizontal native projection keeps its space.
   // Titles, custom content and horizontal-only controls keep the toolbar visible.
-  &:not([data-native-ui-shell-toolbar-text]):has(
-      > .ios-theme-native-ui-shell-prehidden,
-      > ion-buttons > .ios-theme-native-ui-shell-prehidden
-    ):not(:has(> :not(ion-buttons, .ios-theme-native-ui-shell-prehidden))):not(
-      :has(> ion-buttons:not(.ios-theme-native-ui-shell-prehidden) > :not(.ios-theme-native-ui-shell-prehidden))
-    ) {
+  &:not([data-native-ui-toolbar-text]):has(> .native-ui-prehidden, > ion-buttons > .native-ui-prehidden):not(
+      :has(> :not(ion-buttons, .native-ui-prehidden))
+    ):not(:has(> ion-buttons:not(.native-ui-prehidden) > :not(.native-ui-prehidden))) {
     display: none;
   }
 
@@ -294,20 +291,20 @@ ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left
   left: calc(24px + (48px - var(--ios-theme-side-tab-bar-width)) / 2);
 }
 
-.ios-theme-native-ui-shell-prehidden {
+.native-ui-prehidden {
   position: absolute !important;
   visibility: hidden !important;
 }
 
 // Hide an entering back source until JS decides whether it belongs in the rail.
-html.ios-theme-native-ui-shell-prehide
+html.native-ui-prehide
   ion-app.ios-theme-vertical-bars
   ion-back-button:not(
     [icon],
     [color],
     .ios-theme-vertical-bars-back-web-owned,
-    .ios-theme-shell-disabled,
-    [data-shell='disabled'],
+    .native-ui-disabled,
+    [data-native-ui-state='disabled'],
     .ios-theme-disabled,
     .ios26-disabled,
     .ios-theme-vertical-bars-back-button-projection
@@ -319,8 +316,8 @@ html.ios-theme-native-ui-shell-prehide
       ion-header[collapse] *,
       ion-footer[collapse] *,
       ion-buttons.ios-theme-horizontal-only *,
-      .ios-theme-shell-disabled *,
-      [data-shell='disabled'] *,
+      .native-ui-disabled *,
+      [data-native-ui-state='disabled'] *,
       .ios-theme-disabled *,
       .ios26-disabled *
     )
@@ -334,7 +331,7 @@ ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-them
   ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(
       :where(ion-menu *, ion-modal:not(.ios-theme-vertical-bars-modal) *, ion-popover *)
     )
-    ion-back-button:is(.ios, .md)[data-native-ui-shell]:not(
+    ion-back-button:is(.ios, .md)[data-native-ui-projected]:not(
       .ios-theme-disabled,
       .ios26-disabled,
       .ios-theme-vertical-bars-back-button-projection
@@ -345,7 +342,7 @@ ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-them
       :where(ion-menu *, ion-modal:not(.ios-theme-vertical-bars-modal) *, ion-popover *)
     )
     ion-buttons:is(.ios, .md)
-    > :is(ion-button, ion-menu-button):is(.ios, .md)[data-native-ui-shell]:not(
+    > :is(ion-button, ion-menu-button):is(.ios, .md)[data-native-ui-projected]:not(
       .ios-theme-disabled,
       .ios26-disabled,
       .ios-theme-vertical-bars-toolbar-action
@@ -355,8 +352,8 @@ ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-them
   ion-toolbar:is(.ios, .md):not(.ios-theme-disabled, .ios26-disabled):not(
       :where(ion-menu *, ion-modal:not(.ios-theme-vertical-bars-modal) *, ion-popover *)
     )
-    ion-buttons:is(.ios, .md):has(> :is(ion-back-button, ion-button, ion-menu-button)[data-native-ui-shell]):not(
-      :has(> :is(ion-back-button, ion-button, ion-menu-button):not([data-native-ui-shell]))
+    ion-buttons:is(.ios, .md):has(> :is(ion-back-button, ion-button, ion-menu-button)[data-native-ui-projected]):not(
+      :has(> :is(ion-back-button, ion-button, ion-menu-button):not([data-native-ui-projected]))
     ) {
     display: none;
   }
@@ -441,7 +438,7 @@ ion-tab-button.ios.ion-cloned-element.ios27-vertical-tab-effect {
   }
 }
 
-// Search shares the Web rail before Native UI Shell takes ownership.
+// Search shares the Web rail before Native UI takes ownership.
 :is(ion-app.ios-theme-vertical-bars, ion-modal.ios-theme-vertical-bars-modal) > ion-fab.ios-theme-vertical-bars-search-projection {
   position: fixed;
   left: auto;
@@ -459,7 +456,7 @@ ion-tab-button.ios.ion-cloned-element.ios27-vertical-tab-effect {
   }
 }
 
-ion-app.ios-theme-vertical-bars ion-fab > ion-fab-button[data-native-ui-shell] {
+ion-app.ios-theme-vertical-bars ion-fab > ion-fab-button[data-native-ui-projected] {
   visibility: hidden !important;
 }
 

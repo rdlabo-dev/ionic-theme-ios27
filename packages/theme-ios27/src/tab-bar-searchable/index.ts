@@ -11,7 +11,7 @@ import {
   type TabBarSearchableFunction,
   TabBarSearchableType,
 } from '@rdlabo/ionic-theme-utils';
-import { isNativeUIShell, registerNativeSearch, requestNativeSearch, suspendNativeUIShell } from '@rdlabo/capacitor-native-ui/integration';
+import { isNativeUI, registerNativeSearch, requestNativeSearch, suspendNativeUI } from '@rdlabo/capacitor-native-ui/integration';
 import {
   createCloseButtonsAnimation,
   createEffectAnimation,
@@ -89,7 +89,7 @@ export const attachTabBarSearchable = (
       throw new Error('TabBarSearchableType.Leave should be run after TabBarSearchableType.Enter');
     const hadNativeEntry = nativeEntry;
     const request = ++nativeRequest;
-    if (type === TabBarSearchableType.Enter) nativeEntry ||= isNativeUIShell(ionFooter);
+    if (type === TabBarSearchableType.Enter) nativeEntry ||= isNativeUI(ionFooter);
     const accepted = await requestNativeSearch(nativeSearch, type === TabBarSearchableType.Enter);
     if (request !== nativeRequest) return;
     if (accepted) {
@@ -115,7 +115,7 @@ export const attachTabBarSearchable = (
         tabVisibilityObserver.observe(ionTabBar, { attributes: true, attributeFilter: ['class'] });
         keepTabsVisible();
       }
-      resumeNative ??= await suspendNativeUIShell([
+      resumeNative ??= await suspendNativeUI([
         ...(verticalSearch ? [] : [ionTabBar]),
         ionFooter,
         ionFabButton.closest('ion-fab') ?? ionFabButton,

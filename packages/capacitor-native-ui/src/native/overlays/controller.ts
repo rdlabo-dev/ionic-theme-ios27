@@ -1,6 +1,6 @@
-import type { NativeUIShellOptions, NativeUIShellPlugin } from '../definitions';
+import type { NativeUIOptions, NativeUIPlugin } from '../definitions';
 import { bounded, boundedListener } from '../shared/bridge';
-import { isExcluded, isPermanentlyExcluded, isShellDisabled } from '../shared/dom';
+import { isExcluded, isPermanentlyExcluded, isNativeUIDisabled } from '../shared/dom';
 import { activeElement, trapFocus } from './focus';
 import { relayPopover, popoverPresentation, verticalBarsPopoverAnchor } from './popover';
 import { nativeDialogAnimation } from './dialog-animation';
@@ -36,8 +36,8 @@ interface Connection {
 /** Ionic owns lifecycle and dismissal; only one overlay is relayed at a time. */
 export const createOverlayController = async (
   doc: Document,
-  plugin: NativeUIShellPlugin,
-  options: NativeUIShellOptions,
+  plugin: NativeUIPlugin,
+  options: NativeUIOptions,
   retainProjection: (deferActivation?: (id: string) => boolean) => () => void,
   nativeVerticalBars: () => boolean,
 ) => {
@@ -89,7 +89,7 @@ export const createOverlayController = async (
   const restoreWeb = async () => {
     if (current) await release(current);
   };
-  const excluded = (overlay: HTMLElement) => isPermanentlyExcluded(overlay) || isExcluded(overlay) || isShellDisabled(overlay);
+  const excluded = (overlay: HTMLElement) => isPermanentlyExcluded(overlay) || isExcluded(overlay) || isNativeUIDisabled(overlay);
   const connect = async (connection: Connection, ready: Promise<void>, presentation: Presentation) => {
     const { overlay } = connection;
     const gone = () =>
@@ -160,10 +160,10 @@ export const createOverlayController = async (
       // destroyed; without this a popover could retain the page projections
       // forever and freeze every later control update.
       const exclusions = new MutationObserver(() => {
-        if (!overlay.isConnected || !nativeVerticalBars() || excluded(overlay) || isShellDisabled(content.root))
+        if (!overlay.isConnected || !nativeVerticalBars() || excluded(overlay) || isNativeUIDisabled(content.root))
           void release(connection).catch(console.error);
       });
-      const attributes = { attributes: true, attributeFilter: ['class', 'data-shell', 'hidden', 'inert'] };
+      const attributes = { attributes: true, attributeFilter: ['class', 'data-native-ui-state', 'hidden', 'inert'] };
       for (let node: HTMLElement | null = overlay; node; node = node.parentElement) {
         exclusions.observe(node, attributes);
         exclusions.observe(node, { childList: true });
@@ -217,7 +217,7 @@ export const createOverlayController = async (
       opening = opening.then(() => release(connection)).catch(console.error);
       // The original event path still belongs to the child document. Let the
       // source runtime observe presentation before releasing retained controls.
-      if (fromChild) doc.dispatchEvent(new CustomEvent('nativeUIShellOverlayAdopted', { detail: overlay }));
+      if (fromChild) doc.dispatchEvent(new CustomEvent('nativeUIOverlayAdopted', { detail: overlay }));
       if (!connection.dismissed) return;
       // A didDismiss handler may immediately open the next popover while SwiftUI is still closing this one.
       connection.stopAnimation?.();

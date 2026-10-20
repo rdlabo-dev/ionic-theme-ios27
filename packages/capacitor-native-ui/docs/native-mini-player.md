@@ -14,7 +14,7 @@ Use the [app-local extension API](native-ui-extensions.md) to add a SwiftUI mini
 
 The SwiftUI sample uses `NativeUIContext.sourceFrame.width` for compact spacing and `actions.isAvailable(...)` to disable actions whose Web targets are unavailable. See [projection context](native-ui-extensions.md#read-source-geometry-and-presentation-state) for coordinate units and system placement.
 
-Register the View once in the app delegate and pass `miniPlayer` in `enableNativeUIShell({ extensions: [miniPlayer] })`. Copy these app-local files to adapt the sample to your own playback state and artwork. The original sunset artwork is drawn with SwiftUI shapes, with a matching local SVG for the Web. The compact player shows only artwork, track metadata and playback; elapsed time stays in Now Playing.
+Register the View once in the app delegate and pass `miniPlayer` in `enableNativeUI({ extensions: [miniPlayer] })`. Copy these app-local files to adapt the sample to your own playback state and artwork. The original sunset artwork is drawn with SwiftUI shapes, with a matching local SVG for the Web. The compact player shows only artwork, track metadata and playback; elapsed time stays in Now Playing.
 
 The sample uses the default **element projection**: SwiftUI follows the Web element’s position and size on iOS 26+, with ordinary tabs or Vertical Bars. Browsers and unsupported environments retain the Web player. Use the **Native extension** toggle to switch native projection on or off. The player starts in Web mode; disabling the extension restores its Web UI. It is shown only on this demo page; leaving the page hides it without resetting playback state.
 
@@ -24,11 +24,11 @@ This is a UI example: elapsed time is fixed and no audio engine is started. Appl
 
 ## Use the Web + SwiftUI set in your application
 
-The local TypeScript file includes both a renderer for an ordinary DOM element and its native reader. Copy it together with `NativeMiniPlayer.swift`; in your app, replace the demo’s relative `defineNativeUI` import with `@rdlabo/capacitor-native-ui`. The Web renderer works without Angular, Capacitor or an enabled Native UI Shell; SwiftUI replaces it only after native accepts the projection.
+The local TypeScript file includes both a renderer for an ordinary DOM element and its native reader. Copy it together with `NativeMiniPlayer.swift`; in your app, replace the demo’s relative `defineNativeUI` import with `@rdlabo/capacitor-native-ui`. The Web renderer works without Angular, Capacitor or an enabled Native UI; SwiftUI replaces it only after native accepts the projection.
 
 ```ts
 import { miniPlayer, mountNowPlaying } from './native-ui/mini-player';
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
 const player = document.querySelector<HTMLElement>('[data-mini-player]')!;
 const destroyWeb = mountNowPlaying(player); // Run on every platform, including the Web.
@@ -36,7 +36,7 @@ player.addEventListener('togglePlayback', () => {
   player.setAttribute('data-playing', String(player.getAttribute('data-playing') !== 'true'));
 });
 player.addEventListener('openNowPlaying', () => openNowPlaying());
-await enableNativeUIShell({ extensions: [miniPlayer] });
+await enableNativeUI({ extensions: [miniPlayer] });
 // Call destroyWeb() when the application's source element is destroyed.
 ```
 

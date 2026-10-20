@@ -3,7 +3,7 @@ import { counter, accessoryCounter } from './native-ui/counter';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { createAppConfig, type IonicAnimationOptions } from './app/app.config';
 import { AppComponent } from './app/app.component';
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 import { setVerticalBarsLayout } from '@rdlabo/ionic-theme-ios27';
 import { Capacitor } from '@capacitor/core';
 import { Foldable, type BarPlacement } from '@erkamyaman/capacitor-foldable';
@@ -47,10 +47,10 @@ const verticalBarsOnly = stockIonic || new URLSearchParams(window.location.searc
 const buttonDefaultFill =
   stockIonic || new URLSearchParams(window.location.search).get('buttonDefaultFill') === 'solid' ? 'solid' : 'glass';
 const buttonProjection = new URLSearchParams(window.location.search).get('buttonProjection') === 'source' ? 'source' : 'system';
-void enableNativeUIShell({
+void enableNativeUI({
   extensions: [counter, accessoryCounter, miniPlayer],
   verticalBars: { only: verticalBarsOnly, buttonProjection, buttonDefaultFill, popover: true },
 }).then((handle) => {
   const app = document.querySelector('ion-app');
-  if (app) Object.assign(app, { nativeUIShell: handle });
+  if (app) Object.assign(app, { nativeUI: handle });
 });

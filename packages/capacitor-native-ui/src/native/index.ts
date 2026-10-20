@@ -1,21 +1,21 @@
 // Compatibility Ionic entrypoint. Standard HTML consumers can import /core without Ionic.
-import { startNativeUIShell as activate } from './startup';
-import type { NativeUIShellOptions, VerticalControlAreaOptions, VerticalControlAreaHandle } from './definitions';
+import { startNativeUI as activate } from './startup';
+import type { NativeUIOptions, VerticalControlAreaOptions, VerticalControlAreaHandle } from './definitions';
 import { setVerticalControlAreaPlacement } from './legacy-layout';
 export { setVerticalControlAreaPlacement } from './legacy-layout';
-export { configureNativeTransition, IonicNativeUIShell } from './activation';
+export { configureNativeTransition, NativeUI } from './activation';
 export { defineNativeUI } from './extensions';
 export type { NativeUIExtension, NativeUIValue, NativeUIReadContext, NativeUIImageReference } from './extensions';
 export type {
   NativeUIVerticalBarsOptions,
-  NativeUIShellComponent,
-  NativeUIShellControls,
+  NativeUIComponent,
+  NativeUIControls,
   AutoIonicControls,
   IonicProjectionOptions,
-  NativeUIShellHandle,
-  NativeUIShellOptions,
-  NativeUIShellStatus,
-  NativeUIShellSuspension,
+  NativeUIHandle,
+  NativeUIOptions,
+  NativeUIStatus,
+  NativeUISuspension,
   VerticalBarEdge,
   VerticalBarPlacement,
   VerticalControlAreaHandle,
@@ -24,11 +24,11 @@ export type {
   WebViewMetrics,
 } from './definitions';
 
-export const enableNativeUIShell = (options: NativeUIShellOptions = {}) =>
+export const enableNativeUI = (options: NativeUIOptions = {}) =>
   activate(options, async (...args) => (await import('./overlays/controller')).createOverlayController(...args));
 
 export const enableVerticalControlArea = async (options: VerticalControlAreaOptions = {}): Promise<VerticalControlAreaHandle> => {
-  const handle = await enableNativeUIShell({
+  const handle = await enableNativeUI({
     extensions: options.extensions,
     horizontal: options.horizontal,
     vertical: options.vertical,

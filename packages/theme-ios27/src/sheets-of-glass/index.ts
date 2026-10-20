@@ -2,7 +2,7 @@ import { AnimationPosition, EffectScales, registeredEffect } from './interfaces'
 import { createAnimation, createGesture } from '@ionic/core/components/index.js';
 import type { Animation, Gesture, GestureDetail } from '@ionic/core/components';
 import { changeSelectedElement, cloneElement, getStep } from '../utils';
-import { isNativeUIShell } from '@rdlabo/capacitor-native-ui/integration';
+import { isNativeUI } from '@rdlabo/capacitor-native-ui/integration';
 import {
   animationRect,
   createMoveAnimation,
@@ -97,7 +97,7 @@ export const registerEffect = (
    * They terminate the gesture using native events as a fallback.
    */
   const onPointerDown = (event: PointerEvent) => {
-    if (isNativeUIShell(targetElement)) return;
+    if (isNativeUI(targetElement)) return;
     stopTabPress();
     tabDragging = false;
     releaseAnimation?.destroy();
@@ -181,7 +181,7 @@ export const registerEffect = (
   };
 
   const onStartGesture = (detail: GestureDetail): boolean | undefined => {
-    if (isNativeUIShell(targetElement)) return false;
+    if (isNativeUI(targetElement)) return false;
     currentTouchedElement = ((detail.event.target as HTMLElement).closest(effectTagName) as HTMLElement) || undefined;
     const tabSelectedElement = targetElement.querySelector(`${effectTagName}.${selectedClassName}`);
     if (
@@ -400,11 +400,11 @@ export const registerEffect = (
   };
 
   const nativeChanged = () => {
-    gesture.enable(!isNativeUIShell(targetElement));
+    gesture.enable(!isNativeUI(targetElement));
     cancelActiveGesture();
   };
-  targetElement.addEventListener('nativeUIShellChange', nativeChanged);
-  if (isNativeUIShell(targetElement)) nativeChanged();
+  targetElement.addEventListener('nativeUIChange', nativeChanged);
+  if (isNativeUI(targetElement)) nativeChanged();
 
   return {
     destroy: () => {
@@ -413,7 +413,7 @@ export const registerEffect = (
       // Remove event listeners
       targetElement.removeEventListener('pointerdown', onPointerDown);
       targetElement.removeEventListener('click', onClick, true);
-      targetElement.removeEventListener('nativeUIShellChange', nativeChanged);
+      targetElement.removeEventListener('nativeUIChange', nativeChanged);
 
       // Destroy gesture
       if (gesture) {

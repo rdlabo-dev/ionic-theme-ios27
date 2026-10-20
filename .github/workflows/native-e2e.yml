@@ -20,8 +20,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - suite: ui-shell
-            script: scripts/verify-native-ui-shell.sh
+          - suite: native-ui
+            script: scripts/verify-native-ui.sh
             device: iPhone Duo
             runtime: iOS 27.1
             scenario: ''

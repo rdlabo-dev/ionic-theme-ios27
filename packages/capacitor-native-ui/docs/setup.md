@@ -27,9 +27,9 @@ The Ionic adapter uses `@ionic/core`, which your Ionic app already supplies. Do 
 Call once from application startup after `ion-app` is mounted:
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
-const shell = await enableNativeUIShell();
+const shell = await enableNativeUI();
 ```
 
 Keep the returned handle if you need to disable features or stop projection. Call `await shell.destroy()` when its application owner is disposed. Do not start a new shell for each page.
@@ -49,15 +49,15 @@ Existing Ionic markup supplies labels, icons, disabled state, and actions. For e
 </ion-header>
 ```
 
-Keep your framework's handler on the original button and register the icon as usual. See [supported markup](native-ui-shell.md#supported-markup) for eligibility; unsupported controls stay on the Web.
+Keep your framework's handler on the original button and register the icon as usual. See [supported markup](native-ui.md#supported-markup) for eligibility; unsupported controls stay on the Web.
 
 ### Place startup in your framework's app root
 
-Keep one shell for the whole app, above routed pages. The following app-owned helper serializes asynchronous startup and cleanup, including React development remounts. Put your shared startup options here, and remove any other `enableNativeUIShell()` call:
+Keep one shell for the whole app, above routed pages. The following app-owned helper serializes asynchronous startup and cleanup, including React development remounts. Put your shared startup options here, and remove any other `enableNativeUI()` call:
 
 ```ts
 // native-ui.ts — place beside your root component
-import { enableNativeUIShell, type NativeUIShellHandle } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI, type NativeUIHandle } from '@rdlabo/capacitor-native-ui';
 // Without Ionic, use @rdlabo/capacitor-native-ui/core instead.
 
 let lifecycle = Promise.resolve();
@@ -65,10 +65,10 @@ const report = (error: unknown) => console.error('Native UI lifecycle failed', e
 
 export function mountNativeUI(): () => void {
   let disposed = false;
-  let shell: NativeUIShellHandle | undefined;
+  let shell: NativeUIHandle | undefined;
   lifecycle = lifecycle.then(async () => {
     if (disposed) return;
-    shell = await enableNativeUIShell(); // Put your options here.
+    shell = await enableNativeUI(); // Put your options here.
     if (disposed) await shell.destroy();
   }).catch(report);
   return () => {
@@ -130,17 +130,17 @@ npm install @rdlabo/ionic-theme-ios27
 
 ```ts
 import { iosTransitionAnimation, mdTransitionAnimation, type AnimationBuilder } from '@ionic/core';
-import { withNativeUIShellTransition } from '@rdlabo/ionic-theme-ios27';
+import { withNativeUITransition } from '@rdlabo/ionic-theme-ios27';
 
 const defaultTransition: AnimationBuilder = (baseEl, opts) =>
   (opts.mode === 'ios' ? iosTransitionAnimation : mdTransitionAnimation)(baseEl, opts);
 
 const ionicConfig = {
-  navAnimation: withNativeUIShellTransition(defaultTransition),
+  navAnimation: withNativeUITransition(defaultTransition),
 };
 ```
 
-Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-shell-transition-adapter). This optional adapter requires the theme package but does not require its stylesheets or replace your animation.
+Pass this option to Angular's `provideIonicAngular`, React's `setupIonicReact`, or Vue's `IonicVue` options. For custom animations, follow the [transition adapter instructions](migration.md#native-ui-transition-adapter). This optional adapter requires the theme package but does not require its stylesheets or replace your animation.
 
 For a plugin-only app, use [navigation without the theme](#navigation-without-the-theme) below. Configure one approach before testing page navigation.
 
@@ -157,7 +157,7 @@ Run the iOS app from Xcode on an iOS 26+ device or simulator. Supported fixed co
 | If you see… | Check… |
 | --- | --- |
 | All controls remain on the Web on iOS | The native package is a direct dependency, the app was synced and rebuilt, and startup ran on a supported OS. |
-| Only one control remains on the Web | Compare its markup and styles with [supported controls](native-ui-shell.md#supported-markup). |
+| Only one control remains on the Web | Compare its markup and styles with [supported controls](native-ui.md#supported-markup). |
 | Controls overlap during navigation | Configure the transition adapter or suspend/resume lifecycle before navigating. |
 | Missing styles or spacing | Retain the app's Web CSS; the plugin does not supply page layout. |
 

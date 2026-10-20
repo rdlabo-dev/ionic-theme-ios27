@@ -1,7 +1,7 @@
 import type { Candidate } from '../shared/candidate';
 import { childElements, excluded, isDark, text } from '../shared/dom';
 import { iconSource } from '../shared/icons';
-import type { ShellItem } from '../definitions';
+import type { NativeUIItem } from '../definitions';
 
 export const tag = 'ion-fab';
 export const shadowSelector = 'ion-fab-button, ion-fab-list';
@@ -93,7 +93,7 @@ export const read = (fab: HTMLElement, id: (element: HTMLElement) => string): Ca
     const y = laidOut ? rect.y + rect.height / 2 - height / 2 : 0;
     if (visible && (x < -1 || y < -1 || x + width > innerWidth + 1 || y + height > innerHeight + 1)) return;
     const label = text(button);
-    const item: ShellItem = {
+    const item: NativeUIItem = {
       id: id(button),
       x,
       y,

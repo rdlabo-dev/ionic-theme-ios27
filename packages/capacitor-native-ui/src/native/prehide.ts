@@ -13,7 +13,7 @@ import {
   verticalBarsOwned,
   isVerticalBarsToolbarActionShape,
   isPermanentlyExcluded,
-  isShellDisabled,
+  isNativeUIDisabled,
   prehiddenClass,
   prehideRootClass,
   rejectedClass,
@@ -92,7 +92,7 @@ export const prehideVerticalBarsToolbarSources = (
     sources.forEach((element) => {
       if (!sourceRoot.contains(element)) return;
       // Shell opt-out is temporary; decide initial placement once it is lifted.
-      if (isShellDisabled(element)) return;
+      if (isNativeUIDisabled(element)) return;
       if (!modalUsesVerticalBars(element) || element.closest(overlays) || (scope.matches('.ion-page') && routedPage(element) !== scope))
         return;
       if (element.matches('ion-buttons')) {
@@ -184,7 +184,7 @@ export const prehideVerticalBarsToolbarSources = (
           element.isConnected &&
           !element.closest(`.${rejectedClass}`) &&
           !isPermanentlyExcluded(element) &&
-          !isShellDisabled(element) &&
+          !isNativeUIDisabled(element) &&
           (!element.matches('ion-back-button') || backSupported(element) || !element.classList.contains('hydrated')) &&
           (!element.matches('ion-buttons') || childElements(element).every((child) => verticalBarsOwned(child)));
         element.classList.toggle(prehiddenClass, hide);
@@ -219,7 +219,7 @@ export const prehideVerticalBarsToolbarSources = (
   for (const name of [LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE])
     doc.addEventListener(name, onPageLifecycle, { capture: true, signal: listeners.signal });
   doc.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, onTransitionCanceled, { capture: true, signal: listeners.signal });
-  doc.defaultView?.addEventListener('nativeUIShellRefresh', reconcile, { signal: listeners.signal });
+  doc.defaultView?.addEventListener('nativeUIRefresh', reconcile, { signal: listeners.signal });
   reconcile();
   const mutationRelevant = (record: MutationRecord) => {
     if (record.type === 'characterData') return record.target.parentElement?.matches('ion-toolbar') === true;
@@ -255,7 +255,7 @@ export const prehideVerticalBarsToolbarSources = (
     characterData: true,
     attributes: true,
     attributeOldValue: true,
-    attributeFilter: ['class', 'data-shell', 'hidden', 'inert', 'icon', 'color'],
+    attributeFilter: ['class', 'data-native-ui-state', 'hidden', 'inert', 'icon', 'color'],
   });
   return {
     suspend: () => {

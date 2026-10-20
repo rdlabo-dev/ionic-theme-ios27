@@ -1,5 +1,5 @@
 import SwiftUI
-import IonicNativeUIShellPlugin
+import NativeUIPlugin
 
 private struct CounterProps: Decodable {
     let count: Int
@@ -36,7 +36,7 @@ private struct CounterView: View {
 
 @MainActor func registerNativeUICounter() throws {
     for name in ["demo.counter", "demo.accessory-counter"] {
-        try NativeUIShell.register(name) { (props: CounterProps, actions: NativeUIActions) in
+        try NativeUI.register(name) { (props: CounterProps, actions: NativeUIActions) in
             CounterView(props: props, actions: actions, accessory: name == "demo.accessory-counter")
         }
     }

@@ -1,5 +1,5 @@
 import { fitsClip } from './shared/clipping';
-import type { NativeUIShellRuntimeOptions, NativeUIShellRuntimeHandle } from './definitions';
+import type { NativeUIRuntimeOptions, NativeUIRuntimeHandle } from './definitions';
 import { appendItem, createCandidate, type Candidate, type Identify } from './shared/candidate';
 import { marker, unprojected, visible } from './shared/dom';
 
@@ -8,7 +8,7 @@ export const htmlSelector = '[data-native-ui="button"], [data-native-ui="back-bu
 export const htmlRailSource = (element: Element) =>
   element.matches(htmlSelector) && element.getAttribute('data-native-ui-placement') === 'rail';
 
-export const readHTMLControl = (element: HTMLElement, id: Identify, options: NativeUIShellRuntimeOptions): Candidate | undefined => {
+export const readHTMLControl = (element: HTMLElement, id: Identify, options: NativeUIRuntimeOptions): Candidate | undefined => {
   if (
     !(options.root ?? element.ownerDocument.body).contains(element) ||
     !element.matches(htmlSelector) ||
@@ -44,7 +44,7 @@ export const readHTMLControl = (element: HTMLElement, id: Identify, options: Nat
 };
 
 /** A rail host is supplied and styled by the application, never by the plugin. */
-export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRuntimeOptions): NativeUIShellRuntimeHandle => {
+export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeOptions): NativeUIRuntimeHandle => {
   const host = options.rail?.host;
   if (!host) {
     let stopped = false;
@@ -160,7 +160,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
   };
   const observer = new MutationObserver(schedule);
   win.addEventListener('resize', schedule);
-  win.addEventListener('nativeUIShellRefresh', schedule);
+  win.addEventListener('nativeUIRefresh', schedule);
   render();
   return {
     markForCheck: schedule,
@@ -185,7 +185,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIShellRun
       observer.disconnect();
       win.cancelAnimationFrame(frame);
       win.removeEventListener('resize', schedule);
-      win.removeEventListener('nativeUIShellRefresh', schedule);
+      win.removeEventListener('nativeUIRefresh', schedule);
       for (const source of owned.keys()) restore(source);
       style.remove();
     },

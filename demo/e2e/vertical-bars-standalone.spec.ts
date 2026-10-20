@@ -8,10 +8,10 @@ for (const direction of ['ltr', 'rtl']) {
   for (const edge of ['left', 'right']) {
     test(`iOS title centers in the remaining foreground with a ${edge} rail in ${direction}`, async ({ page }) => {
       await page.setViewportSize({ width: 700, height: 900 });
-      await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1');
+      await page.goto('/main/index/native-ui?verticalBarsOnly=1');
       await page.addStyleTag({ content: verticalBars });
       const app = page.locator('ion-app');
-      const title = page.locator('app-native-ui-shell ion-header ion-title').first();
+      const title = page.locator('app-native-ui ion-header ion-title').first();
       await expect(title).toBeVisible();
       await app.evaluate(
         (element, placement) => {
@@ -59,7 +59,7 @@ for (const direction of ['ltr', 'rtl']) {
 
 test('Vertical Control Area works in md mode with Ionic CSS and no iOS 27 theme', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
-  await page.goto('/main/index/native-ui-shell?verticalBarsOnly=1&ionicMode=md');
+  await page.goto('/main/index/native-ui?verticalBarsOnly=1&ionicMode=md');
   await expect(page.locator('ion-app')).toHaveClass(/\bmd\b/);
   await page.evaluate(() => {
     for (const sheet of Array.from(document.styleSheets)) {
@@ -71,12 +71,12 @@ test('Vertical Control Area works in md mode with Ionic CSS and no iOS 27 theme'
   });
   await page.addStyleTag({ content: verticalBars });
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ios27-color-scheme').trim())).toBe('');
-  const backSource = page.locator('app-native-ui-shell ion-back-button');
+  const backSource = page.locator('app-native-ui ion-back-button');
   await backSource.evaluate((element: HTMLIonBackButtonElement) => {
     element.text = 'Return';
-    element.closest('app-native-ui-shell')?.querySelector('ion-content')?.prepend(element);
+    element.closest('app-native-ui')?.querySelector('ion-content')?.prepend(element);
   });
-  await page.locator('app-native-ui-shell ion-button[type=submit] ion-icon').evaluate((icon) => {
+  await page.locator('app-native-ui ion-button[type=submit] ion-icon').evaluate((icon) => {
     icon.setAttribute('slot', 'icon-only');
     icon.parentElement!.querySelector('[data-label]')?.remove();
   });
@@ -92,11 +92,11 @@ test('Vertical Control Area works in md mode with Ionic CSS and no iOS 27 theme'
     )
     .toBe('64px');
   await app.evaluate((element) => element.style.removeProperty('--ios-theme-vertical-bars-native-inset'));
-  const toolbar = page.locator('app-native-ui-shell ion-toolbar').first();
+  const toolbar = page.locator('app-native-ui ion-toolbar').first();
   await expect
     .poll(() => toolbar.evaluate((element) => getComputedStyle(element).getPropertyValue('--ion-safe-area-right').trim()))
     .toBe('0px');
-  const source = page.locator('app-native-ui-shell ion-button[type="submit"]');
+  const source = page.locator('app-native-ui ion-button[type="submit"]');
   const projection = page.locator('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection[aria-label="Save"]');
   await expect(source).toBeHidden();
   await expect(projection).toBeVisible();
@@ -125,7 +125,7 @@ for (const placement of ['Separate', 'Grouped']) {
       // Flush prehide's mutation microtask, before the projection's animation frame.
       await new Promise<void>((resolve) => queueMicrotask(() => queueMicrotask(resolve)));
       const toolbar = element.querySelectorAll('app-button-projection ion-header > ion-toolbar')[1];
-      return { display: getComputedStyle(toolbar).display, projected: toolbar.querySelector('[data-native-ui-shell]') !== null };
+      return { display: getComputedStyle(toolbar).display, projected: toolbar.querySelector('[data-native-ui-projected]') !== null };
     });
     expect(beforeProjection).toEqual({ display: 'none', projected: false });
     await expect(page.locator('ion-app > .ios-theme-vertical-bars-toolbar-projection').first()).toBeVisible();

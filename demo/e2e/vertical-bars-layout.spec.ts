@@ -192,7 +192,7 @@ test('stacked modals keep rail controls inside the active dialog and restore the
   await modals.last().getByRole('button', { name: 'Close', exact: true }).press('Enter');
   await expect(modals).toHaveCount(1);
   await expect(modals.first().locator(projection)).toBeVisible();
-  await modals.first().evaluate((modal) => modal.classList.add('ios-theme-shell-disabled'));
+  await modals.first().evaluate((modal) => modal.classList.add('native-ui-disabled'));
   await expect(modals.first().locator(projection)).toHaveCount(0);
   await modals.first().getByRole('button', { name: 'Close', exact: true }).click();
   await expect(modals).toHaveCount(0);

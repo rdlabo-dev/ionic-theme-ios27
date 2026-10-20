@@ -15,16 +15,16 @@ const watchSearch = () => {
   watch = { running: true, frames: 0, releases: 0, exposed: 0 };
   const current = watch;
   const release = (event) => {
-    if (sources.includes(event.target) && !event.target.hasAttribute('data-native-ui-shell')) current.releases++;
+    if (sources.includes(event.target) && !event.target.hasAttribute('data-native-ui-projected')) current.releases++;
   };
-  document.addEventListener('nativeUIShellChange', release, true);
+  document.addEventListener('nativeUIChange', release, true);
   const sample = () => {
     if (!current.running) {
-      document.removeEventListener('nativeUIShellChange', release, true);
+      document.removeEventListener('nativeUIChange', release, true);
       return;
     }
     current.frames++;
-    if (sources.some((source) => !source.hasAttribute('data-native-ui-shell') || getComputedStyle(source).visibility !== 'hidden'))
+    if (sources.some((source) => !source.hasAttribute('data-native-ui-projected') || getComputedStyle(source).visibility !== 'hidden'))
       current.exposed++;
     requestAnimationFrame(sample);
   };
@@ -39,7 +39,7 @@ for (const [label, action] of [
     },
   ],
   ['Toggle native theme', () => document.documentElement.classList.toggle('ios-theme-disabled')],
-  ['Destroy native', () => document.querySelector('ion-app').nativeUIShell.destroy()],
+  ['Destroy native', () => document.querySelector('ion-app').nativeUI.destroy()],
   [
     'External value',
     () => {
@@ -96,7 +96,7 @@ setInterval(() => {
   // Distinguish the focused trailing dismissal from WebKit's cached original Close item.
   const dismiss = input?.closest('ion-footer').querySelector('.ios-theme-searchable-dismiss ion-button');
   if (dismiss && dismiss.getAttribute('aria-label') !== 'Dismiss search') dismiss.setAttribute('aria-label', 'Dismiss search');
-  const native = input?.closest('ion-footer').hasAttribute('data-native-ui-shell');
+  const native = input?.closest('ion-footer').hasAttribute('data-native-ui-projected');
   const tabs = document.querySelector('ion-tab-bar');
   const position = ['start', 'center', 'end'].find((value) => tabs?.classList.contains(`tab-bar-position-${value}`)) ?? 'default';
   const triggerElement = document.querySelector('app-album-page:not(.ion-page-hidden) ion-fab-button');

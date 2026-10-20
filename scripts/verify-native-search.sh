@@ -4,8 +4,8 @@ set -eu
 simulator=${1:?Usage: sh scripts/verify-native-search.sh SIMULATOR_UDID [search|edge]}
 scenario=${2:-search}
 case "$scenario" in
-  search) suite=NativeUIShellSearchTests ;;
-  edge) suite=NativeUIShellEdgeTests ;;
+  search) suite=NativeUISearchTests ;;
+  edge) suite=NativeUIEdgeTests ;;
   *) printf 'Unknown scenario: %s (expected search or edge)\n' "$scenario" >&2; exit 2 ;;
 esac
 repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)

@@ -1,5 +1,5 @@
 import SwiftUI
-import IonicNativeUIShellPlugin
+import NativeUIPlugin
 
 private struct MiniPlayerProps: Decodable {
     let title: String
@@ -99,7 +99,7 @@ private struct AlbumArtwork: View {
 
 @MainActor func registerNativeMiniPlayer() throws {
     guard #available(iOS 26.0, *) else { return }
-    try NativeUIShell.register("demo.mini-player") { (props: MiniPlayerProps, actions: NativeUIActions, context: NativeUIContext) in
+    try NativeUI.register("demo.mini-player") { (props: MiniPlayerProps, actions: NativeUIActions, context: NativeUIContext) in
         MiniPlayerView(props: props, actions: actions, context: context)
     }
 }

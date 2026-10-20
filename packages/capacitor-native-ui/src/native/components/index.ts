@@ -11,7 +11,7 @@ import type { Candidate, Identify } from '../shared/candidate';
 
 // Static composition only. Each component declares its own tag, discovery and reader.
 export const components = [button, buttons, backButton, menuButton, tabBar, segment, fab] as const;
-export type NativeUIShellComponent = (typeof components)[number]['tag'];
+export type NativeUIComponent = (typeof components)[number]['tag'];
 export const selector = components
   .map((component) => ('selector' in component ? component.selector : component.tag))
   .filter(Boolean)

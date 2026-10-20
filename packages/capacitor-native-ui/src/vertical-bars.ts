@@ -1,7 +1,7 @@
-export { enableVerticalControlArea, setVerticalControlAreaPlacement, IonicNativeUIShell } from './native';
+export { enableVerticalControlArea, setVerticalControlAreaPlacement, NativeUI } from './native';
 export type {
-  NativeUIShellStatus,
-  NativeUIShellSuspension,
+  NativeUIStatus,
+  NativeUISuspension,
   VerticalBarEdge,
   VerticalControlAreaHandle,
   VerticalControlAreaOptions,

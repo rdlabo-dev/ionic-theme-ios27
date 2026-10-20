@@ -1,4 +1,4 @@
-import type { ShellControl, ShellItem, NativeUIControlKind, NativeUIShellComponent, VerticalControlAreaOptions } from '../definitions';
+import type { NativeUIControl, NativeUIItem, NativeUIControlKind, NativeUIComponent, VerticalControlAreaOptions } from '../definitions';
 import { frame, isDark, isVerticalBarsSource, text, visible } from './dom';
 import { iconSource, type createIconRenderer } from './icons';
 
@@ -8,9 +8,9 @@ export interface Candidate {
   buttonDefaultFill?: VerticalControlAreaOptions['buttonDefaultFill'];
   element: HTMLElement;
   sources?: HTMLElement[];
-  control: ShellControl;
+  control: NativeUIControl;
   actions: Map<string, HTMLElement>;
-  icons: { item: ShellItem; source: string; field?: 'closeIcon' }[];
+  icons: { item: NativeUIItem; source: string; field?: 'closeIcon' }[];
 }
 
 export type Identify = (element: HTMLElement) => string;
@@ -18,7 +18,7 @@ type ItemElement = HTMLElement & { disabled?: boolean; selected?: boolean };
 
 export const createCandidate = (
   element: HTMLElement,
-  kind: NativeUIShellComponent | NativeUIControlKind,
+  kind: NativeUIComponent | NativeUIControlKind,
   id: Identify,
   options: VerticalControlAreaOptions = {},
 ): Candidate => {
@@ -59,7 +59,7 @@ export const appendItem = (
   id: Identify,
   content: ParentNode = child,
   label = text(child),
-): ShellItem | undefined => {
+): NativeUIItem | undefined => {
   if (
     !visible(child, isVerticalBarsSource(candidate.element)) ||
     child.querySelector('input, button, a, img, canvas, video, ion-spinner, ion-avatar')
@@ -100,7 +100,7 @@ export const appendItem = (
       ? fill
       : undefined;
   const outline = buttonFill === 'outline' ? getComputedStyle(native ?? child) : undefined;
-  const item: ShellItem = {
+  const item: NativeUIItem = {
     id: id(child),
     ...frame(child.getBoundingClientRect(), candidate.element.getBoundingClientRect()),
     label,

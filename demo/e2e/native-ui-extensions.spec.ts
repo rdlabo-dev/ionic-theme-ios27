@@ -67,7 +67,7 @@ test.beforeEach(async ({ page }) => {
       });
     };
   });
-  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-projected', '');
 });
 
 test('projects an app-local reader, dispatches to Web once, and synchronizes new props', async ({ page }) => {
@@ -109,22 +109,22 @@ for (const shadow of [false, true]) {
       }
     }, shadow);
     const source = page.locator('[data-counter]');
-    await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+    await expect(source).not.toHaveAttribute('data-native-ui-projected', '');
     // Fully outside, partially clipped, then fully inside the same scroll container.
     await page.locator('#scroller').evaluate((element) => {
       element.scrollTop = 70;
     });
-    await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+    await expect(source).not.toHaveAttribute('data-native-ui-projected', '');
     await page.locator('#scroller').evaluate((element) => {
       element.scrollTop = 100;
     });
-    await expect(source).toHaveAttribute('data-native-ui-shell', '');
+    await expect(source).toHaveAttribute('data-native-ui-projected', '');
     await page.evaluate(() => (window as any).tap());
     await expect(source).toHaveAttribute('data-count', '1');
     await page.locator('#scroller').evaluate((element) => {
       element.scrollTop = 0;
     });
-    await expect(source).not.toHaveAttribute('data-native-ui-shell', '');
+    await expect(source).not.toHaveAttribute('data-native-ui-projected', '');
   });
 }
 
@@ -138,7 +138,7 @@ for (const failure of ['native-rejection', 'reader-error', 'outside-action', 'in
       w.scalarProps = failure === 'scalar-props';
       document.querySelector<HTMLElement>('[data-counter]')!.dataset.count = failure === 'invalid-props' ? 'NaN' : '2';
     }, failure);
-    await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-shell', '');
+    await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-projected', '');
     expect(await page.evaluate(() => (window as any).handle.getStatus().state)).not.toBe('stopped');
   });
 }
@@ -149,19 +149,19 @@ test('overlay, manual suspension and teardown restore Web ownership', async ({ p
     document.body.append(overlay);
     overlay.dispatchEvent(new Event('ionAlertWillPresent', { bubbles: true }));
   });
-  await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-projected', '');
   await page.evaluate(() => {
     const overlay = document.querySelector('ion-alert')!;
     overlay.dispatchEvent(new Event('ionAlertDidDismiss', { bubbles: true }));
     overlay.remove();
   });
-  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-projected', '');
   await page.evaluate(async () => {
     (window as any).lease = await (window as any).handle.suspend();
   });
-  await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-projected', '');
   await page.evaluate(() => (window as any).lease.resume());
-  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-projected', '');
   await page.evaluate(() => (window as any).handle.destroy());
   await expect(page.locator('[data-counter]')).not.toHaveAttribute('aria-hidden', 'true');
   expect(await page.evaluate(() => Object.keys((window as any).events))).toEqual([]);
@@ -185,22 +185,22 @@ test('an accessory waits for its native tab owner and recovers after competing s
       extensions: [{ ...w.extension, placement: 'tab-accessory' }],
     });
   });
-  await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).not.toHaveAttribute('data-native-ui-projected', '');
   await page.evaluate(() => {
     document.querySelector('ion-tab-bar')!.innerHTML =
       '<ion-tab-button style="display:block;width:100px;height:50px">Home</ion-tab-button>';
   });
-  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-projected', '');
   await page.evaluate(() => {
     const source = document.querySelector('[data-counter]')!;
     const clone = source.cloneNode(true) as HTMLElement;
-    clone.removeAttribute('data-native-ui-shell');
+    clone.removeAttribute('data-native-ui-projected');
     clone.removeAttribute('aria-hidden');
     clone.id = 'competing';
     source.after(clone);
   });
-  await expect(page.locator('[data-counter]').first()).not.toHaveAttribute('data-native-ui-shell', '');
-  await expect(page.locator('#competing')).not.toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]').first()).not.toHaveAttribute('data-native-ui-projected', '');
+  await expect(page.locator('#competing')).not.toHaveAttribute('data-native-ui-projected', '');
   await page.locator('#competing').evaluate((element) => element.remove());
-  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-shell', '');
+  await expect(page.locator('[data-counter]')).toHaveAttribute('data-native-ui-projected', '');
 });

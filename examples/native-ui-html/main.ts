@@ -1,10 +1,10 @@
-import { enableNativeUIShell, type NativeUIShellHandle } from '@rdlabo/capacitor-native-ui/core';
+import { enableNativeUI, type NativeUIHandle } from '@rdlabo/capacitor-native-ui/core';
 
 const root = document.querySelector<HTMLElement>('#app')!;
 const host = document.querySelector<HTMLElement>('#rail')!;
 const mode = document.querySelector<HTMLInputElement>('#rail-mode')!;
 let count = 0;
-let handle: NativeUIShellHandle | undefined;
+let handle: NativeUIHandle | undefined;
 let lifecycle = Promise.resolve();
 const showDetails = (details: boolean) => {
   document.querySelector<HTMLElement>('#home')!.hidden = details;
@@ -22,7 +22,7 @@ const start = async () => {
     if (mode.checked) element.setAttribute('data-native-ui-placement', 'rail');
     else element.removeAttribute('data-native-ui-placement');
   });
-  handle = await enableNativeUIShell({
+  handle = await enableNativeUI({
     root,
     verticalBars: { placement: { edge: 'trailing', webHost: host } },
   });

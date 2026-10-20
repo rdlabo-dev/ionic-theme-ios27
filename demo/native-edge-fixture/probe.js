@@ -11,7 +11,7 @@ const status = document.createElement('button');
 status.style.cssText = 'display:block;max-height:30px;overflow:hidden;width:300px;font:9px sans-serif';
 panel.append(status);
 const tabs = () => document.querySelector('ion-tabs > ion-tab-bar');
-const shell = () => document.querySelector('ion-app')?.nativeUIShell;
+const shell = () => document.querySelector('ion-app')?.nativeUI;
 for (const [label, action] of [
   ['Edge typography', () => { tabs().querySelectorAll('ion-label').forEach((label) => { label.style.fontSize = '14px'; label.style.fontWeight = label.style.fontWeight === '700' ? '300' : '700'; }); }],
   ['Edge update-badge', () => { tabs().querySelectorAll('ion-badge')[1].textContent = '999'; }],
@@ -86,8 +86,8 @@ setInterval(() => {
     path: location.pathname,
     native: shell()?.getStatus().state,
     tabs: bar ? rect(bar) : null,
-    searchNative: !!document.querySelector('app-album-page:not(.ion-page-hidden) ion-footer[data-native-ui-shell]'),
-    tabsNative: bar?.hasAttribute('data-native-ui-shell') ?? false,
+    searchNative: !!document.querySelector('app-album-page:not(.ion-page-hidden) ion-footer[data-native-ui-projected]'),
+    tabsNative: bar?.hasAttribute('data-native-ui-projected') ?? false,
     items: bar ? Array.from(bar.querySelectorAll('ion-tab-button')).map((b) => ({ label: b.textContent.trim(), rect: rect(b), lens: rect(b.shadowRoot?.querySelector('[part="native"]')), icon: b.querySelector('ion-icon') ? rect(b.querySelector('ion-icon')) : null, labelRect: b.querySelector('ion-label') ? rect(b.querySelector('ion-label')) : null })) : [],
     badges: bar ? [...bar.querySelectorAll('ion-badge')].map((badge) => ({
       value: badge.textContent,
@@ -95,7 +95,7 @@ setInterval(() => {
       hydrated: !!badge.shadowRoot,
     })) : [],
     back: back ? rect(back) : null,
-    backNative: back?.hasAttribute('data-native-ui-shell') ?? false,
+    backNative: back?.hasAttribute('data-native-ui-projected') ?? false,
   };
   // Accessibility value lets XCTest read the same source geometry used by the Web.
   status.textContent = JSON.stringify(value);

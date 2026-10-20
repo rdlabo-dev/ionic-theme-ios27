@@ -1,9 +1,9 @@
 import { getNativeSearchBindings, requestNativeSearch } from '../../native-integration';
 import type { NativeSearchBinding } from '../../native-integration';
-import { excluded, inFixedToolbar, isShellDisabled, marker, text, visible, withoutPrehide } from '../shared/dom';
+import { excluded, inFixedToolbar, isNativeUIDisabled, marker, text, visible, withoutPrehide } from '../shared/dom';
 import { iconSource } from '../shared/icons';
 import type { Candidate } from '../shared/candidate';
-import type { ShellItem, ShellSearch, ShellSearchEvent } from '../definitions';
+import type { NativeUIItem, NativeUISearch, NativeUISearchEvent } from '../definitions';
 
 interface SearchState {
   binding: NativeSearchBinding;
@@ -16,7 +16,7 @@ interface SearchState {
   valueVersion: number;
   applyingInput: boolean;
   keyboardHidden?: boolean;
-  last?: ShellSearch;
+  last?: NativeUISearch;
   layout?: string;
   rejectedLayout?: string;
   restore: () => void;
@@ -127,10 +127,10 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
     states.set(binding, state);
     return state;
   };
-  const readIcon = (element: HTMLElement, owner: Element, candidate: Candidate): ShellItem | undefined => {
+  const readIcon = (element: HTMLElement, owner: Element, candidate: Candidate): NativeUIItem | undefined => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    const item: ShellItem = {
+    const item: NativeUIItem = {
       id: id(owner),
       x: rect.x,
       y: rect.y,
@@ -197,10 +197,10 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           states.delete(binding);
         }
       }
-      const inactive: [Candidate, ShellSearch][] = [];
+      const inactive: [Candidate, NativeUISearch][] = [];
       const pageHidden = (element: HTMLElement) => !!element.closest('.ion-page-hidden, .ion-page-invisible');
       const retainInactive = (candidate: Candidate, state?: SearchState, keepAvailable = false) => {
-        // Keep ShellSearchController across page transitions instead of demoting to UITabBar.
+        // Keep NativeUISearchController across page transitions instead of demoting to UITabBar.
         // While the searchable page is only blocked mid-transition (not yet hidden), keep
         // available:true so the system search button stays available over album content.
         if (state?.last) inactive.push([candidate, { ...state.last, active: false, available: keepAvailable, focused: false }]);
@@ -215,7 +215,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
           !(fab.parentElement?.matches('ion-content') || (fab.parentElement?.matches('.ion-page') && !fab.closest('ion-content')))
         )
           continue;
-        if (isShellDisabled(fab) || isShellDisabled(binding.footer)) continue;
+        if (isNativeUIDisabled(fab) || isNativeUIDisabled(binding.footer)) continue;
         const pageUnavailable = blocked(binding.footer) || !!binding.footer.closest(excluded);
         const existing = states.get(binding);
         if (pageUnavailable) {
@@ -439,7 +439,7 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         }
       });
     },
-    event(event: ShellSearchEvent) {
+    event(event: NativeUISearchEvent) {
       const state = Array.from(states.values()).find((s) => id(s.input) === event.id && projected(s.binding) && isCurrent(s));
       if (
         !state ||

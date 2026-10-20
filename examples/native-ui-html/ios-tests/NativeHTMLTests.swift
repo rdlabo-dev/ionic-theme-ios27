@@ -4,12 +4,12 @@ final class NativeHTMLTests: XCTestCase {
     func testStandardHTMLControlsAndRouterlessBack() {
         let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeui.html")
         app.launch()
-        let add = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", "Add", "shell-")).firstMatch
+        let add = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", "Add", "native-ui-")).firstMatch
         XCTAssertTrue(add.waitForExistence(timeout: 15), app.debugDescription)
         add.tap()
         XCTAssertTrue(app.webViews.staticTexts["Count: 1"].waitForExistence(timeout: 5))
         app.webViews.buttons["Open details"].tap()
-        let back = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", "Back", "shell-")).firstMatch
+        let back = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", "Back", "native-ui-")).firstMatch
         XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
         back.tap()
         XCTAssertTrue(app.webViews.staticTexts["Home"].waitForExistence(timeout: 5))

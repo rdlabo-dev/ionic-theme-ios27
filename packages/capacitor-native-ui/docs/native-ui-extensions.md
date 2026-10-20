@@ -24,7 +24,7 @@ Choose the native platform you want to support:
 - **iOS:** use your Capacitor iOS project, Xcode 26+, and an iOS 26+ device or simulator. Follow step 1, the [SwiftUI registration](#2a-register-a-swiftui-view-on-ios), and steps 3–4. To also project standard controls, follow [Ionic setup](setup.md) or [HTML setup](framework-independent.md).
 - **Both:** share the DOM reader from step 1 and register native content for the same name on each platform.
 
-The TypeScript examples below use the Ionic entry. Without Ionic, import both `defineNativeUI` and `enableNativeUIShell` from `@rdlabo/capacitor-native-ui/core`.
+The TypeScript examples below use the Ionic entry. Without Ionic, import both `defineNativeUI` and `enableNativeUI` from `@rdlabo/capacitor-native-ui/core`.
 
 ## 1. Define a DOM reader
 
@@ -69,11 +69,11 @@ The reader is synchronous and read-only. Return `null` when the source should st
 
 ## 2a. Register a SwiftUI View on iOS
 
-Run `npx cap sync ios` after installing the plugin, then add a Swift file to the application's Xcode target. Import `IonicNativeUIShellPlugin`, the module supplied by `@rdlabo/capacitor-native-ui`. Keep your existing SPM or CocoaPods integration.
+Run `npx cap sync ios` after installing the plugin, then add a Swift file to the application's Xcode target. Import `NativeUIPlugin`, the module supplied by `@rdlabo/capacitor-native-ui`. Keep your existing SPM or CocoaPods integration.
 
 ```swift
 import SwiftUI
-import IonicNativeUIShellPlugin
+import NativeUIPlugin
 
 struct CounterProps: Decodable {
     let count: Int
@@ -104,7 +104,7 @@ struct CounterView: View {
 }
 
 @MainActor func registerAppNativeUI() throws {
-    try NativeUIShell.register("app.counter") {
+    try NativeUI.register("app.counter") {
         (props: CounterProps, actions: NativeUIActions) in
         CounterView(props: props, actions: actions)
     }
@@ -142,14 +142,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
-import dev.rdlabo.capacitor.nativeui.NativeUIShell
+import dev.rdlabo.capacitor.nativeui.NativeUI
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
-        NativeUIShell.register(
+        NativeUI.register(
             name = "app.counter",
             decode = { json -> json.getInt("count") },
         ) { count, actions, context ->
@@ -196,10 +196,10 @@ The `decode` callback runs before accepting the projection. If it throws, that s
 ## 3. Enable with local definitions
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 import { counter } from './native-ui/counter';
 
-const shell = await enableNativeUIShell({ ionic: { auto: false }, extensions: [counter] });
+const shell = await enableNativeUI({ ionic: { auto: false }, extensions: [counter] });
 ```
 
 This example enables your extensions without automatically projecting Ionic controls. Explicit `data-native-ui` sources remain opted in. To also project standard Ionic controls on supported iOS, omit `ionic: { auto: false }`. Android standard controls remain Web-rendered either way.
@@ -228,7 +228,7 @@ For source-specific fallback reasons, temporarily enable [`debug: true`](configu
 
 For `tab-accessory`, place the source inside its owning `ion-tabs`. The shell resolves that tabs element's `ion-tab-bar`; applications do not pass native controller references. Currently only the **Vertical Bars SwiftUI tab host** supports this placement. Ordinary UIKit tab bars, missing native tabs, iOS 26.0, or multiple competing accessories keep the source on the Web. The shell does not approximate a system accessory with a floating overlay. Keep an equivalent Web layout (for example, a fixed footer); the source retains its layout space while hidden.
 
-`enableVerticalControlArea({ extensions: [...] })` also accepts extensions. In this standalone mode only accessories belonging to native Vertical Bars are eligible; ordinary element projections require `enableNativeUIShell`.
+`enableVerticalControlArea({ extensions: [...] })` also accepts extensions. In this standalone mode only accessories belonging to native Vertical Bars are eligible; ordinary element projections require `enableNativeUI`.
 
 ## Read source geometry and presentation state
 
@@ -237,7 +237,7 @@ The shell measures the source DOM element automatically. With the default `eleme
 Use the three-argument registration closure to receive that information:
 
 ```swift
-try NativeUIShell.register("app.counter") {
+try NativeUI.register("app.counter") {
     (props: CounterProps, actions: NativeUIActions, context: NativeUIContext) in
     CounterView(props: props, actions: actions)
         .padding(.horizontal, context.sourceFrame.width < 240 ? 4 : 12)
@@ -360,6 +360,6 @@ Element placement requires the source to fit fully inside the viewport and its a
 
 `try await actions.activate(name)` completes after the original Web element receives its click. It does **not** wait for application work launched by the click handler (network requests, navigation or modal presentation). Disabled, removed or stale actions reject; teardown, native task cancellation and bridge timeouts settle pending calls. The bridge acknowledgement is a Capacitor Promise method.
 
-The [demo reader](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/counter.ts) and [demo SwiftUI View](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/ios/App/App/NativeUICounter.swift) show both placements using app-local files. Open the Native UI Shell demo page to compare native projection with its Web fallback.
+The [demo reader](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/src/native-ui/counter.ts) and [demo SwiftUI View](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/demo/ios/App/App/NativeUICounter.swift) show both placements using app-local files. Open the Native UI demo page to compare native projection with its Web fallback.
 
 For a complete application feature, see the [SwiftUI mini-player example](native-mini-player.md): artwork, track metadata, playback controls and swipe-to-open, all defined in the demo application.

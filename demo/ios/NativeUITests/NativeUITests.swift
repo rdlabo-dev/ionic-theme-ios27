@@ -1,0 +1,759 @@
+import XCTest
+
+final class NativeUITests: XCTestCase {
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    func testDarkAppearanceAndRotation() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["Dark Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        toggle.tap()
+        let entry = app.webViews.buttons["native-ui (Preview)"]
+        for _ in 0..<8 {
+            if entry.isHittable { break }
+            app.swipeUp()
+        }
+        entry.tap()
+        let button = nativeButton(app, label: "Save")
+        XCTAssertTrue(button.waitForExistence(timeout: 10), app.debugDescription)
+        capture("native-dark")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCTAssertTrue(button.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(button.isHittable, app.debugDescription)
+        capture("native-landscape")
+        button.tap()
+        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    func testNativeMenuButton() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        openPage(app, name: "native-ui")
+        let menu = nativeButton(app, label: "menu")
+        XCTAssertTrue(menu.waitForExistence(timeout: 15), app.debugDescription)
+        capture("native-menu-button")
+        for cycle in 0..<3 {
+            menu.tap()
+            XCTAssertTrue(app.tabBars.firstMatch.waitForNonExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(menu.waitForNonExistence(timeout: 5), app.debugDescription)
+            waitForWebTransition()
+            if cycle == 0 { capture("native-menu-open") }
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.55)).tap()
+            XCTAssertTrue(menu.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 5))
+        }
+        app.buttons["back"].firstMatch.tap()
+        XCTAssertTrue(app.webViews.switches["Dark Mode"].waitForExistence(timeout: 10))
+        openPage(app, name: "native-ui")
+        XCTAssertTrue(menu.waitForExistence(timeout: 10), app.debugDescription)
+        menu.tap()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForNonExistence(timeout: 5))
+        waitForWebTransition()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.55)).tap()
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        capture("native-menu-restored")
+    }
+
+    func testInteractiveBackCancellation() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let entry = app.webViews.buttons["native-ui (Preview)"]
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        for _ in 0..<8 {
+            if entry.isHittable { break }
+            app.swipeUp()
+        }
+        entry.tap()
+        let save = nativeButton(app, label: "Save")
+        XCTAssertTrue(save.waitForExistence(timeout: 10))
+        let native = app.buttons[save.identifier]
+        XCTAssertTrue(native.identifier.hasPrefix("native-ui-"))
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.55))
+        start.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.55)), withVelocity: .slow, thenHoldForDuration: 0.3)
+        XCTAssertTrue(native.waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-back-cancelled")
+        native.tap()
+        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
+        start.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.55)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(native.waitForNonExistence(timeout: 5), app.debugDescription)
+        capture("native-back-completed")
+    }
+
+    func testPackagedNativePlugin() throws {
+        let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeui.fixture")
+        app.launch()
+        let button = nativeButton(app, label: "Native fixture")
+        XCTAssertTrue(button.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(button.identifier.hasPrefix("native-ui-"), app.debugDescription)
+        capture("native-packed-spm")
+    }
+
+    func testSceneBackgroundAndResume() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        let entry = app.webViews.buttons["native-ui (Preview)"]
+        for _ in 0..<8 {
+            if entry.isHittable { break }
+            app.swipeUp()
+        }
+        entry.tap()
+        let save = nativeButton(app, label: "Save")
+        XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
+        // The supported toolbar group projects its text-only Cancel action as well.
+        let cancel = nativeButton(app, label: "Cancel")
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), app.debugDescription)
+        // Activating another app reliably backgrounds this scene, including on the Duo simulator
+        // where the simulated Home button can leave the scene foreground-active.
+        let otherApp = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeui.fixture")
+        otherApp.activate()
+        let backgrounded = NSPredicate { _, _ in
+            app.state == .runningBackground || app.state == .runningBackgroundSuspended
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: backgrounded, object: app)], timeout: 5), .completed)
+        app.activate()
+        XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), app.debugDescription)
+        save.tap()
+        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.tabBars.firstMatch.exists, app.debugDescription)
+        capture("native-scene-resumed")
+    }
+
+    func testTabPlacementAndSelection() throws {
+        let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeui.fixture")
+        app.launch()
+        let tabs = app.tabBars.firstMatch
+        XCTAssertTrue(tabs.waitForExistence(timeout: 15), app.debugDescription)
+        for direction in ["ltr", "rtl"] {
+            app.webViews.buttons["Direction " + direction].tap()
+            for slot in ["top", "bottom"] {
+                app.webViews.buttons["Slot " + slot].tap()
+                for position in ["start", "center", "end"] {
+                    app.webViews.buttons["Position " + position].tap()
+                    let left = (position == "start") == (direction == "ltr")
+                    let aligned = NSPredicate { _, _ in
+                        // Check the actual interactive tabs, not UITabBar's larger outer frame.
+                        // The iOS 26/27 tab platter has 4pt between its edge and its buttons.
+                        let buttons = tabs.buttons.allElementsBoundByIndex.map(\.frame).reduce(CGRect.null) { $0.union($1) }
+                        guard !buttons.isNull else { return false }
+                        let content = buttons.insetBy(dx: -4, dy: -4)
+                        let horizontal = position == "center" ? abs(content.midX - app.frame.midX)
+                            : left ? abs(content.minX - 16) : abs(content.maxX - (app.frame.width - 16))
+                        return abs(content.width - 300) < 1 && horizontal < 1 &&
+                            abs((slot == "top" ? content.minY : content.maxY) - (slot == "top" ? 160 : app.frame.height - 80)) < 1
+                    }
+                    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: aligned, object: tabs)], timeout: 5), .completed,
+                                   "Placement " + direction + " " + slot + " " + position + "\n" + app.debugDescription)
+                    capture("placement-" + direction + "-" + slot + "-" + position)
+                }
+            }
+        }
+        for name in ["Two", "Three", "One", "Two"] {
+            tabs.buttons[name].tap()
+            XCTAssertTrue(tabs.buttons[name].isSelected)
+            capture("tab-tint-" + name)
+        }
+        app.webViews.buttons["Three tabs"].tap()
+        for position in ["start", "center", "end", "start"] {
+            app.webViews.buttons["Position " + position].tap()
+            let aligned = NSPredicate { _, _ in
+                let buttons = tabs.buttons.allElementsBoundByIndex
+                guard buttons.count == 3 else { return false }
+                let content = buttons.map(\.frame).reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -4, dy: -4)
+                let horizontal = position == "center" ? abs(content.midX - app.frame.midX)
+                    : position == "start" ? abs(content.maxX - (app.frame.width - 16)) : abs(content.minX - 16)
+                return content.width <= 301 && horizontal < 1 && tabs.frame.width <= app.frame.width + 1 &&
+                    abs(content.maxY - (app.frame.height - 80)) < 1
+            }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: aligned, object: tabs)], timeout: 5), .completed,
+                           "UIKit constrained width " + position + "\n" + app.debugDescription)
+            capture("constrained-" + position)
+        }
+    }
+
+    func testNativeButtonAndBackground() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let entry = app.webViews.buttons["native-ui (Preview)"]
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        for _ in 0..<8 {
+            if entry.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(entry.isHittable, app.debugDescription)
+        entry.tap()
+
+        let save = nativeButton(app, label: "Save")
+        XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
+        let native = app.buttons[save.identifier]
+        XCTAssertTrue(native.identifier.hasPrefix("native-ui-"), app.debugDescription)
+        XCTAssertEqual(native.label, "Save")
+        capture("native-initial")
+        let github = nativeButton(app, label: "GitHub")
+        let refresh = nativeButton(app, label: "Refresh")
+        XCTAssertTrue(github.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(refresh.exists, app.debugDescription)
+        github.tap()
+        refresh.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 1"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.tabBars.firstMatch.exists, "Tabs must use UIKit's tab bar")
+        capture("native-ion-icon-group-and-tabs")
+        native.tap()
+        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
+
+        app.webViews.buttons["Parent hidden: false"].tap()
+        XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        app.webViews.buttons["Parent hidden: true"].tap()
+        XCTAssertTrue(native.waitForExistence(timeout: 5))
+
+        app.webViews.buttons["Theme disabled: false"].tap()
+        XCTAssertTrue(app.webViews.buttons["Theme disabled: true"].waitForExistence(timeout: 5))
+        XCTAssertTrue(native.exists, "Disabling group theme styling must not disable its independently projected button")
+        native.tap()
+        let savedTwice = app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "2", "Save count: 2")).firstMatch
+        XCTAssertTrue(savedTwice.waitForExistence(timeout: 5), "The native button must remain actionable with theme styling disabled")
+        app.webViews.buttons["Theme disabled: true"].tap()
+        XCTAssertTrue(native.waitForExistence(timeout: 5))
+
+        app.webViews.buttons["fill: clear"].tap()
+        // Both toolbar children are now clear: the supported glass group owns their native actions.
+        XCTAssertTrue(nativeButton(app, label: "Cancel").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(native.exists)
+        native.tap()
+        let savedThreeTimes = app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "3", "Save count: 3")).firstMatch
+        XCTAssertTrue(savedThreeTimes.waitForExistence(timeout: 5), "Changing to a clear group must preserve the Save action")
+        app.webViews.buttons["fill: solid"].tap()
+        XCTAssertTrue(native.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.webViews.buttons["Save"].firstMatch.exists, "Unsupported standalone solid fill must retain its Web action")
+        app.webViews.buttons["fill: default"].tap()
+        XCTAssertTrue(native.waitForExistence(timeout: 5))
+
+        app.webViews.buttons["disabled: false"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == false"), object: native)], timeout: 5), .completed)
+        app.webViews.buttons["disabled: true"].tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: native)], timeout: 5), .completed)
+
+        let segment = app.segmentedControls.firstMatch
+        XCTAssertTrue(segment.waitForExistence(timeout: 5), app.debugDescription)
+        segment.buttons["Two"].tap()
+        XCTAssertTrue(app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "2", "Selection: 2 / Change count: 1")).firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertFalse(segment.buttons["Three"].isEnabled)
+        app.webViews.buttons["Select One programmatically"].tap()
+
+        app.webViews.buttons["Open modal"].tap()
+        XCTAssertTrue(segment.waitForNonExistence(timeout: 5), app.debugDescription)
+        app.webViews.buttons["Close modal"].tap()
+        XCTAssertTrue(segment.waitForExistence(timeout: 5), app.debugDescription)
+
+        app.swipeUp()
+        capture("native-over-stripes-1")
+        app.swipeUp()
+        capture("native-over-stripes-2")
+        native.tap()
+        capture("native-after-scroll-tap")
+
+        app.buttons["back"].tap()
+        XCTAssertTrue(native.waitForNonExistence(timeout: 5), app.debugDescription)
+        let settings = app.buttons["Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), app.debugDescription)
+        settings.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Settings"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-tab-settings")
+    }
+
+    func testVerticalButtonDisabledStateUpdates() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+        openPage(app, name: "button-projection")
+        XCTAssertTrue(app.webViews.staticTexts["Compare toolbar buttons"].waitForExistence(timeout: 10), app.debugDescription)
+
+        let buttons = ["Omitted", "Clear", "Solid", "Outline"].map { nativeButton(app, label: $0) }
+        for button in buttons {
+            XCTAssertTrue(button.waitForExistence(timeout: 10), app.debugDescription)
+            XCTAssertTrue(button.isEnabled)
+        }
+        let identifiers = buttons.map(\.identifier)
+
+        app.webViews.switches["Disabled"].tap()
+        for button in buttons {
+            expectation(for: NSPredicate(format: "enabled == false"), evaluatedWith: button)
+        }
+        waitForExpectations(timeout: 5)
+        XCTAssertEqual(buttons.map(\.identifier), identifiers)
+        for button in buttons {
+            button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
+        let unexpectedAction = expectation(
+            for: NSPredicate(format: "exists == false"),
+            evaluatedWith: app.webViews.staticTexts["Last action: None"]
+        )
+        unexpectedAction.isInverted = true
+        waitForExpectations(timeout: 1)
+
+        app.webViews.switches["Disabled"].tap()
+        for button in buttons {
+            expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: button)
+        }
+        waitForExpectations(timeout: 5)
+        buttons[3].tap()
+        XCTAssertTrue(app.webViews.staticTexts["Last action: Outline"].waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    func testVerticalSearchPlacementAndEditing() throws {
+        defer { XCUIDevice.shared.orientation = .portrait }
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+        let library = app.buttons["Library"].firstMatch
+        XCTAssertTrue(library.waitForExistence(timeout: 10))
+        try XCTSkipUnless(library.frame.midX > app.frame.width * 0.8, "Requires a device with a right-hand native vertical rail")
+        library.tap()
+        let search = app.buttons["Search"].firstMatch
+        let field = app.searchFields.matching(NSPredicate(format: "identifier BEGINSWITH 'native-ui-'")).firstMatch
+        for orientation in [UIDeviceOrientation.portrait, .landscapeLeft] {
+            XCUIDevice.shared.orientation = orientation
+            XCTAssertTrue(search.waitForExistence(timeout: 10), app.debugDescription)
+            assertOnVerticalBars(search, in: app)
+            capture("vertical-search-resting-\(orientation.rawValue)")
+            search.tap()
+            XCTAssertTrue(field.waitForExistence(timeout: 10), app.debugDescription)
+            field.tap()
+            field.typeText("native")
+            XCTAssertTrue((field.value as? String)?.contains("native") == true)
+            let cancel = app.buttons.matching(NSPredicate(format: "label ==[c] 'Cancel' OR label ==[c] 'Close'")).firstMatch
+            XCTAssertTrue(cancel.waitForExistence(timeout: 5), app.debugDescription)
+            capture("vertical-search-editing-\(orientation.rawValue)")
+            cancel.tap()
+            XCTAssertTrue(field.waitForNonExistence(timeout: 10))
+            XCTAssertTrue(search.waitForExistence(timeout: 10))
+            XCTAssertTrue(library.isSelected)
+        }
+    }
+
+    func testNativeVerticalBars() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+
+        let index = app.buttons["Index"]
+        let library = app.buttons["Library"]
+        XCTAssertTrue(index.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(library.waitForExistence(timeout: 10), app.debugDescription)
+        assertOnVerticalBars(index, in: app)
+        library.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Library"].firstMatch.waitForExistence(timeout: 5), "The native tab did not project its activation to Web\n" + app.debugDescription)
+        XCTAssertTrue(library.isSelected, app.debugDescription)
+        index.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-vertical-bars-index")
+        openPage(app, name: "native-ui")
+        // The demo Save has text and a start icon; only icon-only toolbar actions enter the rail.
+        let save = app.webViews.buttons["Save"].firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 10), app.debugDescription)
+        save.tap()
+        XCTAssertTrue(savedOnce(app).waitForExistence(timeout: 5), app.debugDescription)
+        let github = app.buttons["GitHub"]
+        XCTAssertTrue(github.waitForExistence(timeout: 5), app.debugDescription)
+        github.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 0"].waitForExistence(timeout: 5), app.debugDescription)
+        let refresh = app.buttons["Refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5), app.debugDescription)
+        refresh.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Actions: 1 / 1"].waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-vertical-bars-toolbar")
+
+        let back = app.buttons["BackButton"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+        assertOnVerticalBars(back, in: app)
+        back.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(nativeButton(app, label: "GitHub").waitForExistence(timeout: 10), "Index toolbar did not return after native back\n" + app.debugDescription)
+        openPage(app, name: "native-ui")
+        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+        let pageMenu = nativeButton(app, label: "menu")
+        XCTAssertTrue(pageMenu.waitForExistence(timeout: 5), app.debugDescription)
+        pageMenu.tap()
+        let menuLink = app.webViews.links["Docs"]
+        XCTAssertTrue(menuLink.waitForExistence(timeout: 5), app.debugDescription)
+        capture("native-vertical-bars-menu-open")
+        for control in [pageMenu, back, refresh, library] {
+            XCTAssertTrue(control.waitForExistence(timeout: 5), "Every verticalBars rail control must remain native while the menu is open\n" + app.debugDescription)
+            assertOnVerticalBars(control, in: app)
+            XCTAssertTrue(control.isEnabled, "VerticalBars rail controls must remain enabled while Ionic disables the covered page\n" + app.debugDescription)
+        }
+        refresh.tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.81, dy: 0.55)).tap()
+        XCTAssertTrue(menuLink.waitForNonExistence(timeout: 5), "The projected Ionic menu button did not close its menu\n" + app.debugDescription)
+        XCTAssertTrue(app.webViews.staticTexts["Actions: 0 / 1"].waitForExistence(timeout: 5), "The native control stopped projecting actions while the menu was open\n" + app.debugDescription)
+        capture("native-vertical-bars-after-menu")
+    }
+
+    private func assertOnVerticalBars(_ element: XCUIElement, in app: XCUIApplication,
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertGreaterThan(element.frame.midX, app.frame.width * 0.8,
+                             "Expected native control on the physical right rail, got \(element.frame) in \(app.frame)",
+                             file: file, line: line)
+    }
+
+    func testNativeUIPageAuditAndRepeatedNavigation() throws {
+        executionTimeAllowance = 900
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
+        // The native-ui page carries every projected control (back
+        // button, toolbar buttons, segment) above the shell's tab bar, so it
+        // alone audits the projection. Per-page sweeps are covered by the
+        // Playwright e2e suite and only slow this test down.
+        openPage(app, name: "native-ui")
+        let back = app.buttons["back"].firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 10), "Missing back button\n" + app.debugDescription)
+        XCTAssertTrue(nativeButton(app, label: "Save").waitForExistence(timeout: 10), "Missing UIKit Save button\n" + app.debugDescription)
+        XCTAssertTrue(app.segmentedControls.firstMatch.waitForExistence(timeout: 10), "Missing UIKit segment\n" + app.debugDescription)
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10), "Missing UIKit tabs\n" + app.debugDescription)
+        capture("page-native-ui")
+        back.tap()
+        XCTAssertTrue(app.webViews.switches["Dark Mode"].waitForExistence(timeout: 10), "Failed to return from native-ui")
+        waitForWebTransition()
+        for _ in 0..<3 {
+            openPage(app, name: "button")
+            app.webViews.buttons["Push"].tap()
+            XCTAssertTrue(app.webViews.staticTexts["action-sheet"].firstMatch.waitForExistence(timeout: 10))
+            waitForWebTransition()
+            app.buttons["back"].firstMatch.tap()
+            XCTAssertTrue(app.webViews.buttons["Push"].waitForExistence(timeout: 10))
+            waitForWebTransition()
+            app.buttons["back"].firstMatch.tap()
+            XCTAssertTrue(app.webViews.switches["Dark Mode"].waitForExistence(timeout: 10))
+            waitForWebTransition()
+        }
+        for name in ["Docs", "Library", "Index", "Docs", "Library", "Index", "Settings"] {
+            let tab = app.tabBars.buttons[name]
+            XCTAssertTrue(tab.waitForExistence(timeout: 5), app.debugDescription)
+            tab.tap()
+            XCTAssertTrue(app.webViews.staticTexts[name].firstMatch.waitForExistence(timeout: 10), app.debugDescription)
+            waitForWebTransition()
+            capture("tab-" + name)
+        }
+        XCTAssertTrue(app.tabBars.firstMatch.waitForNonExistence(timeout: 5), "Settings deliberately hides the tab bar")
+        app.buttons["back"].firstMatch.tap()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10))
+    }
+
+    func testFabFourDirectionsAndRepeatedOpening() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        openPage(app, name: "floating-action-button")
+        let main = app.buttons["Center FAB actions"]
+        XCTAssertTrue(main.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(main.identifier.hasPrefix("native-ui-"), "FAB must be UIKit, not Web fallback")
+        let identity = main.identifier
+        let labels = ["Up action", "Right action one", "Right action two", "Down action", "Left action one", "Left action two"]
+        capture("fab-cold-closed")
+        main.tap()
+        for label in labels {
+            let child = app.buttons[label]
+            XCTAssertTrue(child.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(child.identifier.hasPrefix("native-ui-"))
+            XCTAssertEqual(child.frame.width, 48, accuracy: 1)
+            XCTAssertEqual(child.frame.height, 48, accuracy: 1)
+        }
+        capture("fab-four-directions")
+        app.buttons["Up action"].tap()
+        XCTAssertTrue(app.buttons["Up action"].waitForNonExistence(timeout: 5))
+        XCTAssertEqual(main.identifier, identity)
+        for _ in 0..<4 {
+            main.doubleTap()
+            XCTAssertTrue(app.buttons["Up action"].waitForNonExistence(timeout: 5))
+            XCTAssertEqual(main.identifier, identity)
+        }
+        main.tap()
+        XCTAssertTrue(app.buttons["Right action two"].waitForExistence(timeout: 5))
+        capture("fab-reopened")
+        app.buttons["back"].firstMatch.tap()
+        XCTAssertTrue(main.waitForNonExistence(timeout: 5))
+        openPage(app, name: "floating-action-button")
+        // Returning creates a new Ionic page and therefore a new native identity.
+        XCTAssertTrue(app.buttons["Center FAB actions"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Up action"].waitForNonExistence(timeout: 5))
+    }
+
+    func testPackagedFabStartsExpanded() throws {
+        let app = XCUIApplication(bundleIdentifier: "dev.rdlabo.nativeui.fixture")
+        app.launch()
+        let main = app.buttons["Initially expanded FAB"]
+        let child = app.buttons["Fixture FAB action"]
+        XCTAssertTrue(child.waitForExistence(timeout: 15), app.debugDescription)
+        XCTAssertTrue(app.webViews.staticTexts["FAB source: native"].waitForExistence(timeout: 15))
+        XCTAssertTrue(main.identifier.hasPrefix("native-ui-"))
+        XCTAssertTrue(child.identifier.hasPrefix("native-ui-"))
+        XCTAssertFalse(app.buttons["Fixture disabled action"].isEnabled)
+        capture("fab-initially-expanded")
+        child.tap()
+        XCTAssertTrue(app.webViews.staticTexts["FAB clicks: 1"].waitForExistence(timeout: 5))
+        XCTAssertTrue(child.waitForNonExistence(timeout: 5))
+        main.tap()
+        XCTAssertTrue(child.waitForExistence(timeout: 5))
+        child.tap()
+        XCTAssertTrue(app.webViews.staticTexts["FAB clicks: 2"].waitForExistence(timeout: 5))
+        XCTAssertTrue(child.waitForNonExistence(timeout: 5))
+        let single = app.buttons["Standalone FAB"]
+        XCTAssertTrue(single.identifier.hasPrefix("native-ui-"))
+        single.tap()
+        XCTAssertTrue(app.webViews.staticTexts["Standalone clicks: 1"].waitForExistence(timeout: 5))
+        XCTAssertEqual(main.value as? String, "Collapsed")
+        app.webViews.buttons["Remove FAB list"].tap()
+        let noExpansionState = NSPredicate(format: "value == nil OR value == ''")
+        expectation(for: noExpansionState, evaluatedWith: main)
+        waitForExpectations(timeout: 5)
+        XCTAssertTrue(main.identifier.hasPrefix("native-ui-"))
+    }
+
+    func testVerticalBarsActionSheetCoversWebFallback() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+        openPage(app, name: "action-sheet")
+        let back = app.buttons["BackButton"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10), app.debugDescription)
+        let before = back.frame
+        app.webViews.buttons["present:button-only"].tap()
+        let cancel = app.webViews.buttons["Cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(back.waitForNonExistence(timeout: 5), app.debugDescription)
+        capture("vertical-bars-action-sheet-web-fallback")
+        cancel.tap()
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertEqual(back.frame, before)
+    }
+
+    func testVerticalBarsWebAlertFallbackAndRestoreActions() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+        openPage(app, name: "alert")
+        let back = app.buttons["BackButton"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10), app.debugDescription)
+        capture("vertical-bars-native-before-alert")
+        let backFrame = back.frame
+        let backPoint = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: backFrame.midX, dy: backFrame.midY))
+        let sourceFrame = app.webViews.firstMatch.frame
+        for attempt in 0..<2 {
+            app.webViews.buttons["present:button-only"].tap()
+            let confirm = app.webViews.buttons["OK"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 5), app.debugDescription)
+            // Web rendering must replace the native rail beneath the alert backdrop.
+            XCTAssertTrue(back.waitForNonExistence(timeout: 5), app.debugDescription)
+            capture("vertical-bars-web-alert-\(attempt)")
+            if attempt == 0 { backPoint.tap() }
+            else { confirm.tap() }
+            XCTAssertTrue(confirm.waitForNonExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertEqual(back.frame.minY, backFrame.minY, accuracy: 1)
+            XCTAssertEqual(app.webViews.firstMatch.frame, sourceFrame)
+            XCTAssertTrue(app.webViews.buttons["present:button-only"].exists, "Backdrop must not activate native back")
+        }
+        back.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10), app.debugDescription)
+    }
+
+    func testVerticalBarsPopoverKeepsBackgroundAndLiveActions() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if toggle.value as? String == "0" { toggle.tap() }
+        openPage(app, name: "popover")
+        let trigger = nativeButton(app, label: "Open popover")
+        XCTAssertTrue(trigger.waitForExistence(timeout: 10), app.debugDescription)
+        assertOnVerticalBars(trigger, in: app)
+        let source = app.webViews.firstMatch
+        let sourceFrame = source.frame
+        let triggerFrame = trigger.frame
+        let background = app.webViews.staticTexts["Controller"].firstMatch
+        XCTAssertTrue(background.exists, app.debugDescription)
+        let backgroundFrame = background.frame
+        capture("vertical-popover-before")
+        for attempt in 1...20 {
+            trigger.tap()
+            let title = app.webViews.staticTexts["Toolbar popover"].firstMatch
+            XCTAssertTrue(title.waitForExistence(timeout: 5), app.debugDescription)
+            let popoverWebView = app.webViews.containing(.staticText, identifier: "Toolbar popover").firstMatch
+            XCTAssertLessThan(popoverWebView.frame.width, sourceFrame.width, "Content must be in the native popover's child WebView")
+            // SwiftUI's modal accessibility scope hides covered controls from XCTest.
+            // Their native identities and geometry are checked again after dismissal.
+            capture("vertical-popover-open-\(attempt)")
+            let increment = app.webViews.buttons["Increment"].firstMatch
+            XCTAssertLessThan(increment.frame.height, 80, "Popover buttons must keep their intrinsic height")
+            increment.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertTrue(app.webViews.staticTexts["Count: \(attempt)"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+            if attempt % 2 == 0 {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.8)).tap()
+            } else {
+                app.webViews.buttons["Close popover"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            XCTAssertTrue(title.waitForNonExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(trigger.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertEqual(trigger.frame.minX, triggerFrame.minX, accuracy: 1)
+            XCTAssertEqual(trigger.frame.minY, triggerFrame.minY, accuracy: 1)
+            XCTAssertEqual(source.frame.minX, sourceFrame.minX, accuracy: 1)
+            XCTAssertEqual(source.frame.minY, sourceFrame.minY, accuracy: 1)
+            XCTAssertEqual(background.frame.minY, backgroundFrame.minY, accuracy: 1)
+            capture("vertical-popover-dismissed-\(attempt)")
+        }
+    }
+
+    func testAppLocalExtensionsFollowWebStateAndOverlayOwnership() throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        for vertical in [false, true] {
+            app.launch()
+            let toggle = app.webViews.switches["iPhone Duo Mode"]
+            XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+            if (toggle.value as? String == "1") != vertical { toggle.tap() }
+            openPage(app, name: "native-ui")
+            let counter = app.buttons["Increment native counter"].firstMatch
+            XCTAssertTrue(counter.waitForExistence(timeout: 10), app.debugDescription)
+            for count in 1...3 {
+                counter.tap()
+                XCTAssertTrue(app.staticTexts["Count: \(count)"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+            }
+            if vertical {
+                let accessory = app.buttons["Increment native accessory"].firstMatch
+                XCTAssertTrue(accessory.waitForExistence(timeout: 10), app.debugDescription)
+                XCTAssertTrue(accessory.isHittable, app.debugDescription)
+                accessory.tap()
+                XCTAssertTrue(app.staticTexts["Accessory count: 1"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+            } else {
+                XCTAssertTrue(app.webViews.buttons["Increment accessory"].firstMatch.exists, app.debugDescription)
+            }
+            app.webViews.buttons["Open modal"].firstMatch.tap()
+            XCTAssertTrue(app.webViews.buttons["Close modal"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(counter.waitForNonExistence(timeout: 5), app.debugDescription)
+            app.webViews.buttons["Close modal"].firstMatch.tap()
+            XCTAssertTrue(counter.waitForExistence(timeout: 10), app.debugDescription)
+            counter.tap()
+            XCTAssertTrue(app.staticTexts["Count: 4"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+            capture(vertical ? "app-extension-accessory" : "app-extension-element")
+            app.terminate()
+        }
+    }
+
+    func testAppLocalMiniPlayerPlaybackAndPresentation() throws {
+        try verifyMiniPlayer(vertical: false)
+    }
+
+    func testAppLocalMiniPlayerWithVerticalBars() throws {
+        try verifyMiniPlayer(vertical: true)
+    }
+
+    private func verifyMiniPlayer(vertical: Bool) throws {
+        let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
+        app.launch()
+        let toggle = app.webViews.switches["iPhone Duo Mode"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
+        if (toggle.value as? String == "1") != vertical { toggle.tap() }
+        openPage(app, name: "Native UI Extension")
+        XCTAssertTrue(app.webViews.buttons["Pause"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        let webFrame = app.webViews.buttons["Pause"].firstMatch.frame
+        capture(vertical ? "web-mini-player-vertical" : "web-mini-player-ordinary")
+        app.webViews.switches["Native extension"].tap()
+        let pause = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@", "mini-player-playback", "Pause")).firstMatch
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(pause.frame.midX, webFrame.midX, accuracy: 4)
+        XCTAssertEqual(pause.frame.midY, webFrame.midY, accuracy: 4)
+        pause.tap()
+        let play = app.buttons.matching(NSPredicate(format: "identifier == %@ AND label == %@", "mini-player-playback", "Play")).firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 5), app.debugDescription)
+        let open = app.buttons["mini-player-open"]
+        XCTAssertTrue(open.exists, app.debugDescription)
+        capture("swiftui-mini-player-paused")
+        open.tap()
+        let close = app.webViews.buttons["Close Now Playing"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(open.waitForNonExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.webViews.staticTexts["Paused · 1:24 / 3:45"].firstMatch.exists, app.debugDescription)
+        app.webViews.buttons["Play"].firstMatch.tap()
+        close.tap()
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
+        let start = open.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -90)))
+        XCTAssertTrue(close.waitForExistence(timeout: 5), app.debugDescription)
+        close.tap()
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
+        app.webViews.switches["Native extension"].tap()
+        XCTAssertTrue(pause.waitForNonExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.webViews.buttons["Pause"].firstMatch.waitForExistence(timeout: 5), app.debugDescription)
+        app.webViews.switches["Native extension"].tap()
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), app.debugDescription)
+        capture("swiftui-mini-player-restored")
+        app.terminate()
+    }
+
+    private func openPage(_ app: XCUIApplication, name: String) {
+        let label = name == "native-ui" ? "native-ui (Preview)" : name
+        // Offscreen Ionic items may be absent from WebKit's accessibility tree until scrolled into view.
+        // Resolve the element type on every iteration instead of permanently selecting a missing Link.
+        func entry() -> XCUIElement {
+            let button = app.webViews.buttons[label].firstMatch
+            return button.exists ? button : app.webViews.links[label].firstMatch
+        }
+        func unobscured(_ element: XCUIElement) -> Bool {
+            element.exists && element.isHittable && element.frame.midY > app.frame.minY + 130 && element.frame.midY < app.frame.maxY - 120
+        }
+        for _ in 0..<20 {
+            let target = entry()
+            if unobscured(target) { break }
+            let below = !target.exists || target.frame.midY >= app.frame.maxY - 120
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.65 : 0.35))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: below ? 0.35 : 0.65))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        let target = entry()
+        XCTAssertTrue(unobscured(target), "Cannot open " + name + "\n" + app.debugDescription)
+        target.tap()
+        waitForWebTransition()
+    }
+
+    private func waitForWebTransition() {
+        // XCTest's app-idle check does not wait for Ionic's WebKit animations.
+        Thread.sleep(forTimeInterval: 0.7)
+    }
+
+    private func savedOnce(_ app: XCUIApplication) -> XCUIElement {
+        // WebKit may expose adjacent text and <strong> as one accessibility element.
+        app.webViews.staticTexts.matching(NSPredicate(format: "label == %@ OR label == %@", "1", "Save count: 1")).firstMatch
+    }
+
+    private func nativeButton(_ app: XCUIApplication, label: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@ AND identifier BEGINSWITH %@", label, "native-ui-")).firstMatch
+    }
+
+    private func capture(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

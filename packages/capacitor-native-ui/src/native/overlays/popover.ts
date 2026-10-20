@@ -1,4 +1,4 @@
-import type { ShellPopoverPresentation } from '../definitions';
+import type { NativeUIPopoverPresentation } from '../definitions';
 import { projectionIds } from '../shared/projection-id';
 import { isDark } from '../shared/dom';
 import { moveContent } from './content';
@@ -14,15 +14,15 @@ export const popoverTrigger = (overlay: HTMLIonPopoverElement): Element | undefi
 export const verticalBarsPopoverAnchor = (overlay: HTMLIonPopoverElement): string | undefined => {
   const trigger = popoverTrigger(overlay);
   if (
-    !trigger?.matches('ion-button[data-native-ui-shell-vertical-bars-member]') ||
-    !trigger.closest('[data-native-ui-shell]') ||
+    !trigger?.matches('ion-button[data-native-ui-vertical-bars-member]') ||
+    !trigger.closest('[data-native-ui-projected]') ||
     (trigger as HTMLIonButtonElement).disabled
   )
     return undefined;
   return projectionIds.get(trigger);
 };
 
-export const popoverPresentation = (overlay: HTMLIonPopoverElement): ShellPopoverPresentation => {
+export const popoverPresentation = (overlay: HTMLIonPopoverElement): NativeUIPopoverPresentation => {
   const content = overlay.shadowRoot!.querySelector<HTMLElement>('.popover-content')!;
   const rect = content.getBoundingClientRect();
   const anchorId = verticalBarsPopoverAnchor(overlay);

@@ -14,7 +14,7 @@ import { defineCustomElement as defineFab } from '@ionic/core/components/ion-fab
 import { defineCustomElement as defineFabButton } from '@ionic/core/components/ion-fab-button.js';
 import { defineCustomElement as defineFabList } from '@ionic/core/components/ion-fab-list.js';
 import { iosTransitionAnimation } from '@rdlabo/ionic-theme-ios27';
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 initialize({ mode: 'ios' });
 [
   defineApp,
@@ -31,8 +31,8 @@ initialize({ mode: 'ios' });
 ].forEach((define) => define());
 const tabs = document.querySelector('ion-tab-bar');
 const fab = document.querySelector('ion-fab');
-fab.addEventListener('nativeUIShellChange', () => {
-  document.querySelector('[data-fab-source]').textContent = `FAB source: ${fab.hasAttribute('data-native-ui-shell') ? 'native' : 'web'}`;
+fab.addEventListener('nativeUIChange', () => {
+  document.querySelector('[data-fab-source]').textContent = `FAB source: ${fab.hasAttribute('data-native-ui-projected') ? 'native' : 'web'}`;
 });
 let fabClicks = 0;
 let singleClicks = 0;
@@ -66,4 +66,4 @@ tabs.querySelectorAll('ion-tab-button').forEach((button) =>
   }),
 );
 window.transition = iosTransitionAnimation;
-void enableNativeUIShell().then((handle) => (window.nativeUIShell = handle));
+void enableNativeUI().then((handle) => (window.nativeUI = handle));

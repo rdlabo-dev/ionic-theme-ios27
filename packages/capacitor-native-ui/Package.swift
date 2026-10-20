@@ -2,24 +2,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "IonicThemeCapacitorNativeUi",
+    name: "RdlaboCapacitorNativeUi",
     platforms: [.iOS(.v15)],
     products: [
-        .library(name: "RdlaboCapacitorNativeUi", targets: ["IonicNativeUIShellPlugin"]),
-        // Preserve manually linked projects from before the npm package rename.
-        .library(name: "IonicThemeCapacitorNativeUi", targets: ["IonicNativeUIShellPlugin"])
+        .library(name: "RdlaboCapacitorNativeUi", targets: ["NativeUIPlugin"])
     ],
     dependencies: [.package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")],
     targets: [.target(
-        name: "IonicNativeUIShellPlugin",
+        name: "NativeUIPlugin",
         dependencies: [
             .product(name: "Capacitor", package: "capacitor-swift-pm"),
             .product(name: "Cordova", package: "capacitor-swift-pm")
         ],
-        path: "ios/Sources/IonicNativeUIShellPlugin"
+        path: "ios/Sources/NativeUIPlugin"
     ), .testTarget(
-        name: "IonicNativeUIShellPluginTests",
-        dependencies: ["IonicNativeUIShellPlugin"],
-        path: "ios/Tests/IonicNativeUIShellPluginTests"
+        name: "NativeUIPluginTests",
+        dependencies: ["NativeUIPlugin"],
+        path: "ios/Tests/NativeUIPluginTests"
     )]
 )

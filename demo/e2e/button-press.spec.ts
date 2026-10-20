@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 for (const grouped of [false, true]) {
   test(`button scale reverses on release (${grouped ? 'group' : 'standalone'})`, async ({ page }) => {
-    await page.goto('/main/index/native-ui-shell');
-    await page.locator('app-native-ui-shell').waitFor();
+    await page.goto('/main/index/native-ui');
+    await page.locator('app-native-ui').waitFor();
     await page.evaluate((grouped) => {
       const fixture = document.createElement('div');
       fixture.style.cssText = 'position:fixed;inset:200px auto auto 100px;z-index:99999';

@@ -24,11 +24,11 @@ Bring the iOS look to your Ionic app, or add native controls to your Capacitor a
 
 Keep your existing Web appearance or pair it with the iOS theme. Native UI is opt-in and currently a preview; unsupported controls and browsers retain Web presentation. On Android, standard controls stay on the Web; experimental app-local extensions can render with Jetpack Compose. Your app or theme owns Web layout and styling.
 
-[Get started with Native UI](packages/capacitor-native-ui/docs/setup.md) · [Supported controls](packages/capacitor-native-ui/docs/native-ui-shell.md#supported-markup)
+[Get started with Native UI](packages/capacitor-native-ui/docs/setup.md) · [Supported controls](packages/capacitor-native-ui/docs/native-ui.md#supported-markup)
 
-The same Library screen with Native UI Shell off and on, captured while dragging the selected tab:
+The same Library screen with Native UI off and on, captured while dragging the selected tab:
 
-[![Web and native tab bars during the same drag, with enlarged glass details](screenshots/native-ui-shell-drag/comparison.png)](screenshots/native-ui-shell-drag/comparison.png)
+[![Web and native tab bars during the same drag, with enlarged glass details](screenshots/native-ui-drag/comparison.png)](screenshots/native-ui-drag/comparison.png)
 
 ## Choose what your app needs
 

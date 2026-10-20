@@ -14,7 +14,7 @@ export const setVerticalBarsLayout = (layout: VerticalBarsLayout, root?: HTMLEle
   app.classList.toggle('ios-theme-vertical-bars-left', edge !== null && (edge === 'leading') !== direction);
   if (edge && Number.isFinite(inset) && inset > 0) app.style.setProperty('--ios-theme-vertical-bars-native-inset', `${inset}px`);
   else app.style.removeProperty('--ios-theme-vertical-bars-native-inset');
-  app.ownerDocument.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+  app.ownerDocument.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
 };
 
 export interface FoldState {

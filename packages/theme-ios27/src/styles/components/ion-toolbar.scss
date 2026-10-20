@@ -118,7 +118,7 @@ ion-toolbar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     margin-inline: 12px;
   }
   // Rail sources leave toolbar layout; ordinary native projection retains it.
-  $visible: ':not([hidden], .ios-theme-native-ui-shell-prehidden, [data-native-ui-shell][data-native-ui-shell-vertical-bars], ion-menu-button.menu-button-hidden, ion-back-button:not(.show-back-button))';
+  $visible: ':not([hidden], .native-ui-prehidden, [data-native-ui-projected][data-native-ui-vertical-bars], ion-menu-button.menu-button-hidden, ion-back-button:not(.show-back-button))';
   $button: ':is(ion-button, ion-back-button)#{$visible}';
   $group: 'ion-buttons#{$visible}';
   $action: ':is(#{$button}, #{$group}:has(> #{$visible}))';

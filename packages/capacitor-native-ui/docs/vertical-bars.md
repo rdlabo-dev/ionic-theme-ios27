@@ -4,7 +4,7 @@ title: Vertical Bars (preview)
 
 # Vertical Bars (preview)
 
-Vertical Bars moves eligible Ionic navigation and actions into a side rail while keeping the original components as the source of labels, icons and behavior. It works with the iOS theme or an existing Ionic theme, independently of hinge posture and the full Native UI Shell.
+Vertical Bars moves eligible Ionic navigation and actions into a side rail while keeping the original components as the source of labels, icons and behavior. It works with the iOS theme or an existing Ionic theme, independently of hinge posture and the full Native UI.
 
 Use this page for layout, control eligibility, native button appearance and the runtime API. For device events and split panes, see [iPhone Duo support](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md). For a step-by-step browser preview and native setup, start with [iPhone Duo with your existing theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 
@@ -25,12 +25,12 @@ For Capacitor iOS, build your Web assets and run `npx cap sync ios`. Supply the 
 After `ion-app` is mounted, start one runtime:
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
-const rail = await enableNativeUIShell({ verticalBars: { only: true } });
+const rail = await enableNativeUI({ verticalBars: { only: true } });
 ```
 
-Configure your Web rail layout and [apply device placement](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUIShell()`, keep that runtime; it includes Vertical Bars. Do not start both.
+Configure your Web rail layout and [apply device placement](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo.md#project-controls-into-the-rail) for an iPhone Duo. The application owns placement and cleanup: call `await rail.destroy()` when its owner is disposed. If you already use `enableNativeUI()`, keep that runtime; it includes Vertical Bars. Do not start both.
 
 The `/vertical-bars` entry point requires `@capacitor/core`, including in browser builds. Using only the theme’s rail CSS needs no native runtime. For native setup and navigation transitions, follow the [existing-theme guide](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md).
 
@@ -44,24 +44,24 @@ The [theme's optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme
 
 ## Native rendering
 
-On supported iOS versions, adding `.ios-theme-vertical-bars` changes only controls that the system relocates into the physical side rail. Native UI Shell presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar once the class is applied. When the OS reports a rail edge — on iPhone Duo linked against iOS 27.1 or later — it must agree with the applied placement; a disagreeing report keeps the rail on the Web. Without a device-reported edge, projection retains its Web fallback. A placement preference cannot enable an unsupported native rail. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
+On supported iOS versions, adding `.ios-theme-vertical-bars` changes only controls that the system relocates into the physical side rail. Native UI presents eligible tabs, back navigation, menu buttons, and toolbar actions through a SwiftUI `TabView` and toolbar once the class is applied. When the OS reports a rail edge — on iPhone Duo linked against iOS 27.1 or later — it must agree with the applied placement; a disagreeing report keeps the rail on the Web. Without a device-reported edge, projection retains its Web fallback. A placement preference cannot enable an unsupported native rail. SwiftUI owns their adaptive placement and Liquid Glass appearance; Ionic remains the source of labels, icons, selected/disabled state, routing, form submission, and click handlers.
 
 The SwiftUI surface is clipped and hit-tested to the system rail. Web content remains visible and interactive outside that physical region. The runtime optimistically updates tab selection before forwarding the action to the original `ion-tab-button`, using the same event and stale-revision protection as the other native controls. Overlay layout follows the [optional theme rail layout](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/vertical-bars-layout.md#reserve-the-vertical-rail) when that stylesheet is used; custom layouts remain the application’s responsibility.
 
 
 ### Native popovers (Vertical Bars only)
 
-Native popover presentation is limited to popovers anchored to accepted native Vertical Bars `ion-button` controls. It is available with the standalone Vertical Bars runtime; the full Native UI Shell is not required. Enable it explicitly when starting the runtime (`popover` defaults to `false`):
+Native popover presentation is limited to popovers anchored to accepted native Vertical Bars `ion-button` controls. It is available with the standalone Vertical Bars runtime; the full Native UI is not required. Enable it explicitly when starting the runtime (`popover` defaults to `false`):
 
 ```ts
-import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+import { enableNativeUI } from '@rdlabo/capacitor-native-ui';
 
-const rail = await enableNativeUIShell({
+const rail = await enableNativeUI({
   verticalBars: { only: true, popover: true },
 });
 ```
 
-Use an `ion-popover` whose `trigger` identifies the projected button, or pass that button's click event to `PopoverController.create({ event, ... })`. Ordinary toolbar and body popovers remain on the Web. If a rail-anchored popover falls back to Web rendering, the rail also returns to Web projection until dismissal. See [native popover behavior and limitations](native-ui-shell.md#popovers-anchored-to-vertical-bars).
+Use an `ion-popover` whose `trigger` identifies the projected button, or pass that button's click event to `PopoverController.create({ event, ... })`. Ordinary toolbar and body popovers remain on the Web. If a rail-anchored popover falls back to Web rendering, the rail also returns to Web projection until dismissal. See [native popover behavior and limitations](native-ui.md#popovers-anchored-to-vertical-bars).
 
 
 ## Toolbar actions
@@ -100,9 +100,9 @@ Use `vertical: { buttons, button, backButton }` to configure toolbar actions.
 All fields default to `true`. `vertical: false` disables automatic toolbar
 selection and grouping; local attributes may still opt in.
 For vertical-layout-only automatic toolbar projection, use
-`enableNativeUIShell({ horizontal: false, vertical: true })`.
+`enableNativeUI({ horizontal: false, vertical: true })`.
 This selects by layout, not device model, and leaves tabs, segments and FABs unchanged.
-See [toolbar configuration](native-ui-shell.md#toolbar-selection-and-grouping)
+See [toolbar configuration](native-ui.md#toolbar-selection-and-grouping)
 for horizontal settings, boolean shorthands and defaults.
 
 | Option | Responsibility | What it does not do |
@@ -125,7 +125,7 @@ search are independent. For example, to select only back navigation among toolba
 actions:
 
 ```ts
-const rail = await enableNativeUIShell({
+const rail = await enableNativeUI({
   verticalBars: { only: true },
   vertical: { buttons: false, button: false, backButton: true },
 });
@@ -148,7 +148,7 @@ Empty or unknown attribute values are ignored. To disable automatic action
 selection and explicitly select a text button:
 
 ```ts
-const rail = await enableNativeUIShell({
+const rail = await enableNativeUI({
   verticalBars: { only: true },
   vertical: { buttons: true, button: false, backButton: false },
 });
@@ -204,7 +204,7 @@ the projected back action to Ionic; it does not replace Ionic routing with a
 native navigation stack. Native layout remains system-managed.
 
 Existing back-button eligibility still applies, including the supported default
-icon/color and page-position rules. Ancestor `data-shell="disabled"`,
+icon/color and page-position rules. Ancestor `data-native-ui-state="disabled"`,
 `.ios-theme-horizontal-only` on `ion-buttons`, and other structural exclusions
 remain opt-outs; those are distinct from the grouping setting.
 
@@ -226,10 +226,10 @@ For native vertical `ion-button` and `ion-menu-button` actions, choose who contr
 | `'source'` | Projects the supported Ionic fill and computed colors described in [Source fill rules](#source-fill-rules). |
 
 ```ts
-const rail = await enableNativeUIShell({ verticalBars: { only: true, buttonProjection: 'source' } });
+const rail = await enableNativeUI({ verticalBars: { only: true, buttonProjection: 'source' } });
 ```
 
-`enableNativeUIShell()` accepts these settings inside `verticalBars`; the legacy global `enableVerticalControlArea()` still accepts its original top-level settings. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. Disabled icons use the native disabled appearance. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
+`enableNativeUI()` accepts these settings inside `verticalBars`; the legacy global `enableVerticalControlArea()` still accepts its original top-level settings. Use one runtime, and destroy it before restarting with different options. Either mode preserves actions, disabled state and grouping. Disabled icons use the native disabled appearance. These appearance settings do not affect horizontal controls, source elements or Web fallback clones, so compare the native appearance on supported iOS.
 
 **Migration from the experimental releases:** the default changes from source styling to `system`. Set `buttonProjection: 'source'` to retain the previous projection behavior.
 
@@ -261,7 +261,7 @@ The first matching setting wins:
 
 On the same element, a valid `data-projection` value takes precedence over the classes. Empty or unknown values are ignored. Without a valid attribute, `system` wins if both classes are present. Removing an attribute falls back to the element's classes, then the next level above. Attribute and class changes apply without restarting the runtime; grouping and placement stay unchanged.
 
-Only native vertical `ion-button` and `ion-menu-button` actions interpret these settings. Other ancestors, back buttons, tabs and FABs do not. They do not change Web styling. To keep a control or subtree on the Web entirely, use [`data-shell="disabled"`](native-ui-shell.md#supported-markup).
+Only native vertical `ion-button` and `ion-menu-button` actions interpret these settings. Other ancestors, back buttons, tabs and FABs do not. They do not change Web styling. To keep a control or subtree on the Web entirely, use [`data-native-ui-state="disabled"`](native-ui.md#supported-markup).
 
 ### Source fill rules
 
@@ -277,7 +277,7 @@ For an `ion-button` resolved to `source`, fill is chosen separately from the pro
 
 ```ts
 // Keep system styling globally; local source buttons use Ionic's default fill.
-const rail = await enableNativeUIShell({ verticalBars: { only: true, buttonDefaultFill: 'solid' } });
+const rail = await enableNativeUI({ verticalBars: { only: true, buttonDefaultFill: 'solid' } });
 ```
 
 ```html

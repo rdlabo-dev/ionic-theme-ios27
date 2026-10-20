@@ -3,7 +3,7 @@ import type { Animation } from '@ionic/core/components';
 import type { TransitionOptions } from './index';
 import { getIonPageElement } from './index';
 import { nativeWebViewMetrics } from '@rdlabo/capacitor-native-ui/integration';
-import { withNativeUIShellTransition } from './native-ui';
+import { withNativeUITransition } from './native-ui';
 
 export { shadow };
 
@@ -24,6 +24,6 @@ export const setConfig = (config: Partial<IosTransitionConfig>): void => {
   if (config.radius !== undefined) nativeWebViewMetrics.radius = config.radius;
 };
 
-export const iosTransitionAnimation: (navEl: HTMLElement, opts: TransitionOptions) => Animation = withNativeUIShellTransition(
+export const iosTransitionAnimation: (navEl: HTMLElement, opts: TransitionOptions) => Animation = withNativeUITransition(
   createIosTransitionAnimation<TransitionOptions>(transitionConfig),
 );

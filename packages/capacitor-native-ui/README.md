@@ -47,7 +47,7 @@ For standard controls, follow the setup guide for your markup; the Ionic and HTM
 
 ## Reference and examples
 
-- [Supported Ionic controls](docs/native-ui-shell.md#supported-markup) and fallback behavior.
+- [Supported Ionic controls](docs/native-ui.md#supported-markup) and fallback behavior.
 - [Configuration](docs/configuration.md): defaults, selected controls, rail-only mode, and live changes.
 - [Vertical Bars](docs/vertical-bars.md): eligibility, appearance, and runtime API.
 - [Now Playing extension](docs/native-mini-player.md): a Web and SwiftUI example to adapt.

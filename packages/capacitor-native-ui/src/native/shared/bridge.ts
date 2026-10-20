@@ -3,7 +3,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 // A failed bridge must not leave the source inaccessible indefinitely.
 export const bounded = <T>(promise: Promise<T>): Promise<T> =>
   new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Native UI Shell bridge timed out')), 5000);
+    const timer = setTimeout(() => reject(new Error('Native UI bridge timed out')), 5000);
     promise.then(resolve, reject).finally(() => clearTimeout(timer));
   });
 

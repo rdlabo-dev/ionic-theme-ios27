@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { TestAppElement } from './native-shell-mock';
+import type { TestAppElement } from './native-ui-mock';
 
 test('verticalBars mode replaces the toolbar back button with an interactive Web projection', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
@@ -48,7 +48,7 @@ test('disabling verticalBars mode restores the toolbar back button', async ({ pa
   await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toHaveCount(0);
 });
 
-test('Native UI Shell suspension synchronously restores and resumes verticalBars ownership', async ({ page }) => {
+test('Native UI suspension synchronously restores and resumes verticalBars ownership', async ({ page }) => {
   await page.goto('/main/index/button');
   const app = page.locator('ion-app');
   await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
@@ -58,7 +58,7 @@ test('Native UI Shell suspension synchronously restores and resumes verticalBars
 
   await page.evaluate(async () => {
     const app = document.querySelector('ion-app') as TestAppElement;
-    app.verticalBarsLease = await app.nativeUIShell!.suspend();
+    app.verticalBarsLease = await app.nativeUI!.suspend();
   });
   await expect(source).toBeVisible();
   await expect(projection).toHaveCount(0);
@@ -75,13 +75,13 @@ test('a stale suspension lease cannot re-hide Web controls after shell teardown'
   await expect(page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection')).toBeVisible();
 
   await page.evaluate(async () => {
-    const shell = (document.querySelector('ion-app') as TestAppElement).nativeUIShell!;
+    const shell = (document.querySelector('ion-app') as TestAppElement).nativeUI!;
     const lease = await shell.suspend();
     await shell.destroy();
     await lease.resume();
   });
   await expect(source).toBeVisible();
-  await expect(page.locator('html')).not.toHaveClass(/ios-theme-native-ui-shell-prehide/);
+  await expect(page.locator('html')).not.toHaveClass(/native-ui-prehide/);
 });
 
 test('Web toolbar projection switches at WillLeave and restores on cancellation', async ({ page }) => {
@@ -135,7 +135,7 @@ test('turning verticalBars on during a transition honors its success or cancella
   await expect(projection).toHaveCount(0);
 });
 
-for (const optOut of ['class', 'data-shell']) {
+for (const optOut of ['class', 'data-native-ui-state']) {
   test(`verticalBars back projection respects ${optOut} opt-out regardless of Ionic mode`, async ({ page }) => {
     await page.goto('/main/index/button');
     const app = page.locator('ion-app');
@@ -144,16 +144,16 @@ for (const optOut of ['class', 'data-shell']) {
     const projection = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
 
     await source.evaluate((element, optOut) => {
-      if (optOut === 'class') element.classList.add('ios-theme-shell-disabled');
-      else element.setAttribute('data-shell', 'disabled');
+      if (optOut === 'class') element.classList.add('native-ui-disabled');
+      else element.setAttribute('data-native-ui-state', 'disabled');
     }, optOut);
     await app.evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
     await expect(projection).toHaveCount(0);
     await expect(source).toBeVisible();
 
     await source.evaluate((element) => {
-      element.classList.remove('ios-theme-shell-disabled');
-      element.removeAttribute('data-shell');
+      element.classList.remove('native-ui-disabled');
+      element.removeAttribute('data-native-ui-state');
       (element as HTMLIonBackButtonElement).mode = 'md';
     });
     await toolbar.evaluate((element) => element.classList.remove('ios'));
@@ -166,14 +166,14 @@ for (const optOut of ['class', 'data-shell']) {
 
 test('verticalBars toolbar projects icon actions and preserves text-only actions', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
-  await page.goto('/main/index/native-ui-shell');
-  await page.locator('app-native-ui-shell ion-button[type=submit] ion-icon').evaluate((icon) => {
+  await page.goto('/main/index/native-ui');
+  await page.locator('app-native-ui ion-button[type=submit] ion-icon').evaluate((icon) => {
     icon.setAttribute('slot', 'icon-only');
     icon.parentElement!.querySelector('[data-label]')?.remove();
   });
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
 
-  const sourceGroup = page.locator('app-native-ui-shell ion-header ion-buttons[slot="end"]').first();
+  const sourceGroup = page.locator('app-native-ui ion-header ion-buttons[slot="end"]').first();
   const textAction = sourceGroup.getByText('Cancel', { exact: true });
   const iconSource = sourceGroup.locator('ion-button[aria-label="Save"]');
   const iconProjection = page.locator('ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection[aria-label="Save"]');
@@ -191,7 +191,7 @@ test('verticalBars toolbar projects icon actions and preserves text-only actions
 
 test('theme-disabled ion-buttons project their icon actions as independent controls', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
-  await page.goto('/main/index/native-ui-shell');
+  await page.goto('/main/index/native-ui');
   const app = page.locator('ion-app');
   const sourceGroup = page.locator('[data-glass-group]');
   await sourceGroup.evaluate((element) => element.classList.add('ios-theme-disabled'));
@@ -206,9 +206,9 @@ test('theme-disabled ion-buttons project their icon actions as independent contr
 
 test('horizontal-only keeps a group and an individual button in their Web toolbar', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
-  await page.goto('/main/index/native-ui-shell');
+  await page.goto('/main/index/native-ui');
   const group = page.locator('[data-glass-group]');
-  const save = page.locator('app-native-ui-shell ion-button[type="submit"]');
+  const save = page.locator('app-native-ui ion-button[type="submit"]');
   await group.evaluate((element) => element.classList.add('ios-theme-horizontal-only'));
   await save.evaluate((element) => element.classList.add('ios-theme-horizontal-only'));
   await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
@@ -248,10 +248,10 @@ test('Web search follows vertical tabs before native projection and restores its
   await source.evaluate((button: HTMLIonFabButtonElement) => {
     button.disabled = false;
   });
-  await footer.evaluate((element) => element.setAttribute('data-shell', 'disabled'));
+  await footer.evaluate((element) => element.setAttribute('data-native-ui-state', 'disabled'));
   await expect(projection).toHaveCount(0);
   await expect(source).toBeVisible();
-  await footer.evaluate((element) => element.removeAttribute('data-shell'));
+  await footer.evaluate((element) => element.removeAttribute('data-native-ui-state'));
   await expect(projection).toBeVisible();
   for (const left of [false, true]) {
     await app.evaluate((element, value) => element.classList.toggle('ios-theme-vertical-bars-left', value), left);
@@ -264,9 +264,9 @@ test('Web search follows vertical tabs before native projection and restores its
       .toBeLessThan(1);
     const button = (await projection.boundingBox())!;
     expect(button.y + button.height).toBeLessThan((await tabs.boundingBox())!.y);
-    await tabs.evaluate((element) => element.setAttribute('data-shell', 'disabled'));
+    await tabs.evaluate((element) => element.setAttribute('data-native-ui-state', 'disabled'));
     await expect.poll(async () => (await projection.boundingBox())!.y).toBe(button.y);
-    await tabs.evaluate((element) => element.removeAttribute('data-shell'));
+    await tabs.evaluate((element) => element.removeAttribute('data-native-ui-state'));
     await tabs.evaluate((element) => element.style.setProperty('display', 'none'));
     await expect(projection).toBeVisible();
     await expect
@@ -297,5 +297,5 @@ test('Web search follows vertical tabs before native projection and restores its
   await app.evaluate((element) => element.classList.remove('ios-theme-vertical-bars'));
   await expect(projection).toHaveCount(0);
   await expect(source).toBeVisible();
-  await expect(source).not.toHaveAttribute('data-native-ui-shell');
+  await expect(source).not.toHaveAttribute('data-native-ui-projected');
 });

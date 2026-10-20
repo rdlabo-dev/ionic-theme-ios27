@@ -48,7 +48,7 @@ test('disable keeps the Web UI and re-enable preserves playback state', async ({
   await page.getByRole('switch', { name: 'Native extension', exact: true }).click();
   await expect(page.getByRole('switch', { name: 'Native extension', exact: true })).not.toBeChecked();
   await expect(player).toBeVisible();
-  await expect(player).toHaveAttribute('data-shell', 'disabled');
+  await expect(player).toHaveAttribute('data-native-ui-state', 'disabled');
   await expect(page.getByRole('status')).toHaveText('Extension: Disabled');
   await page.getByRole('switch', { name: 'Native extension', exact: true }).click();
   await expect(page.getByRole('switch', { name: 'Native extension', exact: true })).toBeChecked();

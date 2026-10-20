@@ -76,7 +76,7 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
         observed.add(element);
       }
     }
-    if (changed) win.dispatchEvent(new Event('nativeUIShellRefresh'));
+    if (changed) win.dispatchEvent(new Event('nativeUIRefresh'));
     if (
       top &&
       (pointerActive ||
@@ -129,7 +129,7 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
       { capture: true, signal: listeners.signal },
     );
   win.addEventListener('resize', schedule, { signal: listeners.signal });
-  win.addEventListener('nativeUIShellRefresh', schedule, { signal: listeners.signal });
+  win.addEventListener('nativeUIRefresh', schedule, { signal: listeners.signal });
   refresh();
   return () => {
     stopped = true;

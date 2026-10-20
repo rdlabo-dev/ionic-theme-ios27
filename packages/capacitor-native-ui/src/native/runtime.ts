@@ -13,15 +13,15 @@ import { projectionIds } from './shared/projection-id';
 import { inVerticalBarsSurface, topModal, modalUsesVerticalBars, modalVerticalBarFrame } from './shared/modal';
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from './shared/events';
-import { VERTICAL_BARS_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIShellIntegration } from '../native-integration';
+import { VERTICAL_BARS_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
 import type {
-  ShellActivation,
-  ShellSnapshot,
-  NativeUIShellRuntimeHandle,
-  NativeUIShellRuntimeOptions,
-  NativeUIShellPlugin,
-  NativeUIShellStatus,
+  NativeUIActivation,
+  NativeUISnapshot,
+  NativeUIRuntimeHandle,
+  NativeUIRuntimeOptions,
+  NativeUIPlugin,
+  NativeUIStatus,
 } from './definitions';
 import { readCandidate, selector, shadowSelector, motionSelector, isVerticalBarsCandidate } from './components';
 import {
@@ -45,17 +45,17 @@ const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loadi
 // Only these Web overlays leave the rail's display and interaction intact.
 const railPreservingOverlays = 'ion-toast, ion-popover, ion-picker';
 const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
-const verticalBarsMarker = 'data-native-ui-shell-vertical-bars';
-const verticalBarsMemberMarker = 'data-native-ui-shell-vertical-bars-member';
+const verticalBarsMarker = 'data-native-ui-vertical-bars';
+const verticalBarsMemberMarker = 'data-native-ui-vertical-bars-member';
 
 export const createRuntime = async (
   doc: Document,
-  plugin: NativeUIShellPlugin,
-  options: NativeUIShellRuntimeOptions = {},
+  plugin: NativeUIPlugin,
+  options: NativeUIRuntimeOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   verticalBarsOnly = false,
   onStop?: (cause: 'failure' | 'pagehide') => void,
-): Promise<NativeUIShellRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
+): Promise<NativeUIRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
   const win = doc.defaultView!;
   const extensions = options.extensions ?? [];
   const diagnose = createDiagnostics(options.debug);
@@ -92,7 +92,7 @@ export const createRuntime = async (
   const tabGeometry = new Map<HTMLElement, () => void>();
   let acceptedRevision = 0;
   let updatingRevision: number | undefined;
-  let pendingActivations: ShellActivation[] = [];
+  let pendingActivations: NativeUIActivation[] = [];
   let lastSequence = 0;
   let lastSnapshot = '';
   let viewport = `${win.innerWidth}:${win.innerHeight}`;
@@ -101,7 +101,7 @@ export const createRuntime = async (
   let pending = false;
   let stopped = false;
   let destruction: Promise<void> | undefined;
-  const retentions = new Set<{ accepts?: (id: string) => boolean; activation?: ShellActivation }>();
+  const retentions = new Set<{ accepts?: (id: string) => boolean; activation?: NativeUIActivation }>();
   /** True while a tab-switch handoff should skip crossfade. */
   let tabSwitchHandoff = false;
   /** Keep instant updates until this time — DidLeave often precedes the retire sync. */
@@ -118,7 +118,7 @@ export const createRuntime = async (
   let listener: PluginListenerHandle | undefined;
   let searchListener: PluginListenerHandle | undefined;
   let waiters: (() => void)[] = [];
-  const control = (kind: Candidate['control']['kind']): keyof NonNullable<NativeUIShellRuntimeOptions['controls']> => {
+  const control = (kind: Candidate['control']['kind']): keyof NonNullable<NativeUIRuntimeOptions['controls']> => {
     if (kind === 'tab-bar') return 'tabs';
     if (kind === 'segment') return 'segment';
     if (kind === 'floating-action-button') return 'fab';
@@ -132,7 +132,7 @@ export const createRuntime = async (
   const id = (element: Element) => {
     let value = ids.get(element);
     if (!value) {
-      value = `shell-${++nextId}`;
+      value = `native-ui-${++nextId}`;
       ids.set(element, value);
       projectionIds.set(element, value);
     }
@@ -163,7 +163,7 @@ export const createRuntime = async (
       else element.setAttribute('aria-hidden', previous);
     }
     sources.delete(element);
-    element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
+    element.dispatchEvent(new CustomEvent('nativeUIChange'));
   };
   const restoreAll = () => {
     Array.from(sources.keys()).forEach(restore);
@@ -382,12 +382,12 @@ export const createRuntime = async (
   };
   const fail = async (error: unknown) => {
     reason = error instanceof Error ? error.message : String(error);
-    console.warn('[Native UI Shell] Returning to Web:', reason);
+    console.warn('[Native UI] Returning to Web:', reason);
     const destruction = handle.destroy();
     onStop?.('failure');
     await destruction;
     // The Web fallback re-evaluates eligibility once native projection is stopped.
-    win.dispatchEvent(new Event('nativeUIShellRefresh'));
+    win.dispatchEvent(new Event('nativeUIRefresh'));
   };
   const sync = async () => {
     frame = 0;
@@ -470,7 +470,7 @@ export const createRuntime = async (
         // Restore the source and let WebKit paint before removing its native cover.
         removed.forEach(restore);
         if (removed.some(isVerticalBarsSource))
-          win.dispatchEvent(new CustomEvent('nativeUIShellVerticalBarsRelease', { detail: { instant: handoffInstant } }));
+          win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsRelease', { detail: { instant: handoffInstant } }));
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
         // native snapshot over the destination. Stack transitions still need the paint.
         if (!handoffInstant) {
@@ -498,14 +498,14 @@ export const createRuntime = async (
       };
       const serialized = JSON.stringify(data);
       if (serialized === lastSnapshot && !forceRefresh) return;
-      const snapshot: ShellSnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
+      const snapshot: NativeUISnapshot = { ...data, revision: ++revision, transitionDuration: crossfade.duration(handoffInstant) };
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
       updates++;
       updatingRevision = snapshot.revision;
       const result = await bounded(plugin.update(snapshot));
       if (stopped || (retentions.size && !manualSuspensions.size)) return;
-      if (result.revision !== snapshot.revision) throw new Error('Native UI Shell revision mismatch');
+      if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
       if (`${win.innerWidth}:${win.innerHeight}` !== size) {
         lastSnapshot = '';
         dirty = true;
@@ -556,7 +556,7 @@ export const createRuntime = async (
         verticalBarsOwners.delete(element);
       }
       if (acceptedVerticalBarsOwners.size)
-        win.dispatchEvent(new CustomEvent('nativeUIShellVerticalBarsAcquire', { detail: { instant: handoffInstant } }));
+        win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: handoffInstant } }));
       for (const element of acceptedVerticalBarsOwners) {
         element.setAttribute(verticalBarsMarker, '');
         verticalBarsOwners.add(element);
@@ -578,7 +578,7 @@ export const createRuntime = async (
         }
         element.setAttribute(marker, '');
         element.setAttribute('aria-hidden', 'true');
-        if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIShellChange'));
+        if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIChange'));
       }
       const received = pendingActivations;
       pendingActivations = [];
@@ -750,7 +750,7 @@ export const createRuntime = async (
   };
   // Adoption changes the document, but not the in-flight Ionic event path.
   // Do not replay WillPresent: application handlers must run exactly once.
-  on(doc, 'nativeUIShellOverlayAdopted', (event) => overlayPresenting((event as CustomEvent<HTMLElement>).detail));
+  on(doc, 'nativeUIOverlayAdopted', (event) => overlayPresenting((event as CustomEvent<HTMLElement>).detail));
   for (const name of overlayNames) {
     on(doc, `ion${name}WillPresent`, (event) => overlayPresenting(event.target as HTMLElement));
     on(doc, `ion${name}DidDismiss`, (event) => {
@@ -797,7 +797,7 @@ export const createRuntime = async (
   on(win, 'keyboardWillHide', () => search.keyboard(false));
   on(win, 'scroll');
   on(win.matchMedia('(prefers-color-scheme: dark)'), 'change');
-  on(win, 'nativeUIShellRefresh', (event) => {
+  on(win, 'nativeUIRefresh', (event) => {
     if ((event as Event & { retireSearch?: boolean }).retireSearch)
       getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
     refreshLayout();
@@ -806,10 +806,10 @@ export const createRuntime = async (
     on(win.visualViewport, 'resize', refreshLayout);
     on(win.visualViewport, 'scroll');
   }
-  const handle: NativeUIShellRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void } = {
+  const handle: NativeUIRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void } = {
     // A native overlay covers this surface; keep its controls and Web ownership intact.
     retain(deferActivation) {
-      const retention: { accepts?: (id: string) => boolean; activation?: ShellActivation } = { accepts: deferActivation };
+      const retention: { accepts?: (id: string) => boolean; activation?: NativeUIActivation } = { accepts: deferActivation };
       retentions.add(retention);
       return () => {
         if (!retentions.delete(retention)) return;
@@ -821,7 +821,7 @@ export const createRuntime = async (
       };
     },
     markForCheck: schedule,
-    getStatus: (): NativeUIShellStatus => ({
+    getStatus: (): NativeUIStatus => ({
       state: stopped ? 'stopped' : sources.size ? 'native' : 'web',
       projected: sources.size,
       updates,
@@ -850,7 +850,7 @@ export const createRuntime = async (
       destruction = Promise.resolve().then(async () => {
         tabGeometry.forEach((restore) => restore());
         tabGeometry.clear();
-        setNativeUIShellIntegration(doc);
+        setNativeUIIntegration(doc);
         win.cancelAnimationFrame(frame);
         listeners.abort();
         observer.disconnect();
@@ -882,13 +882,13 @@ export const createRuntime = async (
       return destruction;
     },
   };
-  const activate = (event: ShellActivation) => {
+  const activate = (event: NativeUIActivation) => {
     const accepted = dispatchActivation(event);
     if (event.requestId && accepted !== undefined) {
       void bounded(plugin.completeExtensionAction({ requestId: event.requestId, accepted })).catch(() => {});
     }
   };
-  const dispatchActivation = (event: ShellActivation): boolean | undefined => {
+  const dispatchActivation = (event: NativeUIActivation): boolean | undefined => {
     if (stopped || doc.hidden || event.revision < acceptedRevision || event.revision > revision || event.sequence <= lastSequence)
       return false;
     const element = actions.get(event.id);
@@ -942,7 +942,7 @@ export const createRuntime = async (
     );
     doc.head.append(style);
     observer.observe(doc.documentElement, observation);
-    setNativeUIShellIntegration(doc, {
+    setNativeUIIntegration(doc, {
       async search(binding, active, focus) {
         if (!getNativeSearchBindings(doc).includes(binding) || !search.projected(binding)) return false;
         if (!active) {

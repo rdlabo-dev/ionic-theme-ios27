@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { AnimationCall } from './native-shell-mock';
+import type { AnimationCall } from './native-ui-mock';
 
 const installAnimationObserver = async (page: Page) => {
   await page.addInitScript(() => {

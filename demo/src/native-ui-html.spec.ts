@@ -2,13 +2,13 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { createHTMLWebProjection, readHTMLControl } from '../../packages/capacitor-native-ui/src/native/html';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';
 import type {
-  NativeUIShellRuntimeHandle,
-  NativeUIShellRuntimeOptions,
-  NativeUIShellPlugin,
-  ShellSnapshot,
+  NativeUIRuntimeHandle,
+  NativeUIRuntimeOptions,
+  NativeUIPlugin,
+  NativeUISnapshot,
 } from '../../packages/capacitor-native-ui/src/native/definitions';
 
-const handles: NativeUIShellRuntimeHandle[] = [];
+const handles: NativeUIRuntimeHandle[] = [];
 const mount = (markup = '<button type="button" data-native-ui="button">Add</button>') => {
   document.body.innerHTML = `<main id="root">${markup}</main><aside id="rail"></aside><button data-native-ui="button">Outside</button>`;
   document.querySelectorAll<HTMLElement>('*').forEach((node) => {
@@ -31,7 +31,7 @@ const mount = (markup = '<button type="button" data-native-ui="button">Add</butt
       source: 'html',
       root,
       rail: { host: document.querySelector<HTMLElement>('#rail')!, edge: 'right' },
-    } as NativeUIShellRuntimeOptions,
+    } as NativeUIRuntimeOptions,
   };
 };
 afterEach(async () => {
@@ -127,7 +127,7 @@ test('native bridge uses the same standard model, revalidates actions, and retir
     removeEventListener() {},
   } as unknown as MediaQueryList);
   const listeners = new Map<string, (event: any) => void>();
-  const snapshots: ShellSnapshot[] = [];
+  const snapshots: NativeUISnapshot[] = [];
   const plugin = {
     addListener: async (name: string, callback: (event: any) => void) => {
       listeners.set(name, callback);
@@ -137,17 +137,19 @@ test('native bridge uses the same standard model, revalidates actions, and retir
         },
       };
     },
-    update: async (snapshot: ShellSnapshot) => {
+    update: async (snapshot: NativeUISnapshot) => {
       snapshots.push(snapshot);
       return { revision: snapshot.revision };
     },
     clear: async () => {},
-  } as unknown as NativeUIShellPlugin;
+  } as unknown as NativeUIPlugin;
   const click = vi.fn();
   source.addEventListener('click', click);
   const handle = await createRuntime(document, plugin, options);
   handles.push(handle);
   await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
+  expect(source.getAttribute('data-native-ui')).toBe('button');
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
   const snapshot = snapshots.at(-1)!;
   expect(snapshot.controls.map((control) => control.kind)).toEqual(['button']);
   const id = snapshot.controls[0].items[0].id;
@@ -158,16 +160,17 @@ test('native bridge uses the same standard model, revalidates actions, and retir
   expect(click).toHaveBeenCalledTimes(1);
   source.remove();
   await vi.waitFor(() => expect(handle.getStatus().projected).toBe(0));
-  expect(source.hasAttribute('data-native-ui-shell')).toBe(false);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  expect(source.getAttribute('data-native-ui')).toBe('button');
 });
 
 test('public shell changes Vertical Bars without restarting and restores source behavior', async () => {
-  const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
+  const { enableNativeUI } = await import('../../packages/capacitor-native-ui/src/core');
   const { source, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Add</button>');
   const host = options.rail!.host;
   const clicks = vi.fn();
   source.addEventListener('click', clicks);
-  const shell = await enableNativeUIShell({
+  const shell = await enableNativeUI({
     root: options.root,
     controls: { tabs: false },
     verticalBars: { only: true, placement: { edge: 'trailing', webHost: host } },
@@ -190,10 +193,10 @@ test('public shell changes Vertical Bars without restarting and restores source 
 });
 
 test('disabled startup and buttons opt-out keep HTML sources on the Web', async () => {
-  const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
+  const { enableNativeUI } = await import('../../packages/capacitor-native-ui/src/core');
   const { source, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Add</button>');
   const host = options.rail!.host;
-  const shell = await enableNativeUIShell({
+  const shell = await enableNativeUI({
     root: options.root,
     verticalBars: { enabled: false, only: true, placement: { edge: 'trailing', webHost: host } },
   });
@@ -203,7 +206,7 @@ test('disabled startup and buttons opt-out keep HTML sources on the Web', async 
   await shell.enableVerticalControlArea();
   await vi.waitFor(() => expect(host.childElementCount).toBe(1));
   await shell.destroy();
-  const disabled = await enableNativeUIShell({
+  const disabled = await enableNativeUI({
     root: options.root,
     controls: { buttons: false },
     verticalBars: { placement: { edge: 'trailing', webHost: host } },
@@ -230,12 +233,12 @@ test('markForCheck batches property-only changes, skips equal snapshots, and sto
     addEventListener() {},
     removeEventListener() {},
   } as unknown as MediaQueryList);
-  const snapshots: ShellSnapshot[] = [];
+  const snapshots: NativeUISnapshot[] = [];
   let release: (() => void) | undefined;
   let hold = false;
   const plugin = {
     addListener: async () => ({ remove: async () => {} }),
-    update: async (snapshot: ShellSnapshot) => {
+    update: async (snapshot: NativeUISnapshot) => {
       snapshots.push(snapshot);
       if (hold) {
         hold = false;
@@ -246,7 +249,7 @@ test('markForCheck batches property-only changes, skips equal snapshots, and sto
       return { revision: snapshot.revision };
     },
     clear: async () => {},
-  } as unknown as NativeUIShellPlugin;
+  } as unknown as NativeUIPlugin;
   const handle = await createRuntime(document, plugin, {
     ...options,
     extensions: [{ name: 'counter', selector: '[data-counter]', read }],
@@ -321,14 +324,14 @@ test('extension images share SVG validation and rasterization without asynchrono
 });
 
 test('ionic.auto false preserves explicit ion-button rails, live toggles, and source clicks', async () => {
-  const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
+  const { enableNativeUI } = await import('../../packages/capacitor-native-ui/src/core');
   const { root, options } = mount(
     '<ion-button data-native-ui="button" data-native-ui-placement="rail">Explicit</ion-button><ion-button>Automatic</ion-button>',
   );
   const button = root.querySelector('ion-button')!;
   const click = vi.fn();
   button.addEventListener('click', click);
-  const shell = await enableNativeUIShell({
+  const shell = await enableNativeUI({
     root,
     ionic: { auto: false },
     verticalBars: { placement: { edge: 'trailing', webHost: options.rail!.host } },
@@ -339,7 +342,7 @@ test('ionic.auto false preserves explicit ion-button rails, live toggles, and so
   host.querySelector('button')!.click();
   expect(click).toHaveBeenCalledTimes(1);
   await expect(
-    enableNativeUIShell({ root, ionic: { auto: true }, verticalBars: { placement: { edge: 'trailing', webHost: host } } }),
+    enableNativeUI({ root, ionic: { auto: true }, verticalBars: { placement: { edge: 'trailing', webHost: host } } }),
   ).rejects.toThrow('different controls');
   await shell.disableVerticalControlArea();
   expect(host.childElementCount).toBe(0);
@@ -364,15 +367,15 @@ test.each(['auto', 'extensions'] as const)('projection mode %s keeps only its el
     addEventListener() {},
     removeEventListener() {},
   } as unknown as MediaQueryList);
-  const snapshots: ShellSnapshot[] = [];
+  const snapshots: NativeUISnapshot[] = [];
   const plugin = {
     addListener: async () => ({ remove: async () => {} }),
-    update: async (snapshot: ShellSnapshot) => {
+    update: async (snapshot: NativeUISnapshot) => {
       snapshots.push(snapshot);
       return { revision: snapshot.revision };
     },
     clear: async () => {},
-  } as unknown as NativeUIShellPlugin;
+  } as unknown as NativeUIPlugin;
   const runtime = await createRuntime(document, plugin, {
     ...options,
     source,
@@ -384,8 +387,8 @@ test.each(['auto', 'extensions'] as const)('projection mode %s keeps only its el
   const expected = source === 'extensions' ? ['extension'] : ['button', 'extension'];
   await vi.waitFor(() => expect(runtime.getStatus().projected).toBe(expected.length));
   expect(snapshots.at(-1)!.controls.map((item) => item.kind)).toEqual(expected);
-  expect(root.querySelectorAll('[data-native-ui-shell]')).toHaveLength(expected.length);
-  if (source === 'extensions') expect(root.querySelector('ion-button')!.hasAttribute('data-native-ui-shell')).toBe(false);
+  expect(root.querySelectorAll('[data-native-ui-projected]')).toHaveLength(expected.length);
+  if (source === 'extensions') expect(root.querySelector('ion-button')!.hasAttribute('data-native-ui-projected')).toBe(false);
 });
 
 test('explicit Ionic Web rails preserve shadow icons and observe artwork changes', async () => {
@@ -411,9 +414,9 @@ test.each([
   { ionic: { auto: { buttons: false } } },
   { ionic: { auto: { tabs: false } } },
 ])('explicit projection survives new automatic settings and legacy alias precedence: %j', async (settings) => {
-  const { enableNativeUIShell } = await import('../../packages/capacitor-native-ui/src/core');
+  const { enableNativeUI } = await import('../../packages/capacitor-native-ui/src/core');
   const { root, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Explicit</button>');
-  const shell = await enableNativeUIShell({
+  const shell = await enableNativeUI({
     ...settings,
     root,
     verticalBars: { placement: { edge: 'trailing', webHost: options.rail!.host } },

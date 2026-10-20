@@ -1,14 +1,11 @@
-import { enableNativeUIShell as activate } from './activation';
-import type { NativeUIShellRuntimeOptions, NativeUIShellHandle, NativeUIShellOptions, NativeUIShellRuntimeHandle } from './definitions';
+import { enableNativeUI as activate } from './activation';
+import type { NativeUIRuntimeOptions, NativeUIHandle, NativeUIOptions, NativeUIRuntimeHandle } from './definitions';
 
 type OverlayFactory = Parameters<typeof activate>[1];
-const handles = new WeakMap<NativeUIShellRuntimeHandle, NativeUIShellHandle>();
+const handles = new WeakMap<NativeUIRuntimeHandle, NativeUIHandle>();
 
 /** Start one shell. Partial options override defaults; markup owns individual placement. */
-export const startNativeUIShell = async (
-  input: NativeUIShellOptions = {},
-  overlayFactory?: OverlayFactory,
-): Promise<NativeUIShellHandle> => {
+export const startNativeUI = async (input: NativeUIOptions = {}, overlayFactory?: OverlayFactory): Promise<NativeUIHandle> => {
   const root = input.root ?? (typeof document === 'undefined' ? undefined : document.body);
   const bars = { enabled: true, ...input.verticalBars };
   const host = bars.placement?.webHost;
@@ -20,7 +17,7 @@ export const startNativeUIShell = async (
   const automatic = input.ionic?.auto;
   const controls = automatic === undefined ? legacy : typeof automatic === 'object' ? automatic : {};
   const defaultEnabled = automatic !== false;
-  const options: NativeUIShellRuntimeOptions = {
+  const options: NativeUIRuntimeOptions = {
     ...input,
     root,
     source: 'auto',
@@ -46,14 +43,14 @@ export const startNativeUIShell = async (
   let queue = Promise.resolve();
   const change = (enabled: boolean) => {
     const operation = queue.then(async () => {
-      if (stopped) throw new Error('Native UI Shell has been destroyed');
+      if (stopped) throw new Error('Native UI has been destroyed');
       if (bars.enabled === enabled) return;
       // Retire both surfaces before changing ownership. Resume also waits for native reconciliation.
       const lease = await runtime.suspend();
       try {
-        if (stopped) throw new Error('Native UI Shell has been destroyed');
+        if (stopped) throw new Error('Native UI has been destroyed');
         bars.enabled = enabled;
-        root?.ownerDocument.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+        root?.ownerDocument.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
       } finally {
         await lease.resume();
       }
@@ -63,7 +60,7 @@ export const startNativeUIShell = async (
   };
   let destruction: Promise<void> | undefined;
   const destroy = runtime.destroy.bind(runtime);
-  const handle: NativeUIShellHandle = {
+  const handle: NativeUIHandle = {
     markForCheck: runtime.markForCheck.bind(runtime),
     getStatus: runtime.getStatus.bind(runtime),
     suspend: runtime.suspend.bind(runtime),
@@ -84,4 +81,4 @@ export const startNativeUIShell = async (
 };
 
 /** Enable the shared standard shell without loading the optional Ionic overlay adapter. */
-export const enableNativeUIShell = (options: NativeUIShellOptions = {}): Promise<NativeUIShellHandle> => startNativeUIShell(options);
+export const enableNativeUI = (options: NativeUIOptions = {}): Promise<NativeUIHandle> => startNativeUI(options);

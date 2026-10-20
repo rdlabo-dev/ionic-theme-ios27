@@ -12,10 +12,10 @@ export const setVerticalControlAreaPlacement = (placement: VerticalBarEdge | Ver
   const app = document.querySelector<HTMLElement>('ion-app');
   if (!app) throw new Error('Vertical Control Area requires ion-app');
   const { edge, inset = 0 } = placement && typeof placement === 'object' ? placement : { edge: placement, inset: 0 };
-  app.removeAttribute('data-native-ui-shell-vertical-bars-suspended');
+  app.removeAttribute('data-native-ui-vertical-bars-suspended');
   app.classList.toggle('ios-theme-vertical-bars', edge !== null);
   app.classList.toggle('ios-theme-vertical-bars-left', edge !== null && physicalVerticalBarEdge(edge, rtl ?? elementRtl(app)) === 'left');
   if (edge && Number.isFinite(inset) && inset > 0) app.style.setProperty('--ios-theme-vertical-bars-native-inset', `${inset}px`);
   else app.style.removeProperty('--ios-theme-vertical-bars-native-inset');
-  document.defaultView?.dispatchEvent(new Event('nativeUIShellRefresh'));
+  document.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
 };

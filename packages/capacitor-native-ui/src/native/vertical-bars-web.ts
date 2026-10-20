@@ -2,7 +2,7 @@ import { createCrossfade, fadeMarker } from './shared/crossfade';
 import { alignVerticalBarClone, verticalBarFrame } from './shared/vertical-bars-geometry';
 import { createVerticalBarsWebSearch, searchProjectionClass } from './vertical-bars-web-search';
 import { inVerticalBarsSurface, topModal } from './shared/modal';
-import type { NativeUIShellRuntimeHandle, NativeUIShellOptions, NativeUIShellStatus } from './definitions';
+import type { NativeUIRuntimeHandle, NativeUIOptions, NativeUIStatus } from './definitions';
 import { VERTICAL_BARS_TRANSITION_CANCELED } from '../native-integration';
 import {
   activateProjectedElement,
@@ -12,7 +12,7 @@ import {
   verticalBarsEnteringPage,
   verticalBarsToolbarActions,
   isExcluded,
-  isShellDisabled,
+  isNativeUIDisabled,
   isVerticalBarsToolbarGroup,
   preferredVerticalBarsBack,
   verticalBarsOwned,
@@ -44,9 +44,9 @@ interface ToolbarSource {
 
 export const createVerticalBarsWebProjection = (
   doc: Document,
-  options: NativeUIShellOptions,
+  options: NativeUIOptions,
   enabled: () => boolean = () => true,
-): NativeUIShellRuntimeHandle => {
+): NativeUIRuntimeHandle => {
   const win = doc.defaultView!;
   const crossfade = createCrossfade(win);
   let incomingInstant: boolean | undefined;
@@ -85,7 +85,7 @@ export const createVerticalBarsWebProjection = (
       !element.closest('[data-native-ui-placement="element"]') &&
       inVerticalBarsSurface(element) &&
       !isExcluded(element, verticalBarsEnteringPage(element)) &&
-      !isShellDisabled(element) &&
+      !isNativeUIDisabled(element) &&
       !verticalBarsPages.isDeparted(element) &&
       isRendered(element),
     () => {
@@ -145,7 +145,7 @@ export const createVerticalBarsWebProjection = (
       backSource.removeAttribute(marker);
       if (previousBackAriaHidden === null) backSource.removeAttribute('aria-hidden');
       else backSource.setAttribute('aria-hidden', previousBackAriaHidden);
-      backSource.dispatchEvent(new CustomEvent('nativeUIShellChange'));
+      backSource.dispatchEvent(new CustomEvent('nativeUIChange'));
     }
     backSource = undefined;
     previousBackAriaHidden = null;
@@ -156,7 +156,7 @@ export const createVerticalBarsWebProjection = (
         source.removeAttribute(marker);
         if (previousAriaHidden === null) source.removeAttribute('aria-hidden');
         else source.setAttribute('aria-hidden', previousAriaHidden);
-        source.dispatchEvent(new CustomEvent('nativeUIShellChange'));
+        source.dispatchEvent(new CustomEvent('nativeUIChange'));
       }
     }
     toolbarProjections = [];
@@ -265,7 +265,7 @@ export const createVerticalBarsWebProjection = (
       root.append(backProjection);
       nextBack.setAttribute(marker, '');
       nextBack.setAttribute('aria-hidden', 'true');
-      nextBack.dispatchEvent(new CustomEvent('nativeUIShellChange'));
+      nextBack.dispatchEvent(new CustomEvent('nativeUIChange'));
       topOffset = toolbarControlSize + toolbarControlGap;
     }
     for (const { group, actions: sources } of groups) {
@@ -290,7 +290,7 @@ export const createVerticalBarsWebProjection = (
         const previousAriaHidden = source.getAttribute('aria-hidden');
         source.setAttribute(marker, '');
         source.setAttribute('aria-hidden', 'true');
-        source.dispatchEvent(new CustomEvent('nativeUIShellChange'));
+        source.dispatchEvent(new CustomEvent('nativeUIChange'));
         return { source, projection: clone, previousAriaHidden };
       });
       root.append(projection);
@@ -425,7 +425,7 @@ export const createVerticalBarsWebProjection = (
   for (const name of ['ionModalWillPresent', 'ionModalDidDismiss'])
     doc.addEventListener(name, schedule, { capture: true, signal: listeners.signal });
   win.addEventListener(
-    'nativeUIShellVerticalBarsAcquire',
+    'nativeUIVerticalBarsAcquire',
     (event) => {
       const instant = (event as CustomEvent<{ instant: boolean }>).detail?.instant ?? true;
       incomingInstant = undefined;
@@ -447,7 +447,7 @@ export const createVerticalBarsWebProjection = (
     { signal: listeners.signal },
   );
   win.addEventListener(
-    'nativeUIShellVerticalBarsRelease',
+    'nativeUIVerticalBarsRelease',
     (event) => {
       incomingInstant = (event as CustomEvent<{ instant: boolean }>).detail.instant;
       void schedule();
@@ -455,14 +455,14 @@ export const createVerticalBarsWebProjection = (
     { signal: listeners.signal },
   );
   win.addEventListener('resize', schedule, { signal: listeners.signal });
-  win.addEventListener('nativeUIShellRefresh', schedule, { signal: listeners.signal });
+  win.addEventListener('nativeUIRefresh', schedule, { signal: listeners.signal });
   schedule();
 
   return {
     markForCheck: () => {
       void schedule();
     },
-    getStatus: (): NativeUIShellStatus => ({
+    getStatus: (): NativeUIStatus => ({
       state: stopped ? 'stopped' : 'web',
       projected:
         Number(!!backSource) + Number(!!search.source) + toolbarProjections.reduce((count, group) => count + group.actions.length, 0),
