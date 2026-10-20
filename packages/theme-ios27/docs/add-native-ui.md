@@ -1,7 +1,5 @@
 # Add Native UI to your theme
 
-> This guide targets the upcoming package split. Use [matching candidate archives](../../capacitor-native-ui/README.md#try-the-unreleased-packages) to try it now, or the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1) for the published theme.
-
 Already using `@rdlabo/ionic-theme-ios27`? Add native controls on iOS while keeping your theme styles, Web content, and routing. Unsupported controls, browsers, and Android retain their Web appearance.
 
 Start with [theme setup](setup.md) if you have not configured the theme yet. If you use a different Web appearance, follow [Native UI setup](../../capacitor-native-ui/docs/setup.md) instead.
@@ -10,13 +8,13 @@ Start with [theme setup](setup.md) if you have not configured the theme yet. If 
 
 This guide assumes a Capacitor 8 application with an iOS project. Web-only theme users can continue without Capacitor; adding native iOS controls requires setting up that native project first. See [Native UI requirements](../../capacitor-native-ui/docs/native-ui.md#enable-the-shell) for supported Ionic, iOS, and Xcode versions.
 
-Add the native package directly to your application's dependencies:
+Install the 2.0 prerelease packages together from npm so the theme and native plugin use the same version:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next
 ```
 
-Keep your existing theme installation and stylesheets. Capacitor's default plugin discovery requires a direct dependency; the copy installed through the theme alone does not register the native plugin.
+Keep your existing theme stylesheets. Capacitor's default plugin discovery requires a direct dependency; the copy installed through the theme alone does not register the native plugin.
 
 ## 2. Enable native controls
 

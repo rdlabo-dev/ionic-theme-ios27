@@ -4,11 +4,9 @@ title: Migration
 
 # Migration
 
-> This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
-
 ## Migrating from Native UI Shell Preview
 
-Native UI Shell was already published as **Preview** in `@rdlabo/ionic-theme-ios27` 1.2.0 and 1.2.1. Preview users need the migration below when adopting the split packages; changing the import alone is not sufficient for every configuration. Candidate/beta users should also compare their configuration with these mappings and use JavaScript and native code from the same candidate.
+Native UI Shell was already published as **Preview** in `@rdlabo/ionic-theme-ios27` 1.2.0 and 1.2.1. Preview users need the migration below when adopting the split packages; changing the import alone is not sufficient for every configuration. Users upgrading from an earlier prerelease should also compare their configuration with these mappings and rebuild native code with the installed package version.
 
 1. Install the matching packages and replace removed imports using [package separation](#native-ui-package-separation).
 2. Apply the [API and native naming changes](#native-ui-naming-changes), then translate startup settings using [shared shell configuration](#shared-shell-configuration-and-html-adapters), especially partial `controls` objects.
@@ -35,18 +33,18 @@ The theme uses the native package's shared transition/search integration interna
 
 ### 1. Update application dependencies
 
-These commands apply once the packages containing this migration are published.
+The commands below install the 2.0 prerelease from npm using `next`. When using both packages, update them together to keep their versions aligned.
 
 For theme-only apps, update the theme package. Keep existing theme imports and CSS/Sass paths; no native startup or plugin setup is needed for theme-only use.
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27
+npm install @rdlabo/ionic-theme-ios27@next
 ```
 
 For apps using both the theme and native controls, install both as direct application dependencies:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next
 ```
 
 For native controls with your existing Web appearance, follow [Native UI only](setup.md). Install the native package directly and keep your existing Web styles. The plugin no longer requires theme variables to select supported controls; Web layout remains the responsibility of your app or theme. Native startup requires Capacitor 8. The Ionic adapter requires Ionic 8.8.1 or later within Ionic 8 or 9; the `/core` entry does not require Ionic.
@@ -55,7 +53,7 @@ If you used the intermediate `@ionic-theme/capacitor-native-ui` package name dur
 
 ```sh
 npm uninstall @ionic-theme/capacitor-native-ui
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui@next
 ```
 
 ### 2. Replace native imports
@@ -87,7 +85,7 @@ npx cap sync ios
 
 The Capacitor plugin is now supplied by the native package. Remove manually linked copies of the old theme Swift package so only the new package supplies the plugin. The Swift package/product and CocoaPods pod are now `RdlaboCapacitorNativeUi`; the Swift module is `NativeUIPlugin`. The Capacitor bridge name is now `NativeUI` on JavaScript, iOS and Android. Run Capacitor sync for each native platform you use and rebuild the native app. An OTA/Web-only update cannot migrate an installed binary containing only the old plugin. Use matching JavaScript and native package versions.
 
-For local Swift package references, the package now lives at `packages/capacitor-native-ui` within this repository; there is no root Swift package. Prefer Capacitor's generated integration for application dependencies.
+Use Capacitor's generated integration for the npm dependency; applications do not need a checkout of this repository or a manually linked Swift package.
 
 ### 4. Verify the migration
 

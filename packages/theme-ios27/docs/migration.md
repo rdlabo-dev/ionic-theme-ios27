@@ -24,7 +24,7 @@ For an app using `@rdlabo/ionic-theme-ios26`, the recommended migration keeps th
 Keep the iOS 26 package and add iOS 27. The new theme requires `@ionic/core` 8.8.1 or later (Ionic 8 or 9).
 
 ```bash
-npm install @rdlabo/ionic-theme-ios27
+npm install @rdlabo/ionic-theme-ios27@next
 ```
 
 ### 2. Make the styles adaptive

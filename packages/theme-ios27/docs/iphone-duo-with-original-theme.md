@@ -4,8 +4,6 @@ title: Add Vertical Bars to your Ionic app
 
 # Add Vertical Bars to your Ionic app
 
-> This guide targets the upcoming package split. Use [matching candidate archives](../../capacitor-native-ui/README.md#try-the-unreleased-packages) to try it now, or the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1) for the published theme.
-
 Add a vertical navigation area to your Ionic app while keeping its existing theme. Tabs and supported toolbar actions move to the side of the screen; your content and horizontal controls keep their current appearance. Both Ionic `ios` and `md` modes are supported.
 
 **Try it in Chrome first.** You can preview the layout with Web controls before setting up an iPhone Duo or an iOS build. On supported Capacitor iOS, the same Ionic markup supplies native SwiftUI controls in the system rail.
@@ -19,7 +17,7 @@ Available in `1.2.0` as a **preview** feature. APIs and supported behavior may c
 This guide assumes an existing Ionic app with Ionic `>=8.8.1 <10` and Capacitor Core `>=8 <9`. Keep your existing Capacitor 8 installation. If your app uses another Capacitor major, migrate its Core, CLI, and platform packages together before following this guide. For a Web-only app without Capacitor, also install `@capacitor/core@^8`; the JavaScript entry point needs it even in Chrome.
 
 ```bash
-npm install @capacitor/core@^8 @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
+npm install @capacitor/core@^8 @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next
 ```
 
 Keep your existing theme imports. Add this to your global Sass file:

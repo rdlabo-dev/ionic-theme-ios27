@@ -6,8 +6,6 @@ title: App-local Native UI extensions (experimental)
 
 > **Experimental:** The extension API, native registration interfaces and behavior may change in future releases. This applies to both SwiftUI and Kotlin/Compose extensions, including `element` and `tab-accessory` placement.
 
-> This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
-
 An extension projects your existing Web UI into a SwiftUI View on iOS or Jetpack Compose content on Android. Keep both definitions in your application: no npm package, separate library, or Capacitor plugin is required. The Web element remains the source of truth and the fallback UI.
 
 ## Before you start
@@ -15,7 +13,7 @@ An extension projects your existing Web UI into a SwiftUI View on iOS or Jetpack
 Start with an existing Capacitor 8 app and install the plugin if you have not already:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui
+npm install @rdlabo/capacitor-native-ui@next
 ```
 
 Choose the native platform you want to support:
