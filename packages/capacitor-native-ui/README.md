@@ -34,6 +34,8 @@ Projection changes presentation; it does not translate arbitrary HTML or CSS int
 
 ## Install from npm
 
+We use [Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable), an excellent community plugin by Erkam Yaman, as our standard device-layout integration. It exposes fold state, hinge geometry, bar placement and change events to your application, giving you control over how the layout responds. Foldable handles device reporting; the theme provides Web layout helpers and Native UI projects controls. Install it alongside the package you use, then connect its events in your app.
+
 Install Native UI and Foldable together in your Capacitor application:
 
 ```sh

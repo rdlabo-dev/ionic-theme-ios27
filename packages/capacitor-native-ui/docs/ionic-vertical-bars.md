@@ -40,7 +40,7 @@ Keep your existing theme imports. Add this to your global Sass file:
 
 The full iOS 27 theme stylesheets are not required. Keep this stylesheet instead of Foldable's `ionic-tabs.css`; loading both would reposition the same tabs.
 
-Foldable is part of the standard setup. It supplies the device's logical rail edge and measured inset; the application applies them to its Web layout. Native UI checks native rail availability independently.
+We adopt [Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable) as the standard device integration because it exposes placement, posture and their changes while leaving layout decisions to your app. Pass its logical rail edge and measured inset to the theme's layout helper. Native UI checks native rail availability independently.
 
 ### 2. Connect your navigation animation
 

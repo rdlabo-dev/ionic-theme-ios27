@@ -27,6 +27,8 @@ A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Ca
 
 ## Get started
 
+We use [Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable), an excellent community plugin by Erkam Yaman, as our standard device-layout integration. It exposes fold state, hinge geometry, bar placement and change events to your application, giving you control over how the layout responds. Foldable handles device reporting; the theme provides Web layout helpers and Native UI projects controls. Install it alongside the package you use, then connect its events in your app.
+
 Use the [four-step setup guide](docs/setup.md) to install the theme, load styles, configure animations, and preview your first screen. It supports Ionic 8.8.1 or later within Ionic 8 or 9, including Angular, React, and Vue. A native Capacitor project is not required for browser use.
 
 The theme styles toolbars, tabs, lists, buttons, search, and overlays, with light and dark appearances. It does not activate native controls. Once the Web theme is working, you can optionally [add Native UI](docs/add-native-ui.md).

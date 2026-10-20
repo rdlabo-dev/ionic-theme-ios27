@@ -12,7 +12,7 @@ Use an existing Ionic Angular, React, or Vue application with Ionic `>=8.8.1 <10
 npm install @rdlabo/ionic-theme-ios27 @erkamyaman/capacitor-foldable
 ```
 
-Foldable is included in the standard installation for device placement and posture. Connect it using the [layout guide](vertical-bars-layout.md) when configuring device layout.
+[Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable) is our standard integration for device state. Its placement and posture APIs let your app control how the layout adapts; installing it is followed by connecting its initial values and change events. Connect it using the [layout guide](vertical-bars-layout.md) when configuring device layout.
 
 ## 2. Load the styles
 

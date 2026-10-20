@@ -21,6 +21,8 @@ If the app does not yet use Capacitor, create and configure its Capacitor iOS pr
 
 ## 1. Install the plugin
 
+[Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable) is our standard integration for device state. Its placement and posture APIs let your app control how the layout adapts; installing it is followed by connecting its initial values and change events.
+
 Keep your Capacitor packages on version 8. Add these direct application dependencies:
 
 ```sh

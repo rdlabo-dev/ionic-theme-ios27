@@ -12,6 +12,8 @@ For Vertical Bars in an app using `ion-tabs`, `ion-toolbar` or other Ionic compo
 
 ## 1. Install the plugin
 
+[Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable) is our standard integration for device state. Its placement and posture APIs let your app control how the layout adapts; installing it is followed by connecting its initial values and change events.
+
 Keep your existing Capacitor installation and add Native UI and Foldable together:
 
 ```sh
