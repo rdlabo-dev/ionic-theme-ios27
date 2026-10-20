@@ -26,7 +26,7 @@
     "@capacitor/core": "^8.5.2",
     "@ionic/angular": "^9.0.0",
     "@rdlabo/capacitor-docgen": "^0.4.1",
-    "@rdlabo/ionic-theme-utils": "0.1.4",
+    "@rdlabo/ionic-theme-utils": "0.1.5",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.1",
     "np": "^10.2.0",

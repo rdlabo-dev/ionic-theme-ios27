@@ -86,6 +86,6 @@
     }
   },
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "0.1.4"
+    "@rdlabo/ionic-theme-utils": "0.1.5"
   }
 }
