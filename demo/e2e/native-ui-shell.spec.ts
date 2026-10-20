@@ -1150,7 +1150,10 @@ test('ancestor display, element opt-out aliases and non-glass fills restore Web'
     .filter({ hasText: 'Cancel' })
     .evaluate((element) => element.remove());
   await expect(button).toHaveAttribute('data-native-ui-shell', '');
-  for (const fill of ['clear', 'solid', 'outline']) {
+  // Clear actions inside ion-buttons now remain eligible for individual projection.
+  await page.getByRole('button', { name: 'fill: clear', exact: true }).click();
+  await expect(button).toHaveAttribute('data-native-ui-shell', '');
+  for (const fill of ['solid', 'outline']) {
     await page.getByRole('button', { name: `fill: ${fill}`, exact: true }).click();
     await expect(button).not.toHaveAttribute('data-native-ui-shell');
     await expect(button.locator('button')).toHaveCSS('visibility', 'visible');
@@ -2647,7 +2650,9 @@ for (const [kind, selector] of [
       (kind) =>
         Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
           .updates.at(-1)!
-          .controls.find((c: ShellControl) => c.kind === kind)!.id,
+          .controls.find(
+            (c: ShellControl) => c.kind === kind && (kind !== 'button' || c.items.some((item) => item.accessibilityLabel === 'Save')),
+          )!.id,
       kind,
     );
     await source.evaluate((element) => {
@@ -2989,7 +2994,9 @@ for (const direction of ['ltr', 'rtl']) {
           page.evaluate(() => {
             const item = Capacitor.registerPlugin<ShellMock>('IonicNativeUIShell')
               .updates.at(-1)
-              ?.controls.find((control: ShellControl) => control.kind === 'button')?.items[0];
+              ?.controls.find(
+                (control: ShellControl) => control.kind === 'button' && control.items.some((item) => item.accessibilityLabel === 'Save'),
+              )?.items[0];
             return item && [item.imagePadding, item.contentInsetLeading, item.contentInsetTrailing];
           }),
         )

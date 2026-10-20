@@ -18,8 +18,11 @@ export const localToolbarOption = (element: HTMLElement, vertical: boolean): boo
   return value === 'true' ? true : value === 'false' ? false : undefined;
 };
 
-export const horizontalSelected = (element: HTMLElement, options: VerticalControlAreaOptions): boolean =>
-  localToolbarOption(element, false) ?? toolbarOptions(options, false)[element.matches('ion-back-button') ? 'backButton' : 'button'];
+export const horizontalSelected = (element: HTMLElement, options: VerticalControlAreaOptions): boolean => {
+  const group = element.parentElement;
+  if (group?.matches('ion-buttons') && isShellDisabled(group)) return false;
+  return localToolbarOption(element, false) ?? toolbarOptions(options, false)[element.matches('ion-back-button') ? 'backButton' : 'button'];
+};
 
 // Group only if all original children qualify; otherwise selected actions remain individual.
 // Back navigation never joins an ordinary action group.

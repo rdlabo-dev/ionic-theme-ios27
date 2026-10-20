@@ -139,3 +139,10 @@ test.each(['ion-button', 'ion-menu-button', 'ion-back-button'])(
     }
   },
 );
+
+test('a shell opt-out in a group prevents sibling projection even with local opt-in', () => {
+  mount();
+  document.querySelector('#a')!.setAttribute('data-shell', 'disabled');
+  document.querySelector('#b')!.setAttribute('data-horizontal-bars', 'true');
+  expect(candidates({ horizontal: { buttons: false } })).toEqual(['back']);
+});
