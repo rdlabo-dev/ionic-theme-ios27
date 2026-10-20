@@ -43,12 +43,12 @@ const ionicConfig = {
 
 This example deliberately uses `ios` mode so desktop browsers show the theme too. Pass `ionicConfig` to the initializer your app already uses:
 
-| Framework | Apply the options |
-| --- | --- |
+| Framework         | Apply the options                                                            |
+| ----------------- | ---------------------------------------------------------------------------- |
 | Angular / Ionic 8 | `provideIonicAngular(ionicConfig)` imported from `@ionic/angular/standalone` |
-| Angular / Ionic 9 | `provideIonicAngular(ionicConfig)` imported from `@ionic/angular` |
-| React | `setupIonicReact(ionicConfig)` imported from `@ionic/react` |
-| Vue | `app.use(IonicVue, ionicConfig)` with `IonicVue` from `@ionic/vue` |
+| Angular / Ionic 9 | `provideIonicAngular(ionicConfig)` imported from `@ionic/angular`            |
+| React             | `setupIonicReact(ionicConfig)` imported from `@ionic/react`                  |
+| Vue               | `app.use(IonicVue, ionicConfig)` with `IonicVue` from `@ionic/vue`           |
 
 Merge with existing options; do not initialize Ionic twice. To retain Material Design mode on Android, keep your platform-based mode selection and apply these animation options only to the iOS configuration. See [adaptive themes](adaptive-themes.md) for a complete platform-aware example.
 
@@ -67,12 +67,12 @@ Start your application's usual development server and open an existing page. Add
 
 You should see an inset group with rounded edges. Switch the system between light and dark appearance, then navigate between pages to see the theme transition. Read [Using ion-item-group](using-ion-item-group.md) for list structure.
 
-| If you see… | Check… |
-| --- | --- |
-| Material Design controls on desktop | Set `mode: 'ios'` in the existing Ionic initializer. |
-| Unstyled controls | Load the theme stylesheet globally after Ionic's base styles. |
-| Mixed light and dark surfaces | Use one matching Ionic palette and theme dark-mode variant. |
-| Default page transitions | Pass the animation options before Ionic initializes. |
+| If you see…                         | Check…                                                        |
+| ----------------------------------- | ------------------------------------------------------------- |
+| Material Design controls on desktop | Set `mode: 'ios'` in the existing Ionic initializer.          |
+| Unstyled controls                   | Load the theme stylesheet globally after Ionic's base styles. |
+| Mixed light and dark surfaces       | Use one matching Ionic palette and theme dark-mode variant.   |
+| Default page transitions            | Pass the animation options before Ionic initializes.          |
 
 ## Next steps
 

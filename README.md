@@ -31,14 +31,14 @@ The same Library screen with Native UI off and on, captured while dragging the s
 
 ## Choose what your app needs
 
-| Your goal | Start here |
-| --- | --- |
-| Style your Ionic Web UI | [Set up the theme](packages/theme-ios27/docs/setup.md) |
-| Render Ionic controls natively with your existing Web appearance | [Set up Native UI](packages/capacitor-native-ui/docs/setup.md) |
-| Use native buttons without Ionic | [HTML setup](packages/capacitor-native-ui/docs/framework-independent.md) |
-| Add a vertical rail to Ionic while keeping your theme | [Ionic rail setup](packages/theme-ios27/docs/iphone-duo-with-original-theme.md#try-it-in-your-existing-ionic-app) |
-| Add a vertical rail without Ionic | [HTML rail setup](packages/capacitor-native-ui/docs/framework-independent.md) |
-| Add custom SwiftUI or Compose content | [App-local extensions (experimental)](packages/capacitor-native-ui/docs/native-ui-extensions.md) |
+| Your goal                                                        | Start here                                                                                                        |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Style your Ionic Web UI                                          | [Set up the theme](packages/theme-ios27/docs/setup.md)                                                            |
+| Render Ionic controls natively with your existing Web appearance | [Set up Native UI](packages/capacitor-native-ui/docs/setup.md)                                                    |
+| Use native buttons without Ionic                                 | [HTML setup](packages/capacitor-native-ui/docs/framework-independent.md)                                          |
+| Add a vertical rail to Ionic while keeping your theme            | [Ionic rail setup](packages/theme-ios27/docs/iphone-duo-with-original-theme.md#try-it-in-your-existing-ionic-app) |
+| Add a vertical rail without Ionic                                | [HTML rail setup](packages/capacitor-native-ui/docs/framework-independent.md)                                     |
+| Add custom SwiftUI or Compose content                            | [App-local extensions (experimental)](packages/capacitor-native-ui/docs/native-ui-extensions.md)                  |
 
 Already using the iOS theme? [Add Native UI to your theme](packages/theme-ios27/docs/add-native-ui.md) as your next step.
 

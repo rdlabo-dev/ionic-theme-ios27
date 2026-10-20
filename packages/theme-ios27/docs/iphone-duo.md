@@ -21,12 +21,12 @@ Device state belongs to [`@erkamyaman/capacitor-foldable`](https://github.com/er
 
 To keep your existing theme and add only the standalone support, follow [iPhone Duo with your existing theme](iphone-duo-with-original-theme.md). This page covers the shared device-layout rules.
 
-| Goal                                             | Stylesheet          | Runtime                                                            |
-| ------------------------------------------------ | ------------------- | ------------------------------------------------------------------ |
-| Hinge posture only (layout switches) | none | none — subscribe to `Foldable` directly |
-| Posture-driven split-pane width | `vertical-bars.css` | none — subscribe to `Foldable` directly |
-| Vertical rail for tabs and toolbar actions       | `vertical-bars.css` | `enableNativeUI({ verticalBars: { only: true } })`                                      |
-| Native shell plus the rail                       | `vertical-bars.css` | `enableNativeUI()` — includes rail projection |
+| Goal                                       | Stylesheet          | Runtime                                            |
+| ------------------------------------------ | ------------------- | -------------------------------------------------- |
+| Hinge posture only (layout switches)       | none                | none — subscribe to `Foldable` directly            |
+| Posture-driven split-pane width            | `vertical-bars.css` | none — subscribe to `Foldable` directly            |
+| Vertical rail for tabs and toolbar actions | `vertical-bars.css` | `enableNativeUI({ verticalBars: { only: true } })` |
+| Native shell plus the rail                 | `vertical-bars.css` | `enableNativeUI()` — includes rail projection      |
 
 ```scss
 @use '@rdlabo/ionic-theme-ios27/dist/css/vertical-bars.css';
@@ -121,11 +121,7 @@ See [Vertical Bars: Tab bar](../../capacitor-native-ui/docs/vertical-bars.md#tab
 For a side-by-side menu on iPhone Duo, opt the `ion-split-pane` into the separately measured Settings layout. The sidebar is 320pt when fully unfolded and reaches the display midpoint when half-opened (50vw). The application supplies the posture; both states have the same viewport width, so a width media query cannot distinguish them:
 
 ```html
-<ion-split-pane
-  class="split-pane-fold-layout"
-  contentId="main-content"
-  when="(min-width: 900px)"
->
+<ion-split-pane class="split-pane-fold-layout" contentId="main-content" when="(min-width: 900px)">
   <ion-menu contentId="main-content">...</ion-menu>
   <div id="main-content">...</div>
 </ion-split-pane>
