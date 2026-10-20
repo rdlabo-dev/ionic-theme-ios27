@@ -24,6 +24,8 @@ Without Ionic, import the same API from `@rdlabo/capacitor-native-ui/core`. That
 
 Web rails require the Ionic rail layout or an application-owned HTML `webHost`. Settings never create a device capability.
 
+For HTML-derived light/dark behavior, see [Light and dark appearance](appearance.md). Appearance is configured in Web CSS, not through a startup option.
+
 ## All settings
 
 `controls` chooses selection and grouping defaults. `verticalBars` configures the rail. `ionic` configures Ionic discovery and appearance. Omitted fields default to `true` in `controls`, including partial objects.

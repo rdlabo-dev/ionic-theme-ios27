@@ -62,5 +62,6 @@ For standard controls, follow the setup guide for your markup; the Ionic and HTM
 
 - [Supported Ionic controls](docs/native-ui.md#supported-markup) and fallback behavior.
 - [Configuration](docs/configuration.md): defaults, selected controls, rail-only mode, and live changes.
+- [Light and dark appearance](docs/appearance.md): inherit the Web theme, configure custom HTML, and understand shared rail appearance.
 - [Vertical Bars](docs/vertical-bars.md): eligibility, appearance, and runtime API.
 - [Migration](docs/migration.md): package names, imports, and native project updates.

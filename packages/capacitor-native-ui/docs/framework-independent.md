@@ -64,6 +64,10 @@ const shell = await enableNativeUI({
 
 Call once after the source root exists. Keep the handle and call `await shell.destroy()` when that root is disposed. The plugin does not add page padding or safe-area rules; retain your application's CSS. For Angular, React, or Vue, use the [app-root lifecycle examples](setup.md#place-startup-in-your-frameworks-app-root) with the `/core` import. For animated navigation, use [suspension through completion and cancellation](setup.md#navigation-without-the-theme).
 
+### Match the HTML theme
+
+For a custom HTML theme, declare `color-scheme: light` or `color-scheme: dark` in the same CSS that selects your Web palette. Background colors alone do not select native appearance. See [Light and dark appearance](appearance.md) for a manual-toggle example, precedence when Ionic/theme variables are present, and shared rail behavior.
+
 ## 4. Build and run on iOS
 
 Build your Web app, run `npx cap sync ios`, and launch the iOS project from Xcode. With the step 3 configuration, Add renders natively and invokes its original click handler. With the rail configuration below, Add retains native element placement and Back uses the native rail when available. In a browser, the same button remains an ordinary Web button. Unmarked HTML remains unchanged.

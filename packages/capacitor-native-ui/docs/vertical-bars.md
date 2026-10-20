@@ -266,6 +266,8 @@ remain opt-outs; those are distinct from the grouping setting.
 
 Selection attributes are not inherited. Appearance follows the button-then-group priority described below. An attribute never makes unsupported markup or a missing native rail available.
 
+The rail shares one light/dark appearance across projected controls. See [Shared Vertical Bars appearance](appearance.md#shared-vertical-bars-appearance) when configuring your Web theme.
+
 ### Choose button appearance
 
 Use `ionic.verticalBars.buttonProjection` to choose native button appearance.

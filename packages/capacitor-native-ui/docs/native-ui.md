@@ -53,7 +53,7 @@ No per-page registration, component list, native callback or Swift view controll
 
 This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry point does not import Capacitor. Native runtime entry points require `@capacitor/core`, including in browser builds. Native sources are still detected and built by Capacitor's sync when `@rdlabo/capacitor-native-ui` is a direct dependency of a Capacitor project, even if the application does not call `enableNativeUI()`.
 
-Native appearance follows the applied class, system or always-dark theme CSS. System theme changes are synchronized while the runtime is active.
+Native light/dark appearance is resolved from each source element’s computed style. See [Light and dark appearance](appearance.md) for theme inheritance, priority, live updates and the shared Vertical Bars behavior.
 
 ## Toolbar selection and grouping
 

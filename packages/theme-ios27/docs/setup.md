@@ -34,6 +34,8 @@ Use one matching Ionic palette and theme variant. Paths below are relative to `@
 | Manual                 | `dark.class.css`  | `ionic-theme-ios27-dark-class.css`  | Toggle `ion-palette-dark` on the document root. |
 | Always dark            | `dark.always.css` | `ionic-theme-ios27-dark-always.css` | Always active.                                  |
 
+If you also enable Native UI, these styles provide its light/dark appearance marker. Keep the Ionic palette and theme variant paired so Web and native controls agree. See [native appearance inheritance](../../capacitor-native-ui/docs/appearance.md) for the resolution order and shared rail behavior.
+
 ## 3. Configure Ionic animations
 
 Set these options in your existing Ionic initialization, before rendering the app:
