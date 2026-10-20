@@ -52,6 +52,6 @@ Use standard native buttons without Ionic through the [plain HTML adapter](packa
 
 ## Maintenance
 
-From a clean, up-to-date `main`, run `npm run release` to release both packages at the same version (`npm run release -- premajor` for a major prerelease). Maintainers can request a PR beta with `/beta`. See [.github/workflows](.github/workflows) for CI and release behavior.
+Release from a clean, up-to-date `main` with `npm run release`. Request a PR beta with `/beta`. See the [workflows](.github/workflows) for CI and release implementation.
 
-If a versioned release publishes only one package before failing, use a new shared version for the next release.
+A partially published versioned release requires a new shared version: npm versions cannot be overwritten, and this release workflow does not resume partial publication.
