@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - ios26
-    types: [opened, synchronize, edited, closed]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
 
 permissions:
   contents: read
@@ -13,6 +13,9 @@ permissions:
 jobs:
   test:
     if: github.event.action != 'closed'
+    concurrency:
+      group: e2e-pr-${{ github.event.pull_request.number }}-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
+      cancel-in-progress: true
     timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
@@ -24,9 +27,18 @@ jobs:
           - ionic-major: 8
             ionic-version: 8.8.19
             eslint-plugin-version: 21.3.0
+            shard: 1
+            shards: 1
           - ionic-major: 9
             ionic-version: 9.0.0
             eslint-plugin-version: 22.1.0
+            shard: 1
+            shards: 2
+          - ionic-major: 9
+            ionic-version: 9.0.0
+            eslint-plugin-version: 22.1.0
+            shard: 2
+            shards: 2
     container:
       image: mcr.microsoft.com/playwright:v1.58.2-noble
     steps:
@@ -34,22 +46,17 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - uses: actions/cache@v5
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          package-manager-cache: false
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
       - if: matrix.ionic-major == 8
-        run: npm install --no-save --package-lock=false @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
       - run: npm run build
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
         working-directory: './demo'
       - name: Install matching Ionic and ESLint plugin versions
-        run: npm install --no-save --package-lock=false @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
         working-directory: './demo'
 
       - name: Run Playwright tests
@@ -57,7 +64,7 @@ jobs:
           if [ "${{ matrix.ionic-major }}" = "8" ]; then
             PLAYWRIGHT_JSON_OUTPUT_NAME=e2e/screenshot.spec.ts-ionic8.json npm run test:e2e:visual -- --reporter=json,html
           else
-            PLAYWRIGHT_JSON_OUTPUT_NAME=e2e/screenshot.spec.ts-ionic9.json npm run test:e2e -- --reporter=json,html
+            npm run test:e2e -- --shard=${{ matrix.shard }}/${{ matrix.shards }} --reporter=blob
           fi
         working-directory: ./demo
         env:
@@ -65,41 +72,73 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v5
-        if: always()
+        if: always() && matrix.ionic-major == 8
         with:
           name: playwright-report-ionic${{ matrix.ionic-major }}
           path: demo/playwright-report/
+          overwrite: true
           retention-days: 3
 
       - name: Upload screenshots on failure
         uses: actions/upload-artifact@v5
         if: failure()
         with:
-          name: test-results-ionic${{ matrix.ionic-major }}
+          name: test-results-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
           path: demo/test-results/
+          overwrite: true
           retention-days: 3
 
-      - name: Upload Ionic 9 JSON report artifact
+      - name: Upload Ionic 9 shard report
         uses: actions/upload-artifact@v5
         if: always() && matrix.ionic-major == 9
+        with:
+          name: blob-report-ionic9-${{ matrix.shard }}
+          path: demo/blob-report/
+          overwrite: true
+          retention-days: 3
+
+  merge-reports:
+    needs: test
+    if: "!cancelled() && (needs.test.result == 'success' || needs.test.result == 'failure')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Download Ionic 9 shards
+        uses: actions/download-artifact@v5
+        with:
+          pattern: blob-report-ionic9-*
+          merge-multiple: true
+          path: blob-reports
+      - name: Merge complete Ionic 9 results
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: report/screenshot.spec.ts-ionic9.json
+          PLAYWRIGHT_HTML_OPEN: never
+        run: |
+          test "$(find blob-reports -name '*.zip' | wc -l)" -eq 2
+          npm exec --yes --package=@playwright/test@1.58.2 -- playwright merge-reports --reporter=html,json blob-reports
+      - name: Upload merged HTML report
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report-ionic9
+          path: playwright-report/
+          overwrite: true
+          retention-days: 3
+      - name: Upload merged JSON report
+        uses: actions/upload-artifact@v5
         with:
           name: json-report-${{ github.event.pull_request.number }}
-          path: demo/e2e/screenshot.spec.ts-ionic9.json
+          path: report/screenshot.spec.ts-ionic9.json
+          overwrite: true
           retention-days: 3
 
-      - name: Upload Ionic 9 HTML report artifact
-        uses: actions/upload-artifact@v5
-        if: always() && matrix.ionic-major == 9
-        with:
-          name: html-report-${{ github.event.pull_request.number }}
-          path: demo/playwright-report/
-          retention-days: 30
-
   comment-results:
-    needs: test
+    needs: merge-reports
     if: >-
-      always() &&
-      github.event.action != 'closed' &&
+      !cancelled() &&
+      needs.merge-reports.result == 'success' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
@@ -119,61 +158,75 @@ jobs:
           custom-info: 'This detailed result covers Ionic 9 only. Ionic 8 runs against the same screenshots in a separate matrix job; check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for both results. To update the screenshots, comment with `/update-screenshots`.'
 
   deploy-report:
-    needs: test
+    needs: [test, merge-reports]
     concurrency:
-      group: playwright-report-${{ github.event.pull_request.number }}
+      group: playwright-gh-pages
       cancel-in-progress: false
     if: >-
       !cancelled() &&
-      github.event.action != 'closed' &&
+      (github.event.action == 'closed' || needs.merge-reports.result == 'success') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - name: Download HTML report
-        uses: actions/download-artifact@v5
-        with:
-          name: html-report-${{ github.event.pull_request.number }}
-          path: playwright-report
-
       - name: Checkout gh-pages
         uses: actions/checkout@v5
         with:
           ref: gh-pages
           path: gh-pages
-        continue-on-error: true
 
-      - name: Prepare GitHub Pages directory
+      - name: Prune closed PR reports and check current head
+        id: reports
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const openPulls = await github.paginate(github.rest.pulls.list, {
+              ...context.repo, state: 'open', per_page: 100,
+            });
+            const openNumbers = new Set(openPulls.map(pull => String(pull.number)));
+            for (const entry of fs.readdirSync('gh-pages', { withFileTypes: true })) {
+              const match = /^pr-(\d+)$/.exec(entry.name);
+              if (entry.isDirectory() && match && !openNumbers.has(match[1])) {
+                fs.rmSync(`gh-pages/${entry.name}`, { recursive: true });
+                core.info(`Removed closed PR report: ${entry.name}`);
+              }
+            }
+            const current = openPulls.find(pull => pull.number === context.payload.pull_request.number);
+            core.setOutput('publish', context.payload.action !== 'closed' &&
+              current?.head.sha === context.payload.pull_request.head.sha);
+
+      - name: Download HTML report
+        if: steps.reports.outputs.publish == 'true'
+        uses: actions/download-artifact@v5
+        with:
+          name: playwright-report-ionic9
+          path: playwright-report
+
+      - name: Replace current PR report
+        if: steps.reports.outputs.publish == 'true'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # gh-pagesディレクトリが存在しない場合は作成
-          if [ ! -d "gh-pages" ]; then
-            mkdir -p gh-pages
-          fi
+          rm -rf "gh-pages/pr-$PR_NUMBER"
+          mkdir -p "gh-pages/pr-$PR_NUMBER"
+          cp -R playwright-report/. "gh-pages/pr-$PR_NUMBER/"
 
-          # PR用のディレクトリを作成（既存の場合は削除して再作成）
-          rm -rf gh-pages/pr-${{ github.event.pull_request.number }}
-          mkdir -p gh-pages/pr-${{ github.event.pull_request.number }}
-          cp -r playwright-report/* gh-pages/pr-${{ github.event.pull_request.number }}/
-
-      - name: Deploy to GitHub Pages
+      - name: Deploy reports and deletions to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./gh-pages
-          keep_files: true
+          keep_files: false
+          force_orphan: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Update test report for PR #${{ github.event.pull_request.number }}'
-
-      - name: Verify published report URL
-        env:
-          REPORT_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/
-        # Pages publication is asynchronous after the gh-pages push.
-        run: curl --fail --silent --show-error --location --retry 30 --retry-delay 10 --retry-max-time 300 --retry-all-errors --max-time 20 --output /dev/null "$REPORT_URL"
+          commit_message: 'Refresh open PR test reports'
 
       - name: Comment PR with report link
+        if: steps.reports.outputs.publish == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -181,7 +234,7 @@ jobs:
             const reportUrl = `https://${context.repo.owner}.github.io/${context.repo.repo}/pr-${prNumber}/`;
 
             const marker = '<!-- ionic9-playwright-report -->';
-            const body = `${marker}\n` + `📊 **Ionic 9 Playwright Test Report**\n\nView the detailed Ionic 9 report: ${reportUrl}\n\nIonic 8 runs against the same screenshots in a separate matrix job. View both results in the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
+            const body = `${marker}\n` + `📊 **Ionic 9 Playwright Test Report**\n\nView the detailed Ionic 9 report after GitHub Pages deployment completes: ${reportUrl}\n\nIonic 8 runs against the same screenshots in a separate matrix job. View both results in the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
             const comments = await github.paginate(github.rest.issues.listComments, {
               ...context.repo,
               issue_number: prNumber
@@ -209,38 +262,3 @@ jobs:
                 body
               });
             }
-
-  cleanup-report:
-    if: >-
-      github.event.action == 'closed' &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout gh-pages
-        uses: actions/checkout@v5
-        with:
-          ref: gh-pages
-          path: gh-pages
-        continue-on-error: true
-
-      - name: Remove PR report directory
-        run: |
-          if [ -d "gh-pages/pr-${{ github.event.pull_request.number }}" ]; then
-            rm -rf gh-pages/pr-${{ github.event.pull_request.number }}
-            echo "Removed report directory for PR #${{ github.event.pull_request.number }}"
-          else
-            echo "No report directory found for PR #${{ github.event.pull_request.number }}"
-          fi
-
-      - name: Deploy to GitHub Pages
-        if: hashFiles('gh-pages/**') != ''
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./gh-pages
-          keep_files: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Remove test report for closed PR #${{ github.event.pull_request.number }}'

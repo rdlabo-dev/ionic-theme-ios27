@@ -2,7 +2,7 @@ name: Lint
 on:
   pull_request:
     branches: [main, ios26]
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main, ios26]
 concurrency:
@@ -24,6 +24,7 @@ jobs:
       - run: npm run test:esm
       - run: npm run test:packages
       - run: npm run test:release
+      - run: node --test scripts/report-retention.test.mjs
   lint:
     runs-on: ubuntu-latest
     steps:

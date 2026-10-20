@@ -12,6 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        shard: [1, 2]
+        ionic-major: [8, 9]
         include:
           - ionic-major: 8
             ionic-version: 8.8.19
@@ -26,26 +28,21 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - uses: actions/cache@v5
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          package-manager-cache: false
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
       - if: matrix.ionic-major == 8
-        run: npm install --no-save --package-lock=false @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
       - run: npm run build
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
         working-directory: './demo'
       - name: Install matching Ionic and ESLint plugin versions
-        run: npm install --no-save --package-lock=false @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
+        run: npm install --no-save --package-lock=false --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
         working-directory: './demo'
 
       - name: Run Playwright tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
         working-directory: ./demo
         env:
           IONIC_MAJOR: ${{ matrix.ionic-major }}
@@ -54,14 +51,16 @@ jobs:
         uses: actions/upload-artifact@v5
         if: always()
         with:
-          name: playwright-report-ionic${{ matrix.ionic-major }}
+          name: playwright-report-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
           path: demo/playwright-report/
+          overwrite: true
           retention-days: 3
 
       - name: Upload screenshots on failure
         uses: actions/upload-artifact@v5
         if: failure()
         with:
-          name: test-results-ionic${{ matrix.ionic-major }}
+          name: test-results-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
           path: demo/test-results/
+          overwrite: true
           retention-days: 3
