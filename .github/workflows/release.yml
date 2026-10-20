@@ -55,6 +55,9 @@ jobs:
   release:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    concurrency:
+      group: npm-ios27-release
+      cancel-in-progress: false
     permissions:
       contents: write
       id-token: write
@@ -84,8 +87,8 @@ jobs:
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
           VERSION=${TAG_NAME#ios27-v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "Extracted version: $VERSION from tag: $TAG_NAME"
 
       - name: Verify root version matches release tag
@@ -167,9 +170,16 @@ jobs:
           const version = process.env.VERSION;
           assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
           const tag = version.includes('-') ? 'next' : 'latest';
+          const pending = [];
+          // Validate both archives and registry versions before publishing either package.
           for (const name of ['capacitor-native-ui', 'ionic-theme-ios27']) {
             const spec = `@rdlabo/${name}@${version}`;
             const archive = `${process.env.RUNNER_TEMP}/npm-release/rdlabo-${name}-${version}.tgz`;
+            const pkg = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }));
+            assert.equal(pkg.name, `@rdlabo/${name}`, 'Unexpected package identity');
+            assert.equal(pkg.version, version, 'Artifact version mismatch');
+            assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
+            if (name === 'ionic-theme-ios27') assert.equal(pkg.dependencies?.['@rdlabo/capacitor-native-ui'], version, 'Native dependency version mismatch');
             const existing = spawnSync('npm', ['view', spec, 'dist.integrity', '--json', '--registry=https://registry.npmjs.org'], { encoding: 'utf8' });
             if (existing.status === 0) {
               const integrity = 'sha512-' + createHash('sha512').update(readFileSync(archive)).digest('base64');
@@ -180,6 +190,10 @@ jobs:
             let error;
             try { error = JSON.parse(existing.stdout).error; } catch {}
             assert.equal(error?.code, 'E404', `Cannot check ${spec}: ${existing.stderr}`);
+            pending.push(archive);
+          }
+          // The theme's exact-version dependency must be available first.
+          for (const archive of pending) {
             execFileSync('npm', ['publish', archive, '--ignore-scripts', '--provenance', '--access', 'public',
               '--registry=https://registry.npmjs.org', '--tag', tag], { stdio: 'inherit' });
           }
@@ -244,7 +258,7 @@ jobs:
               const { data } = await github.rest.repos.getContent({
                 owner,
                 repo,
-                path: ref === 'ios26' ? 'package.json' : 'packages/theme-ios27/package.json',
+                path: 'package.json',
                 ref,
               });
               if (Array.isArray(data) || data.type !== 'file' || !data.content) {
@@ -252,7 +266,7 @@ jobs:
               }
               const packageJson = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
               return {
-                name: packageJson.name,
+                name: ref === 'main' ? '@rdlabo/ionic-theme-ios27' : packageJson.name,
                 baseVersion: packageJson.version.split('-')[0],
               };
             };
@@ -469,7 +483,7 @@ jobs:
     if: needs.authorize-candidate.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     concurrency:
-      group: npm-${{ needs.authorize-candidate.outputs.dist-tag }}-${{ needs.authorize-candidate.outputs.head-sha }}
+      group: npm-${{ needs.authorize-candidate.outputs.target-branch }}-${{ needs.authorize-candidate.outputs.dist-tag }}
       cancel-in-progress: false
     env:
       NPM_CONFIG_TAG: ${{ needs.authorize-candidate.outputs.dist-tag }}
@@ -571,7 +585,7 @@ jobs:
             const { data } = await github.rest.repos.getContent({
               owner,
               repo,
-              path: targetBranch === 'ios26' ? 'package.json' : 'packages/theme-ios27/package.json',
+              path: 'package.json',
               ref: targetBranch,
             });
             if (Array.isArray(data) || data.type !== 'file' || !data.content) {
@@ -582,7 +596,7 @@ jobs:
             const baseVersion = packageJson.version.split('-')[0];
             const expectedVersion = `${baseVersion}-beta.pr${process.env.PR_NUMBER}.sha${process.env.HEAD_SHA.slice(0, 12)}`;
             if (
-              packageJson.name !== process.env.PACKAGE_NAME ||
+              (targetBranch === 'main' ? '@rdlabo/ionic-theme-ios27' : packageJson.name) !== process.env.PACKAGE_NAME ||
               expectedVersion !== process.env.VERSION
             ) {
               core.setFailed('Trusted package identity changed after authorization; rerun the release request.');
@@ -613,53 +627,53 @@ jobs:
           EXPECTED_VERSION: ${{ needs.authorize-candidate.outputs.version }}
           DIST_TAG: ${{ needs.authorize-candidate.outputs.dist-tag }}
         run: |
-          shopt -s nullglob
-          PACKAGES=("$RUNNER_TEMP"/npm-candidate/*.tgz)
-          NAMES=("$EXPECTED_NAME")
-          if [ "$EXPECTED_NAME" = "@rdlabo/ionic-theme-ios27" ]; then
-            NAMES=(@rdlabo/capacitor-native-ui "$EXPECTED_NAME")
-          elif [ "$EXPECTED_NAME" != "@rdlabo/ionic-theme-ios26" ]; then
-            echo "::error::Unexpected package identity."
-            exit 1
-          fi
-          if [ "${#PACKAGES[@]}" -ne "${#NAMES[@]}" ]; then
-            echo "::error::Unexpected number of package archives."
-            exit 1
-          fi
-          if [ "$DIST_TAG" != "beta" ]; then
-            echo "::error::Unexpected package or dist-tag."
-            exit 1
-          fi
-          declare -A ARCHIVES
-          # Validate both artifacts before publishing either package. Never execute artifact scripts.
-          for PACKAGE_ARCHIVE in "${PACKAGES[@]}"; do
-            MANIFEST=$(tar -xOf "$PACKAGE_ARCHIVE" package/package.json)
-            ACTUAL_NAME=$(MANIFEST="$MANIFEST" node --input-type=module <<'JS'
+          node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
-          const pkg = JSON.parse(process.env.MANIFEST);
+          import { readFileSync, readdirSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          import { execFileSync, spawnSync } from 'node:child_process';
           const native = '@rdlabo/capacitor-native-ui';
           const theme = '@rdlabo/ionic-theme-ios27';
-          const allowed = process.env.EXPECTED_NAME === theme ? [theme, native] : [process.env.EXPECTED_NAME];
-          assert(allowed.includes(pkg.name), 'Unexpected package identity');
-          assert.equal(pkg.version, process.env.EXPECTED_VERSION, 'Artifact version mismatch');
-          assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
-          if (pkg.name === theme) assert.equal(pkg.dependencies?.[native], process.env.EXPECTED_VERSION, 'Native dependency version mismatch');
-          process.stdout.write(pkg.name);
+          const { EXPECTED_NAME, EXPECTED_VERSION, DIST_TAG, RUNNER_TEMP } = process.env;
+          assert([theme, '@rdlabo/ionic-theme-ios26'].includes(EXPECTED_NAME), 'Unexpected package identity');
+          assert.equal(DIST_TAG, 'beta', 'Unexpected dist-tag');
+          const names = EXPECTED_NAME === theme ? [native, theme] : [EXPECTED_NAME];
+          const directory = `${RUNNER_TEMP}/npm-candidate`;
+          const files = readdirSync(directory).filter(file => file.endsWith('.tgz'));
+          assert.equal(files.length, names.length, 'Unexpected number of package archives');
+          const archives = new Map();
+          // Validate all artifacts before publishing. Never execute artifact scripts.
+          for (const file of files) {
+            const archive = `${directory}/${file}`;
+            const pkg = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }));
+            assert(names.includes(pkg.name), 'Unexpected package identity');
+            assert.equal(pkg.version, EXPECTED_VERSION, 'Artifact version mismatch');
+            assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
+            if (pkg.name === theme) assert.equal(pkg.dependencies?.[native], EXPECTED_VERSION, 'Native dependency version mismatch');
+            assert(!archives.has(pkg.name), 'Duplicate package identity');
+            archives.set(pkg.name, archive);
+          }
+          const pending = [];
+          for (const name of names) {
+            const spec = `${name}@${EXPECTED_VERSION}`;
+            const archive = archives.get(name);
+            const existing = spawnSync('npm', ['view', spec, 'dist.integrity', '--json', '--registry=https://registry.npmjs.org'], { encoding: 'utf8' });
+            if (existing.status === 0) {
+              const integrity = 'sha512-' + createHash('sha512').update(readFileSync(archive)).digest('base64');
+              assert.equal(JSON.parse(existing.stdout), integrity, `${spec} already exists with different contents`);
+              console.log(`${spec} already published with matching contents; skipping.`);
+              continue;
+            }
+            let error;
+            try { error = JSON.parse(existing.stdout).error; } catch {}
+            assert.equal(error?.code, 'E404', `Cannot check ${spec}: ${existing.stderr}`);
+            pending.push(archive);
+          }
+          for (const archive of pending) {
+            execFileSync('npm', ['publish', archive, '--ignore-scripts', '--provenance', '--access', 'public',
+              '--registry=https://registry.npmjs.org', '--tag', DIST_TAG], { stdio: 'inherit' });
+          }
           JS
-            )
-            if [ -n "${ARCHIVES[$ACTUAL_NAME]:-}" ]; then
-              echo "::error::Duplicate package identity."
-              exit 1
-            fi
-            ARCHIVES[$ACTUAL_NAME]="$PACKAGE_ARCHIVE"
-          done
-          for NAME in "${NAMES[@]}"; do
-            if npm view "${NAME}@${EXPECTED_VERSION}" version --registry "$NPM_CONFIG_REGISTRY" >/dev/null 2>&1; then
-              echo "${NAME}@${EXPECTED_VERSION} already exists; skipping publish."
-            else
-              npm publish "${ARCHIVES[$NAME]}" --ignore-scripts --provenance --access public --registry "$NPM_CONFIG_REGISTRY" --tag "$DIST_TAG"
-            fi
-          done
 
   comment-candidate:
     needs: [authorize-candidate, publish-candidate]

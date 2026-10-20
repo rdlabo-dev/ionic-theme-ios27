@@ -23,6 +23,7 @@ jobs:
       - run: npm run build
       - run: npm run test:esm
       - run: npm run test:packages
+      - run: npm run test:release
   lint:
     runs-on: ubuntu-latest
     steps:

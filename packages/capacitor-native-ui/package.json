@@ -57,8 +57,13 @@
     "docs"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc --noEmit && rdlabo-build-theme",
-    "docgen": "docgen --project tsconfig.docgen.json --api NativeUIHandle --output-readme docs/native-ui.md && docgen --project tsconfig.docgen.json --api VerticalControlAreaHandle --output-readme docs/vertical-bars.md"
+    "build": "npm run clean && npm run docgen && tsc --noEmit && rdlabo-build-theme",
+    "clean": "rm -rf dist",
+    "docgen": "docgen --project tsconfig.docgen.json --api NativeUIHandle --output-readme docs/native-ui.md && docgen --project tsconfig.docgen.json --api VerticalControlAreaHandle --output-readme docs/vertical-bars.md",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0 <9",

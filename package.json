@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/capacitor-native-ui",
+    "packages/theme-ios27"
   ],
   "scripts": {
-    "build": "npm run docgen && npm run build -w @rdlabo/capacitor-native-ui && npm run build -w @rdlabo/ionic-theme-ios27",
+    "build": "npm run build --workspaces",
     "docgen": "npm run docgen -w @rdlabo/capacitor-native-ui",
     "build:css": "npm run build:css -w @rdlabo/ionic-theme-ios27",
     "build:ts": "npm run build -w @rdlabo/capacitor-native-ui && npm run build:ts -w @rdlabo/ionic-theme-ios27",
@@ -17,6 +18,7 @@
     "test:esm": "node scripts/verify-packages.mjs --esm",
     "pack:packages": "node scripts/pack-packages.mjs",
     "test:packages": "node scripts/verify-packages.mjs --candidate",
+    "test:release": "node --test scripts/release.test.mjs",
     "release": "np --no-tests --no-publish --branch main"
   },
   "devDependencies": {
