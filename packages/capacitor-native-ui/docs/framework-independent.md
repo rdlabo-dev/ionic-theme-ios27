@@ -9,7 +9,7 @@ Use a Capacitor 8 app with an iOS project, Xcode 26+, and an iOS 26+ device or s
 Keep your existing Capacitor 8 installation and add the plugin directly:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui@next
+npm install @rdlabo/capacitor-native-ui
 ```
 
 The `/core` entry requires `@capacitor/core` but no Ionic dependencies. If this is currently a browser-only application, configure its Capacitor 8 iOS project before running native controls.

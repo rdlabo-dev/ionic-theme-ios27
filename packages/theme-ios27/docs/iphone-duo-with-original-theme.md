@@ -17,7 +17,7 @@ Available in `1.2.0` as a **preview** feature. APIs and supported behavior may c
 This guide assumes an existing Ionic app with Ionic `>=8.8.1 <10` and Capacitor Core `>=8 <9`. Keep your existing Capacitor 8 installation. If your app uses another Capacitor major, migrate its Core, CLI, and platform packages together before following this guide. For a Web-only app without Capacitor, also install `@capacitor/core@^8`; the JavaScript entry point needs it even in Chrome.
 
 ```bash
-npm install @capacitor/core@^8 @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next
+npm install @capacitor/core@^8 @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
 ```
 
 Keep your existing theme imports. Add this to your global Sass file:

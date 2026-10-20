@@ -8,10 +8,10 @@ Start with [theme setup](setup.md) if you have not configured the theme yet. If 
 
 This guide assumes a Capacitor 8 application with an iOS project. Web-only theme users can continue without Capacitor; adding native iOS controls requires setting up that native project first. See [Native UI requirements](../../capacitor-native-ui/docs/native-ui.md#enable-the-shell) for supported Ionic, iOS, and Xcode versions.
 
-Install the 2.0 prerelease packages together from npm so the theme and native plugin use the same version:
+Install both packages together from npm so the theme and native plugin use the same version:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
 ```
 
 Keep your existing theme stylesheets. Capacitor's default plugin discovery requires a direct dependency; the copy installed through the theme alone does not register the native plugin.

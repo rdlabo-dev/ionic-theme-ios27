@@ -33,18 +33,18 @@ The theme uses the native package's shared transition/search integration interna
 
 ### 1. Update application dependencies
 
-The commands below install the 2.0 prerelease from npm using `next`. When using both packages, update them together to keep their versions aligned.
+When using both packages, update them together to keep their versions aligned.
 
 For theme-only apps, update the theme package. Keep existing theme imports and CSS/Sass paths; no native startup or plugin setup is needed for theme-only use.
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27@next
+npm install @rdlabo/ionic-theme-ios27
 ```
 
 For apps using both the theme and native controls, install both as direct application dependencies:
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27@next @rdlabo/capacitor-native-ui@next
+npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui
 ```
 
 For native controls with your existing Web appearance, follow [Native UI only](setup.md). Install the native package directly and keep your existing Web styles. The plugin no longer requires theme variables to select supported controls; Web layout remains the responsibility of your app or theme. Native startup requires Capacitor 8. The Ionic adapter requires Ionic 8.8.1 or later within Ionic 8 or 9; the `/core` entry does not require Ionic.
@@ -53,7 +53,7 @@ If you used the intermediate `@ionic-theme/capacitor-native-ui` package name dur
 
 ```sh
 npm uninstall @ionic-theme/capacitor-native-ui
-npm install @rdlabo/capacitor-native-ui@next
+npm install @rdlabo/capacitor-native-ui
 ```
 
 ### 2. Replace native imports

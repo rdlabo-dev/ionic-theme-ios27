@@ -1,6 +1,6 @@
 # Ionic Theme iOS27
 
-These guides cover the 2.0 prerelease. Install with `npm install @rdlabo/ionic-theme-ios27@next`. For 1.x, use the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1).
+Install with `npm install @rdlabo/ionic-theme-ios27`. For 1.x, use the [v1.2.1 guide](https://github.com/rdlabo-dev/ionic-theme-ios27/tree/ios27-v1.2.1).
 A theme for Ionic apps that brings iOS 27 Liquid Glass and motion to the Web. Capacitor iOS apps can also opt into a preview Native UI for supported controls.
 
 **[Ionic 9 demo](https://ionic-theme-ios27.rdlabo.dev/) · [Ionic 8 demo](https://ionic8-theme-ios27.rdlabo.dev/) · [Setup guide](docs/setup.md)**

@@ -16,16 +16,16 @@ Native UI is opt-in and currently a preview. Standard controls on Android, brows
 
 ## Install from npm
 
-These guides cover the 2.0 prerelease, available through the `next` npm tag. Install in your Capacitor 8 application:
+Install in your Capacitor 8 application:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui@next
+npm install @rdlabo/capacitor-native-ui
 ```
 
 If you also use the iOS 27 theme, install or update both packages together:
 
 ```sh
-npm install @rdlabo/capacitor-native-ui@next @rdlabo/ionic-theme-ios27@next
+npm install @rdlabo/capacitor-native-ui @rdlabo/ionic-theme-ios27
 ```
 
 Both packages share the same release version. Declare Native UI as a direct dependency so Capacitor can discover the plugin. Theme-only apps can install just the theme; its dependency is resolved by npm and does not activate native controls.

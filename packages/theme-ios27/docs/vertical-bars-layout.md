@@ -3,7 +3,7 @@
 This optional theme stylesheet owns Web spacing and positioning around a vertical rail. It can be used with your existing theme without loading the full iOS 27 appearance. Native rendering and state synchronization are provided separately by [Capacitor Native UI](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/vertical-bars.md).
 
 ```sh
-npm install @rdlabo/ionic-theme-ios27@next
+npm install @rdlabo/ionic-theme-ios27
 ```
 
 ```scss

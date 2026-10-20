@@ -8,10 +8,8 @@ Use an existing Ionic Angular, React, or Vue application with Ionic `>=8.8.1 <10
 
 ## 1. Install the theme
 
-Use the `next` npm tag for the 2.0 prerelease described in this guide.
-
 ```sh
-npm install @rdlabo/ionic-theme-ios27@next
+npm install @rdlabo/ionic-theme-ios27
 ```
 
 ## 2. Load the styles
