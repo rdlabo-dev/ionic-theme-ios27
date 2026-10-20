@@ -57,10 +57,10 @@ const fixture = () => {
   return { animation, calls, ready, finish: (step: 0 | 1) => finish(step, animation) };
 };
 
-test('normal transition waits for native suspension', async () => {
+test('play starts before native suspension settles', async () => {
   const { animation, calls, ready } = fixture();
   const played = animation.play();
-  expect(calls).toEqual([]);
+  expect(calls).toEqual(['play']);
   ready();
   await played;
   expect(calls).toEqual(['play', 'resume:false']);
@@ -87,7 +87,7 @@ test('destroy during bridge preparation cannot start an abandoned transition', a
   animation.destroy();
   ready();
   await played;
-  expect(calls).toEqual(['destroy', 'resume:true']);
+  expect(calls).toEqual(['play', 'destroy', 'resume:true']);
 });
 
 test('without native enablement the animation remains untouched', () => {

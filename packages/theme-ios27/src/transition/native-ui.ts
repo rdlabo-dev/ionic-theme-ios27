@@ -56,11 +56,14 @@ export const connectNativeUIShellTransition = (animation: Animation, entering: H
   };
   animation.onFinish((step) => finish(step === 0));
   animation.play = async (options) => {
-    await prepare();
+    // Overlap suspend with the slide. Awaiting it first retires native chrome while the page is still
+    // at rest, which flashes Web for a frame before the slide starts.
+    const ready = prepare();
     if (disposed) return;
     try {
       await play(options);
     } finally {
+      await ready;
       finish();
     }
   };
