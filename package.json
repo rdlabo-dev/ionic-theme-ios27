@@ -50,7 +50,7 @@
   },
   "homepage": "https://docs.rdlabo.dev/projects/ionic-theme-ios26",
   "dependencies": {
-    "@rdlabo/ionic-theme-utils": "0.1.4"
+    "@rdlabo/ionic-theme-utils": "0.1.5"
   },
   "devDependencies": {
     "@ionic/angular": "^9.0.0",
