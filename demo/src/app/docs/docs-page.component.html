@@ -12,6 +12,16 @@
   <nav class="docs-start" aria-labelledby="docs-start-title">
     <h2 id="docs-start-title">What would you like to build?</h2>
     <p>Choose a guide, then use the component examples below to explore the result.</p>
+    <p>
+      New to Native UI? Read
+      <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/README.md#how-projection-works"
+        >how projection connects native controls to your DOM</a
+      >
+      before choosing a setup. For a rail without Ionic, use the
+      <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/docs/framework-independent.md"
+        >HTML setup</a
+      >.
+    </p>
     <ul>
       <li>
         <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/setup.md"
@@ -40,17 +50,10 @@
       </li>
       <li>
         <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/iphone-duo-with-original-theme.md"
-          >Add a side rail with your existing theme</a
+          >Add a side rail to Ionic with your existing theme</a
         >
       </li>
     </ul>
-    <p>
-      These guides describe the upcoming package split. Check
-      <a href="https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/capacitor-native-ui/README.md#try-the-unreleased-packages"
-        >preview installation</a
-      >
-      before installing Native UI.
-    </p>
   </nav>
   <article class="docs-content" [innerHTML]="docsContentHtml | safeHtml"></article>
 </ion-content>

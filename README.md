@@ -23,7 +23,7 @@ Bring the iOS look to your Ionic app, or add native controls to your Capacitor a
 
 Keep your existing Web appearance or pair it with the iOS theme. Native UI is opt-in and currently a preview; unsupported controls and browsers retain Web presentation. On Android, standard controls stay on the Web; experimental app-local extensions can render with Jetpack Compose. Your app or theme owns Web layout and styling.
 
-[Get started with Native UI](packages/capacitor-native-ui/docs/setup.md) · [Supported controls](packages/capacitor-native-ui/docs/native-ui.md#supported-markup)
+[How projection connects to your DOM](packages/capacitor-native-ui/README.md#how-projection-works) · [Ionic setup](packages/capacitor-native-ui/docs/setup.md) · [HTML setup](packages/capacitor-native-ui/docs/framework-independent.md) · [Supported controls](packages/capacitor-native-ui/docs/native-ui.md#supported-markup)
 
 The same Library screen with Native UI off and on, captured while dragging the selected tab:
 
@@ -36,7 +36,8 @@ The same Library screen with Native UI off and on, captured while dragging the s
 | Style your Ionic Web UI | [Set up the theme](packages/theme-ios27/docs/setup.md) |
 | Render Ionic controls natively with your existing Web appearance | [Set up Native UI](packages/capacitor-native-ui/docs/setup.md) |
 | Use native buttons without Ionic | [HTML setup](packages/capacitor-native-ui/docs/framework-independent.md) |
-| Add only a vertical rail to an Ionic app | [Vertical Bars setup](packages/theme-ios27/docs/iphone-duo-with-original-theme.md) |
+| Add a vertical rail to Ionic while keeping your theme | [Ionic rail setup](packages/theme-ios27/docs/iphone-duo-with-original-theme.md#try-it-in-your-existing-ionic-app) |
+| Add a vertical rail without Ionic | [HTML rail setup](packages/capacitor-native-ui/docs/framework-independent.md) |
 | Add custom SwiftUI or Compose content | [App-local extensions (experimental)](packages/capacitor-native-ui/docs/native-ui-extensions.md) |
 
 Already using the iOS theme? [Add Native UI to your theme](packages/theme-ios27/docs/add-native-ui.md) as your next step.

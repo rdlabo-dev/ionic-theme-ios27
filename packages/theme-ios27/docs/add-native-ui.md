@@ -4,9 +4,11 @@ Already using `@rdlabo/ionic-theme-ios27`? Add native controls on iOS while keep
 
 Start with [theme setup](setup.md) if you have not configured the theme yet. If you use a different Web appearance, follow [Native UI setup](../../capacitor-native-ui/docs/setup.md) instead.
 
+Read [how projection works](../../capacitor-native-ui/README.md#how-projection-works) for how native controls remain connected to your Web DOM and handlers.
+
 ## 1. Install the native plugin
 
-This guide assumes a Capacitor 8 application with an iOS project. Web-only theme users can continue without Capacitor; adding native iOS controls requires setting up that native project first. See [Native UI requirements](../../capacitor-native-ui/docs/native-ui.md#enable-the-shell) for supported Ionic, iOS, and Xcode versions.
+This guide assumes a Capacitor 8 application with an iOS project. Web-only theme users can continue without Capacitor; adding native iOS controls requires setting up that native project first. See [Native UI requirements](../../capacitor-native-ui/README.md#requirements) for supported Ionic, iOS, and Xcode versions.
 
 Install both packages together from npm so the theme and native plugin use the same version:
 

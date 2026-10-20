@@ -1,5 +1,7 @@
 # Configure Native UI
 
+This is the settings reference. Start with [how projection works](../README.md#how-projection-works), then [Ionic setup](setup.md) or [HTML setup](framework-independent.md) for installation.
+
 Call `enableNativeUI()` once after your application's DOM is mounted. Ionic and explicitly marked HTML controls share the standard Swift renderers. The theme is optional; Web layout, safe areas and spacing belong to your app or theme.
 
 ```ts

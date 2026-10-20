@@ -2,15 +2,13 @@
 title: Native UI (Preview)
 ---
 
-For application-specific SwiftUI or Compose content, see [experimental App-local Native UI extensions](native-ui-extensions.md).
-
 # Native UI (Preview)
 
 Native UI is a **preview**. The earlier Native UI Shell was bundled with theme versions 1.2.0 and 1.2.1; this guide describes the split package and its renamed API. See [migration](migration.md#native-ui-naming-changes). Its API and supported controls may change before stable status. Stable status is planned after the official release of Xcode 27.1.
 
 Native UI gives an Ionic app native navigation and action controls around its Web content. The optional Capacitor iOS plugin renders supported fixed Ionic controls with UIKit or SwiftUI and the system's Liquid Glass material. Page content, scrolling, application state and routing remain in Ionic's WebView.
 
-Use this page as the supported-control and API reference. For first-time installation and a working example, start with [Ionic setup](setup.md) or [HTML setup](framework-independent.md).
+Read [how projection works](../README.md#how-projection-works) for the shared DOM and native presentation model. Use this page as the supported-control and API reference. For first-time installation and a working example, start with [Ionic setup](setup.md) or [HTML setup](framework-independent.md).
 
 ## Enable Native UI
 
