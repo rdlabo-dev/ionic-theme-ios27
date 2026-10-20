@@ -6,6 +6,17 @@ title: Migration
 
 > This guide targets the upcoming package split. Until the first native package release, use the [candidate archive installation](../README.md#try-the-unreleased-packages) in place of registry install commands.
 
+## Migrating from Native UI Shell Preview
+
+Native UI Shell was already published as **Preview** in `@rdlabo/ionic-theme-ios27` 1.2.0 and 1.2.1. Preview users need the migration below when adopting the split packages; changing the import alone is not sufficient for every configuration. Candidate/beta users should also compare their configuration with these mappings and use JavaScript and native code from the same candidate.
+
+1. Install the matching packages and replace removed imports using [package separation](#native-ui-package-separation).
+2. Translate startup settings using [shared shell configuration](#shared-shell-configuration-and-html-adapters), especially partial `controls` objects.
+3. Update [Web layout ownership](#web-layout-ownership) and the [transition adapter](#native-ui-shell-transition-adapter) if used.
+4. Rebuild Web assets, sync Capacitor, and rebuild the native app. A Web-only update cannot replace the native plugin.
+
+Native UI Shell remains Preview. App-local SwiftUI / Compose **extensions are experimental**, including their TypeScript definitions, native registration APIs and placement behavior. This designation does not require renaming `defineNativeUI`, `extensions`, or existing registrations. Applications using extensions should keep their Web fallback and verify their reader, native renderer and action forwarding together after updates. See the [extension guide](native-ui-extensions.md).
+
 ## Native UI package separation
 
 For a new native integration, follow [Native UI setup](setup.md) or, if you already use the iOS theme, [Add Native UI to your theme](https://github.com/rdlabo-dev/ionic-theme-ios27/blob/main/packages/theme-ios27/docs/add-native-ui.md). The steps below cover existing applications migrating package names and native projects.
@@ -64,7 +75,7 @@ Update both value and type imports, including lazy imports, test aliases, and bu
 + import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
 ```
 
-Keep existing native startup options and control markup. The ordinary `@rdlabo/ionic-theme-ios27` entry, theme CSS/Sass paths, and theme animation imports stay unchanged. For custom navigation animations, see the [transition adapter instructions](#native-ui-shell-transition-adapter) below.
+Keep existing control markup; review the [startup option changes](#shared-shell-configuration-and-html-adapters), including partial `controls` defaults. The ordinary `@rdlabo/ionic-theme-ios27` entry, theme CSS/Sass paths, and theme animation imports stay unchanged. For custom navigation animations, see the [transition adapter instructions](#native-ui-shell-transition-adapter) below.
 
 ### 3. Sync the native project
 
@@ -84,6 +95,8 @@ For local Swift package references, the package now lives at `packages/capacitor
 - Build the application and confirm there are no imports of the removed theme entries or the intermediate package name.
 - Build and launch the iOS app after sync. Check native controls, navigation/back gestures, and any app-local Swift extensions you use.
 - Check browser and Android Web presentation where supported by your app, and confirm the theme still looks correct.
+- Check that previously disabled control kinds remain disabled after expanding partial Preview settings. Test toolbar grouping, individually selected actions and back navigation in both horizontal and vertical layouts.
+- For experimental extensions, check native registration, props, click forwarding and restoration of the original Web UI when projection is unavailable. Rebuild and sync Android as well if the app uses Compose extensions.
 
 ## Native UI Shell transition adapter
 
@@ -119,9 +132,45 @@ Run `npx cap sync ios` after updating: JavaScript now sends framework-independen
 - Top-level `buttonProjection` and `buttonDefaultFill` move into `verticalBars`.
 - The new `verticalBars.buttonDefaultFill` uses `'glass'` instead of `null`.
 - `verticalBarsOnly: true` becomes `verticalBars: { only: true }`.
-- Partial `ionic.auto` settings override defaults. To preserve automatic projection of tabs only, explicitly set `buttons`, `segment` and `fab` to `false`.
+- Omitted automatic kinds now default to `true`, including partial legacy `controls` objects. Published 1.2.x enabled only fields explicitly set to `true` when `controls` was supplied. Expand partial objects when migrating, even if you keep the legacy option name.
 - The global `enableVerticalControlArea()` remains a legacy startup wrapper. New code starts with `enableNativeUIShell({ verticalBars: { only: true } })`, then uses the returned handle's `enableVerticalControlArea()` / `disableVerticalControlArea()` methods.
-- Legacy top-level options and global `enabled: false` remain compatible; use `shell.destroy()` to stop new code. If both old and new settings are supplied, the new nested settings take precedence.
+- Legacy option names and global `enabled: false` remain accepted; use `shell.destroy()` to stop new code. If both old and new settings are supplied, the new nested settings take precedence.
+
+For example, preserve a Preview configuration that projected only tabs:
+
+```diff
+- import { enableNativeUIShell } from '@rdlabo/ionic-theme-ios27/native';
++ import { enableNativeUIShell } from '@rdlabo/capacitor-native-ui';
+
+  const shell = await enableNativeUIShell({
+-   controls: { tabs: true },
+-   buttonProjection: 'source',
+-   buttonDefaultFill: null,
++   ionic: { auto: { tabs: true, buttons: false, segment: false, fab: false } },
++   verticalBars: { buttonProjection: 'source', buttonDefaultFill: 'glass' },
+  });
+```
+
+Likewise, replace `controls: {}` with `ionic: { auto: false }` to keep automatic Ionic projection off. Explicit `data-native-ui` sources and extensions remain independent. Calling `enableNativeUIShell()` with no options still enables all supported automatic kinds.
+
+### Toolbar selection and grouping by layout
+
+`horizontal` and `vertical` are new toolbar settings. Omit them to retain automatic selection and grouping, or configure each layout independently:
+
+```ts
+const shell = await enableNativeUIShell({
+  horizontal: false,
+  vertical: { buttons: false, button: false, backButton: true },
+});
+```
+
+This selects only eligible back buttons among vertical toolbar actions and disables automatic horizontal toolbar selection. Tabs, segments and FABs retain their own settings. To enable all eligible toolbar actions only in vertical layout, use `{ horizontal: false, vertical: true }`; this follows layout, not the Duo model.
+
+Do not translate `controls.toolbar` or `ionic.auto.buttons` into `vertical.buttons`: those options govern the entire automatic toolbar category, while `horizontal.buttons` / `vertical.buttons` govern **grouping only**. Within each layout, `button` selects ordinary actions and `backButton` selects back navigation independently. All three fields default to `true`; a layout value of `false` sets all three to `false`.
+
+If you used the short-lived development settings at the top level, move `{ buttons, button, backButton }` into `vertical: { buttons, button, backButton }`. Those fields were not part of the published 1.2.0/1.2.1 API and are not compatibility aliases. Existing `buttonProjection` / `buttonDefaultFill` are separate appearance settings, mapped above.
+
+Local `data-horizontal-bars="true|false"` / `data-vertical-bars="true|false"` can override these layout defaults. On `ion-buttons` they affect grouping only and never select children. A back button ignores its group's grouping setting. `ionic.auto` and structural exclusions still apply. See [toolbar selection and grouping](native-ui-shell.md#toolbar-selection-and-grouping) for eligibility and when changes take effect.
 
 See [all settings and defaults](configuration.md) and [plain HTML setup](framework-independent.md). Standard HTML buttons use the same Swift controls as Ionic; they do not require an application-specific Swift extension.
 
@@ -133,4 +182,4 @@ Import `setVerticalBarsLayout` and `applyFoldStateClasses` from `@rdlabo/ionic-t
 
 Use `ionic.auto` for new configuration. It accepts `true` (default), `false`, or `{ buttons, tabs, segment, fab }`. Unlike legacy `controls`, it affects only automatic Ionic projection; explicit `data-native-ui` sources and registered extensions remain enabled. `verticalBars` independently controls rail projection. See [selective projection](configuration.md#select-controls-explicitly-in-a-customized-ionic-app) for an existing Ionic app that opts in individual buttons.
 
-The legacy `controls` option is marked `@deprecated` and remains available. Existing calls remain compatible when `ionic.auto` is omitted. If both are supplied, `ionic.auto` takes precedence for automatic kinds. Move the legacy `popover` option to `verticalBars.popover`.
+The legacy `controls` option is marked `@deprecated` and remains available. When `ionic.auto` is omitted, legacy kind settings are used, but omitted kinds now default to `true`; expand partial Preview configurations as shown above. If both are supplied, `ionic.auto` takes precedence for automatic kinds. Move the legacy `popover` option to `verticalBars.popover`.

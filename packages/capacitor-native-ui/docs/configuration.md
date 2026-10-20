@@ -46,6 +46,8 @@ const shell = await enableNativeUIShell({
     popover: false,
     // Optional: placement: { edge: 'trailing', webHost: appOwnedHost },
   },
+  horizontal: true,
+  vertical: true,
   extensions: [],
 });
 ```
@@ -53,6 +55,7 @@ const shell = await enableNativeUIShell({
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `ionic.auto` | `true` | `true` or omitted enables automatic Ionic projection; `false` disables it; an object selects kinds. Explicit `data-native-ui` sources and extensions are unaffected. |
+| `horizontal` / `vertical` | `true` | Automatic Ionic toolbar selection and grouping per layout: boolean or `{ buttons, button, backButton }`. Omitted fields are `true`; local attributes may override. See [toolbar settings](native-ui-shell.md#toolbar-selection-and-grouping). |
 | `debug` | `false` | Log source elements and Web fallback reasons to the developer console; no props or application exception messages. |
 | `root` | `document.body` | Connected source subtree. Controls outside it are not projected. |
 | `ionic.auto.buttons` | `true` | Automatic Ionic toolbar/back/menu controls. Explicitly marked buttons are independent. |
