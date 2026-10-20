@@ -11,11 +11,11 @@ const workflow = readFileSync(new URL('../.github/workflows/release.yml', import
 const native = '@rdlabo/capacitor-native-ui';
 const theme = '@rdlabo/ionic-theme-ios27';
 
-function runRelease(t, kind, { existing = {}, dependencyMismatch = false, legacy = false, failTheme = false } = {}) {
+function runBetaRelease(t, { existing = {}, dependencyMismatch = false, legacy = false, failTheme = false } = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'release-test-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const version = kind === 'stable' ? '1.2.2' : '1.2.2-beta.pr298.sha0123456789ab';
-  const folder = join(directory, kind === 'stable' ? 'npm-release' : 'npm-candidate');
+  const version = '1.2.2-beta.pr298.sha0123456789ab';
+  const folder = join(directory, 'npm-candidate');
   const names = legacy ? ['@rdlabo/ionic-theme-ios26'] : [native, theme];
   mkdirSync(folder);
   mkdirSync(join(directory, 'package'));
@@ -47,7 +47,7 @@ if (args[0] === 'view') {
   process.exit(1);
 }
 `, { mode: 0o755 });
-  const step = kind === 'stable' ? 'Publish packages' : 'Validate and publish candidate';
+  const step = 'Validate and publish candidate';
   const source = workflow.split(`      - name: ${step}\n`)[1].match(/node --input-type=module <<'JS'\n([\s\S]*?)\n          JS/)[1];
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', source], {
     encoding: 'utf8',
@@ -61,48 +61,90 @@ if (args[0] === 'view') {
   return { result, calls, published: calls.filter(call => call[0] === 'publish') };
 }
 
-for (const kind of ['stable', 'beta']) {
-  test(`${kind}: checks both versions before publishing native then theme`, t => {
-    const { result, calls, published } = runRelease(t, kind);
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(calls.map(call => call[0]), ['view', 'view', 'publish', 'publish']);
-    assert.match(published[0][1], /rdlabo-capacitor-native-ui-/);
-    assert.match(published[1][1], /rdlabo-ionic-theme-ios27-/);
-    for (const call of published) {
-      assert(call.includes('--ignore-scripts'));
-      assert(call.includes('--provenance'));
-      assert.equal(call.at(-1), kind === 'stable' ? 'latest' : 'beta');
-    }
-  });
-  test(`${kind}: retry completes the theme after a partial release`, t => {
-    assert.notEqual(runRelease(t, kind, { failTheme: true }).result.status, 0);
-    const { result, published } = runRelease(t, kind, { existing: { [native]: 'matching' } });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(published.length, 1);
-    assert.match(published[0][1], /rdlabo-ionic-theme-ios27-/);
-  });
-  test(`${kind}: complete release is idempotent`, t => {
-    const { result, published } = runRelease(t, kind, { existing: { [native]: 'matching', [theme]: 'matching' } });
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(published.length, 0);
-  });
-  for (const value of ['sha512-different', 'E401', 'E500']) {
-    test(`${kind}: ${value} on theme prevents either publication`, t => {
-      const { result, published } = runRelease(t, kind, { existing: { [theme]: value } });
-      assert.notEqual(result.status, 0);
-      assert.equal(published.length, 0);
-    });
+test(`beta: checks both versions before publishing native then theme`, t => {
+  const { result, calls, published } = runBetaRelease(t);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(calls.map(call => call[0]), ['view', 'view', 'publish', 'publish']);
+  assert.match(published[0][1], /rdlabo-capacitor-native-ui-/);
+  assert.match(published[1][1], /rdlabo-ionic-theme-ios27-/);
+  for (const call of published) {
+    assert(call.includes('--ignore-scripts'));
+    assert(call.includes('--provenance'));
+    assert.equal(call.at(-1), 'beta');
   }
-  test(`${kind}: mismatched native dependency prevents either publication`, t => {
-    const { result, published } = runRelease(t, kind, { dependencyMismatch: true });
+});
+test(`beta: retry completes the theme after a partial release`, t => {
+  assert.notEqual(runBetaRelease(t, { failTheme: true }).result.status, 0);
+  const { result, published } = runBetaRelease(t, { existing: { [native]: 'matching' } });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(published.length, 1);
+  assert.match(published[0][1], /rdlabo-ionic-theme-ios27-/);
+});
+test(`beta: complete release is idempotent`, t => {
+  const { result, published } = runBetaRelease(t, { existing: { [native]: 'matching', [theme]: 'matching' } });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(published.length, 0);
+});
+for (const value of ['sha512-different', 'E401', 'E500']) {
+  test(`beta: ${value} on theme prevents either publication`, t => {
+    const { result, published } = runBetaRelease(t, { existing: { [theme]: value } });
     assert.notEqual(result.status, 0);
     assert.equal(published.length, 0);
   });
 }
+test(`beta: mismatched native dependency prevents either publication`, t => {
+  const { result, published } = runBetaRelease(t, { dependencyMismatch: true });
+  assert.notEqual(result.status, 0);
+  assert.equal(published.length, 0);
+});
 
 test('ios26 beta still publishes its single package', t => {
-  const { result, published } = runRelease(t, 'beta', { legacy: true });
+  const { result, published } = runBetaRelease(t, { legacy: true });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(published.length, 1);
   assert.match(published[0][1], /rdlabo-ionic-theme-ios26-/);
 });
+
+for (const version of ['2.0.0', '2.0.0-0']) {
+  test(`versioned release: publishes workspaces in dependency order (${version})`, t => {
+    const { result, published } = runWorkspaceRelease(t, version);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(published.map(call => call[call.indexOf('--workspace') + 1]), ['packages/capacitor-native-ui', 'packages/theme-ios27']);
+    for (const call of published) {
+      assert(call.includes('--provenance'));
+      assert(!call.includes('--ignore-scripts'), 'Capacitor prepublishOnly must run');
+      assert.equal(call.at(-1), version.includes('-') ? 'next' : 'latest');
+    }
+  });
+}
+
+test('versioned release: dependency mismatch prevents either publication', t => {
+  const { result, published } = runWorkspaceRelease(t, '2.0.0', true);
+  assert.notEqual(result.status, 0);
+  assert.equal(published.length, 0);
+});
+
+function runWorkspaceRelease(t, version, mismatch = false) {
+  const directory = mkdtempSync(join(tmpdir(), 'workspace-release-test-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const workspaces = ['packages/capacitor-native-ui', 'packages/theme-ios27'];
+  writeFileSync(join(directory, 'package.json'), JSON.stringify({ version, workspaces }));
+  for (const [index, workspace] of workspaces.entries()) {
+    mkdirSync(join(directory, workspace), { recursive: true });
+    writeFileSync(join(directory, workspace, 'package.json'), JSON.stringify({
+      name: index === 0 ? native : theme, version,
+      ...(index === 1 ? { dependencies: { [native]: mismatch ? '1.2.1' : version } } : {}),
+    }));
+  }
+  const log = join(directory, 'calls.jsonl');
+  writeFileSync(join(directory, 'npm'), `#!/usr/bin/env node
+require('node:fs').appendFileSync(process.env.CALL_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');
+`, { mode: 0o755 });
+  const source = workflow.split('      - name: Publish packages\n')[1].match(/node --input-type=module <<'JS'\n([\s\S]*?)\n          JS/)[1];
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', source], {
+    cwd: directory, encoding: 'utf8',
+    env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, VERSION: version, CALL_LOG: log },
+  });
+  const published = existsSync(log) ? readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line)) : [];
+  return { result, published };
+}

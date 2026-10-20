@@ -73,6 +73,8 @@ jobs:
           else
             VERSION="${BASE_VERSION}-candidate.sha${HEAD_SHA:0:12}"
           fi
+          npm pkg set "dependencies.@rdlabo/capacitor-native-ui=$VERSION" --workspace packages/theme-ios27
+          npm version "$VERSION" --workspaces --no-git-tag-version --ignore-scripts --allow-same-version
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "artifact=npm-candidate-${HEAD_SHA}" >> "$GITHUB_OUTPUT"
 
@@ -82,7 +84,7 @@ jobs:
       - name: Pack candidate
         run: |
           mkdir -p "$RUNNER_TEMP/npm-candidate"
-          node scripts/pack-packages.mjs --version "${{ steps.candidate.outputs.version }}" --pack-destination "$RUNNER_TEMP/npm-candidate"
+          npm pack --workspaces --ignore-scripts --pack-destination "$RUNNER_TEMP/npm-candidate"
 
       - name: Verify packed Sass without a package importer
         if: github.event_name == 'push' && github.ref_name == 'main' || github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'

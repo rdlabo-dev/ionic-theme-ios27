@@ -16,8 +16,8 @@
     "lint": "prettier --check \"./**/*.{scss,ts}\" && prettier --parser angular --check \"./**/*.html\"",
     "fmt": "prettier --write \"./**/*.{scss,ts}\" && prettier --parser angular --write \"./**/*.html\"",
     "test:esm": "node scripts/verify-packages.mjs --esm",
-    "pack:packages": "node scripts/pack-packages.mjs",
-    "test:packages": "node scripts/verify-packages.mjs --candidate",
+    "pack:packages": "npm pack --workspaces --ignore-scripts",
+    "test:packages": "node scripts/verify-packages.mjs",
     "test:release": "node --test scripts/release.test.mjs",
     "release": "np --no-tests --no-publish --branch main"
   },

@@ -19,9 +19,9 @@ fi
 printf 'Native %s verification artifacts: %s\n' "$scenario" "$artifacts"
 cd "$repo"
 npm run build
-node scripts/pack-packages.mjs --pack-destination "$artifacts" > "$artifacts/pack.json"
-native_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@rdlabo/capacitor-native-ui").filename)' "$artifacts/pack.json")
-theme_archive=$(node -e 'process.stdout.write(require(process.argv[1]).find(p => p.name === "@rdlabo/ionic-theme-ios27").filename)' "$artifacts/pack.json")
+npm pack --workspaces --ignore-scripts --json --pack-destination "$artifacts" > "$artifacts/pack.json"
+native_archive=$(node -e 'process.stdout.write(Object.values(require(process.argv[1])).find(p => p.name === "@rdlabo/capacitor-native-ui").filename)' "$artifacts/pack.json")
+theme_archive=$(node -e 'process.stdout.write(Object.values(require(process.argv[1])).find(p => p.name === "@rdlabo/ionic-theme-ios27").filename)' "$artifacts/pack.json")
 
 cd "$repo/demo"
 npm run build -- --configuration=production

@@ -109,6 +109,7 @@ jobs:
         env:
           VERSION: ${{ steps.tag_version.outputs.version }}
         run: |
+          npm pkg set "dependencies.@rdlabo/capacitor-native-ui=$VERSION" --workspace packages/theme-ios27
           npm version "$VERSION" --workspaces --no-git-tag-version --ignore-scripts --allow-same-version
           node --input-type=module <<'JS'
           import { readFileSync, writeFileSync } from 'node:fs';
@@ -116,6 +117,7 @@ jobs:
           for (const path of ['packages/capacitor-native-ui', 'packages/theme-ios27']) {
             lock.packages[`../${path}`].version = process.env.VERSION;
           }
+          lock.packages['../packages/theme-ios27'].dependencies['@rdlabo/capacitor-native-ui'] = process.env.VERSION;
           writeFileSync('demo/package-lock.json', JSON.stringify(lock, null, 2) + '\n');
           JS
 
@@ -129,14 +131,11 @@ jobs:
           const paths = ['package.json', 'packages/capacitor-native-ui/package.json', 'packages/theme-ios27/package.json'];
           const packages = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
           for (const pkg of packages) assert.equal(pkg.version, process.env.TAG_VERSION, `${pkg.name}: release version mismatch`);
-          assert.equal(packages[2].dependencies[packages[1].name], 'file:../capacitor-native-ui', 'Native workspace dependency mismatch');
+          assert.equal(packages[2].dependencies[packages[1].name], process.env.TAG_VERSION, 'Native workspace dependency mismatch');
           JS
 
       - name: Build workspaces
         run: npm run build
-
-      - name: Pack release archives
-        run: node scripts/pack-packages.mjs --pack-destination "$RUNNER_TEMP/npm-release"
 
       - name: Commit workspace versions
         env:
@@ -165,37 +164,21 @@ jobs:
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           import { readFileSync } from 'node:fs';
-          import { createHash } from 'node:crypto';
-          import { execFileSync, spawnSync } from 'node:child_process';
+          import { execFileSync } from 'node:child_process';
           const version = process.env.VERSION;
           assert.match(version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
           const tag = version.includes('-') ? 'next' : 'latest';
-          const pending = [];
-          // Validate both archives and registry versions before publishing either package.
-          for (const name of ['capacitor-native-ui', 'ionic-theme-ios27']) {
-            const spec = `@rdlabo/${name}@${version}`;
-            const archive = `${process.env.RUNNER_TEMP}/npm-release/rdlabo-${name}-${version}.tgz`;
-            const pkg = JSON.parse(execFileSync('tar', ['-xOf', archive, 'package/package.json'], { encoding: 'utf8' }));
-            assert.equal(pkg.name, `@rdlabo/${name}`, 'Unexpected package identity');
-            assert.equal(pkg.version, version, 'Artifact version mismatch');
-            assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
-            if (name === 'ionic-theme-ios27') assert.equal(pkg.dependencies?.['@rdlabo/capacitor-native-ui'], version, 'Native dependency version mismatch');
-            const existing = spawnSync('npm', ['view', spec, 'dist.integrity', '--json', '--registry=https://registry.npmjs.org'], { encoding: 'utf8' });
-            if (existing.status === 0) {
-              const integrity = 'sha512-' + createHash('sha512').update(readFileSync(archive)).digest('base64');
-              assert.equal(JSON.parse(existing.stdout), integrity, `${spec} already exists with different contents`);
-              console.log(`${spec} already published with matching contents; skipping.`);
-              continue;
-            }
-            let error;
-            try { error = JSON.parse(existing.stdout).error; } catch {}
-            assert.equal(error?.code, 'E404', `Cannot check ${spec}: ${existing.stderr}`);
-            pending.push(archive);
+          const root = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.equal(root.version, version, 'Root version mismatch');
+          assert.deepEqual(root.workspaces, ['packages/capacitor-native-ui', 'packages/theme-ios27']);
+          for (const workspace of root.workspaces) {
+            const pkg = JSON.parse(readFileSync(`${workspace}/package.json`, 'utf8'));
+            assert.equal(pkg.version, version, 'Workspace version mismatch');
+            if (workspace === 'packages/theme-ios27') assert.equal(pkg.dependencies['@rdlabo/capacitor-native-ui'], version, 'Native dependency version mismatch');
           }
-          // The theme's exact-version dependency must be available first.
-          for (const archive of pending) {
-            execFileSync('npm', ['publish', archive, '--ignore-scripts', '--provenance', '--access', 'public',
-              '--registry=https://registry.npmjs.org', '--tag', tag], { stdio: 'inherit' });
+          for (const workspace of root.workspaces) {
+            execFileSync('npm', ['publish', '--workspace', workspace, '--provenance', '--access', 'public',
+              '--tag', tag], { stdio: 'inherit' });
           }
           JS
 
