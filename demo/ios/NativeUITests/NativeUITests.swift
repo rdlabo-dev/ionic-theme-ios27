@@ -13,7 +13,7 @@ final class NativeUITests: XCTestCase {
         let toggle = app.webViews.switches["Dark Mode"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 15), app.debugDescription)
         toggle.tap()
-        let entry = app.webViews.buttons["native-ui (Preview)"]
+        let entry = app.webViews.buttons["native-ui"]
         for _ in 0..<8 {
             if entry.isHittable { break }
             app.swipeUp()
@@ -65,7 +65,7 @@ final class NativeUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
-        let entry = app.webViews.buttons["native-ui (Preview)"]
+        let entry = app.webViews.buttons["native-ui"]
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
         for _ in 0..<8 {
             if entry.isHittable { break }
@@ -100,7 +100,7 @@ final class NativeUITests: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
-        let entry = app.webViews.buttons["native-ui (Preview)"]
+        let entry = app.webViews.buttons["native-ui"]
         for _ in 0..<8 {
             if entry.isHittable { break }
             app.swipeUp()
@@ -184,7 +184,7 @@ final class NativeUITests: XCTestCase {
         continueAfterFailure = false
         let app = XCUIApplication(bundleIdentifier: "io.ionic.theme.ios27")
         app.launch()
-        let entry = app.webViews.buttons["native-ui (Preview)"]
+        let entry = app.webViews.buttons["native-ui"]
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 15))
         for _ in 0..<8 {
             if entry.isHittable { break }
@@ -712,7 +712,7 @@ final class NativeUITests: XCTestCase {
     }
 
     private func openPage(_ app: XCUIApplication, name: String) {
-        let label = name == "native-ui" ? "native-ui (Preview)" : name
+        let label = name
         // Offscreen Ionic items may be absent from WebKit's accessibility tree until scrolled into view.
         // Resolve the element type on every iteration instead of permanently selecting a missing Link.
         func entry() -> XCUIElement {

@@ -31,9 +31,9 @@ ion-textarea label.textarea-wrapper {
 }
 ```
 
-## Native UI (Preview)
+## Native UI
 
-Once your theme is working, [add Native UI](add-native-ui.md) to render supported fixed controls with UIKit and SwiftUI on iOS. Keep theme styles for Web content and fallback controls. Native UI is an optional preview; adding styles alone does not enable it.
+Once your theme is working, [add Native UI](add-native-ui.md) to render supported fixed controls with UIKit and SwiftUI on iOS. Keep theme styles for Web content and fallback controls. Native UI is officially supported starting with 2.0.0 and remains opt-in; adding styles alone does not enable it.
 
 ## Selective component imports
 

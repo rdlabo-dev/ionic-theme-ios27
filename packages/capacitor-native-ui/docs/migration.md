@@ -11,7 +11,7 @@ This guide is for applications using `@rdlabo/ionic-theme-ios27` **1.2.1**, incl
 - **Theme only:** update the theme package. Existing theme imports, CSS/Sass paths and animation imports remain valid; no native startup is needed.
 - **Native UI or Vertical Control Area:** install the native package directly, replace imports and startup settings below, then sync Capacitor and rebuild the native app.
 
-Native UI remains Preview. Experimental Extensions are documented in the [current extension guide](native-ui-extensions.md); this guide covers the published 1.2.1 controls and setup.
+Native UI graduates from Preview to official support in 2.0.0. Experimental Extensions are documented in the [current extension guide](native-ui-extensions.md); this guide covers the published 1.2.1 controls and setup.
 
 ## Native UI package separation
 

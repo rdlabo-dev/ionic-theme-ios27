@@ -2,7 +2,7 @@
 
 Render supported Web controls with UIKit and SwiftUI on iOS while keeping your application state, routing, and handlers in the WebView. Use existing Ionic markup or explicit HTML buttons; custom SwiftUI or Android Compose content can be added through experimental app-local extensions.
 
-Native UI is opt-in and currently a preview. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports experimental app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
+Native UI is opt-in and officially supported starting with 2.0.0. Standard controls on Android, browsers, older iOS, and unsupported controls retain Web presentation. Android supports experimental app-local Compose extensions. Keep your application's styles and layout; the iOS theme is optional.
 
 ## How projection works
 

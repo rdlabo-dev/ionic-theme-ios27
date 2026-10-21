@@ -26,7 +26,7 @@ final class NativeUIEdgeTests: XCTestCase {
         shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
     private func openPage(_ app: XCUIApplication, name: String = "button") {
-        let entry = app.webViews.buttons[name == "native-ui" ? "native-ui (Preview)" : name].firstMatch
+        let entry = app.webViews.buttons[name].firstMatch
         // The fixed diagnostics panel covers y=240...352, including its blank areas.
         // Start drags below it so the underlying Ionic scroller receives the gesture.
         func unobscured() -> Bool {

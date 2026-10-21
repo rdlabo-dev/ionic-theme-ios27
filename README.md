@@ -21,7 +21,7 @@ Bring the iOS look to your Ionic app, or add native controls to your Capacitor a
 
 **[@rdlabo/capacitor-native-ui](packages/capacitor-native-ui/README.md)** projects supported Ionic controls into UIKit and SwiftUI on iOS. Your existing markup supplies their labels, icons, and state; native actions flow back to your Ionic components. Page content and routing stay in the WebView.
 
-Keep your existing Web appearance or pair it with the iOS theme. Native UI is opt-in and currently a preview; unsupported controls and browsers retain Web presentation. On Android, standard controls stay on the Web; experimental app-local extensions can render with Jetpack Compose. Your app or theme owns Web layout and styling.
+Keep your existing Web appearance or pair it with the iOS theme. Native UI is opt-in and officially supported starting with 2.0.0; unsupported controls and browsers retain Web presentation. On Android, standard controls stay on the Web; experimental app-local extensions can render with Jetpack Compose. Your app or theme owns Web layout and styling.
 
 [How projection connects to your DOM](packages/capacitor-native-ui/README.md#how-projection-works) · [Ionic setup](packages/capacitor-native-ui/docs/setup.md) · [HTML setup](packages/capacitor-native-ui/docs/framework-independent.md) · [Supported controls](packages/capacitor-native-ui/docs/native-ui.md#supported-markup)
 
