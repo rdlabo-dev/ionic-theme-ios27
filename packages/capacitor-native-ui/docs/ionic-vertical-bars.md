@@ -14,7 +14,7 @@ Read [how projection works](../README.md#how-projection-works) for the relations
 | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Ionic components with your own theme, Ionic's default styles, or another theme | [Ionic setup below](#try-it-in-your-existing-ionic-app)                                                                           | Foldable device placement, standalone rail CSS and the Ionic Native UI adapter. Keep your existing theme. |
 | No Ionic components (plain HTML, React, Vue, Angular, etc.)                    | [HTML setup](framework-independent.md), then its [device rail setup](framework-independent.md#device-placement-for-vertical-bars) | `@rdlabo/capacitor-native-ui/core` and Foldable. Your app supplies the rail layout; no theme package.     |
-| Already using the iOS 27 theme and Native UI                                   | [Connect device placement](../../capacitor-native-ui/docs/vertical-bars.md#use-with-capacitor-foldable)                           | Reuse your existing runtime. Do not start another one.                                                    |
+| Already using the iOS 27 theme and Native UI                                   | [Connect device placement](vertical-bars.md#use-with-capacitor-foldable)                                                          | Reuse your existing runtime. Do not start another one.                                                    |
 
 **Without Ionic, follow the HTML guide instead of the steps below.** You do not need `@rdlabo/ionic-theme-ios27`, `vertical-bars.css`, `ion-app`, or Ionic navigation animations. Explicitly marked HTML buttons and back buttons are supported; arbitrary HTML tabs are not automatically converted. A browser preview requires an application-styled `webHost`; native rail presentation also requires supported iOS hardware and software.
 
@@ -124,6 +124,12 @@ await rail.destroy();
 ```
 
 If Native UI is already active, keep that runtime and add only the placement subscription. Do not start a second runtime. For shared configuration and application-owned CSS, see [Foldable integration](vertical-bars.md#use-with-capacitor-foldable).
+
+### Initial layout timing
+
+Run step 3 from your application root as soon as `ion-app` is mounted; do not wait for a routed page's data requests. `setVerticalBarsLayout()` needs that element to exist and does not save placement supplied before mounting. Keep startup and cleanup with the same application owner, as described in [the framework lifecycle examples](setup.md#place-startup-in-your-frameworks-app-root).
+
+Native startup, device placement and control rendering are asynchronous. Resolving `enableNativeUI()` gives you the runtime handle, not a guarantee that controls have already been projected. Starting promptly avoids application-added waiting, but the initial Web layout may still be visible before native projection.
 
 ### 4. Build, sync and run on iPhone Duo
 

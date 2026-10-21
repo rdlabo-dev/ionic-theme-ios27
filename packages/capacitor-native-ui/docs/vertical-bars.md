@@ -10,7 +10,7 @@ Choose your setup before using this reference:
 
 - **Ionic with a custom or default theme:** [Ionic rail setup](ionic-vertical-bars.md#try-it-in-your-existing-ionic-app).
 - **No Ionic:** [HTML setup](framework-independent.md) and its [device rail setup](framework-independent.md#device-placement-for-vertical-bars). Use `/core` and your own layout; the Ionic setup below does not apply.
-- **Existing iOS 27 theme and Native UI:** [Connect device placement](../../capacitor-native-ui/docs/vertical-bars.md#use-with-capacitor-foldable) using your existing runtime.
+- **Existing iOS 27 theme and Native UI:** [Connect device placement](#use-with-capacitor-foldable) using your existing runtime.
 
 This page covers device-plugin integration, control eligibility, native appearance and runtime options. For posture-driven Ionic split panes, see [Device layout and split panes](../../theme-ios27/docs/vertical-bars-layout.md).
 

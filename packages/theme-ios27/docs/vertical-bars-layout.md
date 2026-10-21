@@ -108,7 +108,7 @@ Only one of the first three classes is retained. The helper does not subscribe t
 
 ## Adapt the split pane
 
-For a side-by-side menu on iPhone Duo, opt the `ion-split-pane` into the separately measured Settings layout. The sidebar is 320pt when fully unfolded and reaches the display midpoint when half-opened (50vw). The application supplies the posture; both states have the same viewport width, so a width media query cannot distinguish them:
+For a side-by-side menu on iPhone Duo, opt the `ion-split-pane` into the theme's posture-based layout. This stylesheet defaults to `320px` when fully unfolded and `50vw` when half-opened. These are theme defaults, not a guarantee of the widths chosen by the system Settings app. The application supplies the posture; both states can have the same viewport width, so a width media query cannot distinguish them:
 
 ```html
 <ion-split-pane class="split-pane-fold-layout" contentId="main-content" when="(min-width: 900px)">
@@ -117,7 +117,7 @@ For a side-by-side menu on iPhone Duo, opt the `ion-split-pane` into the separat
 </ion-split-pane>
 ```
 
-Set the ordinary split-pane width to 320pt in the application's stylesheet, and let the half-open class change only the width value:
+Connect the split-pane width to the theme variable in the application's stylesheet, and let the half-open class change only the width value:
 
 ```css
 ion-split-pane.split-pane-fold-layout {
@@ -129,6 +129,8 @@ ion-split-pane.split-pane-fold-layout {
 ```
 
 The registered `--ios-theme-split-pane-width` defaults to `320px`. `applyFoldStateClasses` sets `ios-theme-fold-half-opened` on `ion-app`; the stylesheet then sets only descendant split panes with `split-pane-fold-layout` to `50vw`. Add this opt-in class once; no state-dependent class binding is needed. Other split panes retain their existing width.
+
+`ios-theme-fold-expanded` describes use of the inner display; it does not select the sidebar width. A fully unfolded display keeps the ordinary width. Only `ios-theme-fold-half-opened` selects `50vw` for opted-in split panes.
 
 Ionic's `when` still controls whether the menu is persistent. The example chooses a fixed 900px breakpoint. If your app needs different breakpoints for folded and ordinary displays, use the `ios-theme-fold-expanded` class applied by the helper to select that policy in your application's layout code. The helper only updates state classes, not `when`. This layout does not enable Vertical Bars or move an overlay menu.
 
