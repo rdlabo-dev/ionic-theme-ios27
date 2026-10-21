@@ -31,7 +31,7 @@
     "lint-staged": "^16.2.1",
     "np": "^10.2.0",
     "prettier": "^3.6.2",
-    "sass": "^1.93.2",
+    "sass": "1.97.3",
     "tsdown": "^0.23.0",
     "typescript": "^5.9.3",
     "wrangler": "^4.125.0"
