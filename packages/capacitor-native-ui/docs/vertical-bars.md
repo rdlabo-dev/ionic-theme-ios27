@@ -44,6 +44,8 @@ The [theme's optional rail stylesheet](https://github.com/rdlabo-dev/ionic-theme
 
 [`@erkamyaman/capacitor-foldable`](https://github.com/erkamyaman/capacitor-foldable) is required in the standard Vertical Bars setup. Install it with Native UI as shown above, and connect its device placement to your Web layout. Native UI does not subscribe to Foldable automatically.
 
+The placement examples require Foldable **8.3.3 or later within version 8**, which includes `BarPlacement.inset`. If your app already uses an older version, update it with `npm install @erkamyaman/capacitor-foldable@^8.3.3`, then sync and rebuild the native app.
+
 | Owner                | Responsibility                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------- |
 | Foldable             | Report initial device state and subsequent placement/posture changes.                       |

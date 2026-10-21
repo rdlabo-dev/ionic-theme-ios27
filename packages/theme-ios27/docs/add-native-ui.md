@@ -46,7 +46,7 @@ Run the app on a supported iOS device or simulator. Eligible fixed controls shou
 
 ## Optional: Vertical Bars
 
-For a side rail, follow the [standard Vertical Bars setup](../../capacitor-native-ui/docs/ionic-vertical-bars.md): load the layout stylesheet and connect the installed Foldable plugin’s initial placement and events. The Shell includes the rail runtime; no additional startup call is needed. To automatically select rail controls, use `enableNativeUI({ controls: 'verticalOnly' })` instead of the default startup call. See [configuration options](../../capacitor-native-ui/docs/configuration.md).
+For a side rail, follow the [standard Vertical Bars setup](../../capacitor-native-ui/docs/ionic-vertical-bars.md): load the layout stylesheet and connect the installed Foldable plugin’s initial placement and events. The Shell includes the rail runtime; no additional startup call is needed. The default startup already selects both horizontal and rail controls; keep it when adding a rail to your existing native UI. Use `enableNativeUI({ controls: 'verticalOnly' })` only when you want automatic projection limited to the rail. See [configuration options](../../capacitor-native-ui/docs/configuration.md).
 
 ## Upgrading an existing native integration
 

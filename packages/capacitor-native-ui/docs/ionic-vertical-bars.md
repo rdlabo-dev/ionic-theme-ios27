@@ -26,7 +26,7 @@ iPhone Duo support and Vertical Bars are stable starting with version 2.0.0.
 
 ### 1. Install and load the standalone stylesheet
 
-Start with your existing Ionic app (Ionic `>=8.8.1 <10`, Capacitor 8.5 or later). Install Native UI, the layout stylesheet package and the required device-state plugin together:
+Start with your existing Ionic app (Ionic `>=8.8.1 <10`, Capacitor 8.5 or later). Existing Foldable installations must meet the [placement API requirement](vertical-bars.md#use-with-capacitor-foldable): version 8.3.3 or later within version 8. Install Native UI, the layout stylesheet package and the required device-state plugin together:
 
 ```bash
 npm install @rdlabo/ionic-theme-ios27 @rdlabo/capacitor-native-ui @erkamyaman/capacitor-foldable
