@@ -483,10 +483,11 @@ export const createRuntime = async (
         }
       }
       const committingNavigation = navigation.current?.phase === 'committing';
+      const preparingNavigation = navigation.current?.leased && navigation.current.phase === 'playing';
       const returningToWeb = removed.filter((element) => !committingNavigation || !navigation.owns(element));
       if (returningToWeb.length) {
         // Restore the source and let WebKit paint before removing its native cover.
-        returningToWeb.forEach((element) => restore(element));
+        returningToWeb.forEach((element) => restore(element, preparingNavigation));
         if (removed.some(isVerticalBarsSource))
           win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsRelease', { detail: { instant: handoffInstant } }));
         // The outgoing tab is no longer visible, so waiting two frames only leaves its
@@ -528,7 +529,7 @@ export const createRuntime = async (
       const snapshot: NativeUISnapshot = {
         ...data,
         revision: ++revision,
-        transitionDuration: crossfade.duration(handoffInstant || committingNavigation),
+        transitionDuration: crossfade.duration(handoffInstant || committingNavigation || preparingNavigation),
       };
       // A native visibility notification during this update must survive its ack.
       forceRefresh = false;
@@ -1080,12 +1081,22 @@ export const createRuntime = async (
         if (suspensionOptions?.navigation && !manualSuspensions.size && !overlayOpen() && !tabSwitchHandoff) {
           transition = navigation.begin(scopes, acknowledged, true);
           maskNavigationPage(scopes[0]);
+          // Only paired surfaces stay native. Release unmatched sources before playback
+          // so Ionic owns their exit/entry animation in WebView.
+          transition.frozen = transition.frozen.filter((source) =>
+            transition!.destination.some(
+              (target) => source.control.transitionId && source.control.transitionId === target.control.transitionId,
+            ),
+          );
+          transition.destination = transition.destination.filter((target) =>
+            transition!.frozen.some((source) => source.control.transitionId === target.control.transitionId),
+          );
           for (const candidate of transition.destination) {
             for (const icon of candidate.icons) {
               icon.item.icon = await icons.render(icon.source, icon.item.iconWidth!, icon.item.iconHeight!);
             }
           }
-          transition.prepared = transition.frozen.length > 0 || transition.destination.length > 0;
+          transition.prepared = transition.frozen.length > 0;
         }
         getNativeSearchBindings(doc)
           .filter((binding) => scopes.some((scope) => scope.contains(binding.footer) || scope.contains(binding.tabBar)))

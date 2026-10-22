@@ -12,7 +12,7 @@ final class NativeUIToolbarTransition {
 
     @available(iOS 26.0, *)
     init(_ transition: NativeUIToolbarTransitionSnapshot, sources: [NativeUIControl], controls: [String: UIView],
-         host: UIView, scale: CGFloat, origin: CGPoint, rendering: NativeUIControlRendering) {
+         scale: CGFloat, origin: CGPoint, rendering: NativeUIControlRendering) {
         id = transition.id
         sourceIds = Set(transition.sourceIds)
         let outgoing = sources.filter { transition.sourceIds.contains($0.id) }
@@ -24,16 +24,7 @@ final class NativeUIToolbarTransition {
         for source in outgoing {
             guard let view = controls[source.id] else { continue }
             let match = remaining.firstIndex { $0.transitionId != nil && $0.transitionId == source.transitionId }
-            guard let match else {
-                let alpha = view.alpha
-                let transform = view.transform
-                updates.append { value in
-                    view.alpha = alpha * (1 - value)
-                    view.transform = transform.scaledBy(x: 1 - 0.8 * value, y: 1 - 0.8 * value)
-                }
-                restorations.append { view.alpha = alpha; view.transform = transform }
-                continue
-            }
+            guard let match else { continue }
             let destination = remaining.remove(at: match)
             let originalFrame = view.frame
             let container: UIView
@@ -67,23 +58,6 @@ final class NativeUIToolbarTransition {
                 addContent(item, target, to: container, scale: scale, rtl: destination.rtl, rendering: rendering)
             }
             for item in targetItems { addContent(nil, item, to: container, scale: scale, rtl: destination.rtl, rendering: rendering) }
-        }
-        for destination in remaining {
-            let view: UIView
-            if NativeUIButton.kinds.contains(destination.kind), let button = NativeUIButton.make(destination, rendering: rendering, activate: { _ in }) {
-                view = button
-            } else {
-                view = NativeUIButtons.make(destination, scale: scale, rendering: rendering, activate: { _ in })
-            }
-            view.frame = bounds(destination)
-            view.overrideUserInterfaceStyle = destination.dark ? .dark : .light
-            view.isUserInteractionEnabled = false
-            host.addSubview(view)
-            updates.append { value in
-                view.alpha = value
-                view.transform = CGAffineTransform(scaleX: 0.2 + 0.8 * value, y: 0.2 + 0.8 * value)
-            }
-            restorations.append { view.removeFromSuperview() }
         }
         setProgress(0)
     }

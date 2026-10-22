@@ -156,10 +156,10 @@ test.each(['Back', 'Save'])('Vertical Bars %s remains actionable while horizonta
 test.each([
   ['', 'Back'],
   ['Back', ''],
-])('native snapshot changes only at commit: %s → %s', async (from, to) => {
+])('unpaired controls stay Web until commit: %s → %s', async (from, to) => {
   const f = await fixture(from, to);
   const release = await f.start();
-  expect(f.snapshots.at(-1)?.controls.length).toBe(from ? 1 : 0);
+  expect(f.snapshots.at(-1)?.controls).toEqual([]);
   release();
   await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label ?? '').toBe(to));
   await vi.waitFor(() => expect(document.querySelector('[data-native-ui-navigation-source]')).toBeNull());
@@ -278,8 +278,13 @@ test.each(['Modal', 'Popover', 'Alert', 'ActionSheet'])(
   },
 );
 
-test.each(['Back', 'Save'])('a new %s remains Web through entry and acknowledgement when no native counterpart exists', async (label) => {
-  const f = await fixture('', label);
+test.each([
+  ['Back', false],
+  ['Save', false],
+  ['Back', true],
+  ['Save', true],
+] as const)('a new %s remains Web through entry and acknowledgement (native progress: %s)', async (label, nativeProgress) => {
+  const f = await fixture('', label, nativeProgress);
   const source = f.entering.querySelector('button')!;
   const release = await f.start();
   expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(false);
@@ -351,4 +356,23 @@ test('native toolbar receives prepared endpoints and reversible page progress be
   release(true);
   await vi.waitFor(() => expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined());
   expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Menu');
+});
+
+test.each(['', 'Back'])('an unmatched outgoing action returns to Web before playback to %s, including cancellation', async (target) => {
+  const f = await fixture('Edit', target, true);
+  (window.matchMedia('(prefers-reduced-motion: reduce)') as { matches: boolean }).matches = false;
+  const source = f.leaving.querySelector('button')!;
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  const release = await f.start();
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  expect(source.hasAttribute('data-native-ui-fading')).toBe(false);
+  expect(f.snapshots.at(-1)!.transitionDuration).toBe(0);
+  expect(f.snapshots.at(-1)!.controls).toEqual([]);
+  expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined();
+  expect(release.progress).toBeUndefined();
+  if (target) expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  release(true);
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Edit');
 });

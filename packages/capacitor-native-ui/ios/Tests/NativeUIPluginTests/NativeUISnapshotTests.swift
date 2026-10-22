@@ -593,7 +593,7 @@ final class NativeUISnapshotTests: XCTestCase {
         button.frame = source.frame.rect
         host.addSubview(button)
         let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [source.id], destination: [destination]),
-            sources: [source], controls: [source.id: button], host: host, scale: 1, origin: .zero, rendering: rendering)
+            sources: [source], controls: [source.id: button], scale: 1, origin: .zero, rendering: rendering)
         let contents = button.subviews.compactMap { $0 as? UIButton }
         let old = try XCTUnwrap(contents.first { $0.accessibilityIdentifier == "menu" })
         let new = try XCTUnwrap(contents.first { $0.accessibilityIdentifier == "back" })
@@ -626,7 +626,7 @@ final class NativeUISnapshotTests: XCTestCase {
         let button = try XCTUnwrap(NativeUIButton.make(source, rendering: rendering, activate: { _ in }))
         host.addSubview(button)
         let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [source.id], destination: [destination]),
-            sources: [source], controls: [source.id: button], host: host, scale: 1, origin: .zero, rendering: rendering)
+            sources: [source], controls: [source.id: button], scale: 1, origin: .zero, rendering: rendering)
         let contents = button.subviews.compactMap { $0 as? UIButton }
         XCTAssertEqual(contents.count, 1)
         for value in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] {
@@ -634,24 +634,6 @@ final class NativeUISnapshotTests: XCTestCase {
             XCTAssertEqual(contents.first?.alpha, 1)
         }
         transition.restore()
-    }
-
-    @MainActor
-    func testNewToolbarButtonAppearsDuringProgressAndCancellationRemovesIt() throws {
-        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
-        let destination = try XCTUnwrap(decode([control(["id": "target", "kind": "ion-back-button",
-            "items": [item(["id": "new", "label": "Back"]) ]])]).controls.first)
-        let host = UIView()
-        let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [], destination: [destination]),
-            sources: [], controls: [:], host: host, scale: 1, origin: .zero, rendering: NativeUIControlRendering())
-        let button = try XCTUnwrap(host.subviews.first)
-        for value in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 0.4, 0.0] {
-            transition.setProgress(value)
-            XCTAssertEqual(button.alpha, value, accuracy: 0.001)
-            XCTAssertEqual(button.transform.a, 0.2 + 0.8 * value, accuracy: 0.001)
-        }
-        transition.restore()
-        XCTAssertTrue(host.subviews.isEmpty)
     }
 
     @MainActor

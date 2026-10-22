@@ -607,7 +607,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 if self.toolbarTransition == nil {
                     let origin = webView.convert(webView.bounds.origin, to: host)
                     self.toolbarTransition = NativeUIToolbarTransition(prepared, sources: snapshots, controls: self.controls,
-                        host: host, scale: scale, origin: origin, rendering: self.rendering)
+                        scale: scale, origin: origin, rendering: self.rendering)
                 } else if let transition = self.toolbarTransition { transition.setProgress(transition.progress) }
             }
             let complete = {
