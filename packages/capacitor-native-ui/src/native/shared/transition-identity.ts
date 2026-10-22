@@ -20,30 +20,26 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     const slot = control.toolbarSlot ?? slotOwner.getAttribute('slot') ?? (control.kind === 'back-button' ? 'start' : 'end');
     const counts = counters.get(toolbar ?? page) ?? new Map<string, number>();
     counters.set(toolbar ?? page, counts);
-    const next = (kind: string) => {
-      const key = JSON.stringify([slot, kind]);
-      const index = counts.get(key) ?? 0;
-      counts.set(key, index + 1);
-      return index;
-    };
-    const position = next('group');
+    const position = counts.get(slot) ?? 0;
+    counts.set(slot, position + 1);
     const explicitSurface =
       element.getAttribute('data-transition-id')?.trim() ||
       (control.items.length === 1 ? candidate.actions.get(control.items[0].id)?.getAttribute('data-transition-id')?.trim() : undefined);
+    const surfaceId = JSON.stringify(
+      explicitSurface ? ['surface-explicit', ...scope, explicitSurface] : ['group', ...scope, slot, position],
+    );
     identities.push({
       target: control,
-      id: JSON.stringify(explicitSurface ? ['surface-explicit', ...scope, explicitSurface] : ['group', ...scope, slot, position]),
+      id: surfaceId,
       fallback: control.id,
     });
-    for (const item of control.items) {
+    for (const [index, item] of control.items.entries()) {
       const source = candidate.actions.get(item.id);
       const explicit = source?.getAttribute('data-transition-id')?.trim();
-      const role = 'button';
-      // Explicit items still occupy a position, so adding an override does not renumber their neighbours.
-      const index = next(role);
+      // Child positions belong to their surface. Resizing a group cannot renumber the next one.
       identities.push({
         target: item,
-        id: explicit ? JSON.stringify(['explicit', ...scope, explicit]) : JSON.stringify(['auto', ...scope, slot, role, index]),
+        id: explicit ? JSON.stringify(['explicit', ...scope, explicit]) : JSON.stringify(['auto', surfaceId, index]),
         fallback: item.id,
       });
     }

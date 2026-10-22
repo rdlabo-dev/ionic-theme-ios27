@@ -4469,3 +4469,54 @@ test('a shared toolbar background shrinks to one button and expands on return wi
   expect(pop!.controls.find((control) => control.transitionId === group.transitionId)!.kind).toBe('button');
   expect(group.items).toHaveLength(2);
 });
+
+test('vertical group resizing preserves the following surface and its action identity', async ({ page }) => {
+  await page.setViewportSize({ width: 466, height: 678 });
+  await mockNative(page);
+  await page.goto('/main/index');
+  await page.locator('index-page > ion-header ion-buttons[slot=end]').evaluate((group) => {
+    const next = document.createElement('ion-buttons');
+    next.slot = 'end';
+    next.id = 'following-group';
+    next.innerHTML = '<ion-button><ion-icon name="heart" slot="icon-only" aria-label="Following"></ion-icon></ion-button>';
+    const button = next.querySelector('ion-button')!;
+    button.removeAttribute('href');
+    button.setAttribute('aria-label', 'Following');
+    button.addEventListener('click', () => next.setAttribute('data-clicked', 'true'));
+    group.after(next);
+  });
+  await page.getByText('iPhone Duo Mode', { exact: true }).click();
+  const read = () =>
+    page.evaluate(() => {
+      const controls = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.controls;
+      const next = controls.find((control) => control.items.some((item) => item.accessibilityLabel === 'Following'))!;
+      const first = controls.find((control) => control.items.some((item) => item.accessibilityLabel === 'GitHub'))!;
+      return { surface: next?.transitionId, child: next?.items[0].transitionId, count: first?.items.length, placement: next?.placement };
+    });
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+          .updates.at(-1)
+          ?.controls.some(
+            (control) => control.placement === 'vertical-bars' && control.items.some((item) => item.accessibilityLabel === 'Following'),
+          ),
+      ),
+    )
+    .toBe(true);
+  const before = await read();
+  expect(before.placement).toBe('vertical-bars');
+  expect(before.count).toBe(2);
+  await page
+    .locator('index-page > ion-header ion-buttons[slot=end]')
+    .first()
+    .locator('ion-button')
+    .last()
+    .evaluate((button) => button.remove());
+  await expect.poll(async () => (await read()).count).toBe(1);
+  const after = await read();
+  expect(after.surface).toBe(before.surface);
+  expect(after.child).toBe(before.child);
+  await activate(page, 'Following');
+  await expect(page.locator('#following-group')).toHaveAttribute('data-clicked', 'true');
+});

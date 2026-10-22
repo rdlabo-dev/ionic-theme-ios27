@@ -153,12 +153,14 @@ private struct NativeUIVerticalPopoverContent: UIViewControllerRepresentable {
 @available(iOS 26.0, *)
 private struct NativeUIVerticalBarsButton: ToolbarContent {
     @ObservedObject var model: NativeUIVerticalBarsModel
+    let groupID: String
     let id: String
     let placement: ToolbarItemPlacement
 
     // Observe here so same-ID updates also refresh the shared toolbar background.
     var body: some ToolbarContent {
-        if let item = model.groups.lazy.flatMap(\.items).first(where: { $0.transitionID == id }) {
+        if let group = model.groups.first(where: { $0.transitionID == groupID }),
+           let item = group.items.first(where: { $0.transitionID == id }) {
             ToolbarItem(id: item.transitionID, placement: placement) {
                 Group {
                     if item.isBack { verticalBarsBackButton(item, model: model) }
@@ -327,7 +329,7 @@ private struct NativeUIVerticalBarsToolbar: ViewModifier {
                     ToolbarSpacer(.fixed, placement: .topBarLeading)
                 }
                 ForEach(group.items, id: \.transitionID) { item in
-                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: .topBarLeading)
+                    NativeUIVerticalBarsButton(model: model, groupID: group.transitionID, id: item.transitionID, placement: .topBarLeading)
                     .axisBehavior(.verticalPreferred)
                 }
             }
@@ -336,7 +338,7 @@ private struct NativeUIVerticalBarsToolbar: ViewModifier {
                     ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 }
                 ForEach(group.items, id: \.transitionID) { item in
-                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: .topBarTrailing)
+                    NativeUIVerticalBarsButton(model: model, groupID: group.transitionID, id: item.transitionID, placement: .topBarTrailing)
                     .axisBehavior(.verticalPreferred)
                 }
             }
@@ -357,7 +359,7 @@ private struct NativeUIVerticalBarsLegacyToolbar: ViewModifier {
                     ToolbarSpacer(.fixed, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
                 }
                 ForEach(group.items, id: \.transitionID) { item in
-                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
+                    NativeUIVerticalBarsButton(model: model, groupID: group.transitionID, id: item.transitionID, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
                 }
             }
         }
@@ -368,7 +370,7 @@ private struct NativeUIVerticalBarsLegacyToolbar: ViewModifier {
         return model.groups.reversed().reduce(base) { view, group in
             let items = group.items.reversed().reduce(view) { view, item in
                 AnyView(view.toolbar {
-                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
+                    NativeUIVerticalBarsButton(model: model, groupID: group.transitionID, id: item.transitionID, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
                 })
             }
             return group.id == model.groups.first(where: { $0.slot == group.slot })?.id ? items : AnyView(items.toolbar {

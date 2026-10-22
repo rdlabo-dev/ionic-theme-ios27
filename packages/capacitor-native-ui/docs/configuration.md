@@ -84,7 +84,7 @@ Local `data-horizontal-bars="true|false"` and `data-vertical-bars="true|false"` 
 
 ### Toolbar button correspondence
 
-Native toolbar buttons receive presentation identities automatically. Ordinary buttons correspond by their toolbar, logical slot and order among projected buttons. Menu and Back buttons at the leading position correspond in both horizontal and vertical bars. Changing the layout axis preserves presentation identities and group order. Labels and click handlers may change without requiring an ID attribute. Header and footer toolbars are separate scopes.
+Native toolbar buttons receive presentation identities automatically. Ordinary buttons correspond by their toolbar, logical slot and order among projected buttons. Menu and Back buttons at the leading position correspond in both horizontal and vertical bars. Changing the layout axis preserves presentation identities and group order. Each surface has its own child positions, so adding or removing buttons inside one group does not change the identities of later surfaces or their buttons. Labels and click handlers may change without requiring an ID attribute. Header and footer toolbars are separate scopes.
 
 Optionally set `data-transition-id` on an individual button when it should follow a particular action through a reorder:
 

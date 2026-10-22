@@ -13,7 +13,7 @@ export const read = (element: HTMLElement, id: Identify, options: VerticalContro
   let children = childElements(element);
   const verticalBars = inVerticalToolbarLayout(element);
   if (verticalBars ? !isVerticalBarsToolbarGroup(element) : !horizontalToolbarGroup(element, options)) return;
-  if (children.length === 1) return menuButton.read(element, id, options);
+  if (children.length === 1 && (!verticalBars || children[0].matches(menuButton.tag))) return menuButton.read(element, id, options);
   if (verticalBars) children = verticalBarsToolbarActions(element);
   if (
     !children.length ||

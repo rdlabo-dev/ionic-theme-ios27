@@ -100,7 +100,7 @@ test('duplicate live page identities fall back to source IDs rather than duplica
   expect(new Set(candidates.map((candidate) => candidate.control.transitionId)).size).toBe(2);
 });
 
-test('grouping does not change item positions; grouped children can each override identity', () => {
+test('first children follow their surface and explicit children can follow an action across groups', () => {
   const grouped = mount(toolbar('<ion-buttons><ion-button>A</ion-button><ion-button data-transition-id="b">B</ion-button></ion-buttons>'));
   const group: Candidate = {
     ...grouped[0],
@@ -149,7 +149,7 @@ test('horizontal surface signatures follow explicit item IDs across positions', 
   expect(sourceGroup.control.transitionId).toBe(fullTarget.control.transitionId);
 });
 
-test('horizontal start/end surface numbers ignore kind, fill and item count', () => {
+test.each([undefined, 'vertical-bars'] as const)('surface and child identities survive group resizing: %s', (placement) => {
   const children = mount(toolbar('<ion-buttons slot="end"><ion-button>A</ion-button><ion-button>B</ion-button></ion-buttons>'));
   const group: Candidate = {
     ...children[0],
@@ -158,7 +158,9 @@ test('horizontal start/end surface numbers ignore kind, fill and item count', ()
     actions: new Map(children.flatMap((candidate) => [...candidate.actions])),
   };
   const targets = mount(toolbar('<ion-buttons slot="end"><ion-button>Cancel</ion-button><ion-button>Save</ion-button></ion-buttons>'));
-  [group, ...targets].forEach(({ control }) => delete control.placement);
+  [group, ...targets].forEach(({ control }) => {
+    control.placement = placement;
+  });
   targets[0].control.items[0].buttonFill = 'clear';
   assignToolbarTransitionIds([group]);
   assignToolbarTransitionIds(targets);
@@ -168,9 +170,15 @@ test('horizontal start/end surface numbers ignore kind, fill and item count', ()
   // Adding or removing a group child never renumbers the following surface.
   const following = targets[1];
   const before = following.control.transitionId;
+  const childBefore = following.control.items[0].transitionId;
   group.element.parentElement!.append(following.element);
   assignToolbarTransitionIds([group, following]);
   expect(following.control.transitionId).toBe(before);
+  expect(following.control.items[0].transitionId).toBe(childBefore);
+  expect(group.control.items[1].transitionId).not.toBe(childBefore);
+  group.control.items.pop();
+  assignToolbarTransitionIds([group, following]);
+  expect(following.control.items[0].transitionId).toBe(childBefore);
 });
 
 test('changing the toolbar axis preserves surface and item identities including explicit overrides', () => {
