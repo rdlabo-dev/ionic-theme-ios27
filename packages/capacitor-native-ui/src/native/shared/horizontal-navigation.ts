@@ -47,6 +47,15 @@ export const createHorizontalNavigation = () => {
     mask(candidates: Candidate[]) {
       if (!current || current.phase !== 'playing') return;
       for (const candidate of candidates.filter(horizontalToolbar)) {
+        // Only hide a destination that already has a retained native counterpart.
+        // New controls keep Ionic's entry animation and stay Web until native acknowledges them.
+        if (
+          !current.frozen.some(
+            (previous) =>
+              previous.control.kind === candidate.control.kind && previous.control.transitionId === candidate.control.transitionId,
+          )
+        )
+          continue;
         for (const source of candidate.sources ?? [candidate.element]) {
           source.setAttribute(navigationMarker, '');
           current.masked.add(source);

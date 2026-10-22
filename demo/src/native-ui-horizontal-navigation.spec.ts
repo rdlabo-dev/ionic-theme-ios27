@@ -147,7 +147,7 @@ test.each(['Back', 'Save'])('Vertical Bars %s remains actionable while horizonta
 test.each([
   ['', 'Back'],
   ['Back', ''],
-])('toolbar absence is preserved until commit: %s → %s', async (from, to) => {
+])('native snapshot changes only at commit: %s → %s', async (from, to) => {
   const f = await fixture(from, to);
   const release = await f.start();
   expect(f.snapshots.at(-1)?.controls.length).toBe(from ? 1 : 0);
@@ -268,3 +268,25 @@ test.each(['Modal', 'Popover', 'Alert', 'ActionSheet'])(
     expect(click).toHaveBeenCalledOnce();
   },
 );
+
+test.each(['Back', 'Save'])('a new %s remains Web through entry and acknowledgement when no native counterpart exists', async (label) => {
+  const f = await fixture('', label);
+  const source = f.entering.querySelector('button')!;
+  const release = await f.start();
+  expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  let ack!: () => void;
+  f.setAck(
+    (snapshot) =>
+      new Promise((resolve) => {
+        ack = () => resolve({ revision: snapshot.revision });
+      }),
+  );
+  release();
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe(label));
+  expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  f.setAck(undefined);
+  ack();
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+});

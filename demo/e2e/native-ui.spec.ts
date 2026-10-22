@@ -4118,8 +4118,8 @@ test('native rail toggles and teardown preserve application-owned layout', async
   expect(await layout()).toEqual(expected);
 });
 
-for (const target of ['native-ui', 'Native UI Extension', 'button-projection']) {
-  test(`horizontal navigation never exposes a Web Back clone before native ownership: ${target}`, async ({ page }) => {
+for (const target of ['native-ui', 'Native UI Extension', 'button-projection', 'accordion']) {
+  test(`Back appears during entry and stays visible through native handoff: ${target}`, async ({ page }) => {
     await page.setViewportSize({ width: 402, height: 874 });
     await mockNative(page, false, null);
     await page.addInitScript(() => {
@@ -4129,12 +4129,21 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection']) 
     await expect(page.locator('index-page')).toHaveAttribute('data-test-did-enter', '');
     await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-projected', '');
     await page.evaluate(() => {
-      const evidence = { samples: 0, exposed: 0, active: true };
-      Object.assign(window, { backCloneEvidence: evidence });
+      const evidence = { entryFrames: 0, gaps: 0, active: true };
+      Object.assign(window, { backEntryEvidence: evidence });
       const sample = () => {
         const clone = document.querySelector<HTMLElement>('ion-router-outlet > ion-back-button.ion-cloned-element');
-        if (document.querySelector('[data-native-ui-navigation-source]')) evidence.samples++;
-        if (clone && getComputedStyle(clone).display !== 'none' && getComputedStyle(clone).visibility !== 'hidden') evidence.exposed++;
+        const back = Array.from(document.querySelectorAll<HTMLElement>('ion-back-button:not(.ion-cloned-element)')).find(
+          (element) => !element.closest('.ion-page-hidden, .ion-page-invisible'),
+        );
+        const visible = (element: HTMLElement | null | undefined) =>
+          !!element &&
+          getComputedStyle(element).display !== 'none' &&
+          getComputedStyle(element).visibility !== 'hidden' &&
+          Number(getComputedStyle(element).opacity) > 0.01;
+        const cloneVisible = visible(clone);
+        if ((cloneVisible || visible(back)) && !back?.closest('.ion-page')?.hasAttribute('data-test-did-enter')) evidence.entryFrames++;
+        if (evidence.entryFrames && !cloneVisible && !visible(back) && !back?.hasAttribute('data-native-ui-projected')) evidence.gaps++;
         if (evidence.active) requestAnimationFrame(sample);
       };
       requestAnimationFrame(sample);
@@ -4142,13 +4151,13 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection']) 
     await page.getByText(target, { exact: true }).click();
     const back = page.locator('.ion-page:not(.ion-page-hidden) ion-back-button:not(.ion-cloned-element)').last();
     await expect.poll(() => back.evaluate((element) => element.closest('.ion-page')?.hasAttribute('data-test-did-enter'))).toBe(true);
-    await expect(back).toHaveAttribute('data-native-ui-projected', '');
+    if (target !== 'accordion') await expect(back).toHaveAttribute('data-native-ui-projected', '');
     const evidence = await page.evaluate(() => {
-      const evidence = (window as Window & { backCloneEvidence: { samples: number; exposed: number; active: boolean } }).backCloneEvidence;
+      const evidence = (window as Window & { backEntryEvidence: { entryFrames: number; gaps: number; active: boolean } }).backEntryEvidence;
       evidence.active = false;
       return evidence;
     });
-    expect(evidence.samples).toBeGreaterThan(0);
-    expect(evidence.exposed).toBe(0);
+    expect(evidence.entryFrames).toBeGreaterThan(0);
+    expect(evidence.gaps).toBe(0);
   });
 }

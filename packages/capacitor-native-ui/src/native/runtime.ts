@@ -695,6 +695,7 @@ export const createRuntime = async (
             .filter((candidate): candidate is Candidate => !!candidate && horizontalToolbar(candidate)),
         ),
       );
+      assignToolbarTransitionIds(candidates);
       navigation.mask(candidates);
     } finally {
       if (className === null) page.removeAttribute('class');
