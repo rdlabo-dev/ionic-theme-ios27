@@ -2,13 +2,38 @@ import UIKit
 
 enum NativeUIButton {
     private final class BadgeLabel: UILabel {}
+    private static let activationID = UIAction.Identifier("native-ui-activate")
+
+    /// Reuse an unambiguous presentation slot while keeping action IDs source-specific.
+    @MainActor
+    static func reassociate(_ nodes: [NativeUIControl], controls: inout [String: UIView],
+                            fingerprints: inout [String: NativeUIControl]) -> Set<String> {
+        func identity(_ node: NativeUIControl) -> String? {
+            guard node.placement == nil, kinds.contains(node.kind), node.items.count == 1 else { return nil }
+            return node.items[0].content.transitionId
+        }
+        let old = Dictionary(grouping: fingerprints.values.filter { identity($0) != nil }, by: { identity($0)! })
+        let incoming = Dictionary(grouping: nodes.filter { identity($0) != nil }, by: { identity($0)! })
+        let retained = Set(nodes.map(\.id))
+        var reused = Set<String>()
+        for (key, matches) in incoming {
+            guard matches.count == 1, let node = matches.first, controls[node.id] == nil,
+                  let previous = old[key], previous.count == 1, let source = previous.first,
+                  !retained.contains(source.id), let button = controls[source.id] as? UIButton else { continue }
+            controls.removeValue(forKey: source.id)
+            fingerprints.removeValue(forKey: source.id)
+            controls[node.id] = button
+            reused.insert(node.id)
+        }
+        return reused
+    }
     // These Ionic components share the same native UIButton presentation.
     static let kinds: [NativeUIComponent] = [.button, .backButton, .menuButton]
 
     @available(iOS 26.0, *)
-    static func make(_ node: NativeUIControl, rendering: NativeUIControlRendering, activate: @escaping (String) -> Void) -> UIButton? {
+    static func make(_ node: NativeUIControl, existing: UIButton? = nil, rendering: NativeUIControlRendering, activate: @escaping (String) -> Void) -> UIButton? {
         guard node.items.count == 1, let item = node.items.first else { return nil }
-        let control = render(item.content, glass: true, rendering: rendering, activate: activate)
+        let control = render(item.content, glass: true, existing: existing, rendering: rendering, activate: activate)
         control.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         return control
     }
@@ -42,6 +67,7 @@ enum NativeUIButton {
         button.accessibilityLabel = item.accessibilityLabel
         button.accessibilityIdentifier = item.id
         if item.selected { button.accessibilityTraits.insert(.selected) }
+        else { button.accessibilityTraits.remove(.selected) }
         button.subviews.filter { $0 is BadgeLabel }.forEach { $0.removeFromSuperview() }
         button.accessibilityValue = item.badge?.value
         if let badge = item.badge {
@@ -63,9 +89,8 @@ enum NativeUIButton {
                 label.heightAnchor.constraint(equalToConstant: 16)
             ])
         }
-        if existing == nil {
-            button.addAction(UIAction { _ in activate(item.id) }, for: .touchUpInside)
-        }
+        button.removeAction(identifiedBy: activationID, for: .touchUpInside)
+        button.addAction(UIAction(identifier: activationID) { _ in activate(item.id) }, for: .touchUpInside)
         return button
     }
 }

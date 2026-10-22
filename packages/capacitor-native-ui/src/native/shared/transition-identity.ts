@@ -17,7 +17,10 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     );
     const scope = [control.placement ?? 'element', sectionName, toolbar ? toolbars.indexOf(toolbar) : 0];
     const slotOwner = element.closest('ion-buttons') ?? element;
-    const slot = control.kind === 'back-button' ? 'back' : (control.toolbarSlot ?? slotOwner.getAttribute('slot') ?? 'end');
+    const railBack = control.placement === 'vertical-bars' && control.kind === 'back-button';
+    const slot = railBack
+      ? 'back'
+      : (control.toolbarSlot ?? slotOwner.getAttribute('slot') ?? (control.kind === 'back-button' ? 'start' : 'end'));
     const counts = counters.get(toolbar ?? page) ?? new Map<string, number>();
     counters.set(toolbar ?? page, counts);
     const next = (kind: string) => {
@@ -30,7 +33,7 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     for (const item of control.items) {
       const source = candidate.actions.get(item.id);
       const explicit = source?.getAttribute('data-transition-id')?.trim();
-      const role = control.kind === 'back-button' ? 'back' : 'button';
+      const role = railBack ? 'back' : 'button';
       // Explicit items still occupy a position, so adding an override does not renumber their neighbours.
       const index = next(role);
       identities.push({

@@ -13,9 +13,9 @@ afterEach(async () => {
 });
 const fixture = async (from = 'Edit', to = 'Done') => {
   document.body.innerHTML = `<ion-app><main class="ion-page" id="from"><ion-header><ion-toolbar>
-    ${from ? `<button data-native-ui="${from === 'Back' ? 'back-button' : 'button'}">${from}</button>` : ''}
+    ${from ? `<button slot="${from === 'Menu' || from === 'Back' ? 'start' : 'end'}" data-native-ui="${from === 'Back' ? 'back-button' : 'button'}">${from}</button>` : ''}
     </ion-toolbar></ion-header></main><main class="ion-page ion-page-hidden" id="to"><ion-header><ion-toolbar>
-    ${to ? `<button data-native-ui="${to === 'Back' ? 'back-button' : 'button'}">${to}</button>` : ''}
+    ${to ? `<button slot="${to === 'Back' ? 'start' : 'end'}" data-native-ui="${to === 'Back' ? 'back-button' : 'button'}">${to}</button>` : ''}
     </ion-toolbar></ion-header></main></ion-app>`;
   document.querySelectorAll<HTMLElement>('*').forEach((element) => {
     Object.assign(element.style, { visibility: 'visible', opacity: '1', transform: 'none', fontSize: '16px', color: 'rgb(0,0,0)' });
@@ -289,4 +289,41 @@ test.each(['Back', 'Save'])('a new %s remains Web through entry and acknowledgem
   f.setAck(undefined);
   ack();
   await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+});
+
+test('A leading action retains its native slot through a push to Back and only the destination action activates after commit', async () => {
+  const f = await fixture('Menu', 'Back');
+  const menu = f.leaving.querySelector('button')!;
+  const back = f.entering.querySelector('button')!;
+  const menuClick = vi.fn();
+  const backClick = vi.fn();
+  menu.addEventListener('click', menuClick);
+  back.addEventListener('click', backClick);
+  const before = f.snapshots.at(-1)!;
+  const release = await f.start();
+  expect(menu.hasAttribute('data-native-ui-projected')).toBe(true);
+  expect(back.hasAttribute('data-native-ui-navigation-source')).toBe(true);
+  expect(f.snapshots.at(-1)?.controls[0].items[0].label).toBe('Menu');
+  release();
+  await vi.waitFor(() => expect(back.hasAttribute('data-native-ui-projected')).toBe(true));
+  const after = f.snapshots.at(-1)!;
+  expect(after.controls[0].transitionId).toBe(before.controls[0].transitionId);
+  f.listeners.get('activate')!({ id: before.controls[0].items[0].id, revision: after.revision, sequence: 1 });
+  f.listeners.get('activate')!({ id: after.controls[0].items[0].id, revision: after.revision, sequence: 2 });
+  expect(menuClick).not.toHaveBeenCalled();
+  expect(backClick).toHaveBeenCalledOnce();
+});
+
+test('a temporarily transparent main header still associates its Back before playback', async () => {
+  const f = await fixture('Menu', 'Back');
+  const header = f.entering.querySelector('ion-header')!;
+  header.classList.add('header-transitioning');
+  header.style.opacity = '0';
+  const style = header.getAttribute('style');
+  const release = await f.start();
+  expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(true);
+  expect(header.getAttribute('style')).toBe(style);
+  header.style.opacity = '1';
+  release();
+  await vi.waitFor(() => expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(true));
 });

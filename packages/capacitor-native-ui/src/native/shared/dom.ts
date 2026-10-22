@@ -299,6 +299,6 @@ export const inFixedToolbar = (element: Element): boolean => {
     !!edge?.matches('ion-header, ion-footer') &&
     !element.closest('ion-content') &&
     !edge.hasAttribute('collapse') &&
-    (verticalBars || !edge.matches('.header-collapse-main, .header-collapse-condense'))
+    (verticalBars || !edge.matches('.header-collapse-condense'))
   );
 };

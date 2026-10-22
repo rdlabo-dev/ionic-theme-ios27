@@ -684,6 +684,13 @@ export const createRuntime = async (
     if (!navigation.current) return;
     const className = page.getAttribute('class');
     const pageStyle = page.getAttribute('style');
+    // Ionic can hide a transitioning header until its collapse state settles. Its fixed buttons
+    // still need correspondence before the transition creates its Web back clone.
+    const headers = Array.from(page.querySelectorAll<HTMLElement>('ion-header.header-transitioning')).filter(
+      (header) => !header.closest('ion-content'),
+    );
+    const headerStyles = headers.map((header) => header.getAttribute('style'));
+    headers.forEach((header) => header.style.setProperty('opacity', '1', 'important'));
     measuringPointerPages.add(page);
     page.classList.remove('ion-page-hidden', 'ion-page-invisible');
     page.style.setProperty('pointer-events', 'auto', 'important');
@@ -698,6 +705,11 @@ export const createRuntime = async (
       assignToolbarTransitionIds(candidates);
       navigation.mask(candidates);
     } finally {
+      headers.forEach((header, index) => {
+        const style = headerStyles[index];
+        if (style === null) header.removeAttribute('style');
+        else header.setAttribute('style', style);
+      });
       if (className === null) page.removeAttribute('class');
       else page.setAttribute('class', className);
       if (pageStyle === null) page.removeAttribute('style');

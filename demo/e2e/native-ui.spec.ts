@@ -4119,7 +4119,7 @@ test('native rail toggles and teardown preserve application-owned layout', async
 });
 
 for (const target of ['native-ui', 'Native UI Extension', 'button-projection', 'accordion']) {
-  test(`Back appears during entry and stays visible through native handoff: ${target}`, async ({ page }) => {
+  test(`Menu and Back retain the leading native slot through navigation: ${target}`, async ({ page }) => {
     await page.setViewportSize({ width: 402, height: 874 });
     await mockNative(page, false, null);
     await page.addInitScript(() => {
@@ -4127,23 +4127,34 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
     });
     await page.goto('/main/index');
     await expect(page.locator('index-page')).toHaveAttribute('data-test-did-enter', '');
-    await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-projected', '');
+    const menu = page.locator('index-page ion-buttons[slot=start]');
+    await expect(menu).toHaveAttribute('data-native-ui-projected', '');
+    const before = await page.evaluate(() => {
+      const state = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+      const control = state.updates.at(-1)!.controls.find((control) => control.kind === 'menu-button')!;
+      return { index: state.updates.length, identity: control.items[0].transitionId, id: control.items[0].id };
+    });
     await page.evaluate(() => {
-      const evidence = { entryFrames: 0, gaps: 0, active: true };
-      Object.assign(window, { backEntryEvidence: evidence });
+      const evidence = { frames: 0, webCopies: 0, active: true };
+      Object.assign(window, { toolbarEvidence: evidence });
       const sample = () => {
-        const clone = document.querySelector<HTMLElement>('ion-router-outlet > ion-back-button.ion-cloned-element');
         const back = Array.from(document.querySelectorAll<HTMLElement>('ion-back-button:not(.ion-cloned-element)')).find(
           (element) => !element.closest('.ion-page-hidden, .ion-page-invisible'),
         );
-        const visible = (element: HTMLElement | null | undefined) =>
-          !!element &&
-          getComputedStyle(element).display !== 'none' &&
-          getComputedStyle(element).visibility !== 'hidden' &&
-          Number(getComputedStyle(element).opacity) > 0.01;
-        const cloneVisible = visible(clone);
-        if ((cloneVisible || visible(back)) && !back?.closest('.ion-page')?.hasAttribute('data-test-did-enter')) evidence.entryFrames++;
-        if (evidence.entryFrames && !cloneVisible && !visible(back) && !back?.hasAttribute('data-native-ui-projected')) evidence.gaps++;
+        if (back && !back.closest('.ion-page')?.hasAttribute('data-test-did-enter')) {
+          evidence.frames++;
+          const copies = [back, ...document.querySelectorAll<HTMLElement>('ion-router-outlet > ion-back-button.ion-cloned-element')];
+          if (
+            copies.some((element) => {
+              for (let current: HTMLElement | null = element; current; current = current.parentElement) {
+                const style = getComputedStyle(current);
+                if (style.display === 'none' || style.visibility !== 'visible' || Number(style.opacity) <= 0.01) return false;
+              }
+              return true;
+            })
+          )
+            evidence.webCopies++;
+        }
         if (evidence.active) requestAnimationFrame(sample);
       };
       requestAnimationFrame(sample);
@@ -4151,13 +4162,32 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
     await page.getByText(target, { exact: true }).click();
     const back = page.locator('.ion-page:not(.ion-page-hidden) ion-back-button:not(.ion-cloned-element)').last();
     await expect.poll(() => back.evaluate((element) => element.closest('.ion-page')?.hasAttribute('data-test-did-enter'))).toBe(true);
-    if (target !== 'accordion') await expect(back).toHaveAttribute('data-native-ui-projected', '');
+    await expect(back).toHaveAttribute('data-native-ui-projected', '');
+    const after = await page.evaluate(({ index, identity }) => {
+      const state = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+      const changes = state.updates.slice(index);
+      const control = changes.at(-1)!.controls.find((control) => control.kind === 'back-button')!;
+      return {
+        identity: control.items[0].transitionId,
+        id: control.items[0].id,
+        gaps: changes.filter(
+          (snapshot) => !snapshot.controls.some((control) => control.items.some((item) => item.transitionId === identity)),
+        ).length,
+        label: control.items[0].accessibilityLabel,
+      };
+    }, before);
+    expect(after.identity).toBe(before.identity);
+    expect(after.id).not.toBe(before.id);
+    expect(after.gaps).toBe(0);
     const evidence = await page.evaluate(() => {
-      const evidence = (window as Window & { backEntryEvidence: { entryFrames: number; gaps: number; active: boolean } }).backEntryEvidence;
+      const evidence = (window as Window & { toolbarEvidence: { frames: number; webCopies: number; active: boolean } }).toolbarEvidence;
       evidence.active = false;
       return evidence;
     });
-    expect(evidence.entryFrames).toBeGreaterThan(0);
-    expect(evidence.gaps).toBe(0);
+    expect(evidence.frames).toBeGreaterThan(0);
+    expect(evidence.webCopies).toBe(0);
+    await activate(page, after.label!);
+    await expect(menu).toHaveAttribute('data-native-ui-projected', '');
+    await expect(page).toHaveURL(/\/main\/index$/);
   });
 }

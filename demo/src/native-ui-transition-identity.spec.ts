@@ -9,13 +9,13 @@ const mount = (markup: string): Candidate[] => {
   page.className = 'ion-page';
   page.innerHTML = markup;
   document.body.append(page);
-  return Array.from(page.querySelectorAll<HTMLElement>('ion-button, ion-back-button')).map((element) => {
+  return Array.from(page.querySelectorAll<HTMLElement>('ion-button, ion-back-button, ion-menu-button')).map((element) => {
     const id = `source-${++sequence}`;
     return {
       element,
       control: {
         id,
-        kind: element.matches('ion-back-button') ? 'back-button' : 'button',
+        kind: element.matches('ion-back-button') ? 'back-button' : element.matches('ion-menu-button') ? 'menu-button' : 'button',
         placement: 'vertical-bars',
         x: 0,
         y: 0,
@@ -111,4 +111,18 @@ test('grouping does not change item positions; grouped children can each overrid
   assignToolbarTransitionIds([group]);
   const separate = resolve(toolbar('<ion-button>A</ion-button><ion-button data-transition-id="b">B</ion-button>'));
   expect(group.control.items.map((item) => item.transitionId)).toEqual(ids(separate));
+});
+
+test('horizontal Menu and Back in the same slot share presentation identity but keep distinct actions', () => {
+  const from = mount(toolbar('<ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>'));
+  const to = mount(toolbar('<ion-buttons slot="start"><ion-back-button></ion-back-button></ion-buttons>'));
+  for (const candidates of [from, to]) {
+    candidates.forEach((candidate) => {
+      candidate.control.placement = undefined;
+    });
+    assignToolbarTransitionIds(candidates);
+  }
+  expect(ids(from)).toEqual(ids(to));
+  expect(from[0].control.transitionId).toBe(to[0].control.transitionId);
+  expect(from[0].control.items[0].id).not.toBe(to[0].control.items[0].id);
 });

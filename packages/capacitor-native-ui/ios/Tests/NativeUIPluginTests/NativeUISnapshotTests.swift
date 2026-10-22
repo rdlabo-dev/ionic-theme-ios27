@@ -581,6 +581,51 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testMenuToBackReusesButtonAndReplacesItsAction() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native glass buttons") }
+        let menu = try XCTUnwrap(decode([control(["id": "menu-control", "kind": "ion-menu-button",
+            "items": [item(["id": "menu", "transitionId": "leading-0", "selected": true])]])]).controls.first)
+        let back = try XCTUnwrap(decode([control(["id": "back-control", "kind": "ion-back-button",
+            "items": [item(["id": "back", "transitionId": "leading-0"])]])]).controls.first)
+        var actions: [String] = []
+        let button = try XCTUnwrap(NativeUIButton.make(menu, rendering: NativeUIControlRendering(), activate: { actions.append($0) }))
+        button.sendActions(for: .touchUpInside)
+        var controls: [String: UIView] = [menu.id: button]
+        var fingerprints = [menu.id: menu]
+        XCTAssertEqual(NativeUIButton.reassociate([back], controls: &controls, fingerprints: &fingerprints), [back.id])
+        XCTAssertNil(controls[menu.id])
+        XCTAssertNil(fingerprints[menu.id])
+        XCTAssertTrue(controls[back.id] === button)
+        let updated = try XCTUnwrap(NativeUIButton.make(back, existing: controls[back.id] as? UIButton,
+            rendering: NativeUIControlRendering(), activate: { actions.append($0) }))
+        XCTAssertTrue(updated === button)
+        XCTAssertEqual(updated.accessibilityIdentifier, "back")
+        XCTAssertFalse(updated.accessibilityTraits.contains(.selected))
+        updated.sendActions(for: .touchUpInside)
+        XCTAssertEqual(actions, ["menu", "back"])
+    }
+
+    @MainActor
+    func testButtonReassociationRejectsAmbiguousOrStillLiveSources() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native glass buttons") }
+        func node(_ id: String, key: String?) throws -> NativeUIControl {
+            var content = item(["id": id])
+            if let key { content["transitionId"] = key }
+            return try XCTUnwrap(decode([control(["id": id, "kind": "ion-button", "items": [content]])]).controls.first)
+        }
+        let old = try node("old", key: "slot")
+        let next = try node("next", key: "slot")
+        let duplicate = try node("duplicate", key: "slot")
+        let legacy = try node("legacy", key: nil)
+        for incoming in [[old, next], [next, duplicate], [legacy]] {
+            var controls: [String: UIView] = [old.id: UIButton()]
+            var fingerprints = [old.id: old]
+            XCTAssertTrue(NativeUIButton.reassociate(incoming, controls: &controls, fingerprints: &fingerprints).isEmpty)
+            XCTAssertNotNil(controls[old.id])
+        }
+    }
+
+    @MainActor
     func testSingleButtonsRejectEmptyAndMultipleItems() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native glass buttons") }
         for kind in ["ion-button", "ion-back-button", "ion-menu-button"] {

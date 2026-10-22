@@ -362,7 +362,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             }
             self.notifyWebViewMetricsChange()
             let duration = NativeUICrossfade.duration(snapshot.transitionDuration)
-            let existing = Set(self.controls.keys)
+            var existing = Set(self.controls.keys)
             let verticalBars = snapshot.controls.filter { $0.placement == .verticalBars }
             let accessories = snapshot.controls.filter { $0.extensionContent?.tabBarId != nil }
             let snapshots = snapshot.controls.filter { $0.placement != .verticalBars && $0.extensionContent?.tabBarId == nil }
@@ -380,6 +380,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 call.resolve(["revision": next]); return
             }
             let scale = webView.bounds.width / width
+            existing.formUnion(NativeUIButton.reassociate(snapshots, controls: &self.controls, fingerprints: &self.fingerprints))
             let retained = Set(snapshots.map(\.id))
             for id in Array(self.controls.keys) where !retained.contains(id) {
                 self.removeControl(id, duration: duration)
@@ -520,6 +521,9 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                             if fab.superview == nil { host.addSubview(fab) }
                             self.controls[id] = fab
                             fabs.append((fab, node))
+                        } else if NativeUIButton.kinds.contains(node.kind), let button = self.controls[id] as? UIButton {
+                            _ = NativeUIButton.make(node, existing: button, rendering: self.rendering,
+                                                    activate: { [weak self] id in self?.activate(id) })
                         } else if let segment = self.controls[id] as? NativeUISegment, node.kind == NativeUISegment.kind {
                             segment.update(node, scale: scale, rendering: self.rendering)
                         } else if let tabBar = self.controls[id] as? UITabBar, node.kind == NativeUITabBar.kind {
