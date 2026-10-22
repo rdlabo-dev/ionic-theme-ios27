@@ -40,7 +40,9 @@ export const horizontalToolbarGroup = (element: HTMLElement, options: VerticalCo
         !isExcluded(child) &&
         !isNativeUIDisabled(child) &&
         (child.matches('ion-menu-button.ios') ||
-          (children.length > 1 && child.matches('ion-button.ios.button-clear') && (child as HTMLIonButtonElement).fill === 'clear')),
+          (children.length > 1 &&
+            child.matches('ion-button.ios.button-clear') &&
+            ((child as HTMLIonButtonElement).fill ?? 'clear') === 'clear')),
     )
   );
 };

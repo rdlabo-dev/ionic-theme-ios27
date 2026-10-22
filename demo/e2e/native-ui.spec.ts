@@ -4249,3 +4249,24 @@ test('toolbar follows paused page percentages and reverses before navigation com
     .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.toolbarTransition))
     .toBeUndefined();
 });
+
+test('implicit clear toolbar buttons share glass without duplicate native children', async ({ page }) => {
+  await mockNative(page, false, null);
+  await page.goto('/main/index');
+  const group = page.locator('index-page ion-header:not([collapse]) ion-buttons[slot=end]');
+  await expect(group).toHaveAttribute('data-native-ui-projected', '');
+  await expect(group.locator('[data-native-ui-projected]')).toHaveCount(0);
+  expect(
+    await group.locator('ion-button').evaluateAll((buttons) => buttons.map((button) => (button as HTMLIonButtonElement).fill)),
+  ).toEqual([undefined, undefined]);
+  const controls = await page.evaluate(() =>
+    Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+      .updates.at(-1)!
+      .controls.filter((control) =>
+        control.items.some((item) => item.accessibilityLabel === 'GitHub' || item.accessibilityLabel === 'Ionic'),
+      ),
+  );
+  expect(controls).toHaveLength(1);
+  expect(controls[0].kind).toBe('button-group');
+  expect(controls[0].items.map((item) => item.accessibilityLabel)).toEqual(['GitHub', 'Ionic']);
+});

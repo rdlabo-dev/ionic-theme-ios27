@@ -21,7 +21,7 @@ export const read = (element: HTMLElement, id: Identify, options: VerticalContro
       (child) =>
         !child.matches(`${menuButton.tag}${verticalBars ? '' : '.ios'}`) &&
         (!child.matches(`ion-button${verticalBars ? '' : '.ios.button-clear'}`) ||
-          (!verticalBars && (child as HTMLIonButtonElement).fill !== 'clear')),
+          (!verticalBars && ((child as HTMLIonButtonElement).fill ?? 'clear') !== 'clear')),
     )
   )
     return;
