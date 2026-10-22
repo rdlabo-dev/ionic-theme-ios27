@@ -1,5 +1,5 @@
 import { createIosTransitionAnimation, shadow } from '@rdlabo/ionic-theme-utils';
-import { createAnimation } from '@ionic/core/components';
+import { createAnimation } from '@ionic/core/components/index.js';
 import type { Animation } from '@ionic/core/components';
 import type { TransitionOptions } from './index';
 import { getIonPageElement } from './index';

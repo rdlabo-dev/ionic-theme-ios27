@@ -68,6 +68,8 @@ enum NativeUIButton {
         button.accessibilityIdentifier = item.id
         if item.selected { button.accessibilityTraits.insert(.selected) }
         else { button.accessibilityTraits.remove(.selected) }
+        if item.disabled { button.accessibilityTraits.insert(.notEnabled) }
+        else { button.accessibilityTraits.remove(.notEnabled) }
         button.subviews.filter { $0 is BadgeLabel }.forEach { $0.removeFromSuperview() }
         button.accessibilityValue = item.badge?.value
         if let badge = item.badge {

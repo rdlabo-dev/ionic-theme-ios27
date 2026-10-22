@@ -185,7 +185,7 @@ try {
   }
   // Theme-only consumers retain the transitive integration package, without Capacitor.
   assert.equal(manifests.get(nativeName).peerDependenciesMeta['@capacitor/core'].optional, true);
-  rmSync(join(dir, 'node_modules/@capacitor'));
+  rmSync(join(dir, 'node_modules/@capacitor'), { recursive: true });
   execFileSync(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { iosTransitionAnimation, withNativeUITransition, setVerticalBarsLayout, applyFoldStateClasses } from '@rdlabo/ionic-theme-ios27';

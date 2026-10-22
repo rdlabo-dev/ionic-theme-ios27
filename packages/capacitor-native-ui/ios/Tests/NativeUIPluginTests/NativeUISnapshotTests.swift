@@ -581,6 +581,19 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testButtonDisabledAccessibilityTracksReusedView() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        let rendering = NativeUIControlRendering()
+        var button: UIButton?
+        for disabled in [false, true, false] {
+            let node = try XCTUnwrap(decode([control(["kind": "ion-button", "items": [item(["disabled": disabled])]])]).controls.first)
+            button = try XCTUnwrap(NativeUIButton.make(node, existing: button, rendering: rendering, activate: { _ in }))
+            XCTAssertEqual(button?.isEnabled, !disabled)
+            XCTAssertEqual(button?.accessibilityTraits.contains(.notEnabled), disabled)
+        }
+    }
+
+    @MainActor
     func testClearStandaloneToolbarButtonHasNoGlassBackground() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
         let node = try XCTUnwrap(decode([control(["kind": "ion-button", "items": [item(["label": "Cancel", "buttonFill": "clear"]) ]])]).controls.first)
