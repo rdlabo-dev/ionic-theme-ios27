@@ -4344,3 +4344,60 @@ test('mini player does not shorten the page and outgoing translucent toolbar fad
   }
   await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
 });
+
+test('a shared toolbar background shrinks to one button and expands on return without Web handoff', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page, false, null);
+  await page.addInitScript(() =>
+    document.addEventListener(
+      'ionViewWillEnter',
+      (event) => {
+        const entering = event.target as HTMLElement;
+        if (entering.tagName.toLowerCase() === 'app-native-ui') {
+          Array.from(entering.querySelectorAll('ion-toolbar ion-buttons[slot=end] ion-button'))
+            .find((button) => button.textContent?.trim() === 'Cancel')
+            ?.remove();
+        }
+      },
+      true,
+    ),
+  );
+  await page.goto('/main/index');
+  await expect(page.locator('index-page ion-buttons[slot=end]')).toHaveAttribute('data-native-ui-projected', '');
+  await page.getByText('native-ui', { exact: true }).click();
+  await expect(page.locator('app-native-ui ion-toolbar ion-button').filter({ hasText: 'Save' })).toHaveAttribute(
+    'data-native-ui-projected',
+    '',
+  );
+  const push = await page.evaluate(() =>
+    Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.find((snapshot) =>
+      snapshot.toolbarTransition?.destination.some((control) => control.items.some((item) => item.accessibilityLabel === 'Save')),
+    ),
+  );
+  expect(push).toBeDefined();
+  const destination = push!.toolbarTransition!.destination.find((control) =>
+    control.items.some((item) => item.accessibilityLabel === 'Save'),
+  )!;
+  const source = push!.controls.find((control) => control.transitionId === destination.transitionId)!;
+  expect(source.kind).toBe('button-group');
+  expect(source.items).toHaveLength(2);
+  expect(destination.kind).toBe('button');
+  expect(destination.items).toHaveLength(1);
+  await activate(page, 'Save');
+  await expect(page.getByText('Save count: 1', { exact: true })).toBeVisible();
+  const index = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.length);
+  await activate(page, 'back');
+  await expect(page).toHaveURL(/\/main\/index$/);
+  await expect(page.locator('index-page ion-buttons[slot=end]')).toHaveAttribute('data-native-ui-projected', '');
+  const pop = await page.evaluate(
+    (index) =>
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+        .updates.slice(index)
+        .find((snapshot) => snapshot.toolbarTransition?.destination.some((control) => control.kind === 'button-group')),
+    index,
+  );
+  expect(pop).toBeDefined();
+  const group = pop!.toolbarTransition!.destination.find((control) => control.kind === 'button-group')!;
+  expect(pop!.controls.find((control) => control.transitionId === group.transitionId)!.kind).toBe('button');
+  expect(group.items).toHaveLength(2);
+});

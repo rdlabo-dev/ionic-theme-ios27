@@ -1,3 +1,4 @@
+import { correspondingToolbarSurface } from '../../packages/capacitor-native-ui/src/native/shared/horizontal-navigation';
 import { afterEach, expect, test } from 'vitest';
 import { assignToolbarTransitionIds } from '../../packages/capacitor-native-ui/src/native/shared/transition-identity';
 import type { Candidate } from '../../packages/capacitor-native-ui/src/native/shared/candidate';
@@ -127,7 +128,7 @@ test('horizontal Menu and Back in the same slot share presentation identity but 
   expect(from[0].control.items[0].id).not.toBe(to[0].control.items[0].id);
 });
 
-test('horizontal surfaces follow explicit item IDs across positions and release partially matched groups', () => {
+test('horizontal surface signatures follow explicit item IDs across positions', () => {
   const from = mount(toolbar('<ion-button data-transition-id="a">A</ion-button><ion-button data-transition-id="b">B</ion-button>'));
   const to = mount(toolbar('<ion-button data-transition-id="b">B</ion-button><ion-button data-transition-id="a">A</ion-button>'));
   for (const candidates of [from, to]) {
@@ -144,8 +145,31 @@ test('horizontal surfaces follow explicit item IDs across positions and release 
   });
   const sourceGroup = group(from);
   const fullTarget = group(to);
-  const partialTarget = group(to.slice(0, 1));
-  [sourceGroup, fullTarget, partialTarget].forEach((candidate) => assignToolbarTransitionIds([candidate]));
+  [sourceGroup, fullTarget].forEach((candidate) => assignToolbarTransitionIds([candidate]));
   expect(sourceGroup.control.transitionId).toBe(fullTarget.control.transitionId);
-  expect(sourceGroup.control.transitionId).not.toBe(partialTarget.control.transitionId);
+});
+
+test('one button and a group share a surface through any common item, independently of background kind', () => {
+  const single = mount(toolbar('<ion-button data-transition-id="b">B</ion-button>'))[0];
+  const children = mount(
+    toolbar(
+      '<ion-buttons><ion-button data-transition-id="a">A</ion-button><ion-button data-transition-id="b">B</ion-button></ion-buttons>',
+    ),
+  );
+  const group: Candidate = {
+    ...children[0],
+    control: { ...children[0].control, kind: 'button-group', items: children.flatMap(({ control }) => control.items) },
+    actions: new Map(children.flatMap((candidate) => [...candidate.actions])),
+  };
+  [single, ...children, group].forEach(({ control }) => delete control.placement);
+  assignToolbarTransitionIds([single]);
+  assignToolbarTransitionIds(children);
+  assignToolbarTransitionIds([group]);
+  expect(correspondingToolbarSurface(group, [single], [group])).toBe(single);
+  expect(correspondingToolbarSurface(single, [group], [single])).toBe(group);
+  single.control.items[0].buttonFill = 'clear';
+  expect(correspondingToolbarSurface(group, [single], [group])).toBe(single);
+  // Two independent backgrounds cannot both own the same shared destination.
+  expect(correspondingToolbarSurface(group, children, [group])).toBeUndefined();
+  expect(correspondingToolbarSurface(children[0], [group], children)).toBeUndefined();
 });

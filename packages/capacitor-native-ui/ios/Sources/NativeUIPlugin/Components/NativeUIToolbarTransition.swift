@@ -27,6 +27,8 @@ final class NativeUIToolbarTransition {
             guard let match else { continue }
             let destination = remaining.remove(at: match)
             let originalFrame = view.frame
+            let sourceGlass = source.kind == .buttons || source.items.first?.content.buttonFill != .clear
+            let targetGlass = destination.kind == .buttons || destination.items.first?.content.buttonFill != .clear
             let container: UIView
             if let button = view as? UIButton {
                 let configuration = button.configuration
@@ -34,6 +36,14 @@ final class NativeUIToolbarTransition {
                 empty?.title = nil
                 empty?.image = nil
                 button.configuration = empty
+                let sourceConfiguration = empty
+                let targetConfiguration: UIButton.Configuration = targetGlass ? .glass() : .plain()
+                var showingDestination = false
+                updates.append { value in
+                    guard sourceGlass != targetGlass, showingDestination != (value > 0) else { return }
+                    showingDestination = value > 0
+                    button.configuration = showingDestination ? targetConfiguration : sourceConfiguration
+                }
                 let labels = button.subviews.filter { $0 is UILabel }.map { ($0, $0.isHidden) }
                 labels.forEach { $0.0.isHidden = true }
                 restorations.append { labels.forEach { $0.0.isHidden = $0.1 } }
@@ -41,6 +51,14 @@ final class NativeUIToolbarTransition {
                 restorations.append { button.configuration = configuration }
             } else if let glass = view as? UIVisualEffectView {
                 container = glass.contentView
+                let originalEffect = glass.effect
+                var showingDestination = false
+                updates.append { value in
+                    guard sourceGlass != targetGlass, showingDestination != (value > 0) else { return }
+                    showingDestination = value > 0
+                    glass.effect = showingDestination && !targetGlass ? nil : originalEffect
+                }
+                restorations.append { glass.effect = originalEffect }
                 let children = container.subviews.map { ($0, $0.isHidden) }
                 children.forEach { $0.0.isHidden = true }
                 restorations.append { children.forEach { $0.0.isHidden = $0.1 } }
@@ -55,18 +73,22 @@ final class NativeUIToolbarTransition {
             for item in source.items {
                 let index = targetItems.firstIndex { $0.content.transitionId != nil && $0.content.transitionId == item.content.transitionId }
                 let target = index.map { targetItems.remove(at: $0) }
-                addContent(item, target, to: container, scale: scale, rtl: destination.rtl, rendering: rendering)
+                addContent(item, target, to: container, fromSurface: from, toSurface: to, scale: scale, rtl: destination.rtl, rendering: rendering)
             }
-            for item in targetItems { addContent(nil, item, to: container, scale: scale, rtl: destination.rtl, rendering: rendering) }
+            for item in targetItems { addContent(nil, item, to: container, fromSurface: from, toSurface: to, scale: scale, rtl: destination.rtl, rendering: rendering) }
         }
         setProgress(0)
     }
 
     @available(iOS 26.0, *)
     private func addContent(_ source: NativeUIItem?, _ destination: NativeUIItem?, to host: UIView,
-                            scale: CGFloat, rtl: Bool, rendering: NativeUIControlRendering) {
-        let from = (source ?? destination)!.frame.rect.applying(CGAffineTransform(scaleX: scale, y: scale))
-        let to = (destination ?? source)!.frame.rect.applying(CGAffineTransform(scaleX: scale, y: scale))
+                            fromSurface: CGRect, toSurface: CGRect, scale: CGFloat, rtl: Bool, rendering: NativeUIControlRendering) {
+        var from = (source ?? destination)!.frame.rect.applying(CGAffineTransform(scaleX: scale, y: scale))
+        var to = (destination ?? source)!.frame.rect.applying(CGAffineTransform(scaleX: scale, y: scale))
+        // A newly appearing/disappearing item stays at its window position while
+        // the shared surface expands/contracts around it (also in RTL).
+        if source == nil { from = to.offsetBy(dx: toSurface.minX - fromSurface.minX, dy: toSurface.minY - fromSurface.minY) }
+        if destination == nil { to = from.offsetBy(dx: fromSurface.minX - toSurface.minX, dy: fromSurface.minY - toSurface.minY) }
         let unchanged = source.map { from in destination.map { to in
             let a = from.content, b = to.content
             return a.label == b.label && a.icon == b.icon && a.iconWidth == b.iconWidth && a.iconHeight == b.iconHeight &&
@@ -90,7 +112,14 @@ final class NativeUIToolbarTransition {
                 content.center = CGPoint(x: position.midX, y: position.midY)
                 // Matched native toolbar content adopts the destination as playback starts.
                 // Crossfading both glyphs superimposes Menu/Back and old/new titles.
-                content.alpha = unchanged ? 1 : incoming ? (value > 0 ? 1 : 0) : (value == 0 ? 1 : 0)
+                if source == nil || destination == nil {
+                    // New/removed native items grow/shrink within the changing shared surface.
+                    let amount = incoming ? value : 1 - value
+                    content.transform = CGAffineTransform(scaleX: max(0.001, amount), y: max(0.001, amount))
+                    content.alpha = amount > 0 ? 1 : 0
+                } else {
+                    content.alpha = unchanged ? 1 : incoming ? (value > 0 ? 1 : 0) : (value == 0 ? 1 : 0)
+                }
             }
             restorations.append { content.removeFromSuperview() }
         }

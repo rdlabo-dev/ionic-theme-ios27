@@ -7,6 +7,19 @@ export const horizontalToolbar = (candidate: Candidate): boolean =>
   ['button', 'button-group', 'back-button', 'menu-button'].includes(candidate.control.kind) &&
   inFixedToolbar(candidate.element);
 
+// A surface may grow/shrink between one button and a group. Its common items,
+// rather than the container kind or complete item set, establish correspondence.
+export const correspondingToolbarSurface = (target: Candidate, sources: Candidate[], destinations: Candidate[]): Candidate | undefined => {
+  const overlaps = (a: Candidate, b: Candidate) =>
+    a.control.items.some((item) => item.transitionId && b.control.items.some((other) => other.transitionId === item.transitionId));
+  const matches = sources.filter((source) => overlaps(source, target));
+  if (matches.length !== 1) return;
+  const source = matches[0];
+  // Splitting/merging multiple existing backgrounds has no unique retained owner.
+  if (destinations.filter((destination) => overlaps(source, destination)).length !== 1) return;
+  return source;
+};
+
 /** Prepare stationary toolbar endpoints before playback. Native presentation follows
  * the page clock; source actions change only when navigation commits.
  */
@@ -58,7 +71,7 @@ export const createHorizontalNavigation = () => {
       for (const candidate of candidates.filter(horizontalToolbar)) {
         // Only hide a destination that already has a retained native counterpart.
         // New controls keep Ionic's entry animation and stay Web until native acknowledges them.
-        if (!all && !current.frozen.some((previous) => previous.control.transitionId === candidate.control.transitionId)) continue;
+        if (!all && !correspondingToolbarSurface(candidate, current.frozen, candidates)) continue;
         for (const source of candidate.sources ?? [candidate.element]) {
           source.setAttribute(navigationMarker, '');
           current.masked.add(source);

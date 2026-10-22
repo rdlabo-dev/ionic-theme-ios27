@@ -624,6 +624,51 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testSingleAndGroupMorphBothWaysAndRestoreIncludingClearBackground() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        for clear in [false, true] {
+            let single = try XCTUnwrap(decode([control(["id": "single", "kind": "ion-button", "transitionId": "surface",
+                "x": 100.0, "width": 44.0, "items": [item(["id": "a-single", "label": "A", "transitionId": "a", "width": 44.0,
+                    "buttonFill": clear ? "clear" : "solid"]) ]])]).controls.first)
+            let group = try XCTUnwrap(decode([control(["id": "group", "kind": "ion-buttons", "transitionId": "surface",
+                "x": 40.0, "width": 104.0, "items": [
+                    item(["id": "a-group", "label": "A", "transitionId": "a", "width": 44.0]),
+                    item(["id": "b-group", "label": "B", "transitionId": "b", "x": 60.0, "width": 44.0]) ]])]).controls.first)
+            for (source, destination) in [(single, group), (group, single)] {
+                let rendering = NativeUIControlRendering()
+                let view: UIView = source.kind == .buttons
+                    ? NativeUIButtons.make(source, scale: 1, rendering: rendering, activate: { _ in })
+                    : try XCTUnwrap(NativeUIButton.make(source, rendering: rendering, activate: { _ in }))
+                view.frame = source.frame.rect
+                let originalClipping = view.clipsToBounds
+                let originalConfiguration = (view as? UIButton)?.configuration
+                let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [source.id], destination: [destination]),
+                    sources: [source], controls: [source.id: view], scale: 1, origin: .zero, rendering: rendering)
+                let host = (view as? UIVisualEffectView)?.contentView ?? view
+                let extra = try XCTUnwrap(host.subviews.compactMap { $0 as? UIButton }.last { $0.accessibilityIdentifier == "b-group" })
+                for progress in [0.0, 0.2, 0.5, 0.8, 1.0, 0.5, 0.0] {
+                    transition.setProgress(progress)
+                    XCTAssertEqual(view.clipsToBounds, originalClipping)
+                    XCTAssertEqual(view.frame.width, source.frame.width + (destination.frame.width - source.frame.width) * progress, accuracy: 0.001)
+                    let amount = source.kind == .buttons ? 1 - progress : progress
+                    XCTAssertEqual(extra.transform.a, max(0.001, amount), accuracy: 0.001)
+                    XCTAssertEqual(view.frame.minX + extra.center.x, group.frame.x + group.items[1].frame.rect.midX, accuracy: 0.001)
+                    XCTAssertEqual(extra.alpha, amount > 0 ? 1 : 0)
+                    if source.kind == .buttons && clear {
+                        XCTAssertEqual((view as? UIVisualEffectView)?.effect == nil, progress > 0)
+                    }
+                }
+                transition.restore()
+                XCTAssertEqual(view.frame, source.frame.rect)
+                XCTAssertEqual(view.clipsToBounds, originalClipping)
+                XCTAssertEqual((view as? UIButton)?.configuration, originalConfiguration)
+                if source.kind == .buttons { XCTAssertNotNil((view as? UIVisualEffectView)?.effect) }
+                XCTAssertNil(extra.superview)
+            }
+        }
+    }
+
+    @MainActor
     func testUnchangedBackContentStaysOpaqueAtEveryPagePercentage() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
         let source = try XCTUnwrap(decode([control(["id": "source", "kind": "ion-back-button", "transitionId": "leading",

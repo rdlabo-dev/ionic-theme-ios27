@@ -1,4 +1,9 @@
-import { createHorizontalNavigation, horizontalToolbar, navigationMarker } from './shared/horizontal-navigation';
+import {
+  createHorizontalNavigation,
+  correspondingToolbarSurface,
+  horizontalToolbar,
+  navigationMarker,
+} from './shared/horizontal-navigation';
 import { assignToolbarTransitionIds } from './shared/transition-identity';
 import { controlSelected } from './shared/control-options';
 import { createDiagnostics } from './shared/diagnostics';
@@ -1083,14 +1088,16 @@ export const createRuntime = async (
           maskNavigationPage(scopes[0]);
           // Only paired surfaces stay native. Release unmatched sources before playback
           // so Ionic owns their exit/entry animation in WebView.
-          transition.frozen = transition.frozen.filter((source) =>
-            transition!.destination.some(
-              (target) => source.control.transitionId && source.control.transitionId === target.control.transitionId,
-            ),
-          );
-          transition.destination = transition.destination.filter((target) =>
-            transition!.frozen.some((source) => source.control.transitionId === target.control.transitionId),
-          );
+          const pairs = transition.destination.flatMap((target) => {
+            const source = correspondingToolbarSurface(target, transition!.frozen, transition!.destination);
+            return source ? [{ source, target }] : [];
+          });
+          transition.frozen = pairs.map(({ source }) => source);
+          // Keep the bridge contract: each destination carries its paired source surface ID.
+          transition.destination = pairs.map(({ source, target }) => ({
+            ...target,
+            control: { ...target.control, transitionId: source.control.transitionId },
+          }));
           try {
             for (const candidate of transition.destination) {
               for (const icon of candidate.icons) {
