@@ -30,6 +30,7 @@ import type {
 import { readCandidate, selector, shadowSelector, motionSelector, isVerticalBarsCandidate } from './components';
 import {
   activateProjectedElement,
+  inFixedToolbar,
   createVerticalBarsPageState,
   isVerticalBarsSource,
   preferredVerticalBarsBack,
@@ -717,7 +718,10 @@ export const createRuntime = async (
     try {
       const candidates = navigation.measure(() =>
         unprojected(sources.keys(), () =>
+          // Only fixed toolbar controls participate in this handoff. Avoid measuring
+          // content controls that will be discarded by horizontalToolbar below.
           Array.from(page.querySelectorAll<HTMLElement>(discovery))
+            .filter(inFixedToolbar)
             .map(readEnabledCandidate)
             .filter((candidate): candidate is Candidate => !!candidate && horizontalToolbar(candidate)),
         ),

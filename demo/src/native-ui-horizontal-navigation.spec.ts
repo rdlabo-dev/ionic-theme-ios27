@@ -468,3 +468,21 @@ test('later rejection of an already prepared incoming surface returns it to Web'
   await vi.waitFor(() => expect(target.hasAttribute('data-native-ui-navigation-source')).toBe(false));
   release(true);
 });
+
+test('toolbar handoff does not measure incoming content controls', async () => {
+  const f = await fixture('Edit', 'Save', true);
+  const content = document.createElement('ion-content');
+  const button = document.createElement('button');
+  button.setAttribute('data-native-ui', 'button');
+  button.textContent = 'Content action';
+  const measure = vi.fn(() => ({ x: 10, y: 100, left: 10, top: 100, right: 90, bottom: 144, width: 80, height: 44 }) as DOMRect);
+  button.getBoundingClientRect = measure;
+  content.append(button);
+  f.entering.append(content);
+  const release = await f.start();
+  expect(measure).not.toHaveBeenCalled();
+  expect(f.snapshots.at(-1)?.toolbarTransition?.destination.some((control) => control.items.some((item) => item.label === 'Save'))).toBe(
+    true,
+  );
+  release();
+});
