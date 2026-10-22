@@ -376,3 +376,47 @@ test.each(['', 'Back'])('an unmatched outgoing action returns to Web before play
   await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
   expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Edit');
 });
+
+test('different explicit action IDs return to Web even at the same toolbar position', async () => {
+  const f = await fixture('Edit', 'Delete', true);
+  const source = f.leaving.querySelector('button')!;
+  const target = f.entering.querySelector('button')!;
+  source.setAttribute('data-transition-id', 'edit');
+  target.setAttribute('data-transition-id', 'delete');
+  await vi.waitFor(() => expect(f.snapshots.at(-1)!.controls[0].items[0].transitionId).toContain('edit'));
+  const release = await f.start();
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  expect(target.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined();
+  expect(f.snapshots.at(-1)!.controls).toEqual([]);
+  release();
+  await vi.waitFor(() => expect(target.hasAttribute('data-native-ui-projected')).toBe(true));
+});
+
+test('destination icon decode failure restores Web and lets navigation finish', async () => {
+  const f = await fixture('Edit', 'Done', true);
+  const target = f.entering.querySelector('button')!;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.innerHTML = '<path d="M0 0h24v24H0z" />';
+  svg.getBoundingClientRect = () => ({ x: 10, y: 10, left: 10, top: 10, right: 34, bottom: 34, width: 24, height: 24 }) as DOMRect;
+  target.prepend(svg);
+  vi.stubGlobal(
+    'Image',
+    class {
+      src = '';
+      decode = vi.fn().mockRejectedValue(new Error('decode failed'));
+    },
+  );
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const release = await f.start();
+  expect(handle!.getStatus().state).toBe('stopped');
+  expect(handle!.getStatus().reason).toBe('decode failed');
+  expect(document.querySelector('[data-native-ui-navigation-source], [data-native-ui-projected]')).toBeNull();
+  expect(release.progress).toBeUndefined();
+  release();
+  expect(f.leaving.classList.contains('ion-page-hidden')).toBe(true);
+  expect(f.entering.classList.contains('ion-page-hidden')).toBe(false);
+});

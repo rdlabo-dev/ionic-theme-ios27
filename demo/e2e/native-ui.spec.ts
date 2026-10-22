@@ -4211,6 +4211,15 @@ test('toolbar follows paused page percentages and reverses before navigation com
   await page.goto('/main/index');
   await expect(page.locator('index-page')).toHaveAttribute('data-test-did-enter', '');
   await expect(page.locator('index-page ion-buttons[slot=start]')).toHaveAttribute('data-native-ui-projected', '');
+  const sourceGroup = page.locator('index-page ion-header:not([collapse]) ion-buttons[slot=end]');
+  await expect(sourceGroup).toHaveAttribute('data-native-ui-projected', '');
+  const sourceGroupId = await page.evaluate(
+    () =>
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+        .updates.at(-1)!
+        .controls.find((control) => control.kind === 'button-group' && control.items.some((item) => item.accessibilityLabel === 'GitHub'))!
+        .id,
+  );
   await page.getByText('native-ui', { exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)?.toolbarTransition?.id))
@@ -4240,6 +4249,10 @@ test('toolbar follows paused page percentages and reverses before navigation com
       .toBeCloseTo(expected, 3);
     const prepared = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.toolbarTransition);
     expect(prepared?.destination.some((control) => control.kind === 'back-button')).toBe(true);
+    // The source's shared pair cannot partially morph into two separate surfaces.
+    expect(prepared?.sourceIds).not.toContain(sourceGroupId);
+    await expect(sourceGroup).not.toHaveAttribute('data-native-ui-projected');
+    await expect(sourceGroup).not.toHaveAttribute('data-native-ui-navigation-source');
     if (percentage > 0) expect(expected).toBeGreaterThan(0);
     expect(expected).toBeLessThan(1);
   }

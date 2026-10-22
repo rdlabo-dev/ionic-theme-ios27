@@ -126,3 +126,26 @@ test('horizontal Menu and Back in the same slot share presentation identity but 
   expect(from[0].control.transitionId).toBe(to[0].control.transitionId);
   expect(from[0].control.items[0].id).not.toBe(to[0].control.items[0].id);
 });
+
+test('horizontal surfaces follow explicit item IDs across positions and release partially matched groups', () => {
+  const from = mount(toolbar('<ion-button data-transition-id="a">A</ion-button><ion-button data-transition-id="b">B</ion-button>'));
+  const to = mount(toolbar('<ion-button data-transition-id="b">B</ion-button><ion-button data-transition-id="a">A</ion-button>'));
+  for (const candidates of [from, to]) {
+    candidates.forEach(({ control }) => {
+      control.placement = undefined;
+    });
+    assignToolbarTransitionIds(candidates);
+  }
+  expect(from.map(({ control }) => control.transitionId)).toEqual(to.map(({ control }) => control.transitionId).reverse());
+  const group = (items: Candidate[]): Candidate => ({
+    ...items[0],
+    control: { ...items[0].control, kind: 'button-group', items: items.flatMap(({ control }) => control.items) },
+    actions: new Map(items.flatMap(({ actions }) => [...actions])),
+  });
+  const sourceGroup = group(from);
+  const fullTarget = group(to);
+  const partialTarget = group(to.slice(0, 1));
+  [sourceGroup, fullTarget, partialTarget].forEach((candidate) => assignToolbarTransitionIds([candidate]));
+  expect(sourceGroup.control.transitionId).toBe(fullTarget.control.transitionId);
+  expect(sourceGroup.control.transitionId).not.toBe(partialTarget.control.transitionId);
+});

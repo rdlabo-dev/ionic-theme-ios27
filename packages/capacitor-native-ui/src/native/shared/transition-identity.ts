@@ -49,4 +49,11 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
   for (const { target, id, fallback } of identities) {
     target.transitionId = counts.get(id) === 1 ? id : JSON.stringify(['unmatched', fallback]);
   }
+  // Shared glass is indivisible: retain a horizontal surface only when every
+  // item corresponds. Explicit IDs also follow standalone buttons across slots.
+  for (const { control } of candidates) {
+    if (control.placement !== 'vertical-bars' && control.transitionId) {
+      control.transitionId = JSON.stringify(['surface', ...control.items.map((item) => item.transitionId).sort()]);
+    }
+  }
 };

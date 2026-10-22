@@ -84,7 +84,7 @@ Local `data-horizontal-bars="true|false"` and `data-vertical-bars="true|false"` 
 
 ### Toolbar button correspondence
 
-Native SwiftUI toolbar buttons receive presentation identities automatically. Ordinary buttons correspond by their toolbar, logical slot and order among projected buttons; back buttons have a separate back role. Labels and click handlers may change without requiring an ID attribute. Header and footer toolbars are separate scopes.
+Native toolbar buttons receive presentation identities automatically. Ordinary buttons correspond by their toolbar, logical slot and order among projected buttons. Horizontal Menu and Back buttons at the same position correspond; SwiftUI Vertical Bars keep a separate back role. Labels and click handlers may change without requiring an ID attribute. Header and footer toolbars are separate scopes.
 
 Optionally set `data-transition-id` on an individual button when it should follow a particular action through a reorder:
 
@@ -97,11 +97,13 @@ Optionally set `data-transition-id` on an individual button when it should follo
 
 An explicit key overrides the automatic position within the corresponding toolbar. It does not change HTML `id`, routing or click delivery. Keep the original handler on each page's source button. Blank values use automatic correspondence; duplicate explicit keys within a toolbar are treated as separate, unmatched sources. Put the attribute on each button, including children of an `ion-buttons` group.
 
-These identities drive the native SwiftUI Vertical Bars toolbar. Horizontal fixed toolbar controls now remain native during Ionic stack navigation: the outgoing toolbar stays in place while the page moves, then its contents update after navigation finishes. A canceled swipe keeps the original toolbar and action ownership. Toolbar actions are ignored until the transition and destination update have completed.
+These identities drive the native SwiftUI Vertical Bars toolbar. With the theme's navigation animation adapter, corresponding horizontal fixed toolbar surfaces remain native and follow the Ionic page animation's progress, including interactive reversal. Geometry and content change during playback; action ownership changes only after navigation commits. A canceled swipe restores the original toolbar. Retained horizontal toolbar actions are ignored until navigation and the destination update finish.
 
-This retention works with the theme's navigation animation adapter and Ionic page lifecycle events. Ordinary controls inside moving page content still return to Web. Explicit runtime suspension, unsupported controls, native rejection and overlay fallback also retain their Web behavior. No new native bridge method is required.
+Controls without corresponding button identities return to Web before playback, without waiting for a handoff fade. A shared glass group stays native only when all of its buttons correspond; a partially matched group returns to Web as a whole. Moving page content, explicit runtime suspension, unsupported controls, native rejection and overlay fallback also use Web presentation. Ionic clear buttons inside `ion-buttons` share one glass surface, including buttons whose omitted `fill` resolves to clear.
 
-Horizontal retention does not synchronize a native navigation stack or interpolate toolbar items with swipe progress. It removes the navigation-time native → Web → native handoff; the horizontal toolbar changes at completion, while SwiftUI Vertical Bars continue to use their native presentation identities.
+Progress updates use an optional capability acknowledged by the native plugin. Older native binaries that do not acknowledge it are not sent the new bridge method: corresponding outgoing toolbar surfaces retain their earlier completion-time handoff. Older transition adapters keep their existing behavior. Updating both the theme and native plugin enables progress synchronization.
+
+This does not create a native navigation stack or reproduce every SwiftUI animation. Automatic positional identities intentionally request stronger correspondence than SwiftUI's default without explicit toolbar IDs. Unmatched controls use Ionic's Web animation rather than SwiftUI's native shrink/grow effect.
 
 ### Other settings
 

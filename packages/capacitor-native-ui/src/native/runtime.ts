@@ -1091,10 +1091,15 @@ export const createRuntime = async (
           transition.destination = transition.destination.filter((target) =>
             transition!.frozen.some((source) => source.control.transitionId === target.control.transitionId),
           );
-          for (const candidate of transition.destination) {
-            for (const icon of candidate.icons) {
-              icon.item.icon = await icons.render(icon.source, icon.item.iconWidth!, icon.item.iconHeight!);
+          try {
+            for (const candidate of transition.destination) {
+              for (const icon of candidate.icons) {
+                icon.item.icon = await icons.render(icon.source, icon.item.iconWidth!, icon.item.iconHeight!);
+              }
             }
+          } catch (error) {
+            await fail(error);
+            return () => {};
           }
           transition.prepared = transition.frozen.length > 0;
         }
