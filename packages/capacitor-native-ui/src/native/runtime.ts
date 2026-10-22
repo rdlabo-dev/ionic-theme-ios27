@@ -589,21 +589,18 @@ export const createRuntime = async (
         element.setAttribute(verticalBarsMemberMarker, '');
         verticalBarsMembers.add(element);
       }
-      for (const element of accepted.flatMap(candidateSources)) {
-        const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
-        if (!sources.has(element)) {
-          sources.set(element, element.getAttribute('aria-hidden'));
-          crossfade.play(
-            element,
-            true,
-            (committingNavigation && horizontalToolbar(accepted.find((candidate) => candidateSources(candidate).includes(element))!)) ||
-              handoffInstant ||
-              (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')),
-          );
+      for (const candidate of accepted) {
+        const instant = handoffInstant || (committingNavigation && horizontalToolbar(candidate));
+        for (const element of candidateSources(candidate)) {
+          const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
+          if (!sources.has(element)) {
+            sources.set(element, element.getAttribute('aria-hidden'));
+            crossfade.play(element, true, instant || (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')));
+          }
+          element.setAttribute(marker, '');
+          element.setAttribute('aria-hidden', 'true');
+          if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIChange'));
         }
-        element.setAttribute(marker, '');
-        element.setAttribute('aria-hidden', 'true');
-        if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIChange'));
       }
       // Native has acknowledged this rendered snapshot even when a concurrent DOM
       // mutation invalidates its signature. An existing cover is still visible;
