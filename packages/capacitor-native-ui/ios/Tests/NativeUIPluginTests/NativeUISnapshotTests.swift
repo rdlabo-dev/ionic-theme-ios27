@@ -581,6 +581,15 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testClearStandaloneToolbarButtonHasNoGlassBackground() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        let node = try XCTUnwrap(decode([control(["kind": "ion-button", "items": [item(["label": "Cancel", "buttonFill": "clear"]) ]])]).controls.first)
+        let button = try XCTUnwrap(NativeUIButton.make(node, rendering: NativeUIControlRendering(), activate: { _ in }))
+        XCTAssertEqual(button.configuration?.background, UIButton.Configuration.plain().background)
+        XCTAssertEqual(button.configuration?.title, "Cancel")
+    }
+
+    @MainActor
     func testToolbarInterpolatesAtEveryPagePercentageAndRestoresOnCancellation() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
         let source = try XCTUnwrap(decode([control(["id": "source", "kind": "ion-menu-button", "transitionId": "leading",
@@ -602,8 +611,8 @@ final class NativeUISnapshotTests: XCTestCase {
             XCTAssertEqual(button.frame.minX, 10 + 20 * value, accuracy: 0.001)
             XCTAssertEqual(button.frame.width, 44 + 20 * value, accuracy: 0.001)
             XCTAssertEqual(button.alpha, 1)
-            XCTAssertEqual(old.alpha, 1 - value, accuracy: 0.001)
-            XCTAssertEqual(new.alpha, value, accuracy: 0.001)
+            XCTAssertEqual(old.alpha, value == 0 ? 1 : 0)
+            XCTAssertEqual(new.alpha, value > 0 ? 1 : 0)
             XCTAssertEqual(old.bounds.width, 44)
             XCTAssertEqual(new.bounds.width, 64)
             XCTAssertEqual(old.center.x, new.center.x, accuracy: 0.001)

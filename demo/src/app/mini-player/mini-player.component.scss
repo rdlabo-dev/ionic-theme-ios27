@@ -1,4 +1,8 @@
 :host {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 10;
   display: block;
   padding: 6px 12px;
   padding-left: calc(

@@ -53,7 +53,8 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
   // item corresponds. Explicit IDs also follow standalone buttons across slots.
   for (const { control } of candidates) {
     if (control.placement !== 'vertical-bars' && control.transitionId) {
-      control.transitionId = JSON.stringify(['surface', ...control.items.map((item) => item.transitionId).sort()]);
+      const surface = control.kind === 'button-group' ? 'group' : control.items[0]?.buttonFill === 'clear' ? 'plain' : 'glass';
+      control.transitionId = JSON.stringify(['surface', surface, ...control.items.map((item) => item.transitionId).sort()]);
     }
   }
 };

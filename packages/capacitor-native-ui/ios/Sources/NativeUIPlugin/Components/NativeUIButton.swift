@@ -33,7 +33,7 @@ enum NativeUIButton {
     @available(iOS 26.0, *)
     static func make(_ node: NativeUIControl, existing: UIButton? = nil, rendering: NativeUIControlRendering, activate: @escaping (String) -> Void) -> UIButton? {
         guard node.items.count == 1, let item = node.items.first else { return nil }
-        let control = render(item.content, glass: true, existing: existing, rendering: rendering, activate: activate)
+        let control = render(item.content, glass: item.content.buttonFill != .clear, existing: existing, rendering: rendering, activate: activate)
         control.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         return control
     }

@@ -4283,3 +4283,64 @@ test('implicit clear toolbar buttons share glass without duplicate native childr
   expect(controls[0].kind).toBe('button-group');
   expect(controls[0].items.map((item) => item.accessibilityLabel)).toEqual(['GitHub', 'Ionic']);
 });
+
+test('clear Cancel keeps its clear presentation beside a glass Save button', async ({ page }) => {
+  await mockNative(page, false, null);
+  await page.goto('/main/index/native-ui');
+  await expect(page.locator('app-native-ui ion-button').filter({ hasText: 'Cancel' })).toHaveAttribute('data-native-ui-projected', '');
+  const items = await page.evaluate(() =>
+    Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+      .updates.at(-1)!
+      .controls.flatMap((control) => control.items),
+  );
+  expect(items.find((item) => item.label === 'Cancel')?.buttonFill).toBe('clear');
+  expect(items.find((item) => item.accessibilityLabel === 'Save')?.buttonFill).toBeUndefined();
+});
+
+test('mini player does not shorten the page and outgoing translucent toolbar fades during navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page, false, null);
+  await page.addInitScript(() =>
+    document.addEventListener('ionViewDidEnter', (event) => (event.target as HTMLElement).setAttribute('data-test-did-enter', ''), true),
+  );
+  await page.goto('/main/index');
+  await expect(page.locator('index-page')).toHaveAttribute('data-test-did-enter', '');
+  await page.getByText('Native UI Extension', { exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)?.toolbarTransition?.id))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          document
+            .getAnimations()
+            .some((animation) => animation.playState === 'running' && Number(animation.effect?.getTiming().duration) > 0),
+        ),
+      { intervals: [10, 20, 50] },
+    )
+    .toBe(true);
+  for (const percentage of [0.1, 0.2, 0.4, 0.6, 0.8, 0.4, 0.2, 0]) {
+    await page.evaluate(
+      (percentage) =>
+        document.getAnimations().forEach((animation) => {
+          animation.pause();
+          animation.currentTime = Number(animation.effect!.getTiming().duration) * percentage;
+        }),
+      percentage,
+    );
+    const geometry = await page.evaluate(() => {
+      const page = document.querySelector('index-page')!;
+      const buttons = page.querySelector('ion-header:not([collapse]) ion-buttons[slot=end]')!;
+      return { bottom: page.getBoundingClientRect().bottom, viewport: innerHeight, opacity: Number(getComputedStyle(buttons).opacity) };
+    });
+    expect(geometry.bottom).toBeGreaterThanOrEqual(geometry.viewport - 1);
+    if (percentage === 0) expect(geometry.opacity).toBe(1);
+    else expect(geometry.opacity).toBeLessThan(0.9);
+    if (percentage >= 0.2) expect(geometry.opacity).toBe(0);
+    await expect(page.locator('index-page ion-header:not([collapse]) ion-buttons[slot=end]')).not.toHaveAttribute(
+      'data-native-ui-projected',
+    );
+  }
+  await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
+});

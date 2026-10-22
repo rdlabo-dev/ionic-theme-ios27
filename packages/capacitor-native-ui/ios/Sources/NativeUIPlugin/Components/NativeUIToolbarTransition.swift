@@ -88,7 +88,9 @@ final class NativeUIToolbarTransition {
                 // Resizing both labels would truncate the destination until the transition ends.
                 content.bounds = CGRect(origin: .zero, size: (incoming ? to : from).size)
                 content.center = CGPoint(x: position.midX, y: position.midY)
-                content.alpha = unchanged ? 1 : incoming ? value : 1 - value
+                // Matched native toolbar content adopts the destination as playback starts.
+                // Crossfading both glyphs superimposes Menu/Back and old/new titles.
+                content.alpha = unchanged ? 1 : incoming ? (value > 0 ? 1 : 0) : (value == 0 ? 1 : 0)
             }
             restorations.append { content.removeFromSuperview() }
         }

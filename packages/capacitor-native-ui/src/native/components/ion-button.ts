@@ -21,5 +21,8 @@ export const read = (element: HTMLElement, id: Identify, options: VerticalContro
   )
     return;
   const candidate = createCandidate(element, tag, id, options);
-  return appendItem(candidate, element, id) ? candidate : undefined;
+  const item = appendItem(candidate, element, id);
+  if (!item) return;
+  if (!verticalBars && (fill === 'clear' || (group && button.fill === undefined))) item.buttonFill = 'clear';
+  return candidate;
 };

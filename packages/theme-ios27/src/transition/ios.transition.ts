@@ -1,4 +1,5 @@
 import { createIosTransitionAnimation, shadow } from '@rdlabo/ionic-theme-utils';
+import { createAnimation } from '@ionic/core/components';
 import type { Animation } from '@ionic/core/components';
 import type { TransitionOptions } from './index';
 import { getIonPageElement } from './index';
@@ -24,6 +25,24 @@ export const setConfig = (config: Partial<IosTransitionConfig>): void => {
   if (config.radius !== undefined) nativeWebViewMetrics.radius = config.radius;
 };
 
-export const iosTransitionAnimation: (navEl: HTMLElement, opts: TransitionOptions) => Animation = withNativeUITransition(
-  createIosTransitionAnimation<TransitionOptions>(transitionConfig),
-);
+const buildTransition = createIosTransitionAnimation<TransitionOptions>(transitionConfig);
+export const iosTransitionAnimation: (navEl: HTMLElement, opts: TransitionOptions) => Animation = withNativeUITransition((navEl, opts) => {
+  const animation = buildTransition(navEl, opts);
+  // Translucent pages move as a whole, but outgoing toolbar actions still need
+  // the same exit fade as opaque headers when they return from native to Web.
+  const buttons = opts.leavingEl?.querySelectorAll(
+    ':scope > ion-header.header-translucent ion-buttons, :scope > ion-header.header-translucent ion-toolbar > ion-button',
+  );
+  if (buttons?.length)
+    animation.addAnimation(
+      createAnimation()
+        .addElement(buttons)
+        .keyframes([
+          { offset: 0, opacity: 1 },
+          // Finish the exit before the incoming title occupies this toolbar.
+          { offset: 0.5, opacity: 0 },
+          { offset: 1, opacity: 0 },
+        ]),
+    );
+  return animation;
+});
