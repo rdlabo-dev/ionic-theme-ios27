@@ -7,12 +7,17 @@ export const horizontalToolbar = (candidate: Candidate): boolean =>
   ['button', 'button-group', 'back-button', 'menu-button'].includes(candidate.control.kind) &&
   inFixedToolbar(candidate.element);
 
-/** Keep the acknowledged native toolbar while Ionic moves the page underneath it.
- * The destination is committed after playback, never measured in moving coordinates.
+/** Prepare stationary toolbar endpoints before playback. Native presentation follows
+ * the page clock; source actions change only when navigation commits.
  */
 export const createHorizontalNavigation = () => {
+  let sequence = 0;
   let current:
     | {
+        id: number;
+        destination: Candidate[];
+        prepared: boolean;
+        native: boolean;
         scopes: Set<HTMLElement>;
         frozen: Candidate[];
         phase: 'playing' | 'settling' | 'committing';
@@ -32,6 +37,10 @@ export const createHorizontalNavigation = () => {
       if (current && ((leased && current.leased) || current.phase !== 'playing')) clear();
       if (!current)
         current = {
+          id: ++sequence,
+          destination: [],
+          prepared: false,
+          native: false,
           scopes: new Set(),
           frozen: acknowledged
             .filter((candidate) => horizontalToolbar(candidate) && scopes.some((scope) => scope.contains(candidate.element)))
@@ -44,12 +53,12 @@ export const createHorizontalNavigation = () => {
       current.leased ||= leased;
       return current;
     },
-    mask(candidates: Candidate[]) {
+    mask(candidates: Candidate[], all = false) {
       if (!current || current.phase !== 'playing') return;
       for (const candidate of candidates.filter(horizontalToolbar)) {
         // Only hide a destination that already has a retained native counterpart.
         // New controls keep Ionic's entry animation and stay Web until native acknowledges them.
-        if (!current.frozen.some((previous) => previous.control.transitionId === candidate.control.transitionId)) continue;
+        if (!all && !current.frozen.some((previous) => previous.control.transitionId === candidate.control.transitionId)) continue;
         for (const source of candidate.sources ?? [candidate.element]) {
           source.setAttribute(navigationMarker, '');
           current.masked.add(source);

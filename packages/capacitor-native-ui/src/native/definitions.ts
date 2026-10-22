@@ -220,6 +220,8 @@ export interface NativeUISearchEvent extends NativeUIActivation {
 export interface NativeUISnapshot {
   revision: number;
   transitionDuration?: number;
+  /** Prepared native toolbar endpoints, controlled by the page animation clock. */
+  toolbarTransition?: { id: number; sourceIds: string[]; destination: NativeUIControl[] };
   viewportWidth: number;
   /** Physical side the native rail is drawn on; the runtime resolves the logical edge through the document direction. */
   verticalBarEdge?: 'left' | 'right';
@@ -253,7 +255,10 @@ export interface NativeUIPlugin {
   dismissOverlay(options: { id: string; animated: boolean }): Promise<void>;
   closeOverlay(options: { id: string }): Promise<void>;
   stopOverlays(): Promise<void>;
-  update(snapshot: NativeUISnapshot): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[] }>;
+  update(
+    snapshot: NativeUISnapshot,
+  ): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[]; toolbarTransition?: number }>;
+  setToolbarTransitionProgress(options: { id: number; progress: number }): Promise<void>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: NativeUIActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: NativeUISearchEvent) => void): Promise<PluginListenerHandle>;

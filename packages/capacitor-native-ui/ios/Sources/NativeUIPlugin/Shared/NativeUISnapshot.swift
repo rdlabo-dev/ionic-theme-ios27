@@ -24,15 +24,29 @@ enum NativeUIComponent: String, Decodable {
     }
 }
 
+struct NativeUIToolbarTransitionSnapshot: Decodable {
+    let id: Int
+    let sourceIds: [String]
+    let destination: [NativeUIControl]
+    var isValid: Bool {
+        id > 0 && sourceIds.count <= 100 && Set(sourceIds).count == sourceIds.count && destination.count <= 100 &&
+        Set(destination.map(\.id)).count == destination.count && destination.allSatisfy {
+            $0.isValid && $0.placement == nil && (NativeUIButton.kinds + [.buttons]).contains($0.kind)
+        }
+    }
+}
+
 struct NativeUISnapshot: Decodable {
     let revision: Int
     let transitionDuration: Double?
+    let toolbarTransition: NativeUIToolbarTransitionSnapshot?
     let viewportWidth: Double
     let verticalBarFrame: NativeUIFrame?
     let verticalBarEdge: String?
     let controls: [NativeUIControl]
 
     var isValid: Bool {
+        (toolbarTransition.map { $0.isValid && Set($0.sourceIds).isSubset(of: Set(controls.map(\.id))) } ?? true) &&
         revision >= 0 && (transitionDuration.map { $0.isFinite && $0 >= 0 && $0 <= 500 } ?? true) && viewportWidth.isFinite && viewportWidth > 0 && controls.count <= 100 &&
         (verticalBarFrame.map { $0.isValid } ?? true) &&
         (verticalBarEdge == nil || verticalBarEdge == "left" || verticalBarEdge == "right") &&

@@ -10,7 +10,7 @@ import type { Animation } from '@ionic/core';
 import { configureNativeTransition, enableNativeUI } from '../../packages/capacitor-native-ui/src/native';
 import { iosTransitionAnimation } from '../../packages/theme-ios27/src/transition/ios.transition';
 
-const fixture = () => {
+const fixture = (trackProgress = false) => {
   const doc = {} as Document;
   const page = { ownerDocument: doc } as HTMLElement;
   const calls: string[] = [];
@@ -22,7 +22,9 @@ const fixture = () => {
   setNativeUIIntegration(doc, {
     suspend: async () => {
       await pending;
-      return (canceled = false) => calls.push(`resume:${canceled}`);
+      return Object.assign((canceled = false) => calls.push(`resume:${canceled}`), {
+        progress: trackProgress ? (value: number) => calls.push(`native:${value}`) : undefined,
+      });
     },
   });
   const animation = {
@@ -241,4 +243,17 @@ test('re-registering a cached search footer replaces its binding without waiting
   }
   const second = registerNativeSearch(tabBar, trigger, {} as HTMLElement);
   expect(getNativeSearchBindings(doc)).toEqual([retained.at(-1), second]);
+});
+
+test('interactive page progress reaches the native toolbar before completion and reverses on cancellation', async () => {
+  const { animation, calls, ready, finish } = fixture(true);
+  animation.progressStart(true);
+  animation.progressStep(0.2);
+  ready();
+  await expect.poll(() => calls).toEqual(['start', 'step:0.2', 'native:0.2']);
+  animation.progressStep(0.6);
+  animation.progressStep(0.4);
+  expect(calls.slice(-4)).toEqual(['step:0.6', 'native:0.6', 'step:0.4', 'native:0.4']);
+  finish(0);
+  expect(calls.slice(-2)).toEqual(['native:0', 'resume:true']);
 });

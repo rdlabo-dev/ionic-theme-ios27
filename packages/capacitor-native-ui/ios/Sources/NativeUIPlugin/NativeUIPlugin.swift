@@ -12,6 +12,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getVerticalBarsGeometry", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setToolbarTransitionProgress", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prepareOverlay", returnType: CAPPluginReturnPromise),
@@ -21,6 +22,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         CAPPluginMethod(name: "stopOverlays", returnType: CAPPluginReturnPromise)
     ]
     private var overlays: NativeUIOverlayController?
+    private var toolbarTransition: NativeUIToolbarTransition?
     private var host: NativeUIHost?
     private var verticalBars: NativeUIVerticalBarsControlling?
     private var controls: [String: UIView] = [:]
@@ -306,6 +308,8 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     }
 
     private func removeControls(duration: TimeInterval = 0) {
+        toolbarTransition?.restore()
+        toolbarTransition = nil
         extensionActions.cancel()
         extensionNodes.removeAll()
         extensionSessions.removeAll()
@@ -347,6 +351,16 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
+    @objc func setToolbarTransitionProgress(_ call: CAPPluginCall) {
+        guard let id = call.getInt("id"), let progress = call.getDouble("progress"), progress.isFinite, (0...1).contains(progress) else {
+            call.reject("Invalid toolbar progress"); return
+        }
+        DispatchQueue.main.async { [weak self] in
+            if let transition = self?.toolbarTransition, transition.id == id { transition.setProgress(progress) }
+            call.resolve()
+        }
+    }
+
     @objc func update(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { call.reject("Plugin released"); return }
@@ -359,6 +373,10 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             // Decode and validate the entire batch before changing visible controls.
             guard let snapshot = try? call.decode(NativeUISnapshot.self), snapshot.isValid else {
                 call.reject("Invalid control snapshot"); return
+            }
+            if self.toolbarTransition?.id != snapshot.toolbarTransition?.id {
+                self.toolbarTransition?.restore()
+                self.toolbarTransition = nil
             }
             self.notifyWebViewMetricsChange()
             let duration = NativeUICrossfade.duration(snapshot.transitionDuration)
@@ -375,7 +393,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             let verticalSearchActive = verticalBars.contains { $0.search.map { $0.available && $0.active } ?? false }
             let width = snapshot.viewportWidth
             self.revision = next
-            if snapshots.isEmpty && verticalBars.isEmpty && accessories.isEmpty {
+            if snapshots.isEmpty && verticalBars.isEmpty && accessories.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.removeControls(duration: duration)
                 call.resolve(["revision": next]); return
             }
@@ -430,7 +448,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 accessoryContent = content
             }
             self.verticalBars?.setAccessory(accessoryContent)
-            if snapshots.isEmpty {
+            if snapshots.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.host?.removeFromSuperview()
                 self.host = nil
                 call.resolve(["revision": next, "rejectedControls": rejectedControls])
@@ -543,7 +561,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     guard let control = self.controls[id] else { reject(); continue }
                     if let tabBar = control as? UITabBar {
                         guard NativeUITabBar.fit(tabBar, node: node, bounds: bounds) else { reject(); continue }
-                    } else if control.frame != bounds {
+                    } else if control.frame != bounds && !(self.toolbarTransition?.sourceIds.contains(id) ?? false) {
                         control.frame = bounds
                     }
                     control.overrideUserInterfaceStyle = node.dark ? .dark : .light
@@ -585,7 +603,18 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             for (id, control) in self.controls where !existing.contains(id) && self.searchControllers[id] == nil {
                 NativeUICrossfade.enter(control, duration: duration)
             }
-            let complete = { call.resolve(["revision": next, "rejectedSearches": rejectedSearches, "rejectedControls": rejectedControls]) }
+            if let prepared = snapshot.toolbarTransition {
+                if self.toolbarTransition == nil {
+                    let origin = webView.convert(webView.bounds.origin, to: host)
+                    self.toolbarTransition = NativeUIToolbarTransition(prepared, sources: snapshots, controls: self.controls,
+                        host: host, scale: scale, origin: origin, rendering: self.rendering)
+                } else if let transition = self.toolbarTransition { transition.setProgress(transition.progress) }
+            }
+            let complete = {
+                var result: [String: Any] = ["revision": next, "rejectedSearches": rejectedSearches, "rejectedControls": rejectedControls]
+                if let transition = self.toolbarTransition { result["toolbarTransition"] = transition.id }
+                call.resolve(result)
+            }
             if let coordinator = searches.first?.0.transitionCoordinator,
                coordinator.animate(alongsideTransition: nil, completion: { _ in complete() }) { return }
             complete()

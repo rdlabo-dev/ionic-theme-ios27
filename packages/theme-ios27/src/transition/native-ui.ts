@@ -1,3 +1,4 @@
+import type { NativeUITransitionRelease } from '@rdlabo/capacitor-native-ui/integration';
 import type { Animation } from '@ionic/core/components';
 import { hasNativeUIIntegration, suspendNativeUI, VERTICAL_BARS_TRANSITION_CANCELED } from '@rdlabo/capacitor-native-ui/integration';
 import type { AnimationBuilder } from '@ionic/core/components';
@@ -34,7 +35,24 @@ export const connectNativeUITransition = (animation: Animation, entering: HTMLEl
   const progressStep = animation.progressStep.bind(animation);
   const progressEnd = animation.progressEnd.bind(animation);
   const destroy = animation.destroy.bind(animation);
-  let release: ((canceled?: boolean) => void) | undefined;
+  let release: NativeUITransitionRelease | undefined;
+  let frame = 0;
+  const win = entering.ownerDocument.defaultView;
+  const webAnimations = (value: Animation): globalThis.Animation[] => [
+    ...value.getWebAnimations(),
+    ...value.childAnimations.flatMap(webAnimations),
+  ];
+  const track = () => {
+    if (!release?.progress || !win) return;
+    const sample = () => {
+      const progress = webAnimations(animation)
+        .map((value) => value.effect?.getComputedTiming().progress)
+        .find((value) => value != null);
+      if (progress != null) release?.progress?.(progress);
+      frame = win.requestAnimationFrame(sample);
+    };
+    frame = win.requestAnimationFrame(sample);
+  };
   let preparation: Promise<void> | undefined;
   let disposed = false;
   let interactiveReady = false;
@@ -46,6 +64,9 @@ export const connectNativeUITransition = (animation: Animation, entering: HTMLEl
       else release = resume;
     }));
   const finish = (canceled = false) => {
+    if (frame) win?.cancelAnimationFrame(frame);
+    frame = 0;
+    release?.progress?.(canceled ? 0 : 1);
     release?.(canceled);
     release = undefined;
     preparation = undefined;
@@ -55,7 +76,9 @@ export const connectNativeUITransition = (animation: Animation, entering: HTMLEl
     await prepare();
     if (disposed) return;
     try {
-      await play(options);
+      const playing = play(options);
+      track();
+      await playing;
     } finally {
       finish();
     }
@@ -67,15 +90,22 @@ export const connectNativeUITransition = (animation: Animation, entering: HTMLEl
     void prepare().then(() => {
       if (disposed) return;
       progressStart(...args);
+      track();
       interactiveReady = true;
-      if (step !== undefined) progressStep(step);
+      if (step !== undefined) {
+        progressStep(step);
+        release?.progress?.(step);
+      }
       if (end) progressEnd(...end);
     });
     return animation;
   };
   animation.progressStep = (value) => {
     step = value;
-    if (interactiveReady) progressStep(value);
+    if (interactiveReady) {
+      progressStep(value);
+      release?.progress?.(value);
+    }
     return animation;
   };
   animation.progressEnd = (...args) => {

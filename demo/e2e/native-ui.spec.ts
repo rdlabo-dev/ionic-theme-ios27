@@ -9,6 +9,7 @@ import type { NativeUIMockCore, TestAppElement } from './native-ui-mock';
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
 interface NativeUIMock extends NativeUIMockCore {
+  toolbarProgress: { id: number; progress: number }[];
   delay: number;
   hang: boolean;
   rejectInactiveSearch: boolean;
@@ -26,6 +27,10 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
   const script = ([fail, nativeEdge]: readonly [boolean, 'leading' | 'trailing' | null | 'unreported']) => {
     const mock = {
       updates: [] as NativeUISnapshot[],
+      toolbarProgress: [] as { id: number; progress: number }[],
+      async setToolbarTransitionProgress(value: { id: number; progress: number }) {
+        this.toolbarProgress.push(value);
+      },
       sequence: 0,
       delay: 0,
       hang: false,
@@ -74,11 +79,16 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
         this.updates.push({ revision: options.revision, viewportWidth: 0, controls: [] });
         return this.rejections(options);
       },
-      async rejections(options: { revision?: number; controls?: NativeUIControl[] }) {
+      async rejections(options: {
+        revision?: number;
+        controls?: NativeUIControl[];
+        toolbarTransition?: NativeUISnapshot['toolbarTransition'];
+      }) {
         if (this.delay) await new Promise((resolve) => setTimeout(resolve, this.delay));
         if (fail && options.controls?.length) throw new Error('Test native failure');
         return {
           revision: options.revision,
+          toolbarTransition: options.toolbarTransition?.id,
           rejectedSearches:
             this.rejectInactiveSearch || this.rejectAllSearch
               ? options.controls
@@ -4191,3 +4201,51 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
     await expect(page).toHaveURL(/\/main\/index$/);
   });
 }
+
+test('toolbar follows paused page percentages and reverses before navigation completes', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page, false, null);
+  await page.addInitScript(() => {
+    document.addEventListener('ionViewDidEnter', (event) => (event.target as HTMLElement).setAttribute('data-test-did-enter', ''), true);
+  });
+  await page.goto('/main/index');
+  await expect(page.locator('index-page')).toHaveAttribute('data-test-did-enter', '');
+  await expect(page.locator('index-page ion-buttons[slot=start]')).toHaveAttribute('data-native-ui-projected', '');
+  await page.getByText('native-ui', { exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)?.toolbarTransition?.id))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          document
+            .getAnimations()
+            .some((animation) => animation.playState === 'running' && Number(animation.effect?.getTiming().duration) > 0),
+        ),
+      { intervals: [10, 20, 50] },
+    )
+    .toBe(true);
+  for (const percentage of [0, 0.2, 0.4, 0.6, 0.8, 0.4, 0.2]) {
+    const expected = await page.evaluate((percentage) => {
+      const animations = document.getAnimations().filter((animation) => Number(animation.effect?.getTiming().duration) > 0);
+      animations.forEach((animation) => {
+        animation.pause();
+        animation.currentTime = Number(animation.effect!.getTiming().duration) * percentage;
+      });
+      return animations[0].effect!.getComputedTiming().progress!;
+    }, percentage);
+    await expect
+      .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').toolbarProgress.at(-1)?.progress))
+      .toBeCloseTo(expected, 3);
+    const prepared = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.toolbarTransition);
+    expect(prepared?.destination.some((control) => control.kind === 'back-button')).toBe(true);
+    if (percentage > 0) expect(expected).toBeGreaterThan(0);
+    expect(expected).toBeLessThan(1);
+  }
+  await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
+  await expect(page.locator('app-native-ui ion-back-button')).toHaveAttribute('data-native-ui-projected', '');
+  await expect
+    .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.toolbarTransition))
+    .toBeUndefined();
+});

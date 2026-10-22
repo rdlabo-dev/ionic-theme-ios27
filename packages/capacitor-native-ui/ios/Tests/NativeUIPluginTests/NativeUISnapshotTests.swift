@@ -581,6 +581,80 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testToolbarInterpolatesAtEveryPagePercentageAndRestoresOnCancellation() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        let source = try XCTUnwrap(decode([control(["id": "source", "kind": "ion-menu-button", "transitionId": "leading",
+            "x": 10.0, "width": 44.0, "items": [item(["id": "menu", "label": "Menu", "transitionId": "button", "width": 44.0]) ]])]).controls.first)
+        let destination = try XCTUnwrap(decode([control(["id": "target", "kind": "ion-back-button", "transitionId": "leading",
+            "x": 30.0, "width": 64.0, "items": [item(["id": "back", "label": "Back", "transitionId": "button", "width": 64.0]) ]])]).controls.first)
+        let host = UIView()
+        let rendering = NativeUIControlRendering()
+        let button = try XCTUnwrap(NativeUIButton.make(source, rendering: rendering, activate: { _ in }))
+        button.frame = source.frame.rect
+        host.addSubview(button)
+        let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [source.id], destination: [destination]),
+            sources: [source], controls: [source.id: button], host: host, scale: 1, origin: .zero, rendering: rendering)
+        let contents = button.subviews.compactMap { $0 as? UIButton }
+        let old = try XCTUnwrap(contents.first { $0.accessibilityIdentifier == "menu" })
+        let new = try XCTUnwrap(contents.first { $0.accessibilityIdentifier == "back" })
+        for value in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 0.4, 0.0] {
+            transition.setProgress(value)
+            XCTAssertEqual(button.frame.minX, 10 + 20 * value, accuracy: 0.001)
+            XCTAssertEqual(button.frame.width, 44 + 20 * value, accuracy: 0.001)
+            XCTAssertEqual(button.alpha, 1)
+            XCTAssertEqual(old.alpha, 1 - value, accuracy: 0.001)
+            XCTAssertEqual(new.alpha, value, accuracy: 0.001)
+            XCTAssertEqual(old.bounds.width, 44)
+            XCTAssertEqual(new.bounds.width, 64)
+            XCTAssertEqual(old.center.x, new.center.x, accuracy: 0.001)
+        }
+        transition.restore()
+        XCTAssertEqual(button.frame, source.frame.rect)
+        XCTAssertEqual(button.configuration?.title, "Menu")
+        XCTAssertNil(new.superview)
+    }
+
+    @MainActor
+    func testUnchangedBackContentStaysOpaqueAtEveryPagePercentage() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        let source = try XCTUnwrap(decode([control(["id": "source", "kind": "ion-back-button", "transitionId": "leading",
+            "items": [item(["id": "old", "label": "Back", "transitionId": "button"]) ]])]).controls.first)
+        let destination = try XCTUnwrap(decode([control(["id": "target", "kind": "ion-back-button", "transitionId": "leading",
+            "items": [item(["id": "new", "label": "Back", "transitionId": "button"]) ]])]).controls.first)
+        let host = UIView()
+        let rendering = NativeUIControlRendering()
+        let button = try XCTUnwrap(NativeUIButton.make(source, rendering: rendering, activate: { _ in }))
+        host.addSubview(button)
+        let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [source.id], destination: [destination]),
+            sources: [source], controls: [source.id: button], host: host, scale: 1, origin: .zero, rendering: rendering)
+        let contents = button.subviews.compactMap { $0 as? UIButton }
+        XCTAssertEqual(contents.count, 1)
+        for value in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] {
+            transition.setProgress(value)
+            XCTAssertEqual(contents.first?.alpha, 1)
+        }
+        transition.restore()
+    }
+
+    @MainActor
+    func testNewToolbarButtonAppearsDuringProgressAndCancellationRemovesIt() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        let destination = try XCTUnwrap(decode([control(["id": "target", "kind": "ion-back-button",
+            "items": [item(["id": "new", "label": "Back"]) ]])]).controls.first)
+        let host = UIView()
+        let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [], destination: [destination]),
+            sources: [], controls: [:], host: host, scale: 1, origin: .zero, rendering: NativeUIControlRendering())
+        let button = try XCTUnwrap(host.subviews.first)
+        for value in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 0.4, 0.0] {
+            transition.setProgress(value)
+            XCTAssertEqual(button.alpha, value, accuracy: 0.001)
+            XCTAssertEqual(button.transform.a, 0.2 + 0.8 * value, accuracy: 0.001)
+        }
+        transition.restore()
+        XCTAssertTrue(host.subviews.isEmpty)
+    }
+
+    @MainActor
     func testMenuToBackReusesButtonAndReplacesItsAction() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native glass buttons") }
         let menu = try XCTUnwrap(decode([control(["id": "menu-control", "kind": "ion-menu-button",

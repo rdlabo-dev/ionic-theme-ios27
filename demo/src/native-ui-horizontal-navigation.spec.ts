@@ -11,7 +11,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   document.body.replaceChildren();
 });
-const fixture = async (from = 'Edit', to = 'Done') => {
+const fixture = async (from = 'Edit', to = 'Done', nativeProgress = false) => {
   document.body.innerHTML = `<ion-app><main class="ion-page" id="from"><ion-header><ion-toolbar>
     ${from ? `<button slot="${from === 'Menu' || from === 'Back' ? 'start' : 'end'}" data-native-ui="${from === 'Back' ? 'back-button' : 'button'}">${from}</button>` : ''}
     </ion-toolbar></ion-header></main><main class="ion-page ion-page-hidden" id="to"><ion-header><ion-toolbar>
@@ -37,14 +37,18 @@ const fixture = async (from = 'Edit', to = 'Done') => {
   const snapshots: NativeUISnapshot[] = [];
   const listeners = new Map<string, (event: any) => void>();
   let acknowledge: ((snapshot: NativeUISnapshot) => Promise<{ revision: number }>) | undefined;
+  const progress = vi.fn(async (_: { id: number; progress: number }) => {});
   const plugin = {
+    setToolbarTransitionProgress: progress,
     addListener: async (name: string, listener: (event: any) => void) => {
       listeners.set(name, listener);
       return { remove: async () => {} };
     },
     update: async (snapshot: NativeUISnapshot) => {
       snapshots.push(snapshot);
-      return acknowledge ? acknowledge(snapshot) : { revision: snapshot.revision };
+      return acknowledge
+        ? acknowledge(snapshot)
+        : { revision: snapshot.revision, toolbarTransition: nativeProgress ? snapshot.toolbarTransition?.id : undefined };
     },
     clear: async () => {},
   } as unknown as NativeUIPlugin;
@@ -55,6 +59,7 @@ const fixture = async (from = 'Edit', to = 'Done') => {
   const emit = (page: HTMLElement, type: string) => page.dispatchEvent(new CustomEvent(type, { bubbles: true }));
   return {
     snapshots,
+    progress,
     leaving,
     entering,
     listeners,
@@ -67,14 +72,17 @@ const fixture = async (from = 'Edit', to = 'Done') => {
       emit(leaving, 'ionViewWillLeave');
       const release = await suspendNativeUI([entering, leaving], { navigation: true });
       entering.classList.remove('ion-page-invisible');
-      return (canceled = false) => {
-        (canceled ? entering : leaving).classList.add('ion-page-hidden');
-        release(canceled);
-        if (!canceled) {
-          emit(leaving, 'ionViewDidLeave');
-          emit(entering, 'ionViewDidEnter');
-        }
-      };
+      return Object.assign(
+        (canceled = false) => {
+          (canceled ? entering : leaving).classList.add('ion-page-hidden');
+          release(canceled);
+          if (!canceled) {
+            emit(leaving, 'ionViewDidLeave');
+            emit(entering, 'ionViewDidEnter');
+          }
+        },
+        { progress: release.progress },
+      );
     },
   };
 };
@@ -88,6 +96,7 @@ test('navigation retains the acknowledged native toolbar without exposing either
   old.addEventListener('click', oldClick);
   next.addEventListener('click', nextClick);
   const release = await f.start();
+  expect(release.progress).toBeUndefined(); // Older native acknowledgements do not expose the new bridge method.
   expect(old.hasAttribute('data-native-ui-projected')).toBe(true);
   expect(next.hasAttribute('data-native-ui-navigation-source')).toBe(true);
   expect(f.snapshots.every((snapshot) => snapshot.controls.some((control) => control.items[0]?.label === 'Edit'))).toBe(true);
@@ -326,4 +335,20 @@ test('a temporarily transparent main header still associates its Back before pla
   header.style.opacity = '1';
   release();
   await vi.waitFor(() => expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(true));
+});
+
+test('native toolbar receives prepared endpoints and reversible page progress before completion', async () => {
+  const f = await fixture('Menu', 'Back', true);
+  const release = await f.start();
+  const prepared = f.snapshots.at(-1)!.toolbarTransition!;
+  expect(prepared.destination[0].items[0].label).toBe('Back');
+  expect(prepared.sourceIds).toEqual([f.snapshots.at(-1)!.controls[0].id]);
+  expect(release.progress).toBeTypeOf('function');
+  for (const progress of [0, 0.2, 0.4, 0.6, 0.8, 1, 0.4, 0]) {
+    release.progress!(progress);
+    await vi.waitFor(() => expect(f.progress).toHaveBeenLastCalledWith({ id: prepared.id, progress }));
+  }
+  release(true);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined());
+  expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Menu');
 });

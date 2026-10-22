@@ -16,6 +16,7 @@ import { projectionIds } from './shared/projection-id';
 import { inVerticalBarsSurface, topModal, modalUsesVerticalBars, modalVerticalBarFrame } from './shared/modal';
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from './shared/events';
+import type { NativeUITransitionRelease } from '../native-integration';
 import { VERTICAL_BARS_TRANSITION_CANCELED, getNativeSearchBindings, setNativeUIIntegration } from '../native-integration';
 import { createSearchSupport } from './components/searchable-tabs';
 import type {
@@ -507,7 +508,16 @@ export const createRuntime = async (
             : undefined;
       const modal = topModal(doc);
       const verticalBarFrame = modal && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
+      const transition = navigation.current;
       const data = {
+        toolbarTransition:
+          transition?.prepared && transition.phase !== 'committing'
+            ? {
+                id: transition.id,
+                sourceIds: transition.frozen.map((candidate) => candidate.control.id),
+                destination: transition.destination.map((candidate) => candidate.control),
+              }
+            : undefined,
         verticalBarFrame,
         viewportWidth: win.innerWidth,
         verticalBarEdge,
@@ -527,6 +537,10 @@ export const createRuntime = async (
       const result = await bounded(plugin.update(snapshot));
       if (stopped || (retentions.size && !manualSuspensions.size)) return;
       if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
+      if (transition && navigation.current === transition && result.toolbarTransition === transition.id) {
+        transition.native = true;
+        navigation.mask(transition.destination, true);
+      }
       if (`${win.innerWidth}:${win.innerHeight}` !== size) {
         lastSnapshot = '';
         dirty = true;
@@ -703,6 +717,7 @@ export const createRuntime = async (
         ),
       );
       assignToolbarTransitionIds(candidates);
+      navigation.current.destination = candidates;
       navigation.mask(candidates);
     } finally {
       headers.forEach((header, index) => {
@@ -1065,6 +1080,12 @@ export const createRuntime = async (
         if (suspensionOptions?.navigation && !manualSuspensions.size && !overlayOpen() && !tabSwitchHandoff) {
           transition = navigation.begin(scopes, acknowledged, true);
           maskNavigationPage(scopes[0]);
+          for (const candidate of transition.destination) {
+            for (const icon of candidate.icons) {
+              icon.item.icon = await icons.render(icon.source, icon.item.iconWidth!, icon.item.iconHeight!);
+            }
+          }
+          transition.prepared = transition.frozen.length > 0 || transition.destination.length > 0;
         }
         getNativeSearchBindings(doc)
           .filter((binding) => scopes.some((scope) => scope.contains(binding.footer) || scope.contains(binding.tabBar)))
@@ -1073,7 +1094,7 @@ export const createRuntime = async (
         await flush();
         // Moving content has returned to Web; fixed toolbar covers remain native for navigation.
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
-        return (canceled = false) => {
+        const release: NativeUITransitionRelease = (canceled = false) => {
           suspended.delete(scopes);
           if (canceled || !scopes.some((scope) => scope.closest('ion-app.ios-theme-vertical-bars'))) {
             scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
@@ -1084,6 +1105,29 @@ export const createRuntime = async (
           if (transition) finishNavigation(transition);
           schedule();
         };
+        if (transition?.native) {
+          let requested = 0;
+          let sent = -1;
+          let sending = false;
+          release.progress = (value) => {
+            requested = Math.max(0, Math.min(1, value));
+            if (sending || requested === sent || navigation.current !== transition) return;
+            sending = true;
+            void (async () => {
+              try {
+                do {
+                  sent = requested;
+                  await bounded(plugin.setToolbarTransitionProgress({ id: transition.id, progress: sent }));
+                } while (requested !== sent && navigation.current === transition);
+              } catch (error) {
+                await fail(error);
+              } finally {
+                sending = false;
+              }
+            })();
+          };
+        }
+        return release;
       },
     });
     on(win, 'pagehide', () => {

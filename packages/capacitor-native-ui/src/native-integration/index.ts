@@ -1,12 +1,14 @@
 /// <reference lib="es2021.weakref" />
 
 export interface NativeUISuspensionOptions {
-  /** Navigation-only retention; omitted for explicit Web ownership requests. */
+  /** Navigation-only toolbar handoff; omitted for explicit Web ownership requests. */
   navigation?: boolean;
 }
 
+export type NativeUITransitionRelease = ((canceled?: boolean) => void) & { progress?: (value: number) => void };
+
 export interface NativeUIIntegration {
-  suspend(scopes: HTMLElement[], options?: NativeUISuspensionOptions): Promise<(canceled?: boolean) => void>;
+  suspend(scopes: HTMLElement[], options?: NativeUISuspensionOptions): Promise<NativeUITransitionRelease>;
   search?(binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean>;
 }
 
@@ -47,7 +49,7 @@ export const hasNativeUIIntegration = (doc: Document): boolean => runtimes.has(d
 
 export const isNativeUI = (element: HTMLElement) => element.hasAttribute('data-native-ui-projected');
 
-export const suspendNativeUI = async (scopes: HTMLElement[], options?: NativeUISuspensionOptions): Promise<(canceled?: boolean) => void> =>
+export const suspendNativeUI = async (scopes: HTMLElement[], options?: NativeUISuspensionOptions): Promise<NativeUITransitionRelease> =>
   (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes, options)) ?? (() => {});
 
 /** Shared geometry used by the theme's transition adapter; no theme import in the plugin. */
