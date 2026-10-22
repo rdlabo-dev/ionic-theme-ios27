@@ -55,13 +55,13 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
       - if: matrix.ionic-major == 8
-        run: npm install --no-save --package-lock=false --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
+        run: npm install --no-save --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
       - run: npm run build
 
       - run: npm ci --no-audit --no-fund
         working-directory: './demo'
       - name: Install matching Ionic and ESLint plugin versions
-        run: npm install --no-save --package-lock=false --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
+        run: npm install --no-save --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
         working-directory: './demo'
 
       - name: Run Playwright tests
