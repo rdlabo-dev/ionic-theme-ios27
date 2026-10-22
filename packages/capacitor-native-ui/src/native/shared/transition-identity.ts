@@ -24,7 +24,9 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     counts.set(slot, position + 1);
     const explicitSurface =
       element.getAttribute('data-transition-id')?.trim() ||
-      (control.items.length === 1 ? candidate.actions.get(control.items[0].id)?.getAttribute('data-transition-id')?.trim() : undefined);
+      (!element.matches('ion-buttons') && control.items.length === 1
+        ? candidate.actions.get(control.items[0].id)?.getAttribute('data-transition-id')?.trim()
+        : undefined);
     const surfaceId = JSON.stringify(
       explicitSurface ? ['surface-explicit', ...scope, explicitSurface] : ['group', ...scope, slot, position],
     );

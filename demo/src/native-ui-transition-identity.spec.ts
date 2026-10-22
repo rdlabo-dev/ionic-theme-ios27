@@ -195,3 +195,28 @@ test('changing the toolbar axis preserves surface and item identities including 
   assignToolbarTransitionIds(candidates);
   expect(candidates.map(({ control }) => [control.transitionId, control.items[0].transitionId])).toEqual(before);
 });
+
+test.each(['ion-button', 'ion-menu-button'])('a surviving explicit %s keeps its group identity when siblings are removed', (tag) => {
+  const children = mount(
+    toolbar(`<ion-buttons slot="end"><${tag} data-transition-id="a">A</${tag}><ion-button>B</ion-button></ion-buttons>`),
+  );
+  const group: Candidate = {
+    ...children[0],
+    element: children[0].element.parentElement!,
+    control: { ...children[0].control, kind: 'button-group', items: children.flatMap(({ control }) => control.items) },
+    actions: new Map(children.flatMap(({ actions }) => [...actions])),
+  };
+  for (const explicitGroup of [false, true]) {
+    if (explicitGroup) group.element.setAttribute('data-transition-id', 'group');
+    group.control.items = children.flatMap(({ control }) => control.items);
+    group.control.kind = 'button-group';
+    assignToolbarTransitionIds([group]);
+    const before = [group.control.transitionId, group.control.items[0].transitionId];
+    group.control.items = [children[0].control.items[0]];
+    // The reader represents a remaining menu as menu-button, still owned by ion-buttons.
+    if (tag === 'ion-menu-button') group.control.kind = 'menu-button';
+    assignToolbarTransitionIds([group]);
+    expect([group.control.transitionId, group.control.items[0].transitionId]).toEqual(before);
+    expect(group.actions.get(group.control.items[0].id)).toBe(children[0].element);
+  }
+});
