@@ -14,6 +14,17 @@ enum NativeUITabBar {
         static func start(_ id: String, ttl: CFTimeInterval = 1) -> PendingSelection {
             PendingSelection(id: id, until: CFAbsoluteTimeGetCurrent() + ttl)
         }
+
+        // UIKit and SwiftUI keep the same optimistic selection until Web confirms it.
+        static func reconcile(_ pending: inout PendingSelection?, domSelection: String?,
+                              isAvailable: (String) -> Bool, now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) -> String? {
+            guard let current = pending else { return domSelection }
+            if current.id == domSelection || now >= current.until || !isAvailable(current.id) {
+                pending = nil
+                return domSelection
+            }
+            return current.id
+        }
     }
 
     static let kind = NativeUIComponent.tabBar
@@ -75,26 +86,11 @@ enum NativeUITabBar {
             if applyTypography(item.content, to: tab) { needsTitleWarmup = true }
             applyBadge(item.content.badge, to: tab, rendering: rendering)
         }
-        let domSelected = zip(nativeItems, items).first { $0.1.content.selected }
-        let selectedItem = domSelected?.0
-        if let pending = pendingSelection {
-            let pendingItem = zip(nativeItems, items).first { $0.1.id == pending.id }
-            let expired = CFAbsoluteTimeGetCurrent() >= pending.until
-            let unavailable = pendingItem == nil || pendingItem!.1.content.disabled
-            if unavailable || expired {
-                // Ionic rejected the tap, the item vanished, or the echo timed out.
-                pendingSelection = nil
-                if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
-            } else if domSelected?.1.id == pending.id {
-                pendingSelection = nil
-                if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
-            } else if tabBar.selectedItem !== pendingItem!.0 {
-                // Keep the optimistic native selection until the Web selected state catches up.
-                tabBar.selectedItem = pendingItem!.0
-            }
-        } else if tabBar.selectedItem !== selectedItem {
-            tabBar.selectedItem = selectedItem
-        }
+        let selectedID = PendingSelection.reconcile(&pendingSelection,
+            domSelection: items.first(where: { $0.content.selected })?.id,
+            isAvailable: { id in items.contains { $0.id == id && !$0.content.disabled } })
+        let selectedItem = nativeItems.first { $0.accessibilityIdentifier == selectedID }
+        if tabBar.selectedItem !== selectedItem { tabBar.selectedItem = selectedItem }
         tabBar.semanticContentAttribute = node.rtl ? .forceRightToLeft : .forceLeftToRight
         tabBar.accessibilityIdentifier = node.id
         // Warm after `fit` settles geometry — not on every motion-driven frame sync.

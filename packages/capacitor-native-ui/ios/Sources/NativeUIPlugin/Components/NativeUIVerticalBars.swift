@@ -46,7 +46,6 @@ final class NativeUIVerticalBarsModel: ObservableObject {
     @Published var tabs: [Item] = []
     @Published var selection = ""
     var activate: (String) -> Void = { _ in }
-    private var domSelection = ""
     private var pendingSelection: NativeUITabBar.PendingSelection?
     private var pendingExpiryWork: DispatchWorkItem?
 
@@ -76,7 +75,6 @@ final class NativeUIVerticalBarsModel: ObservableObject {
             // Keep all snapshot publications in this transaction. A later unanimated
             // accessory/tab publication can cancel the toolbar animation.
             tabs = controls.first(where: { $0.kind == .tabBar })?.items.map { item($0) } ?? []
-            domSelection = tabs.first(where: \.selected)?.id ?? ""
             reconcileSelection(now: now)
         }
     }
@@ -93,15 +91,12 @@ final class NativeUIVerticalBarsModel: ObservableObject {
     }
 
     private func reconcileSelection(now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
-        guard let pending = pendingSelection else { selection = domSelection; return }
-        let item = tabs.first(where: { $0.id == pending.id })
-        if item == nil || item!.disabled || now >= pending.until || domSelection == pending.id {
-            pendingSelection = nil
+        selection = NativeUITabBar.PendingSelection.reconcile(&pendingSelection,
+            domSelection: tabs.first(where: \.selected)?.id,
+            isAvailable: { id in tabs.contains { $0.id == id && !$0.disabled } }, now: now) ?? ""
+        if pendingSelection == nil {
             pendingExpiryWork?.cancel()
             pendingExpiryWork = nil
-            selection = domSelection
-        } else {
-            selection = pending.id
         }
     }
 }
