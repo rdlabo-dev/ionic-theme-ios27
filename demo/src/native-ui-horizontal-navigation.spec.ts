@@ -129,6 +129,21 @@ test('interactive cancellation restores the old action and never projects the ab
   expect(click).toHaveBeenCalledOnce();
 });
 
+test.each(['Back', 'Save'])('Vertical Bars %s remains actionable while horizontal navigation is suspended', async (label) => {
+  const f = await fixture('Edit', label);
+  const source = f.entering.querySelector('button')!;
+  source.setAttribute('data-native-ui-placement', 'rail');
+  const click = vi.fn();
+  source.addEventListener('click', click);
+  const release = await f.start();
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  const snapshot = f.snapshots.at(-1)!;
+  const item = snapshot.controls.find((control) => control.placement === 'vertical-bars')!.items[0];
+  f.listeners.get('activate')!({ id: item.id, revision: snapshot.revision, sequence: 1 });
+  expect(click).toHaveBeenCalledOnce();
+  release();
+});
+
 test.each([
   ['', 'Back'],
   ['Back', ''],

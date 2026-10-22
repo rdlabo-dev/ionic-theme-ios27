@@ -995,10 +995,13 @@ export const createRuntime = async (
       return;
     }
     lastSequence = event.sequence;
-    if (!element || navigation.owns(element)) return false;
+    if (!element) return false;
     if (!owner || !inVerticalBarsSurface(owner)) return false;
     const direct = !blocked(owner) && unprojected(sources.keys(), () => readEnabledCandidate(owner));
     const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
+    // Only retained horizontal controls are locked during navigation. Vertical
+    // Bars and other toolbar controls keep their existing activation lifecycle.
+    if (candidate && horizontalToolbar(candidate) && navigation.owns(element)) return false;
     const item = candidate?.control.items.find((item) => item.id === event.id);
     const searchAction =
       candidate?.control.search && [candidate.control.search.trigger.id, candidate.control.search.closeId].includes(event.id);
