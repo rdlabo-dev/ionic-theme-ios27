@@ -223,7 +223,7 @@ for (const direction of ['ltr', 'rtl']) {
 }
 
 for (const fixed of [false, true]) {
-  test(`Push and repeated back match Web with ${fixed ? 'fixed native' : 'collapsing Web'} headers`, async ({ page, context }) => {
+  test(`Push and repeated back match Web with ${fixed ? 'fixed native' : 'opted-out Web'} headers`, async ({ page, context }) => {
     test.setTimeout(90000);
     await page.setViewportSize({ width: 402, height: 874 });
     const web = await context.newPage();
@@ -249,19 +249,16 @@ for (const fixed of [false, true]) {
           expect(p.locator(`${pageTag}.ion-page`).locator('..').locator(':scope > .ion-page:not(.ion-page-hidden)')).toHaveCount(1),
         ),
       );
-      if (fixed) {
+      if (!fixed) {
         await Promise.all(
           [page, web].map((p) =>
             p.locator(backSelector()).evaluate((button) => {
-              const owner = button.closest('.ion-page')!;
-              owner.querySelectorAll('ion-content ion-header[collapse=condense]').forEach((header) => header.remove());
-              // Replace this sample's collapsing configuration with a fixed header fixture.
-              const header = button.closest('ion-header')!;
-              header.classList.remove('header-collapse-main', 'header-collapse-condense-inactive');
-              header.style.removeProperty('--opacity-scale');
+              button.closest('ion-header')!.setAttribute('data-native-ui', 'disabled');
             }),
           ),
         );
+      }
+      if (fixed) {
         await expect(page.locator(backSelector())).toHaveAttribute('data-native-ui-projected', '');
       } else {
         await expect(page.locator(backSelector())).not.toHaveAttribute('data-native-ui-projected');

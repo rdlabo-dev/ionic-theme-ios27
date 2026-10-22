@@ -1706,6 +1706,15 @@ test('all demo pages keep projection consistent through consecutive navigation',
   test.setTimeout(240000);
   await page.setViewportSize({ width: 440, height: 956 });
   await mockNative(page);
+  await page.addInitScript(() => {
+    document.addEventListener(
+      'ionViewDidEnter',
+      () => {
+        document.documentElement.dataset.testEnteredPath = location.pathname;
+      },
+      true,
+    );
+  });
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/main/index');
@@ -1734,6 +1743,10 @@ test('all demo pages keep projection consistent through consecutive navigation',
           const snapshot = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!;
           return (
             status.state !== 'stopped' &&
+            document.documentElement.dataset.testEnteredPath === location.pathname &&
+            Array.from(document.querySelectorAll('ion-router-outlet')).every(
+              (outlet) => outlet.querySelectorAll(':scope > .ion-page:not(.ion-page-hidden)').length <= 1,
+            ) &&
             status.projected ===
               snapshot?.controls.reduce((count: number, control: NativeUIControl) => count + (control.search?.available ? 3 : 1), 0)
           );
@@ -1789,7 +1802,8 @@ test('all demo pages keep projection consistent through consecutive navigation',
   for (let cycle = 0; cycle < 3; cycle++) {
     await page.getByRole('button', { name: 'button', exact: true }).click();
     await expect(page).toHaveURL('/main/index/button');
-    await page.getByRole('button', { name: 'Push', exact: true }).click();
+    await settled();
+    await activate(page, 'Push');
     await expect(page).toHaveURL('/main/index/action-sheet');
     await back();
     await expect(page).toHaveURL('/main/index/button');
