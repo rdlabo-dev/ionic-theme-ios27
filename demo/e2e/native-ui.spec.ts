@@ -674,8 +674,21 @@ test('native verticalBars toolbar returns with Index after a pushed page', async
 });
 
 test('native verticalBars actions follow WillEnter and stay enabled during navigation', async ({ page }) => {
+  // Projection starts at WillEnter. Wait for the real initial navigation before
+  // sending synthetic lifecycle events, or its DidEnter can undo our WillLeave.
+  await page.addInitScript(() => {
+    document.addEventListener(
+      'ionViewDidEnter',
+      (event) => {
+        const target = event.target as HTMLElement;
+        if (target.matches('app-native-ui')) target.setAttribute('data-test-did-enter', '');
+      },
+      true,
+    );
+  });
   await mockNative(page);
   await page.goto('/main/index/native-ui');
+  await expect(page.locator('app-native-ui')).toHaveAttribute('data-test-did-enter', '');
   await page.locator('app-native-ui ion-button[type=submit] ion-icon').evaluate((icon) => {
     icon.setAttribute('slot', 'icon-only');
     icon.parentElement!.querySelector('[data-label]')?.remove();
@@ -683,6 +696,16 @@ test('native verticalBars actions follow WillEnter and stay enabled during navig
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
   const source = page.locator('app-native-ui ion-back-button');
   await expect(source).toHaveAttribute('data-native-ui-projected', '');
+  // The marker may still belong to the preceding horizontal projection.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+          .updates.at(-1)!
+          .controls.some((control: NativeUIControl) => control.kind === 'back-button' && control.placement === 'vertical-bars'),
+      ),
+    )
+    .toBe(true);
   const routedPage = page.locator('app-native-ui.ion-page');
 
   await routedPage.evaluate((element) => element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true })));
