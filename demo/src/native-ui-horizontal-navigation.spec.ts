@@ -245,3 +245,26 @@ test('a DOM mutation during acknowledgement does not discard the still-visible t
   expect(['Editing', 'Edited']).toContain(f.snapshots.at(-1)?.controls[0]?.items[0]?.label);
   release(true);
 });
+
+test.each(['Modal', 'Popover', 'Alert', 'ActionSheet'])(
+  '%s interrupts a retained toolbar and restores the destination after dismissal',
+  async (name) => {
+    const f = await fixture();
+    const release = await f.start();
+    const overlay = document.createElement(`ion-${name.toLowerCase()}`);
+    document.body.append(overlay);
+    overlay.dispatchEvent(new CustomEvent(`ion${name}WillPresent`, { bubbles: true }));
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls).toEqual([]));
+    expect(document.querySelector('[data-native-ui-navigation-source]')).toBeNull();
+    expect(document.querySelector('[data-native-ui-projected]')).toBeNull();
+    release();
+    overlay.dispatchEvent(new CustomEvent(`ion${name}DidDismiss`, { bubbles: true }));
+    overlay.remove();
+    await vi.waitFor(() => expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(true));
+    const click = vi.fn();
+    f.entering.querySelector('button')!.addEventListener('click', click);
+    const snapshot = f.snapshots.at(-1)!;
+    f.listeners.get('activate')!({ id: snapshot.controls[0].items[0].id, revision: snapshot.revision, sequence: 1 });
+    expect(click).toHaveBeenCalledOnce();
+  },
+);

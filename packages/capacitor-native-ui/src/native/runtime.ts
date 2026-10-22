@@ -303,6 +303,7 @@ export const createRuntime = async (
       return [];
     }
     const overlayVisible = overlayOpen();
+    if (overlayVisible) navigation.clear();
     // Web rail projections also hide their originals. Measure those sources
     // without releasing the visible clones before native acknowledges ownership.
     const measurableSources = new Set([
