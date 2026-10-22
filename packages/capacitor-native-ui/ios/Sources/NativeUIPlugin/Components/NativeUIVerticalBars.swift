@@ -27,6 +27,7 @@ final class NativeUIVerticalBarsModel: ObservableObject {
         let borderWidth: CGFloat
         let badge: NativeUIBadge?
         let disabled: Bool
+        var isBack = false
         var selected: Bool
     }
 
@@ -42,7 +43,6 @@ final class NativeUIVerticalBarsModel: ObservableObject {
     var popoverHost: NativeUIOverlayHost?
     var popoverPresented: ((Bool) -> Void)?
     @Published var search: NativeUIVerticalSearchModel?
-    @Published var back: Item?
     @Published var groups: [Group] = []
     @Published var tabs: [Item] = []
     @Published var selection = ""
@@ -67,10 +67,15 @@ final class NativeUIVerticalBarsModel: ObservableObject {
                  selected: source.content.selected)
         }
         withAnimation(animated && !UIAccessibility.isReduceMotionEnabled ? .smooth(duration: 0.3) : nil) {
-            back = controls.first(where: { $0.kind == .backButton })?.items.first.map(item)
             groups = controls.compactMap { control in
-                guard [.button, .buttons, .menuButton].contains(control.kind) else { return nil }
-                return Group(id: control.id, transitionID: control.transitionId ?? control.id, items: control.items.map(item), slot: control.toolbarSlot)
+                guard [.button, .buttons, .menuButton, .backButton].contains(control.kind) else { return nil }
+                let items = control.items.map { source in
+                    var result = item(source)
+                    result.isBack = control.kind == .backButton
+                    return result
+                }
+                return Group(id: control.id, transitionID: control.transitionId ?? control.id, items: items,
+                             slot: control.toolbarSlot ?? (control.kind == .backButton ? .start : .end))
             }
         }
         tabs = controls.first(where: { $0.kind == .tabBar })?.items.map(item) ?? []
@@ -155,7 +160,10 @@ private struct NativeUIVerticalBarsButton: ToolbarContent {
     var body: some ToolbarContent {
         if let item = model.groups.lazy.flatMap(\.items).first(where: { $0.transitionID == id }) {
             ToolbarItem(id: item.transitionID, placement: placement) {
-                verticalBarsButton(item, model: model)
+                Group {
+                    if item.isBack { verticalBarsBackButton(item, model: model) }
+                    else { verticalBarsButton(item, model: model) }
+                }
                     .popover(isPresented: Binding(
                         get: { model.popoverAnchor == item.id },
                         set: { shown in
@@ -314,12 +322,6 @@ private struct NativeUIVerticalBarsToolbar: ViewModifier {
 
     func body(content: Content) -> some View {
         content.toolbar {
-            if let back = model.back {
-                ToolbarItem(id: back.transitionID, placement: .navigation) {
-                    verticalBarsBackButton(back, model: model)
-                }
-                .axisBehavior(.verticalPreferred)
-            }
             ForEach(model.groups.filter { $0.slot == .start }, id: \.transitionID) { group in
                 if group.id != model.groups.first(where: { $0.slot == .start })?.id {
                     ToolbarSpacer(.fixed, placement: .topBarLeading)
@@ -350,36 +352,27 @@ private struct NativeUIVerticalBarsLegacyToolbar: ViewModifier {
     func body(content: Content) -> some View {
         #if canImport(SwiftUI, _version: 8.0)
         content.toolbar {
-            if let back = model.back {
-                ToolbarItem(id: back.transitionID, placement: .navigation) {
-                    verticalBarsBackButton(back, model: model)
-                }
-            }
             ForEach(model.groups, id: \.transitionID) { group in
-                if group.id != model.groups.first?.id {
-                    ToolbarSpacer(.fixed, placement: .primaryAction)
+                if group.id != model.groups.first(where: { $0.slot == group.slot })?.id {
+                    ToolbarSpacer(.fixed, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
                 }
                 ForEach(group.items, id: \.transitionID) { item in
-                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: .primaryAction)
+                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
                 }
             }
         }
         #else
         // Older SDKs cannot use ForEach as ToolbarContent; attach each item separately.
-        let base = AnyView(content.toolbar {
-            if let back = model.back {
-                ToolbarItem(id: back.transitionID, placement: .navigation) { verticalBarsBackButton(back, model: model) }
-            }
-        })
+        let base = AnyView(content)
         // Outer toolbar modifiers precede inner ones, so attach in reverse order.
         return model.groups.reversed().reduce(base) { view, group in
             let items = group.items.reversed().reduce(view) { view, item in
                 AnyView(view.toolbar {
-                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: .primaryAction)
+                    NativeUIVerticalBarsButton(model: model, id: item.transitionID, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
                 })
             }
-            return group.id == model.groups.first?.id ? items : AnyView(items.toolbar {
-                ToolbarSpacer(.fixed, placement: .primaryAction)
+            return group.id == model.groups.first(where: { $0.slot == group.slot })?.id ? items : AnyView(items.toolbar {
+                ToolbarSpacer(.fixed, placement: group.slot == .start ? .topBarLeading : .topBarTrailing)
             })
         }
         #endif

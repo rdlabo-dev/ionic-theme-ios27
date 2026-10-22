@@ -15,12 +15,9 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     const toolbars = Array.from(page.querySelectorAll('ion-toolbar, [role="toolbar"]')).filter(
       (node) => (node.closest('ion-header, ion-footer')?.tagName.toLowerCase() ?? 'toolbar') === sectionName,
     );
-    const scope = [control.placement ?? 'element', sectionName, toolbar ? toolbars.indexOf(toolbar) : 0];
+    const scope = [sectionName, toolbar ? toolbars.indexOf(toolbar) : 0];
     const slotOwner = element.closest('ion-buttons') ?? element;
-    const railBack = control.placement === 'vertical-bars' && control.kind === 'back-button';
-    const slot = railBack
-      ? 'back'
-      : (control.toolbarSlot ?? slotOwner.getAttribute('slot') ?? (control.kind === 'back-button' ? 'start' : 'end'));
+    const slot = control.toolbarSlot ?? slotOwner.getAttribute('slot') ?? (control.kind === 'back-button' ? 'start' : 'end');
     const counts = counters.get(toolbar ?? page) ?? new Map<string, number>();
     counters.set(toolbar ?? page, counts);
     const next = (kind: string) => {
@@ -31,10 +28,8 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     };
     const position = next('group');
     const explicitSurface =
-      control.placement !== 'vertical-bars'
-        ? element.getAttribute('data-transition-id')?.trim() ||
-          (control.items.length === 1 ? candidate.actions.get(control.items[0].id)?.getAttribute('data-transition-id')?.trim() : undefined)
-        : undefined;
+      element.getAttribute('data-transition-id')?.trim() ||
+      (control.items.length === 1 ? candidate.actions.get(control.items[0].id)?.getAttribute('data-transition-id')?.trim() : undefined);
     identities.push({
       target: control,
       id: JSON.stringify(explicitSurface ? ['surface-explicit', ...scope, explicitSurface] : ['group', ...scope, slot, position]),
@@ -43,7 +38,7 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
     for (const item of control.items) {
       const source = candidate.actions.get(item.id);
       const explicit = source?.getAttribute('data-transition-id')?.trim();
-      const role = railBack ? 'back' : 'button';
+      const role = 'button';
       // Explicit items still occupy a position, so adding an override does not renumber their neighbours.
       const index = next(role);
       identities.push({

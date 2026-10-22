@@ -113,12 +113,12 @@ test('grouping does not change item positions; grouped children can each overrid
   expect(group.control.items.map((item) => item.transitionId)).toEqual(ids(separate));
 });
 
-test('horizontal Menu and Back in the same slot share presentation identity but keep distinct actions', () => {
+test.each([undefined, 'vertical-bars'] as const)('Menu and Back share start position and keep distinct actions: %s', (placement) => {
   const from = mount(toolbar('<ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons>'));
   const to = mount(toolbar('<ion-buttons slot="start"><ion-back-button></ion-back-button></ion-buttons>'));
   for (const candidates of [from, to]) {
     candidates.forEach((candidate) => {
-      candidate.control.placement = undefined;
+      candidate.control.placement = placement;
     });
     assignToolbarTransitionIds(candidates);
   }
@@ -171,4 +171,19 @@ test('horizontal start/end surface numbers ignore kind, fill and item count', ()
   group.element.parentElement!.append(following.element);
   assignToolbarTransitionIds([group, following]);
   expect(following.control.transitionId).toBe(before);
+});
+
+test('changing the toolbar axis preserves surface and item identities including explicit overrides', () => {
+  const candidates = mount(
+    toolbar(
+      '<ion-buttons slot="start"><ion-menu-button></ion-menu-button></ion-buttons><ion-button data-transition-id="edit">Edit</ion-button>',
+    ),
+  );
+  assignToolbarTransitionIds(candidates);
+  const before = candidates.map(({ control }) => [control.transitionId, control.items[0].transitionId]);
+  candidates.forEach(({ control }) => {
+    delete control.placement;
+  });
+  assignToolbarTransitionIds(candidates);
+  expect(candidates.map(({ control }) => [control.transitionId, control.items[0].transitionId])).toEqual(before);
 });

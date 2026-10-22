@@ -315,6 +315,24 @@ final class NativeUISnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor func testVerticalMenuAndBackReuseTheSameLeadingSurface() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI adaptive controls") }
+        let model = NativeUIVerticalBarsModel()
+        for kind in ["menu-button", "back-button", "menu-button"] {
+            let controls = try decode([control(["kind": kind, "placement": "vertical-bars",
+                "transitionId": "start-0", "toolbarSlot": kind == "back-button" ? NSNull() : "start", "items": [item(["id": kind, "transitionId": "start-0-item-0", "disabled": true])]
+            ])]).controls
+            model.apply(controls, rendering: NativeUIControlRendering())
+            XCTAssertEqual(model.groups.count, 1)
+            XCTAssertEqual(model.groups[0].transitionID, "start-0")
+            XCTAssertEqual(model.groups[0].slot, .start)
+            XCTAssertEqual(model.groups[0].items[0].transitionID, "start-0-item-0")
+            XCTAssertEqual(model.groups[0].items[0].id, kind)
+            XCTAssertEqual(model.groups[0].items[0].isBack, kind == "back-button")
+            XCTAssertTrue(model.groups[0].items[0].disabled)
+        }
+    }
+
     @MainActor func testVerticalBarsPreserveButtonAppearance() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI adaptive controls") }
         let controls = try decode([control(["kind": "ion-buttons", "items": [
