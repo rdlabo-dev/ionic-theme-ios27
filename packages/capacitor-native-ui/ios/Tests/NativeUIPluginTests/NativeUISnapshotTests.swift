@@ -1,5 +1,6 @@
 import XCTest
 import WebKit
+import SwiftUI
 import Capacitor
 @testable import NativeUIPlugin
 
@@ -312,6 +313,43 @@ final class NativeUISnapshotTests: XCTestCase {
                 XCTAssertEqual(font.pointSize, 19)
                 XCTAssertEqual(font, UIFont.systemFont(ofSize: 19, weight: weight), "CSS weight \(cssWeight)")
             }
+        }
+    }
+
+    @MainActor func testVerticalSnapshotKeepsOneAnimationTransaction() async throws {
+        guard #available(iOS 26.0, *), !UIAccessibility.isReduceMotionEnabled else {
+            throw XCTSkip("Requires adaptive controls with motion enabled")
+        }
+        struct Probe: View {
+            @ObservedObject var model: NativeUIVerticalBarsModel
+            let observed: (Bool) -> Void
+            var body: some View {
+                Text("\(model.groups.count):\(model.tabs.count):\(model.selection):\(model.accessory != nil)")
+                    .transaction { observed($0.animation != nil) }
+            }
+        }
+        let model = NativeUIVerticalBarsModel()
+        var next: XCTestExpectation?
+        var animatedTransaction: Bool?
+        let host = UIHostingController(rootView: Probe(model: model) { animated in
+            guard let pending = next else { return }
+            animatedTransaction = animated
+            next = nil
+            pending.fulfill()
+        })
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 440, height: 900))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.layoutIfNeeded()
+        defer { window.isHidden = true }
+        for animated in [true, false] {
+            let updated = expectation(description: "snapshot animated=\(animated)")
+            next = updated
+            model.apply(try decode([control(["kind": "ion-button"])]).controls,
+                        rendering: NativeUIControlRendering(), animated: animated,
+                        accessory: animated ? AnyView(Text("Player")) : nil)
+            await fulfillment(of: [updated], timeout: 3)
+            XCTAssertEqual(animatedTransaction, animated)
         }
     }
 

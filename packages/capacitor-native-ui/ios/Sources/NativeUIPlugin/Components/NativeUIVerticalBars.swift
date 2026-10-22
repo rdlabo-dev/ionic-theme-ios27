@@ -6,8 +6,7 @@ protocol NativeUIVerticalBarsControlling: AnyObject {
     var view: UIView { get }
     func measuredFrames(relativeTo webView: UIView) -> [String: CGRect]
     @MainActor func attach(to owner: UIViewController, in parent: UIView)
-    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool)
-    @MainActor func setAccessory(_ content: AnyView?)
+    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool, accessory: AnyView?)
     var ownsKeyboardChrome: Bool { get }
     func presentPopover(anchor: String, host: NativeUIOverlayHost, completion: @escaping (Bool) -> Void) -> Bool
     @MainActor func detach(duration: TimeInterval)
@@ -52,8 +51,8 @@ final class NativeUIVerticalBarsModel: ObservableObject {
     private var pendingExpiryWork: DispatchWorkItem?
 
     func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, animated: Bool = true,
-               now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
-        func item(_ source: NativeUIItem) -> Item {
+               accessory: AnyView? = nil, now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
+        func item(_ source: NativeUIItem, isBack: Bool = false) -> Item {
             let image = rendering.image(source.content)
             return Item(id: source.id, transitionID: source.content.transitionId ?? source.id, label: source.content.label,
                  accessibilityLabel: source.content.accessibilityLabel,
@@ -63,24 +62,23 @@ final class NativeUIVerticalBarsModel: ObservableObject {
                  background: source.content.backgroundColor.map { Color(uiColor: rendering.color($0)) },
                  borderColor: source.content.borderColor.map { Color(uiColor: rendering.color($0)) },
                  borderWidth: source.content.borderWidth ?? 0,
-                 badge: source.content.badge, disabled: source.content.disabled,
+                 badge: source.content.badge, disabled: source.content.disabled, isBack: isBack,
                  selected: source.content.selected)
         }
-        withAnimation(animated && !UIAccessibility.isReduceMotionEnabled ? .smooth(duration: 0.3) : nil) {
+        withAnimation(animated && !UIAccessibility.isReduceMotionEnabled ? .default : nil) {
+            self.accessory = accessory
             groups = controls.compactMap { control in
                 guard [.button, .buttons, .menuButton, .backButton].contains(control.kind) else { return nil }
-                let items = control.items.map { source in
-                    var result = item(source)
-                    result.isBack = control.kind == .backButton
-                    return result
-                }
+                let items = control.items.map { item($0, isBack: control.kind == .backButton) }
                 return Group(id: control.id, transitionID: control.transitionId ?? control.id, items: items,
                              slot: control.toolbarSlot ?? (control.kind == .backButton ? .start : .end))
             }
+            // Keep all snapshot publications in this transaction. A later unanimated
+            // accessory/tab publication can cancel the toolbar animation.
+            tabs = controls.first(where: { $0.kind == .tabBar })?.items.map { item($0) } ?? []
+            domSelection = tabs.first(where: \.selected)?.id ?? ""
+            reconcileSelection(now: now)
         }
-        tabs = controls.first(where: { $0.kind == .tabBar })?.items.map(item) ?? []
-        domSelection = tabs.first(where: \.selected)?.id ?? ""
-        reconcileSelection(now: now)
     }
 
     func select(_ id: String, now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent(), ttl: CFTimeInterval = 1) {
@@ -113,11 +111,12 @@ private struct NativeUIVerticalBarsLabel: View {
     let item: NativeUIVerticalBarsModel.Item
 
     var body: some View {
-        if let image = item.image {
+        if let image = item.isBack ? Image(systemName: "chevron.backward") : item.image.map({ Image(uiImage: $0) }) {
             Label {
-                Text(item.label.isEmpty ? item.accessibilityLabel : item.label)
+                // Back remains icon-only on horizontal fallback bars as well.
+                Text(item.isBack ? "" : item.label.isEmpty ? item.accessibilityLabel : item.label)
             } icon: {
-                Image(uiImage: image)
+                image
             }
         } else {
             Text(item.label)
@@ -131,7 +130,10 @@ private func verticalBarsButton(_ item: NativeUIVerticalBarsModel.Item, model: N
     let button = Button { model.activate(item.id) } label: { NativeUIVerticalBarsLabel(item: item) }
         .disabled(item.disabled)
         .accessibilityLabel(item.accessibilityLabel)
-        .accessibilityIdentifier(item.id)
+        .accessibilityIdentifier(item.isBack ? "BackButton" : item.id)
+        .background {
+            if item.isBack { NativeUIVerticalBarGeometryProbe() }
+        }
     if let background = item.background {
         button.buttonStyle(.glassProminent).tint(background)
     } else {
@@ -162,10 +164,7 @@ private struct NativeUIVerticalBarsButton: ToolbarContent {
         if let group = model.groups.first(where: { $0.transitionID == groupID }),
            let item = group.items.first(where: { $0.transitionID == id }) {
             ToolbarItem(id: item.transitionID, placement: placement) {
-                Group {
-                    if item.isBack { verticalBarsBackButton(item, model: model) }
-                    else { verticalBarsButton(item, model: model) }
-                }
+                verticalBarsButton(item, model: model)
                     .popover(isPresented: Binding(
                         get: { model.popoverAnchor == item.id },
                         set: { shown in
@@ -208,15 +207,6 @@ private struct NativeUIVerticalBarGeometryProbe: UIViewRepresentable {
         return view
     }
     func updateUIView(_ uiView: UIView, context: Context) {}
-}
-
-@available(iOS 26.0, *)
-private func verticalBarsBackButton(_ item: NativeUIVerticalBarsModel.Item, model: NativeUIVerticalBarsModel) -> some View {
-    Button { model.activate(item.id) } label: { Image(systemName: "chevron.backward") }
-        .disabled(item.disabled)
-        .accessibilityLabel(item.accessibilityLabel)
-        .accessibilityIdentifier("BackButton")
-        .background(NativeUIVerticalBarGeometryProbe())
 }
 
 @available(iOS 26.0, *)
@@ -458,8 +448,6 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
     private weak var owner: UIViewController?
     private let changed: (String, NativeUISearchPhase, String, Bool, Int) -> Int
 
-    func setAccessory(_ content: AnyView?) { model.accessory = content }
-
     var view: UIView { container }
     func measuredFrames(relativeTo webView: UIView) -> [String: CGRect] {
         var frames: [String: CGRect] = [:]
@@ -517,7 +505,7 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
         controller.didMove(toParent: owner)
     }
 
-    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool = true) {
+    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool = true, accessory: AnyView? = nil) {
         container.railEdge = edge
         controller.railEdge = edge
         // A presentation identity can survive source replacement, but an open
@@ -532,7 +520,7 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
             if model.search?.configuration.id == search.id { model.search?.apply(search) }
             else { model.search = NativeUIVerticalSearchModel(search, in: container, activate: model.activate, changed: changed) }
         } else { model.search = nil }
-        model.apply(controls, rendering: rendering, animated: animated)
+        model.apply(controls, rendering: rendering, animated: animated, accessory: accessory)
         controller.overrideUserInterfaceStyle = controls.contains(where: \.dark) ? .dark : .light
     }
 

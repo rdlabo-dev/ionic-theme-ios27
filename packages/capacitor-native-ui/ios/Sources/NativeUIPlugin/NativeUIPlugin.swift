@@ -414,12 +414,12 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             var fabs: [(NativeUIFab, NativeUIControl)] = []
             var searches: [(NativeUISearchControlling, NativeUIControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
+            let enteringVerticalBars = self.verticalBars == nil
             if verticalBars.isEmpty || (self.keyboardVisible && !verticalSearchActive) {
                 self.verticalBars?.detach(duration: duration)
                 self.verticalBars = nil
                 if self.keyboardVisible { rejectedControls.append(contentsOf: verticalBars.map(\.id)) }
             } else if let owner = self.bridge?.viewController {
-                let entering = self.verticalBars == nil
                 let rail = self.verticalBars ?? NativeUIVerticalBarsController(
                     activate: { [weak self] id in self?.activate(id) },
                     changed: { [weak self] id, phase, value, composing, valueVersion in
@@ -432,10 +432,8 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 } else {
                     rail.view.frame = owner.view.bounds
                 }
-                // The shell owns the entry crossfade; later native updates keep SwiftUI motion.
-                rail.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right", animated: !entering)
                 rail.view.isHidden = false
-                if entering { NativeUICrossfade.enter(rail.view, duration: duration) }
+                if enteringVerticalBars { NativeUICrossfade.enter(rail.view, duration: duration) }
             } else {
                 rejectedControls.append(contentsOf: verticalBars.map(\.id))
             }
@@ -454,7 +452,10 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 self.extensionNodes[node.id] = node
                 accessoryContent = content
             }
-            self.verticalBars?.setAccessory(accessoryContent)
+            // Publish toolbar, tabs and accessory together so the hosting tree receives
+            // one animation transaction. The shell owns only the initial crossfade.
+            self.verticalBars?.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right",
+                                     animated: !enteringVerticalBars, accessory: accessoryContent)
             if snapshots.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.host?.removeFromSuperview()
                 self.host = nil
