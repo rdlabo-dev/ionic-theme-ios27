@@ -4117,3 +4117,38 @@ test('native rail toggles and teardown preserve application-owned layout', async
   await app.evaluate(async (element) => (element as TestAppElement).nativeUI!.destroy());
   expect(await layout()).toEqual(expected);
 });
+
+for (const target of ['native-ui', 'Native UI Extension', 'button-projection']) {
+  test(`horizontal navigation never exposes a Web Back clone before native ownership: ${target}`, async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    await mockNative(page, false, null);
+    await page.addInitScript(() => {
+      document.addEventListener('ionViewDidEnter', (event) => (event.target as HTMLElement).setAttribute('data-test-did-enter', ''), true);
+    });
+    await page.goto('/main/index');
+    await expect(page.locator('index-page')).toHaveAttribute('data-test-did-enter', '');
+    await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-projected', '');
+    await page.evaluate(() => {
+      const evidence = { samples: 0, exposed: 0, active: true };
+      Object.assign(window, { backCloneEvidence: evidence });
+      const sample = () => {
+        const clone = document.querySelector<HTMLElement>('ion-router-outlet > ion-back-button.ion-cloned-element');
+        if (document.querySelector('[data-native-ui-navigation-source]')) evidence.samples++;
+        if (clone && getComputedStyle(clone).display !== 'none' && getComputedStyle(clone).visibility !== 'hidden') evidence.exposed++;
+        if (evidence.active) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    await page.getByText(target, { exact: true }).click();
+    const back = page.locator('.ion-page:not(.ion-page-hidden) ion-back-button:not(.ion-cloned-element)').last();
+    await expect.poll(() => back.evaluate((element) => element.closest('.ion-page')?.hasAttribute('data-test-did-enter'))).toBe(true);
+    await expect(back).toHaveAttribute('data-native-ui-projected', '');
+    const evidence = await page.evaluate(() => {
+      const evidence = (window as Window & { backCloneEvidence: { samples: number; exposed: number; active: boolean } }).backCloneEvidence;
+      evidence.active = false;
+      return evidence;
+    });
+    expect(evidence.samples).toBeGreaterThan(0);
+    expect(evidence.exposed).toBe(0);
+  });
+}

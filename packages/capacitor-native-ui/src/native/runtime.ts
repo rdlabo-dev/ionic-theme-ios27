@@ -142,6 +142,10 @@ export const createRuntime = async (
   const hidden = `:is([${marker}]:not([${fadeMarker}]), [${navigationMarker}])`;
   style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
     [${marker}], [${marker}] *, [${navigationMarker}], [${navigationMarker}] * { pointer-events: none !important; }
+    /* The theme's fixed Back clone must not reintroduce a Web button while
+       navigation keeps its source under native ownership. */
+    :is(ion-nav, ion-router-outlet):has(.ion-page:not(.ion-page-hidden) ion-back-button:is([${marker}], [${navigationMarker}]))
+      > ion-back-button.ion-cloned-element { visibility: hidden !important; }
     /* Ionic disables the covered page while a menu is open. VerticalBars rail
        controls remain outside that page; zero specificity preserves any
        pointer-events rule supplied by the application itself. */
