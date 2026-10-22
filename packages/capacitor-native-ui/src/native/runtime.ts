@@ -1,3 +1,4 @@
+import { assignToolbarTransitionIds } from './shared/transition-identity';
 import { controlSelected } from './shared/control-options';
 import { createDiagnostics } from './shared/diagnostics';
 import { htmlSelector, readHTMLControl } from './html';
@@ -280,8 +281,11 @@ export const createRuntime = async (
     );
   };
   // Compare source data before PNG rendering mutates each item's payload.
-  const signature = (candidate: Candidate) =>
-    JSON.stringify({ control: candidate.control, icons: candidate.icons.map(({ source }) => source), assets: candidate.assets?.signature });
+  const signature = (candidate: Candidate, includeTransitionIds = true) =>
+    JSON.stringify(
+      { control: candidate.control, icons: candidate.icons.map(({ source }) => source), assets: candidate.assets?.signature },
+      includeTransitionIds ? undefined : (key, value) => (key === 'transitionId' ? undefined : value),
+    );
   const read = (): Candidate[] => {
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
@@ -309,7 +313,7 @@ export const createRuntime = async (
             .filter((candidate): candidate is Candidate => !!candidate),
           blocked,
         )
-        .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate)),
+        .filter((candidate) => !rejected.has(candidate.element) || rejected.get(candidate.element) !== signature(candidate, false)),
     );
     // An extension owns its entire source subtree. Never project a nested built-in twice.
     const extensionSources = candidates.filter((candidate) => candidate.control.kind === 'extension');
@@ -333,7 +337,9 @@ export const createRuntime = async (
     const selected = exclusive.filter(
       (candidate) => candidate.control.kind !== 'back-button' || !isVerticalBarsCandidate(candidate.element) || candidate.element === back,
     );
-    return overlayVisible ? selected.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : selected;
+    const result = overlayVisible ? selected.filter((candidate) => isVerticalBarsCandidate(candidate.element)) : selected;
+    assignToolbarTransitionIds(result);
+    return result;
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -402,6 +408,7 @@ export const createRuntime = async (
       observe();
       let candidates = read();
       const signatures = new Map(candidates.map((candidate) => [candidate.element, signature(candidate)]));
+      const rejectionSignatures = new Map(candidates.map((candidate) => [candidate.element, signature(candidate, false)]));
       const failedAssets = new Set<Candidate>();
       for (const candidate of candidates) {
         try {
@@ -513,7 +520,7 @@ export const createRuntime = async (
             'native-rejected: the native renderer rejected this source; check decoded props, placement, and device support.',
             candidate.element,
           );
-          rejected.set(candidate.element, signatures.get(candidate.element)!);
+          rejected.set(candidate.element, rejectionSignatures.get(candidate.element)!);
           setRejected(candidate.element, true);
           dirty = true;
         }

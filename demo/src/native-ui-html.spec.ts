@@ -464,3 +464,61 @@ test.each([
   handles.push(shell);
   await vi.waitFor(() => expect(options.rail!.host.querySelectorAll('button')).toHaveLength(1));
 });
+
+test('toolbar correspondence crosses source replacement while stale actions stay rejected', async () => {
+  const { source, options } = mount('<div role="toolbar"><button data-native-ui="button">Edit</button></div>');
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const listeners = new Map<string, (event: any) => void>();
+  const snapshots: NativeUISnapshot[] = [];
+  const plugin = {
+    addListener: async (name: string, callback: (event: any) => void) => {
+      listeners.set(name, callback);
+      return {
+        remove: async () => {
+          listeners.delete(name);
+        },
+      };
+    },
+    update: async (snapshot: NativeUISnapshot) => {
+      snapshots.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const handle = await createRuntime(document, plugin, options);
+  handles.push(handle);
+  await vi.waitFor(() => expect(handle.getStatus().projected).toBe(1));
+  const outgoing = snapshots.at(-1)!.controls[0].items[0];
+  expect(outgoing.transitionId).toBeDefined();
+  const next = source.cloneNode(true) as HTMLElement;
+  next.removeAttribute('data-native-ui-projected');
+  next.removeAttribute('aria-hidden');
+  next.getBoundingClientRect = source.getBoundingClientRect;
+  next.textContent = 'Done';
+  const clicked = vi.fn();
+  next.addEventListener('click', clicked);
+  source.replaceWith(next);
+  await vi.waitFor(() => expect(snapshots.at(-1)!.controls[0]?.items[0].label).toBe('Done'));
+  const incoming = snapshots.at(-1)!.controls[0].items[0];
+  expect(incoming.transitionId).toBe(outgoing.transitionId);
+  expect(incoming.id).not.toBe(outgoing.id);
+  listeners.get('activate')!({ id: outgoing.id, revision: snapshots.at(-1)!.revision, sequence: 1 });
+  expect(clicked).not.toHaveBeenCalled();
+  listeners.get('activate')!({ id: incoming.id, revision: snapshots.at(-1)!.revision, sequence: 2 });
+  expect(clicked).toHaveBeenCalledTimes(1);
+  next.setAttribute('data-transition-id', 'edit');
+  await vi.waitFor(() => expect(snapshots.at(-1)!.controls[0].items[0].transitionId).not.toBe(incoming.transitionId));
+  expect(snapshots.at(-1)!.controls[0].items[0].id).toBe(incoming.id);
+});

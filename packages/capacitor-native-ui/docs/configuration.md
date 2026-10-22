@@ -82,6 +82,23 @@ Horizontal and vertical describe **control placement**, not screen orientation o
 
 Local `data-horizontal-bars="true|false"` and `data-vertical-bars="true|false"` override the matching selection default. On `ion-buttons` they control grouping only. Explicit `data-native-ui` sources are independent of these defaults. Structural exclusions and rail availability still apply. See [toolbar selection and grouping](native-ui.md#toolbar-selection-and-grouping).
 
+### Toolbar button correspondence
+
+Native SwiftUI toolbar buttons receive presentation identities automatically. Ordinary buttons correspond by their toolbar, logical slot and order among projected buttons; back buttons have a separate back role. Labels and click handlers may change without requiring an ID attribute. Header and footer toolbars are separate scopes.
+
+Optionally set `data-transition-id` on an individual button when it should follow a particular action through a reorder:
+
+```html
+<!-- Source page -->
+<ion-button data-transition-id="edit">Edit</ion-button>
+<!-- Destination page -->
+<ion-button data-transition-id="edit">Done</ion-button>
+```
+
+An explicit key overrides the automatic position within the corresponding toolbar. It does not change HTML `id`, routing or click delivery. Keep the original handler on each page's source button. Blank values use automatic correspondence; duplicate explicit keys within a toolbar are treated as separate, unmatched sources. Put the attribute on each button, including children of an `ion-buttons` group.
+
+This currently drives the native SwiftUI Vertical Bars toolbar. Ordinary horizontal controls still use the existing Web handoff during Ionic navigation; this attribute does not enable a persistent horizontal native navigation bar.
+
 ### Other settings
 
 | Setting                                | Default         | Meaning                                                                                                                                                     |

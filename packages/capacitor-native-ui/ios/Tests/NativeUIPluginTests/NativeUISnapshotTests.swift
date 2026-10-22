@@ -4,6 +4,117 @@ import Capacitor
 @testable import NativeUIPlugin
 
 final class NativeUISnapshotTests: XCTestCase {
+    @MainActor func testPopoverReopensAfterPresentationIdentityKeepsReplacedSource() async throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI toolbar") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach(); window.isHidden = true }
+        func page(_ action: String) throws -> [NativeUIControl] {
+            try decode([control(["kind": "button", "placement": "vertical-bars", "transitionId": "stable-group",
+                "items": [item(["id": action, "transitionId": "stable-button"]) ]])]).controls
+        }
+        rail.apply(try page("old-action"), rendering: NativeUIControlRendering(), edge: "right", animated: false)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: ["animated": false], event: { _ in })
+        host.preferredContentSize = CGSize(width: 180, height: 180)
+        XCTAssertTrue(rail.presentPopover(anchor: "old-action", host: host, completion: { _ in }))
+        for _ in 0..<50 {
+            if host.anchoredVisible { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertTrue(host.anchoredVisible, "Fixture must display the actual SwiftUI popover")
+        rail.apply(try page("new-action"), rendering: NativeUIControlRendering(), edge: "right", animated: false)
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        let nextHost = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+        XCTAssertTrue(rail.presentPopover(anchor: "new-action", host: nextHost, completion: { _ in }), "Replacing the source must not retain the old popover anchor")
+    }
+
+    @MainActor func testReplacingPendingPopoverSourceCompletesPresentationOnceAndAllowsReopen() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI toolbar") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach(); window.isHidden = true }
+        func page(_ action: String) throws -> [NativeUIControl] {
+            try decode([control(["kind": "button", "placement": "vertical-bars", "transitionId": "stable-group",
+                "items": [item(["id": action, "transitionId": "stable-button"])]])]).controls
+        }
+        let rendering = NativeUIControlRendering()
+        rail.apply(try page("old-action"), rendering: rendering, edge: "right", animated: false)
+        let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+        var results: [Bool] = []
+        XCTAssertTrue(rail.presentPopover(anchor: "old-action", host: host) { results.append($0) })
+        XCTAssertFalse(host.anchoredVisible)
+        rail.apply(try page("new-action"), rendering: rendering, edge: "right", animated: false)
+        XCTAssertEqual(results, [false])
+        rail.apply(try page("new-action"), rendering: rendering, edge: "right", animated: false)
+        XCTAssertEqual(results, [false])
+        let next = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+        XCTAssertTrue(rail.presentPopover(anchor: "new-action", host: next) { _ in })
+    }
+
+    @MainActor func testToolbarTransitionIdentityDoesNotReplaceActionIdentity() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI toolbar") }
+        let model = NativeUIVerticalBarsModel()
+        let rendering = NativeUIControlRendering()
+        func page(_ source: String, _ label: String) throws -> [NativeUIControl] {
+            try decode([control(["id": "group-\(source)", "kind": "button", "transitionId": "trailing-group-0",
+                "items": [item(["id": source, "transitionId": "edit", "label": label])]])]).controls
+        }
+        model.apply(try page("source-edit", "Edit"), rendering: rendering, animated: false)
+        let outgoing = try XCTUnwrap(model.groups.first?.items.first)
+        model.apply(try page("destination-done", "Done"), rendering: rendering, animated: false)
+        let incoming = try XCTUnwrap(model.groups.first?.items.first)
+        XCTAssertEqual(outgoing.transitionID, incoming.transitionID)
+        XCTAssertNotEqual(outgoing.id, incoming.id)
+        XCTAssertEqual(incoming.id, "destination-done")
+        XCTAssertEqual(incoming.label, "Done")
+        XCTAssertEqual(model.groups.first?.transitionID, "trailing-group-0")
+        model.apply(try page("source-edit", "Edit"), rendering: rendering, animated: false)
+        XCTAssertEqual(model.groups.first?.items.first?.id, outgoing.id)
+        model.apply(try decode([control(["kind": "button", "items": [item(["id": "legacy"])]])]).controls,
+                    rendering: rendering, animated: false)
+        XCTAssertEqual(model.groups.first?.items.first?.transitionID, "legacy")
+    }
+
+    @MainActor func testSwiftUIToolbarForwardsTransitionIdentifier() async throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI toolbar") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach(); window.isHidden = true }
+        func identifiers(_ vc: UIViewController) -> [String] {
+            var result: [String] = []
+            if let nav = vc as? UINavigationController {
+                for entry in nav.navigationBar.items ?? [] {
+                    let groups = entry.leadingItemGroups + entry.centerItemGroups + entry.trailingItemGroups
+                    result += groups.flatMap(\.barButtonItems).compactMap(\.identifier)
+                }
+            }
+            return result + vc.children.flatMap(identifiers)
+        }
+        let controls = try decode([control(["kind": "button", "placement": "vertical-bars", "transitionId": "group-position-0",
+            "items": [item(["id": "action-on-page-one", "transitionId": "presentation-edit"])]])]).controls
+        rail.apply(controls, rendering: NativeUIControlRendering(), edge: "right", animated: false)
+        for _ in 0..<40 {
+            owner.view.layoutIfNeeded()
+            if identifiers(owner).contains("presentation-edit") { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertTrue(identifiers(owner).contains("presentation-edit"))
+        XCTAssertFalse(identifiers(owner).contains("action-on-page-one"))
+    }
+
     func testStandardRendererKindsDoNotRequireIonicNames() throws {
         let pairs: [(String, String, NativeUIComponent)] = [
             ("button", "ion-button", .button), ("button-group", "ion-buttons", .buttons),

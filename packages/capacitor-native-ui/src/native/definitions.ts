@@ -138,6 +138,8 @@ export interface NativeUIBadge {
 
 export interface NativeUIItem extends Frame {
   id: string;
+  /** Toolbar presentation identity; never used to dispatch an action. */
+  transitionId?: string;
   label: string;
   accessibilityLabel: string;
   disabled: boolean;
@@ -178,6 +180,8 @@ export type NativeUIControlKind =
 
 export interface NativeUIControl extends Frame {
   id: string;
+  /** Stable toolbar group identity, independent of the source control ID. */
+  transitionId?: string;
   kind: NativeUIControlKind | 'extension';
   extension?: { name: string; props: string; actions: Record<string, string>; tabBarId?: string };
   /** Lets the native host own adaptive placement instead of mirroring the DOM frame. */

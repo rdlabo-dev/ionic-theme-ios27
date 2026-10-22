@@ -58,6 +58,7 @@ struct NativeUIControl: Decodable, Equatable {
     let kind: NativeUIComponent
     let placement: Placement?
     let toolbarSlot: ToolbarSlot?
+    let transitionId: String?
     let frame: NativeUIFrame
     let items: [NativeUIItem]
     let dark: Bool
@@ -67,7 +68,7 @@ struct NativeUIControl: Decodable, Equatable {
     let extensionContent: NativeUIExtensionContent?
 
     private enum CodingKeys: String, CodingKey {
-        case id, kind, placement, toolbarSlot, items, dark, rtl, tabBarAnchor, search
+        case id, kind, placement, toolbarSlot, transitionId, items, dark, rtl, tabBarAnchor, search
         case extensionContent = "extension"
     }
 
@@ -77,6 +78,7 @@ struct NativeUIControl: Decodable, Equatable {
         kind = try values.decode(NativeUIComponent.self, forKey: .kind)
         placement = try values.decodeIfPresent(Placement.self, forKey: .placement)
         toolbarSlot = try values.decodeIfPresent(ToolbarSlot.self, forKey: .toolbarSlot)
+        transitionId = try values.decodeIfPresent(String.self, forKey: .transitionId)
         frame = try NativeUIFrame(from: decoder)
         items = try values.decode([NativeUIItem].self, forKey: .items)
         dark = try values.decode(Bool.self, forKey: .dark)
@@ -127,6 +129,7 @@ struct NativeUIItemContent: Decodable, Equatable {
     enum IconPosition: String, Decodable { case leading, trailing, top }
     enum ButtonFill: String, Decodable { case clear, solid, outline }
     let id: String
+    let transitionId: String?
     var label: String
     let accessibilityLabel: String
     let disabled: Bool
