@@ -1,3 +1,4 @@
+import { createVerticalNavigation } from './shared/vertical-navigation';
 import { createHorizontalNavigation, horizontalToolbar, navigationMarker } from './shared/horizontal-navigation';
 import { assignToolbarTransitionIds } from './shared/transition-identity';
 import { controlSelected } from './shared/control-options';
@@ -83,6 +84,7 @@ export const createRuntime = async (
   const verticalBarsMembers = new Set<HTMLElement>();
   const suspended = new Set<HTMLElement[]>();
   const navigation = createHorizontalNavigation();
+  const verticalNavigation = createVerticalNavigation();
   let acknowledged: Candidate[] = [];
   const pages = new Set<HTMLElement>();
   const verticalBarsPages = createVerticalBarsPageState();
@@ -511,7 +513,23 @@ export const createRuntime = async (
       const modal = topModal(doc);
       const verticalBarFrame = modal && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
       const transition = navigation.current;
+      const railCandidates = candidates.filter((candidate) => candidate.control.placement === 'vertical-bars');
+      const activePage = railCandidates.length
+        ? (railCandidates.find((candidate) => candidate.control.kind !== 'tab-bar')?.element.closest<HTMLElement>('.ion-page') ??
+          Array.from((modal ?? scope).querySelectorAll<HTMLElement>('.ion-page'))
+            .reverse()
+            .find((page) => {
+              const invisible = page.closest<HTMLElement>('.ion-page-invisible');
+              return (
+                !page.closest('.ion-page-hidden, ion-menu') &&
+                !verticalBarsPages.isDeparted(page) &&
+                (modal || !page.closest('ion-modal, ion-popover')) &&
+                (!invisible || pages.has(invisible))
+              );
+            }))
+        : undefined;
       const data = {
+        verticalBarNavigation: activePage ? verticalNavigation.read(activePage).map(id) : undefined,
         toolbarTransition:
           transition?.prepared && transition.phase !== 'committing'
             ? {
@@ -1087,6 +1105,16 @@ export const createRuntime = async (
       async suspend(scopes, suspensionOptions) {
         if (!suspensionOptions?.navigation) navigation.clear();
         let transition: typeof navigation.current;
+        let finishVertical: ((canceled: boolean) => void) | undefined;
+        if (
+          suspensionOptions?.navigation &&
+          !tabSwitchHandoff &&
+          !overlayOpen(true, true) &&
+          scopes[0]?.closest('ion-app.ios-theme-vertical-bars') &&
+          scopes.every(inVerticalBarsSurface)
+        ) {
+          finishVertical = verticalNavigation.begin(scopes[0], scopes[1], suspensionOptions.direction);
+        }
         if (suspensionOptions?.navigation && !manualSuspensions.size && !overlayOpen() && !tabSwitchHandoff) {
           transition = navigation.begin(scopes, acknowledged, true);
           maskNavigationPage(scopes[0]);
@@ -1117,6 +1145,7 @@ export const createRuntime = async (
         // Moving content has returned to Web; fixed toolbar covers remain native for navigation.
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
         const release: NativeUITransitionRelease = (canceled = false) => {
+          finishVertical?.(canceled);
           suspended.delete(scopes);
           if (canceled || !scopes.some((scope) => scope.closest('ion-app.ios-theme-vertical-bars'))) {
             scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.

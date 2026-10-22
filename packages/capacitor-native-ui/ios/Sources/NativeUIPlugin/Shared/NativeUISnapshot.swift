@@ -43,11 +43,13 @@ struct NativeUISnapshot: Decodable {
     let viewportWidth: Double
     let verticalBarFrame: NativeUIFrame?
     let verticalBarEdge: String?
+    let verticalBarNavigation: [String]?
     let controls: [NativeUIControl]
 
     var isValid: Bool {
         (toolbarTransition.map { $0.isValid && Set($0.sourceIds).isSubset(of: Set(controls.map(\.id))) } ?? true) &&
         revision >= 0 && (transitionDuration.map { $0.isFinite && $0 >= 0 && $0 <= 500 } ?? true) && viewportWidth.isFinite && viewportWidth > 0 && controls.count <= 100 &&
+        (verticalBarNavigation.map { Set($0).count == $0.count && $0.allSatisfy { !$0.isEmpty } } ?? true) &&
         (verticalBarFrame.map { $0.isValid } ?? true) &&
         (verticalBarEdge == nil || verticalBarEdge == "left" || verticalBarEdge == "right") &&
         Set(controls.map(\.id)).count == controls.count && controls.allSatisfy(\.isValid)

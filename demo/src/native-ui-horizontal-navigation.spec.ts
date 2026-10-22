@@ -1,4 +1,5 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, expect, onTestFinished, test, vi } from 'vitest';
+import { observeVerticalBarsModals } from '../../packages/capacitor-native-ui/src/native/shared/modal';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';
 import { suspendNativeUI } from '../../packages/capacitor-native-ui/src/native-integration';
 import type { NativeUIPlugin, NativeUISnapshot, NativeUIRuntimeHandle } from '../../packages/capacitor-native-ui/src/native/definitions';
@@ -485,4 +486,62 @@ test('toolbar handoff does not measure incoming content controls', async () => {
     true,
   );
   release();
+});
+
+test('a presented vertical modal keeps its own push path and restores it on cancellation', async () => {
+  const f = await fixture('Menu', 'Back');
+  const app = document.querySelector('ion-app')!;
+  app.classList.add('ios-theme-vertical-bars');
+  const modal = document.createElement('ion-modal');
+  Object.assign(modal.style, { visibility: 'visible', opacity: '1', transform: 'none' });
+  const content = document.createElement('div');
+  content.setAttribute('part', 'content');
+  Object.defineProperties(content, {
+    offsetWidth: { value: window.innerWidth },
+    offsetLeft: { value: 0 },
+  });
+  content.getBoundingClientRect = () =>
+    ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }) as DOMRect;
+  content.getAnimations = () => [];
+  modal.attachShadow({ mode: 'open' }).append(content);
+  app.append(modal);
+  modal.append(f.leaving, f.entering);
+  for (const button of modal.querySelectorAll('button')) button.setAttribute('data-native-ui-placement', 'rail');
+  const stopModals = observeVerticalBarsModals(document);
+  onTestFinished(stopModals);
+  modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+  await vi.waitFor(() => {
+    expect(modal.classList.contains('ios-theme-vertical-bars-modal')).toBe(true);
+    expect(f.snapshots.at(-1)?.verticalBarNavigation).toHaveLength(1);
+  });
+  const root = f.snapshots.at(-1)!.verticalBarNavigation![0];
+  const cancelPush = await f.start();
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigation).toHaveLength(2));
+  expect(f.snapshots.at(-1)!.verticalBarNavigation![0]).toBe(root);
+  cancelPush(true);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigation).toEqual([root]));
+  const push = await f.start();
+  push();
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigation).toHaveLength(2));
+  const path = f.snapshots.at(-1)!.verticalBarNavigation!;
+  f.leaving.classList.remove('ion-page-hidden');
+  f.leaving.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
+  f.entering.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true }));
+  const pop = await suspendNativeUI([f.leaving, f.entering], { navigation: true, direction: 'back' });
+  f.entering.classList.add('ion-page-hidden');
+  window.dispatchEvent(new Event('nativeUIRefresh'));
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigation).toEqual([root]));
+  f.entering.classList.remove('ion-page-hidden');
+  f.leaving.classList.add('ion-page-hidden');
+  pop(true);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigation).toEqual(path));
 });

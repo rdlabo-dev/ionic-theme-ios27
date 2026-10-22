@@ -227,6 +227,8 @@ export interface NativeUISnapshot {
   verticalBarEdge?: 'left' | 'right';
   /** Visible foreground modal bounds; omitted for the full page. */
   verticalBarFrame?: Frame;
+  /** Web-owned page identities, from root through the active rail destination. */
+  verticalBarNavigation?: string[];
   controls: NativeUIControl[];
 }
 

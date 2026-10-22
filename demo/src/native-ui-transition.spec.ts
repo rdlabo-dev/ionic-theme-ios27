@@ -141,7 +141,7 @@ test('connecting before runtime startup does not prevent later native integratio
     destroy: vi.fn(),
   } as unknown as Animation;
   const wrapped = withNativeUITransition(() => animation);
-  const options = { enteringEl: entering, leavingEl: leaving };
+  const options = { enteringEl: entering, leavingEl: leaving, direction: 'back' as const };
   wrapped(entering, options);
   const play = animation.play;
   expect(animation.onFinish).toHaveBeenCalledTimes(1);
@@ -154,7 +154,7 @@ test('connecting before runtime startup does not prevent later native integratio
     expect(animation.onFinish).toHaveBeenCalledTimes(2);
     expect(animation.play).not.toBe(play);
     await animation.play();
-    expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving], { navigation: true });
+    expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving], { navigation: true, direction: 'back' });
     expect(resume).toHaveBeenCalledExactlyOnceWith(false);
   } finally {
     animation.destroy();

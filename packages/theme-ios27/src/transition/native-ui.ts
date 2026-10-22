@@ -12,7 +12,7 @@ export const withNativeUITransition =
   (builder: AnimationBuilder): AnimationBuilder =>
   (baseEl, opts) => {
     const animation = builder(baseEl, opts);
-    if (opts?.enteringEl) connectNativeUITransition(animation, opts.enteringEl, opts.leavingEl);
+    if (opts?.enteringEl) connectNativeUITransition(animation, opts.enteringEl, opts.leavingEl, opts.direction);
     return animation;
   };
 
@@ -20,7 +20,12 @@ const connectedTransitions = new WeakSet<Animation>();
 const cancellationTransitions = new WeakSet<Animation>();
 
 /** Ionic write hooks cannot await the bridge. Gate playback, including interactive playback. */
-export const connectNativeUITransition = (animation: Animation, entering: HTMLElement, leaving?: HTMLElement) => {
+export const connectNativeUITransition = (
+  animation: Animation,
+  entering: HTMLElement,
+  leaving?: HTMLElement,
+  direction?: 'forward' | 'back' | 'root',
+) => {
   if (leaving && !cancellationTransitions.has(animation)) {
     cancellationTransitions.add(animation);
     animation.onFinish((step) => {
@@ -59,7 +64,7 @@ export const connectNativeUITransition = (animation: Animation, entering: HTMLEl
   let step: number | undefined;
   let end: Parameters<Animation['progressEnd']> | undefined;
   const prepare = () =>
-    (preparation ??= suspendNativeUI(scopes, { navigation: true }).then((resume) => {
+    (preparation ??= suspendNativeUI(scopes, { navigation: true, ...(direction ? { direction } : {}) }).then((resume) => {
       if (disposed) resume(true);
       else release = resume;
     }));

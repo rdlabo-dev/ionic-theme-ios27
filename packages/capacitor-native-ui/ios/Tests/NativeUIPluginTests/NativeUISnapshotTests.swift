@@ -94,26 +94,72 @@ final class NativeUISnapshotTests: XCTestCase {
         let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
         rail.attach(to: owner, in: owner.view)
         defer { rail.detach(); window.isHidden = true }
-        func identifiers(_ vc: UIViewController) -> [String] {
-            var result: [String] = []
+        func buttons(_ vc: UIViewController) -> [UIBarButtonItem] {
+            var result: [UIBarButtonItem] = []
             if let nav = vc as? UINavigationController {
                 for entry in nav.navigationBar.items ?? [] {
                     let groups = entry.leadingItemGroups + entry.centerItemGroups + entry.trailingItemGroups
-                    result += groups.flatMap(\.barButtonItems).compactMap(\.identifier)
+                    result += groups.flatMap(\.barButtonItems)
                 }
             }
-            return result + vc.children.flatMap(identifiers)
+            return result + vc.children.flatMap(buttons)
         }
-        let controls = try decode([control(["kind": "button", "placement": "vertical-bars", "transitionId": "group-position-0",
-            "items": [item(["id": "action-on-page-one", "transitionId": "presentation-edit"])]])]).controls
-        rail.apply(controls, rendering: NativeUIControlRendering(), edge: "right", animated: false)
-        for _ in 0..<40 {
-            owner.view.layoutIfNeeded()
-            if identifiers(owner).contains("presentation-edit") { break }
-            try await Task.sleep(nanoseconds: 50_000_000)
+        // Push and return replace source content while keeping the presentation ID.
+        for (page, action, label, disabled) in [("one", "edit", "Edit", false), ("one", "edit", "Saving", true),
+            ("one", "replacement", "Retry", false), ("two", "done", "Done", false), ("one", "edit", "Edit", false)] {
+            let controls = try decode([control(["id": "group-\(page)", "kind": "button", "placement": "vertical-bars",
+                "transitionId": "group-position-0", "items": [item(["id": "action-\(action)",
+                "label": label, "disabled": disabled, "transitionId": "presentation-edit"])]])]).controls
+            rail.apply(controls, rendering: NativeUIControlRendering(), edge: "right", animated: false)
+            for _ in 0..<40 {
+                owner.view.layoutIfNeeded()
+                if buttons(owner).contains(where: { $0.identifier == "presentation-edit" && $0.title == label && $0.isEnabled == !disabled }) { break }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            let presented = buttons(owner).filter { $0.identifier == "presentation-edit" }
+            XCTAssertEqual(presented.count, 1)
+            XCTAssertEqual(presented.first?.title, label)
+            XCTAssertEqual(presented.first?.isEnabled, !disabled)
+            XCTAssertFalse(buttons(owner).contains { $0.identifier == "action-\(action)" })
         }
-        XCTAssertTrue(identifiers(owner).contains("presentation-edit"))
-        XCTAssertFalse(identifiers(owner).contains("action-on-page-one"))
+    }
+
+    @MainActor func testVerticalNavigationUsesTheWebStackAndRetainsOutgoingContent() async throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI navigation") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach(); window.isHidden = true }
+        func navigation(_ vc: UIViewController) -> UINavigationController? {
+            (vc as? UINavigationController) ?? vc.children.compactMap(navigation).first
+        }
+        let model = NativeUIVerticalBarsModel()
+        var outgoing: String?
+        // Push, pop and canceled-pop restoration must preserve each page's content,
+        // even though both pages use the same presentation identities.
+        for path in [["root"], ["root", "detail"], ["root"], ["root", "detail"]] {
+            let page = path.last!
+            let controls = try decode([control(["id": page, "kind": "button", "placement": "vertical-bars",
+                "transitionId": "end-0", "items": [item(["id": page, "label": page, "transitionId": "action-0"])]])]).controls
+            rail.apply(controls, rendering: NativeUIControlRendering(), edge: "right", animated: false, navigation: path)
+            model.apply(controls, rendering: NativeUIControlRendering(), animated: false, navigation: path)
+            for retainedPage in Set([page] + (outgoing.map { [$0] } ?? [])) {
+                let group = try XCTUnwrap(model.groups(on: retainedPage).first)
+                XCTAssertEqual(group.id, retainedPage)
+                XCTAssertEqual(group.items.map(\.id), [retainedPage])
+                XCTAssertEqual(group.items.map(\.label), [retainedPage])
+            }
+            outgoing = page
+            for _ in 0..<40 {
+                owner.view.layoutIfNeeded()
+                if navigation(owner)?.viewControllers.count == path.count { break }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            XCTAssertEqual(navigation(owner)?.viewControllers.count, path.count)
+        }
     }
 
     func testStandardRendererKindsDoNotRequireIonicNames() throws {

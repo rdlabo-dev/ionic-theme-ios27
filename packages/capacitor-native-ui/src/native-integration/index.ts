@@ -3,6 +3,8 @@
 export interface NativeUISuspensionOptions {
   /** Navigation-only toolbar handoff; omitted for explicit Web ownership requests. */
   navigation?: boolean;
+  /** Direction supplied by Ionic's navigation animation builder. */
+  direction?: 'forward' | 'back' | 'root';
 }
 
 export type NativeUITransitionRelease = ((canceled?: boolean) => void) & { progress?: (value: number) => void };

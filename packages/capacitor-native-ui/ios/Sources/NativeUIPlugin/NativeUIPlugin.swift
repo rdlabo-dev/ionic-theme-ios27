@@ -455,7 +455,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             // Publish toolbar, tabs and accessory together so the hosting tree receives
             // one animation transaction. The shell owns only the initial crossfade.
             self.verticalBars?.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right",
-                                     animated: !enteringVerticalBars, accessory: accessoryContent)
+                                     animated: !enteringVerticalBars, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [])
             if snapshots.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.host?.removeFromSuperview()
                 self.host = nil
