@@ -29,7 +29,17 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
       counts.set(key, index + 1);
       return index;
     };
-    identities.push({ target: control, id: JSON.stringify(['group', ...scope, slot, next('group')]), fallback: control.id });
+    const position = next('group');
+    const explicitSurface =
+      control.placement !== 'vertical-bars'
+        ? element.getAttribute('data-transition-id')?.trim() ||
+          (control.items.length === 1 ? candidate.actions.get(control.items[0].id)?.getAttribute('data-transition-id')?.trim() : undefined)
+        : undefined;
+    identities.push({
+      target: control,
+      id: JSON.stringify(explicitSurface ? ['surface-explicit', ...scope, explicitSurface] : ['group', ...scope, slot, position]),
+      fallback: control.id,
+    });
     for (const item of control.items) {
       const source = candidate.actions.get(item.id);
       const explicit = source?.getAttribute('data-transition-id')?.trim();
@@ -48,11 +58,5 @@ export const assignToolbarTransitionIds = (candidates: Candidate[]): void => {
   // Ambiguous keys must not merge actions or produce duplicate SwiftUI identities.
   for (const { target, id, fallback } of identities) {
     target.transitionId = counts.get(id) === 1 ? id : JSON.stringify(['unmatched', fallback]);
-  }
-  // A stable surface signature; navigation pairs changing surfaces by their common items.
-  for (const { control } of candidates) {
-    if (control.placement !== 'vertical-bars' && control.transitionId) {
-      control.transitionId = JSON.stringify(['surface', ...control.items.map((item) => item.transitionId).sort()]);
-    }
   }
 };

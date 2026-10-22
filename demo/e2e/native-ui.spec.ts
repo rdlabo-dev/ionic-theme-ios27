@@ -4186,6 +4186,20 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
         label: control.items[0].accessibilityLabel,
       };
     }, before);
+    if (target === 'native-ui') {
+      const right = await page.evaluate((index) => {
+        const snapshots = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.slice(index);
+        for (const snapshot of snapshots) {
+          const cancel = snapshot.toolbarTransition?.destination.find((control) => control.items.some((item) => item.label === 'Cancel'));
+          if (cancel) return { target: cancel, source: snapshot.controls.find((control) => control.transitionId === cancel.transitionId) };
+        }
+        return null;
+      }, before.index);
+      expect(right).not.toBeNull();
+      expect(right!.source!.kind).toBe('button-group');
+      expect(right!.target.kind).toBe('button');
+      expect(right!.target.items[0].buttonFill).toBe('clear');
+    }
     expect(after.identity).toBe(before.identity);
     expect(after.id).not.toBe(before.id);
     expect(after.gaps).toBe(0);
@@ -4249,9 +4263,9 @@ test('toolbar follows paused page percentages and reverses before navigation com
       .toBeCloseTo(expected, 3);
     const prepared = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.toolbarTransition);
     expect(prepared?.destination.some((control) => control.kind === 'back-button')).toBe(true);
-    // The source's shared pair cannot partially morph into two separate surfaces.
-    expect(prepared?.sourceIds).not.toContain(sourceGroupId);
-    await expect(sourceGroup).not.toHaveAttribute('data-native-ui-projected');
+    // end[0] remains native as group -> Cancel; the new end[1] is independent.
+    expect(prepared?.sourceIds).toContain(sourceGroupId);
+    await expect(sourceGroup).toHaveAttribute('data-native-ui-projected', '');
     await expect(sourceGroup).not.toHaveAttribute('data-native-ui-navigation-source');
     if (percentage > 0) expect(expected).toBeGreaterThan(0);
     expect(expected).toBeLessThan(1);

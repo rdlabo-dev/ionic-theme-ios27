@@ -1,4 +1,3 @@
-import { correspondingToolbarSurface } from '../../packages/capacitor-native-ui/src/native/shared/horizontal-navigation';
 import { afterEach, expect, test } from 'vitest';
 import { assignToolbarTransitionIds } from '../../packages/capacitor-native-ui/src/native/shared/transition-identity';
 import type { Candidate } from '../../packages/capacitor-native-ui/src/native/shared/candidate';
@@ -140,6 +139,7 @@ test('horizontal surface signatures follow explicit item IDs across positions', 
   expect(from.map(({ control }) => control.transitionId)).toEqual(to.map(({ control }) => control.transitionId).reverse());
   const group = (items: Candidate[]): Candidate => ({
     ...items[0],
+    element: items[0].element.parentElement!,
     control: { ...items[0].control, kind: 'button-group', items: items.flatMap(({ control }) => control.items) },
     actions: new Map(items.flatMap(({ actions }) => [...actions])),
   });
@@ -149,27 +149,26 @@ test('horizontal surface signatures follow explicit item IDs across positions', 
   expect(sourceGroup.control.transitionId).toBe(fullTarget.control.transitionId);
 });
 
-test('one button and a group share a surface through any common item, independently of background kind', () => {
-  const single = mount(toolbar('<ion-button data-transition-id="b">B</ion-button>'))[0];
-  const children = mount(
-    toolbar(
-      '<ion-buttons><ion-button data-transition-id="a">A</ion-button><ion-button data-transition-id="b">B</ion-button></ion-buttons>',
-    ),
-  );
+test('horizontal start/end surface numbers ignore kind, fill and item count', () => {
+  const children = mount(toolbar('<ion-buttons slot="end"><ion-button>A</ion-button><ion-button>B</ion-button></ion-buttons>'));
   const group: Candidate = {
     ...children[0],
+    element: children[0].element.parentElement!,
     control: { ...children[0].control, kind: 'button-group', items: children.flatMap(({ control }) => control.items) },
     actions: new Map(children.flatMap((candidate) => [...candidate.actions])),
   };
-  [single, ...children, group].forEach(({ control }) => delete control.placement);
-  assignToolbarTransitionIds([single]);
-  assignToolbarTransitionIds(children);
+  const targets = mount(toolbar('<ion-buttons slot="end"><ion-button>Cancel</ion-button><ion-button>Save</ion-button></ion-buttons>'));
+  [group, ...targets].forEach(({ control }) => delete control.placement);
+  targets[0].control.items[0].buttonFill = 'clear';
   assignToolbarTransitionIds([group]);
-  expect(correspondingToolbarSurface(group, [single], [group])).toBe(single);
-  expect(correspondingToolbarSurface(single, [group], [single])).toBe(group);
-  single.control.items[0].buttonFill = 'clear';
-  expect(correspondingToolbarSurface(group, [single], [group])).toBe(single);
-  // Two independent backgrounds cannot both own the same shared destination.
-  expect(correspondingToolbarSurface(group, children, [group])).toBeUndefined();
-  expect(correspondingToolbarSurface(children[0], [group], children)).toBeUndefined();
+  assignToolbarTransitionIds(targets);
+  expect(group.control.transitionId).toBe(targets[0].control.transitionId);
+  expect(group.control.transitionId).not.toBe(targets[1].control.transitionId);
+  expect(group.control.items[0].transitionId).toBe(targets[0].control.items[0].transitionId);
+  // Adding or removing a group child never renumbers the following surface.
+  const following = targets[1];
+  const before = following.control.transitionId;
+  group.element.parentElement!.append(following.element);
+  assignToolbarTransitionIds([group, following]);
+  expect(following.control.transitionId).toBe(before);
 });

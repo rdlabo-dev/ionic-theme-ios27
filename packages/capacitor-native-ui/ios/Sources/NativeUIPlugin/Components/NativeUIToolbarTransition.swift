@@ -85,10 +85,21 @@ final class NativeUIToolbarTransition {
                             fromSurface: CGRect, toSurface: CGRect, scale: CGFloat, rtl: Bool, rendering: NativeUIControlRendering) {
         var from = (source ?? destination)!.frame.rect.applying(CGAffineTransform(scaleX: scale, y: scale))
         var to = (destination ?? source)!.frame.rect.applying(CGAffineTransform(scaleX: scale, y: scale))
-        // A newly appearing/disappearing item stays at its window position while
-        // the shared surface expands/contracts around it (also in RTL).
-        if source == nil { from = to.offsetBy(dx: toSurface.minX - fromSurface.minX, dy: toSurface.minY - fromSurface.minY) }
-        if destination == nil { to = from.offsetBy(dx: fromSurface.minX - toSurface.minX, dy: fromSurface.minY - toSurface.minY) }
+        // Preserve window position where possible. When a numbered surface moves
+        // past another action, grow/shrink its extra items from inside that surface.
+        func contained(_ rect: CGRect, in size: CGSize) -> CGRect {
+            let halfWidth = min(rect.width, size.width) / 2
+            let halfHeight = min(rect.height, size.height) / 2
+            let center = CGPoint(x: min(max(rect.midX, halfWidth), size.width - halfWidth),
+                                 y: min(max(rect.midY, halfHeight), size.height - halfHeight))
+            return CGRect(x: center.x - rect.width / 2, y: center.y - rect.height / 2, width: rect.width, height: rect.height)
+        }
+        if source == nil {
+            from = contained(to.offsetBy(dx: toSurface.minX - fromSurface.minX, dy: toSurface.minY - fromSurface.minY), in: fromSurface.size)
+        }
+        if destination == nil {
+            to = contained(from.offsetBy(dx: fromSurface.minX - toSurface.minX, dy: fromSurface.minY - toSurface.minY), in: toSurface.size)
+        }
         let unchanged = source.map { from in destination.map { to in
             let a = from.content, b = to.content
             return a.label == b.label && a.icon == b.icon && a.iconWidth == b.iconWidth && a.iconHeight == b.iconHeight &&
