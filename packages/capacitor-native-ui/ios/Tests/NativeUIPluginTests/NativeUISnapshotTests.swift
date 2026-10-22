@@ -595,7 +595,7 @@ final class NativeUISnapshotTests: XCTestCase {
         let source = try XCTUnwrap(decode([control(["id": "source", "kind": "ion-menu-button", "transitionId": "leading",
             "x": 10.0, "width": 44.0, "items": [item(["id": "menu", "label": "Menu", "transitionId": "button", "width": 44.0]) ]])]).controls.first)
         let destination = try XCTUnwrap(decode([control(["id": "target", "kind": "ion-back-button", "transitionId": "leading",
-            "x": 30.0, "width": 64.0, "items": [item(["id": "back", "label": "Back", "transitionId": "button", "width": 64.0]) ]])]).controls.first)
+            "x": 30.0, "width": 64.0, "items": [item(["id": "back", "label": "Back", "transitionId": "button", "width": 64.0, "disabled": true]) ]])]).controls.first)
         let host = UIView()
         let rendering = NativeUIControlRendering()
         let button = try XCTUnwrap(NativeUIButton.make(source, rendering: rendering, activate: { _ in }))
@@ -613,6 +613,10 @@ final class NativeUISnapshotTests: XCTestCase {
             XCTAssertEqual(button.alpha, 1)
             XCTAssertEqual(old.alpha, value == 0 ? 1 : 0)
             XCTAssertEqual(new.alpha, value > 0 ? 1 : 0)
+            XCTAssertTrue(old.isEnabled)
+            XCTAssertFalse(new.isEnabled)
+            XCTAssertFalse(old.isUserInteractionEnabled)
+            XCTAssertFalse(new.isUserInteractionEnabled)
             XCTAssertEqual(old.bounds.width, 44)
             XCTAssertEqual(new.bounds.width, 64)
             XCTAssertEqual(old.center.x, new.center.x, accuracy: 0.001)
@@ -620,6 +624,7 @@ final class NativeUISnapshotTests: XCTestCase {
         transition.restore()
         XCTAssertEqual(button.frame, source.frame.rect)
         XCTAssertEqual(button.configuration?.title, "Menu")
+        XCTAssertTrue(button.isEnabled)
         XCTAssertNil(new.superview)
     }
 

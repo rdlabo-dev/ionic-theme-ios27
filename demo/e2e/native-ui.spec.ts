@@ -1581,85 +1581,104 @@ test('ion-icon SVGs project and update when their name changes', async ({ page }
   await expect(button).toHaveAttribute('data-native-ui-projected', '');
 });
 
-test('clear ion-buttons share one glass surface and keep independent actions', async ({ page }) => {
-  await mockNative(page);
-  await page.goto('/main/index/native-ui');
-  const group = page.locator('[data-glass-group]');
-  const github = group.locator('ion-button').nth(0);
-  const refresh = group.locator('ion-button').nth(1);
-  const projectedGroup = () =>
-    page.evaluate(
-      () =>
-        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
-          .updates.at(-1)!
-          .controls.find(
-            (control: NativeUIControl) =>
-              control.kind === 'button-group' && control.items.some((item: NativeUIItem) => item.accessibilityLabel === 'GitHub'),
-          )!,
-    );
-  await expect(group).toHaveAttribute('data-native-ui-projected', '');
-  await expect(group.locator('[data-native-ui-projected]')).toHaveCount(0);
-  await expect(github.locator('button')).toHaveCSS('visibility', 'hidden');
-  const native = await projectedGroup();
-  expect(native.items).toHaveLength(2);
-  expect(native.items.map((item: NativeUIItem) => item.accessibilityLabel)).toEqual(['GitHub', 'Refresh']);
-  const githubName = () =>
-    page.evaluate(
-      (id) =>
-        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
-          .updates.at(-1)!
-          .controls.find((control: NativeUIControl) => control.id === id)?.items[0]?.accessibilityLabel,
-      native.id,
-    );
-  await github.locator('ion-icon').evaluate((icon) => icon.setAttribute('aria-hidden', 'true'));
-  await expect.poll(githubName).not.toBe('GitHub');
-  await github.locator('ion-icon').evaluate((icon) => icon.removeAttribute('aria-hidden'));
-  await expect.poll(githubName).toBe('GitHub');
-  for (const item of native.items) expect(item.icon).toMatch(/^iVBOR/);
-  await activate(page, 'GitHub', true);
-  await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 0');
-  await expect.poll(async () => (await projectedGroup())?.items.length).toBe(2);
-  await activate(page, 'Refresh');
-  await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 1');
+for (const nativeEdge of [null, 'trailing'] as const) {
+  test(`clear ion-buttons share one glass surface and keep independent actions (${nativeEdge ?? 'horizontal'})`, async ({ page }) => {
+    await mockNative(page, false, nativeEdge);
+    await page.goto('/main/index/native-ui');
+    const group = page.locator('[data-glass-group]');
+    const github = group.locator('ion-button').nth(0);
+    const refresh = group.locator('ion-button').nth(1);
+    const projectedGroup = () =>
+      page.evaluate(
+        () =>
+          Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+            .updates.at(-1)!
+            .controls.find(
+              (control: NativeUIControl) =>
+                control.kind === 'button-group' && control.items.some((item: NativeUIItem) => item.accessibilityLabel === 'GitHub'),
+            )!,
+      );
+    await expect(group).toHaveAttribute('data-native-ui-projected', '');
+    await expect(group.locator('[data-native-ui-projected]')).toHaveCount(0);
+    await expect(github.locator('button')).toHaveCSS('visibility', 'hidden');
+    const native = await projectedGroup();
+    expect(native.items).toHaveLength(2);
+    expect(native.items.map((item: NativeUIItem) => item.accessibilityLabel)).toEqual(['GitHub', 'Refresh']);
+    const githubName = () =>
+      page.evaluate(
+        (id) =>
+          Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+            .updates.at(-1)!
+            .controls.find((control: NativeUIControl) => control.id === id)?.items[0]?.accessibilityLabel,
+        native.id,
+      );
+    await github.locator('ion-icon').evaluate((icon) => icon.setAttribute('aria-hidden', 'true'));
+    await expect.poll(githubName).not.toBe('GitHub');
+    await github.locator('ion-icon').evaluate((icon) => icon.removeAttribute('aria-hidden'));
+    await expect.poll(githubName).toBe('GitHub');
+    for (const item of native.items) expect(item.icon).toMatch(/^iVBOR/);
+    await activate(page, 'GitHub', true);
+    await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 0');
+    await expect.poll(async () => (await projectedGroup())?.items.length).toBe(2);
+    await activate(page, 'Refresh');
+    await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 1');
 
-  await refresh.evaluate((element: HTMLIonButtonElement) => {
-    element.disabled = true;
-  });
-  await expect.poll(async () => (await projectedGroup())?.items[1].disabled).toBe(true);
-  await activate(page, 'Refresh');
-  await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 1');
-  await refresh.evaluate((element: HTMLIonButtonElement) => {
-    element.disabled = false;
-  });
+    await refresh.evaluate((element: HTMLIonButtonElement) => {
+      element.disabled = true;
+    });
+    await expect.poll(async () => (await projectedGroup())?.items[1].disabled).toBe(true);
+    const identity = (control: NativeUIControl) => [control.transitionId, ...control.items.map((item) => item.transitionId)];
+    expect(identity(await projectedGroup())).toEqual(identity(native));
+    await activate(page, 'Refresh');
+    await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 1');
+    await github.evaluate((element: HTMLIonButtonElement) => {
+      element.disabled = true;
+    });
+    await expect.poll(async () => (await projectedGroup())?.items.map((item) => item.disabled)).toEqual([true, true]);
+    expect(identity(await projectedGroup())).toEqual(identity(native));
+    await expect(group).toHaveAttribute('data-native-ui-projected', '');
+    await activate(page, 'GitHub');
+    await activate(page, 'Refresh');
+    await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 1');
+    await group.evaluate((element) => {
+      element.querySelectorAll<HTMLIonButtonElement>('ion-button').forEach((button) => {
+        button.disabled = false;
+      });
+    });
+    await expect.poll(async () => (await projectedGroup())?.items.map((item) => item.disabled)).toEqual([false, false]);
+    expect(identity(await projectedGroup())).toEqual(identity(native));
+    await activate(page, 'Refresh');
+    await expect(page.locator('ion-title').filter({ hasText: 'Actions:' })).toHaveText('Actions: 1 / 2');
 
-  for (const target of [group, github]) {
-    await target.evaluate((element) => element.classList.add('ios-theme-disabled'));
+    for (const target of [group, github]) {
+      await target.evaluate((element) => element.classList.add('ios-theme-disabled'));
+      await expect(group).not.toHaveAttribute('data-native-ui-projected');
+      await expect(github.locator('button')).toHaveCSS('visibility', 'visible');
+      await target.evaluate((element) => element.classList.remove('ios-theme-disabled'));
+      await expect(group).toHaveAttribute('data-native-ui-projected', '');
+    }
+    await group.evaluate((element) => {
+      element.style.display = 'none';
+    });
+    await expect(group).not.toHaveAttribute('data-native-ui-projected');
+    await expect.poll(projectedGroup).toBeUndefined();
+    await group.evaluate((element) => element.style.removeProperty('display'));
+    await expect(group).toHaveAttribute('data-native-ui-projected', '');
+
+    await refresh.evaluate((element: HTMLIonButtonElement) => {
+      element.fill = 'solid';
+    });
+    await expect(group).not.toHaveAttribute('data-native-ui-projected');
+    await expect(refresh.locator('button')).toHaveCSS('visibility', 'visible');
+    await refresh.evaluate((element: HTMLIonButtonElement) => {
+      element.fill = 'clear';
+    });
+    await expect(group).toHaveAttribute('data-native-ui-projected', '');
+    await refresh.evaluate((element) => element.remove());
     await expect(group).not.toHaveAttribute('data-native-ui-projected');
     await expect(github.locator('button')).toHaveCSS('visibility', 'visible');
-    await target.evaluate((element) => element.classList.remove('ios-theme-disabled'));
-    await expect(group).toHaveAttribute('data-native-ui-projected', '');
-  }
-  await group.evaluate((element) => {
-    element.style.display = 'none';
   });
-  await expect(group).not.toHaveAttribute('data-native-ui-projected');
-  await expect.poll(projectedGroup).toBeUndefined();
-  await group.evaluate((element) => element.style.removeProperty('display'));
-  await expect(group).toHaveAttribute('data-native-ui-projected', '');
-
-  await refresh.evaluate((element: HTMLIonButtonElement) => {
-    element.fill = 'solid';
-  });
-  await expect(group).not.toHaveAttribute('data-native-ui-projected');
-  await expect(refresh.locator('button')).toHaveCSS('visibility', 'visible');
-  await refresh.evaluate((element: HTMLIonButtonElement) => {
-    element.fill = 'clear';
-  });
-  await expect(group).toHaveAttribute('data-native-ui-projected', '');
-  await refresh.evaluate((element) => element.remove());
-  await expect(group).not.toHaveAttribute('data-native-ui-projected');
-  await expect(github.locator('button')).toHaveCSS('visibility', 'visible');
-});
+}
 
 test('theme-disabled ion-buttons project eligible buttons independently', async ({ page }) => {
   await mockNative(page);
