@@ -383,7 +383,14 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             var existing = Set(self.controls.keys)
             let verticalBars = snapshot.controls.filter { $0.placement == .verticalBars }
             let accessories = snapshot.controls.filter { $0.extensionContent?.tabBarId != nil }
-            let snapshots = snapshot.controls.filter { $0.placement != .verticalBars && $0.extensionContent?.tabBarId == nil }
+            var snapshots = snapshot.controls.filter { $0.placement != .verticalBars && $0.extensionContent?.tabBarId == nil }
+            if let transition = snapshot.toolbarTransition {
+                let sources = snapshots.filter { transition.sourceIds.contains($0.id) }
+                snapshots += transition.destination.filter { target in
+                    !snapshots.contains { $0.id == target.id } &&
+                    !sources.contains { $0.transitionId != nil && $0.transitionId == target.transitionId }
+                }
+            }
             let extensionIDs = Set(snapshot.controls.filter { $0.kind == .extension }.map(\.id))
             for id in Array(self.extensionNodes.keys) where !extensionIDs.contains(id) {
                 self.extensionActions.cancel(owner: id)
@@ -561,7 +568,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     guard let control = self.controls[id] else { reject(); continue }
                     if let tabBar = control as? UITabBar {
                         guard NativeUITabBar.fit(tabBar, node: node, bounds: bounds) else { reject(); continue }
-                    } else if control.frame != bounds && !(self.toolbarTransition?.sourceIds.contains(id) ?? false) {
+                    } else if control.frame != bounds && !(self.toolbarTransition?.controlIds.contains(id) ?? false) {
                         control.frame = bounds
                     }
                     control.overrideUserInterfaceStyle = node.dark ? .dark : .light

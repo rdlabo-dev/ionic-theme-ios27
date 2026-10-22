@@ -57,11 +57,19 @@ export const createHorizontalNavigation = () => {
       if (!current || current.phase !== 'playing') return;
       for (const candidate of candidates.filter(horizontalToolbar)) {
         // Only hide a destination that already has a retained native counterpart.
-        // New controls keep Ionic's entry animation and stay Web until native acknowledges them.
+        // New controls stay Web until native acknowledges their preparation.
         if (!all && !current.frozen.some((source) => source.control.transitionId === candidate.control.transitionId)) continue;
         for (const source of candidate.sources ?? [candidate.element]) {
           source.setAttribute(navigationMarker, '');
           current.masked.add(source);
+        }
+      }
+    },
+    unmask(candidates: Candidate[]) {
+      for (const candidate of candidates) {
+        for (const source of candidate.sources ?? [candidate.element]) {
+          source.removeAttribute(navigationMarker);
+          current?.masked.delete(source);
         }
       }
     },

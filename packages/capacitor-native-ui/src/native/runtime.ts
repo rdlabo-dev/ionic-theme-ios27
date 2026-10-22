@@ -540,8 +540,13 @@ export const createRuntime = async (
       if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
       if (transition && navigation.current === transition && result.toolbarTransition === transition.id) {
         transition.native = true;
-        navigation.mask(transition.destination, true);
+        navigation.mask(
+          transition.destination.filter((candidate) => !result.rejectedControls?.includes(candidate.control.id)),
+          true,
+        );
       }
+      if (transition && navigation.current === transition)
+        navigation.unmask(transition.destination.filter((candidate) => result.rejectedControls?.includes(candidate.control.id)));
       if (`${win.innerWidth}:${win.innerHeight}` !== size) {
         lastSnapshot = '';
         dirty = true;
@@ -1081,15 +1086,12 @@ export const createRuntime = async (
         if (suspensionOptions?.navigation && !manualSuspensions.size && !overlayOpen() && !tabSwitchHandoff) {
           transition = navigation.begin(scopes, acknowledged, true);
           maskNavigationPage(scopes[0]);
-          // Only paired surfaces stay native. Release unmatched sources before playback
-          // so Ionic owns their exit/entry animation in WebView.
+          // Release unmatched outgoing surfaces before playback. Incoming native surfaces
+          // are prepared with the transition so they never swap from Web at commit.
           transition.frozen = transition.frozen.filter((source) =>
             transition!.destination.some(
               (target) => source.control.transitionId && source.control.transitionId === target.control.transitionId,
             ),
-          );
-          transition.destination = transition.destination.filter((target) =>
-            transition!.frozen.some((source) => source.control.transitionId === target.control.transitionId),
           );
           try {
             for (const candidate of transition.destination) {
@@ -1101,7 +1103,7 @@ export const createRuntime = async (
             await fail(error);
             return () => {};
           }
-          transition.prepared = transition.frozen.length > 0;
+          transition.prepared = transition.destination.length > 0;
         }
         getNativeSearchBindings(doc)
           .filter((binding) => scopes.some((scope) => scope.contains(binding.footer) || scope.contains(binding.tabBar)))

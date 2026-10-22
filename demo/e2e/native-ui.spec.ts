@@ -4186,7 +4186,11 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
         );
         if (back && !back.closest('.ion-page')?.hasAttribute('data-test-did-enter')) {
           evidence.frames++;
-          const copies = [back, ...document.querySelectorAll<HTMLElement>('ion-router-outlet > ion-back-button.ion-cloned-element')];
+          const copies = [
+            back,
+            ...document.querySelectorAll<HTMLElement>('ion-router-outlet > ion-back-button.ion-cloned-element'),
+            ...document.querySelectorAll<HTMLElement>('app-native-ui ion-header ion-button[aria-label=Save]'),
+          ];
           if (
             copies.some((element) => {
               for (let current: HTMLElement | null = element; current; current = current.parentElement) {
@@ -4224,7 +4228,14 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
         const snapshots = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.slice(index);
         for (const snapshot of snapshots) {
           const cancel = snapshot.toolbarTransition?.destination.find((control) => control.items.some((item) => item.label === 'Cancel'));
-          if (cancel) return { target: cancel, source: snapshot.controls.find((control) => control.transitionId === cancel.transitionId) };
+          if (cancel)
+            return {
+              target: cancel,
+              source: snapshot.controls.find((control) => control.transitionId === cancel.transitionId),
+              save: snapshot.toolbarTransition!.destination.find((control) =>
+                control.items.some((item) => item.accessibilityLabel === 'Save'),
+              ),
+            };
         }
         return null;
       }, before.index);
@@ -4232,6 +4243,8 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
       expect(right!.source!.kind).toBe('button-group');
       expect(right!.target.kind).toBe('button');
       expect(right!.target.items[0].buttonFill).toBe('clear');
+      expect(right!.save).toBeDefined();
+      expect(right!.save!.transitionId).not.toBe(right!.source!.transitionId);
     }
     expect(after.identity).toBe(before.identity);
     expect(after.id).not.toBe(before.id);
@@ -4379,9 +4392,15 @@ test('mini player does not shorten the page and outgoing translucent toolbar fad
     const geometry = await page.evaluate(() => {
       const page = document.querySelector('index-page')!;
       const buttons = page.querySelector('ion-header:not([collapse]) ion-buttons[slot=end]')!;
-      return { bottom: page.getBoundingClientRect().bottom, viewport: innerHeight, opacity: Number(getComputedStyle(buttons).opacity) };
+      return {
+        bottom: page.getBoundingClientRect().bottom,
+        viewport: innerHeight,
+        opacity: Number(getComputedStyle(buttons).opacity),
+        backing: getComputedStyle(page.parentElement!).backgroundColor,
+      };
     });
     expect(geometry.bottom).toBeGreaterThanOrEqual(geometry.viewport - 1);
+    expect(geometry.backing).not.toBe('rgba(0, 0, 0, 0)');
     if (percentage === 0) expect(geometry.opacity).toBe(1);
     else expect(geometry.opacity).toBeLessThan(0.9);
     if (percentage >= 0.2) expect(geometry.opacity).toBe(0);
@@ -4390,6 +4409,8 @@ test('mini player does not shorten the page and outgoing translucent toolbar fad
     );
   }
   await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
+  await expect(page.locator('app-native-ui-extension-page')).toHaveAttribute('data-test-did-enter', '');
+  expect(await page.locator('index-page').evaluate((page) => (page.parentElement as HTMLElement).style.backgroundColor)).toBe('');
 });
 
 test('a shared toolbar background shrinks to one button and expands on return without Web handoff', async ({ page }) => {

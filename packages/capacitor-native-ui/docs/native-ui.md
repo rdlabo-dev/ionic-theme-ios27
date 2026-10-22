@@ -305,7 +305,7 @@ The built-in `iosTransitionAnimation` waits for native retirement before startin
 
 Ordinary native/Web handoffs share a 180ms opacity crossfade, including Vertical Bars in both directions. Outgoing visuals cannot receive input or accessibility focus. Reduce Motion and modal presentation use immediate handoffs; search controllers keep their UIKit-managed transition.
 
-Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Vertical Bars stack pushes and pops keep the normal 180ms handoff. Horizontal toolbar navigation retains corresponding native surfaces and returns unmatched controls to Web before playback; it does not add a handoff delay.
+Tab switches skip the Web/native crossfade so a retiring UIKit snapshot cannot linger over the next tab. Detection uses the router URL versus the still-selected tab on `ionViewWillLeave` (and vanilla `ionTabsWillChange` / `ionTabsDidChange` DOM events). Vertical Bars stack pushes and pops keep the normal 180ms handoff. Horizontal toolbar navigation retains corresponding native surfaces, prepares new destinations natively, and returns unmatched outgoing controls to Web before playback; it does not add a handoff delay.
 
 Standard Ionic overlays suspend ordinary native projection until dismissal. Vertical Bars use a separate policy:
 

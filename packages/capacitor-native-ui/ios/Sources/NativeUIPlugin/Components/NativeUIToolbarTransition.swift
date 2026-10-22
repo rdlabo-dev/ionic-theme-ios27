@@ -5,7 +5,7 @@ import UIKit
 @MainActor
 final class NativeUIToolbarTransition {
     let id: Int
-    let sourceIds: Set<String>
+    let controlIds: Set<String>
     private var updates: [(CGFloat) -> Void] = []
     private var restorations: [() -> Void] = []
     private(set) var progress: CGFloat = 0
@@ -14,7 +14,7 @@ final class NativeUIToolbarTransition {
     init(_ transition: NativeUIToolbarTransitionSnapshot, sources: [NativeUIControl], controls: [String: UIView],
          scale: CGFloat, origin: CGPoint, rendering: NativeUIControlRendering) {
         id = transition.id
-        sourceIds = Set(transition.sourceIds)
+        controlIds = Set(transition.sourceIds + transition.destination.map(\.id))
         let outgoing = sources.filter { transition.sourceIds.contains($0.id) }
         var remaining = transition.destination
         func bounds(_ node: NativeUIControl) -> CGRect {
@@ -76,6 +76,24 @@ final class NativeUIToolbarTransition {
                 addContent(item, target, to: container, fromSurface: from, toSurface: to, scale: scale, rtl: destination.rtl, rendering: rendering)
             }
             for item in targetItems { addContent(nil, item, to: container, fromSurface: from, toSurface: to, scale: scale, rtl: destination.rtl, rendering: rendering) }
+        }
+        // New destinations use their final native view from the first frame through
+        // commit. The normal control update reuses it when the page takes ownership.
+        for destination in remaining {
+            guard let view = controls[destination.id] else { continue }
+            let originalAlpha = view.alpha
+            let originalTransform = view.transform
+            let interactive = view.isUserInteractionEnabled
+            view.isUserInteractionEnabled = false
+            updates.append { value in
+                view.alpha = originalAlpha * value
+                view.transform = originalTransform.scaledBy(x: max(0.001, value), y: max(0.001, value))
+            }
+            restorations.append {
+                view.alpha = originalAlpha
+                view.transform = originalTransform
+                view.isUserInteractionEnabled = interactive
+            }
         }
         setProgress(0)
     }

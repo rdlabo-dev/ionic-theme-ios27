@@ -691,6 +691,31 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testNewToolbarDestinationUsesItsNativeViewThroughProgressAndRestoration() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        let destination = try XCTUnwrap(decode([control(["id": "save", "kind": "ion-button", "transitionId": "end-1",
+            "items": [item(["id": "save-action", "label": "Save"]) ]])]).controls.first)
+        let rendering = NativeUIControlRendering()
+        let button = try XCTUnwrap(NativeUIButton.make(destination, rendering: rendering, activate: { _ in }))
+        let host = UIView()
+        host.addSubview(button)
+        let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [], destination: [destination]),
+            sources: [], controls: [destination.id: button], scale: 1, origin: .zero, rendering: rendering)
+        for progress in [0.0, 0.2, 0.5, 1.0, 0.5, 0.0] {
+            transition.setProgress(progress)
+            XCTAssertTrue(button.superview === host)
+            XCTAssertEqual(button.alpha, progress, accuracy: 0.001)
+            XCTAssertEqual(button.transform.a, max(0.001, progress), accuracy: 0.001)
+            XCTAssertFalse(button.isUserInteractionEnabled)
+        }
+        transition.restore()
+        XCTAssertTrue(button.superview === host)
+        XCTAssertEqual(button.alpha, 1)
+        XCTAssertEqual(button.transform, .identity)
+        XCTAssertTrue(button.isUserInteractionEnabled)
+    }
+
+    @MainActor
     func testUnchangedBackContentStaysOpaqueAtEveryPagePercentage() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
         let source = try XCTUnwrap(decode([control(["id": "source", "kind": "ion-back-button", "transitionId": "leading",

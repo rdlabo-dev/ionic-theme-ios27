@@ -28,6 +28,17 @@ export const setConfig = (config: Partial<IosTransitionConfig>): void => {
 const buildTransition = createIosTransitionAnimation<TransitionOptions>(transitionConfig);
 export const iosTransitionAnimation: (navEl: HTMLElement, opts: TransitionOptions) => Animation = withNativeUITransition((navEl, opts) => {
   const animation = buildTransition(navEl, opts);
+  const background = navEl.style.backgroundColor;
+  // Translucent pages expose the outlet as they move. Keep that backing surface
+  // in the page theme instead of exposing WKWebView's transparent native backing.
+  if (!background) {
+    animation.beforeAddWrite(() => {
+      navEl.style.backgroundColor = 'var(--ion-background-color, #fff)';
+    });
+    animation.afterAddWrite(() => {
+      navEl.style.backgroundColor = '';
+    });
+  }
   // Translucent pages move as a whole, but outgoing toolbar actions still need
   // the same exit fade as opaque headers when they return from native to Web.
   const buttons = opts.leavingEl?.querySelectorAll(

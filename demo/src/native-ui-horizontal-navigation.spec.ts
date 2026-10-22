@@ -283,27 +283,30 @@ test.each([
   ['Save', false],
   ['Back', true],
   ['Save', true],
-] as const)('a new %s remains Web through entry and acknowledgement (native progress: %s)', async (label, nativeProgress) => {
-  const f = await fixture('', label, nativeProgress);
-  const source = f.entering.querySelector('button')!;
-  const release = await f.start();
-  expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(false);
-  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
-  let ack!: () => void;
-  f.setAck(
-    (snapshot) =>
-      new Promise((resolve) => {
-        ack = () => resolve({ revision: snapshot.revision });
-      }),
-  );
-  release();
-  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe(label));
-  expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(false);
-  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
-  f.setAck(undefined);
-  ack();
-  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
-});
+] as const)(
+  'a new %s stays native through commit when supported, otherwise stays Web (native progress: %s)',
+  async (label, nativeProgress) => {
+    const f = await fixture('', label, nativeProgress);
+    const source = f.entering.querySelector('button')!;
+    const release = await f.start();
+    expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(nativeProgress);
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+    let ack!: () => void;
+    f.setAck(
+      (snapshot) =>
+        new Promise((resolve) => {
+          ack = () => resolve({ revision: snapshot.revision });
+        }),
+    );
+    release();
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe(label));
+    expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(nativeProgress);
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+    f.setAck(undefined);
+    ack();
+    await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  },
+);
 
 test('A leading action retains its native slot through a push to Back and only the destination action activates after commit', async () => {
   const f = await fixture('Menu', 'Back');
@@ -369,15 +372,21 @@ test.each(['', 'Back'])('an unmatched outgoing action returns to Web before play
   expect(source.hasAttribute('data-native-ui-fading')).toBe(false);
   expect(f.snapshots.at(-1)!.transitionDuration).toBe(0);
   expect(f.snapshots.at(-1)!.controls).toEqual([]);
-  expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined();
-  expect(release.progress).toBeUndefined();
-  if (target) expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  if (target) {
+    expect(f.snapshots.at(-1)!.toolbarTransition?.sourceIds).toEqual([]);
+    expect(f.snapshots.at(-1)!.toolbarTransition?.destination[0].items[0].label).toBe(target);
+    expect(release.progress).toBeTypeOf('function');
+    expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(true);
+  } else {
+    expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined();
+    expect(release.progress).toBeUndefined();
+  }
   release(true);
   await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
   expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Edit');
 });
 
-test('different explicit action IDs return to Web even at the same toolbar position', async () => {
+test('different explicit action IDs retire the source and introduce a new native destination', async () => {
   const f = await fixture('Edit', 'Delete', true);
   const source = f.leaving.querySelector('button')!;
   const target = f.entering.querySelector('button')!;
@@ -386,8 +395,9 @@ test('different explicit action IDs return to Web even at the same toolbar posit
   await vi.waitFor(() => expect(f.snapshots.at(-1)!.controls[0].items[0].transitionId).toContain('edit'));
   const release = await f.start();
   expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
-  expect(target.hasAttribute('data-native-ui-navigation-source')).toBe(false);
-  expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined();
+  expect(target.hasAttribute('data-native-ui-navigation-source')).toBe(true);
+  expect(f.snapshots.at(-1)!.toolbarTransition?.sourceIds).toEqual([]);
+  expect(f.snapshots.at(-1)!.toolbarTransition?.destination[0].items[0].label).toBe('Delete');
   expect(f.snapshots.at(-1)!.controls).toEqual([]);
   release();
   await vi.waitFor(() => expect(target.hasAttribute('data-native-ui-projected')).toBe(true));
@@ -419,4 +429,42 @@ test('destination icon decode failure restores Web and lets navigation finish', 
   release();
   expect(f.leaving.classList.contains('ion-page-hidden')).toBe(true);
   expect(f.entering.classList.contains('ion-page-hidden')).toBe(false);
+});
+
+test('a rejected new destination stays visible in Web during native progress', async () => {
+  const f = await fixture('', 'Back', true);
+  f.setAck(async (snapshot) => ({
+    revision: snapshot.revision,
+    toolbarTransition: snapshot.toolbarTransition?.id,
+    rejectedControls: snapshot.toolbarTransition?.destination.map((control) => control.id),
+  }));
+  const release = await f.start();
+  expect(f.snapshots.at(-1)?.toolbarTransition?.destination).toHaveLength(1);
+  expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(false);
+  expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  release.progress?.(0.5);
+  expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(false);
+  release(true);
+});
+
+test('later rejection of an already prepared incoming surface returns it to Web', async () => {
+  const f = await fixture('', 'Back', true);
+  const target = f.entering.querySelector('button')!;
+  const release = await f.start();
+  expect(target.hasAttribute('data-native-ui-navigation-source')).toBe(true);
+  const prepared = f.snapshots.at(-1)!.toolbarTransition!;
+  f.setAck(async (snapshot) => ({
+    revision: snapshot.revision,
+    toolbarTransition: snapshot.toolbarTransition?.id,
+    rejectedControls: prepared.destination.map((c) => c.id),
+  }));
+  const other = target.cloneNode(true) as HTMLElement;
+  other.textContent = 'Outside';
+  other.removeAttribute('data-native-ui-navigation-source');
+  other.removeAttribute('aria-hidden');
+  other.getBoundingClientRect = target.getBoundingClientRect;
+  document.querySelector('ion-app')!.append(other);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)!.controls.some((c) => c.items[0]?.label === 'Outside')).toBe(true));
+  await vi.waitFor(() => expect(target.hasAttribute('data-native-ui-navigation-source')).toBe(false));
+  release(true);
 });
