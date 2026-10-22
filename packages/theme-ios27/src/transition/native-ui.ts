@@ -41,7 +41,7 @@ export const connectNativeUITransition = (animation: Animation, entering: HTMLEl
   let step: number | undefined;
   let end: Parameters<Animation['progressEnd']> | undefined;
   const prepare = () =>
-    (preparation ??= suspendNativeUI(scopes).then((resume) => {
+    (preparation ??= suspendNativeUI(scopes, { navigation: true }).then((resume) => {
       if (disposed) resume(true);
       else release = resume;
     }));

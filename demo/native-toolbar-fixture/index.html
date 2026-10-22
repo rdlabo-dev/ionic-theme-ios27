@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <link rel="stylesheet" href="app.css" />
+    <style>
+      body {
+        margin: 0;
+      }
+      ion-toolbar {
+        --background: #f7f7f7;
+      }
+      ion-content {
+        --background: #eef4ff;
+      }
+      button[data-native-ui] {
+        font: 17px -apple-system;
+        color: #007aff;
+        background: transparent;
+        border: 0;
+        min-width: 70px;
+        height: 44px;
+        margin: 0 12px;
+      }
+      #status {
+        position: fixed;
+        bottom: 35px;
+        left: 10px;
+        right: 10px;
+        font: 11px monospace;
+        z-index: 10000;
+        white-space: pre-wrap;
+        max-height: 120px;
+        overflow: hidden;
+        background: white;
+        color: black;
+      }
+      .actions {
+        margin: 35px;
+      }
+      .actions button {
+        display: block;
+        margin: 16px;
+        padding: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <ion-app><ion-nav></ion-nav></ion-app><output id="status" role="status">Starting</output>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

@@ -152,7 +152,7 @@ test('connecting before runtime startup does not prevent later native integratio
     expect(animation.onFinish).toHaveBeenCalledTimes(2);
     expect(animation.play).not.toBe(play);
     await animation.play();
-    expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving]);
+    expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving], { navigation: true });
     expect(resume).toHaveBeenCalledExactlyOnceWith(false);
   } finally {
     animation.destroy();
@@ -184,7 +184,7 @@ test('the built-in iOS transition uses the adapter once even when wrapped again'
   expect(animation.getDuration()).toBe(123);
   expect(animation.getEasing()).toBe('linear');
   const played = animation.play();
-  expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving]);
+  expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving], { navigation: true });
   animation.destroy();
   ready();
   await played;

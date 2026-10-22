@@ -1,7 +1,12 @@
 /// <reference lib="es2021.weakref" />
 
+export interface NativeUISuspensionOptions {
+  /** Navigation-only retention; omitted for explicit Web ownership requests. */
+  navigation?: boolean;
+}
+
 export interface NativeUIIntegration {
-  suspend(scopes: HTMLElement[]): Promise<(canceled?: boolean) => void>;
+  suspend(scopes: HTMLElement[], options?: NativeUISuspensionOptions): Promise<(canceled?: boolean) => void>;
   search?(binding: NativeSearchBinding, active: boolean, focus?: boolean): Promise<boolean>;
 }
 
@@ -42,8 +47,8 @@ export const hasNativeUIIntegration = (doc: Document): boolean => runtimes.has(d
 
 export const isNativeUI = (element: HTMLElement) => element.hasAttribute('data-native-ui-projected');
 
-export const suspendNativeUI = async (scopes: HTMLElement[]): Promise<(canceled?: boolean) => void> =>
-  (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes)) ?? (() => {});
+export const suspendNativeUI = async (scopes: HTMLElement[], options?: NativeUISuspensionOptions): Promise<(canceled?: boolean) => void> =>
+  (await runtimes.get(scopes[0]?.ownerDocument)?.suspend(scopes, options)) ?? (() => {});
 
 /** Shared geometry used by the theme's transition adapter; no theme import in the plugin. */
 export const nativeWebViewMetrics = { radius: 0 };
