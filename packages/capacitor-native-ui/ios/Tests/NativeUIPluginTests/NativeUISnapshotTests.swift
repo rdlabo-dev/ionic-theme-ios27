@@ -67,6 +67,7 @@ final class NativeUISnapshotTests: XCTestCase {
             }
         }
         var systemTint: UIColor?
+        var controllerSystemTint: UIColor?
         for (index, tint) in ([nil, "rgb(255, 0, 0)", "rgb(255, 0, 0)", "rgb(128, 0, 128)", nil] as [String?]).enumerated() {
             var value = control(["kind": "tab-bar", "placement": "vertical-bars", "items": [
                 item(["id": "first", "label": "First", "selected": index % 2 == 0]),
@@ -78,8 +79,11 @@ final class NativeUISnapshotTests: XCTestCase {
             rail.apply(try decode([value]).controls, rendering: NativeUIControlRendering(), edge: "right", animated: false)
             try await Task.sleep(nanoseconds: 500_000_000)
             let tabs = try XCTUnwrap(tabController(owner))
-            if index == 0 { systemTint = tabs.tabBar.tintColor }
+            if index == 0 { systemTint = tabs.tabBar.tintColor; controllerSystemTint = tabs.view.tintColor }
             try assertTint(tabs.tabBar.tintColor, tint.map { NativeUIRendering.color($0) } ?? systemTint, traits: tabs.traitCollection)
+            if tint == nil {
+                try assertTint(tabs.view.tintColor, controllerSystemTint, traits: tabs.traitCollection)
+            }
             if let tint {
                 // On iOS 27.1, the visible SwiftUI rail follows its controller's
                 // accent; setting only the legacy UITabBar property leaves it blue.
