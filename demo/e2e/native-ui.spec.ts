@@ -4153,6 +4153,7 @@ test('native rail toggles and teardown preserve application-owned layout', async
       inset: (element as HTMLElement).style.getPropertyValue('--ios-theme-vertical-bars-native-inset'),
     }));
   const expected = { vertical: true, inset: '72px' };
+  await expect.poll(() => app.evaluate((element) => !!(element as TestAppElement).nativeUI)).toBe(true);
   await app.evaluate(async (element) => (element as TestAppElement).nativeUI!.disableVerticalControlArea());
   expect(await layout()).toEqual(expected);
   await app.evaluate(async (element) => (element as TestAppElement).nativeUI!.enableVerticalControlArea());
@@ -4227,14 +4228,14 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
       const right = await page.evaluate((index) => {
         const snapshots = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.slice(index);
         for (const snapshot of snapshots) {
-          const cancel = snapshot.toolbarTransition?.destination.find((control) => control.items.some((item) => item.label === 'Cancel'));
-          if (cancel)
+          const save = snapshot.toolbarTransition?.destination.find((control) =>
+            control.items.some((item) => item.accessibilityLabel === 'Save'),
+          );
+          if (save)
             return {
-              target: cancel,
-              source: snapshot.controls.find((control) => control.transitionId === cancel.transitionId),
-              save: snapshot.toolbarTransition!.destination.find((control) =>
-                control.items.some((item) => item.accessibilityLabel === 'Save'),
-              ),
+              target: save,
+              source: snapshot.controls.find((control) => control.transitionId === save.transitionId),
+              cancel: snapshot.toolbarTransition!.destination.find((control) => control.items.some((item) => item.label === 'Cancel')),
             };
         }
         return null;
@@ -4242,9 +4243,9 @@ for (const target of ['native-ui', 'Native UI Extension', 'button-projection', '
       expect(right).not.toBeNull();
       expect(right!.source!.kind).toBe('button-group');
       expect(right!.target.kind).toBe('button');
-      expect(right!.target.items[0].buttonFill).toBe('clear');
-      expect(right!.save).toBeDefined();
-      expect(right!.save!.transitionId).not.toBe(right!.source!.transitionId);
+      expect(right!.target.items[0].accessibilityLabel).toBe('Save');
+      expect(right!.cancel).toBeDefined();
+      expect(right!.cancel!.transitionId).not.toBe(right!.source!.transitionId);
     }
     expect(after.identity).toBe(before.identity);
     expect(after.id).not.toBe(before.id);
@@ -4309,7 +4310,7 @@ test('toolbar follows paused page percentages and reverses before navigation com
       .toBeCloseTo(expected, 3);
     const prepared = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.toolbarTransition);
     expect(prepared?.destination.some((control) => control.kind === 'back-button')).toBe(true);
-    // end[0] remains native as group -> Cancel; the new end[1] is independent.
+    // end[0] remains native as group -> Save; Cancel occupies the new end[1].
     expect(prepared?.sourceIds).toContain(sourceGroupId);
     await expect(sourceGroup).toHaveAttribute('data-native-ui-projected', '');
     await expect(sourceGroup).not.toHaveAttribute('data-native-ui-navigation-source');
@@ -4404,8 +4405,9 @@ test('mini player does not shorten the page and outgoing translucent toolbar fad
     if (percentage === 0) expect(geometry.opacity).toBe(1);
     else expect(geometry.opacity).toBeLessThan(0.9);
     if (percentage >= 0.2) expect(geometry.opacity).toBe(0);
-    await expect(page.locator('index-page ion-header:not([collapse]) ion-buttons[slot=end]')).not.toHaveAttribute(
+    await expect(page.locator('index-page ion-header:not([collapse]) ion-buttons[slot=end]')).toHaveAttribute(
       'data-native-ui-projected',
+      '',
     );
   }
   await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));

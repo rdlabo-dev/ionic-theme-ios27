@@ -44,7 +44,7 @@ We adopt [Capacitor Foldable](https://github.com/erkamyaman/capacitor-foldable) 
 
 ### 2. Connect your navigation animation
 
-Configure `navAnimation` before Ionic initializes. Starting the rail runtime does not register this option. The adapter waits for native control retirement and coordinates swipe progress and cancellation while keeping your existing animation.
+Configure `navAnimation` before Ionic initializes. Starting the rail runtime does not register this option. The adapter prepares native controls and coordinates navigation progress and cancellation while keeping your existing page animation.
 
 #### Keep Ionic's default animation
 
