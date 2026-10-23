@@ -194,6 +194,87 @@ test('the built-in iOS transition uses the adapter once even when wrapped again'
   setNativeUIIntegration(doc);
 });
 
+const outletTransition = () => {
+  const nav = document.createElement('ion-router-outlet');
+  const entering = document.createElement('main');
+  const leaving = document.createElement('main');
+  nav.append(entering, leaving);
+  document.body.append(nav);
+  const animation = iosTransitionAnimation(nav, { baseEl: nav, enteringEl: entering, leavingEl: leaving, duration: 100, easing: 'linear' });
+  return { nav, animation };
+};
+
+test('destroy before playback leaves the outlet background untouched', () => {
+  const { nav, animation } = outletTransition();
+  try {
+    nav.style.backgroundColor = 'rgb(22, 33, 44)';
+    animation.destroy();
+    expect(nav.style.backgroundColor).toBe('rgb(22, 33, 44)');
+  } finally {
+    nav.remove();
+  }
+});
+
+test.each(['complete', 'cancel', 'destroy'] as const)('temporary outlet backing is restored on %s without Native UI', async (end) => {
+  const { nav, animation } = outletTransition();
+  try {
+    animation.progressStart(true);
+    animation.progressStep(0.4);
+    expect(nav.style.backgroundColor).toBe('var(--ion-background-color, #fff)');
+    if (end === 'destroy') animation.destroy();
+    else animation.progressEnd(end === 'complete' ? 1 : 0, 0.4, 0);
+    await vi.waitFor(() => expect(nav.style.backgroundColor).toBe(''));
+  } finally {
+    animation.destroy();
+    nav.remove();
+  }
+});
+
+test.each(['background-color: rgb(22, 33, 44)', 'background-image: linear-gradient(red, blue)'])(
+  'navigation preserves an application stylesheet background: %s',
+  (declaration) => {
+    const { nav, animation } = outletTransition();
+    const style = document.createElement('style');
+    nav.className = 'test-outlet-background';
+    style.textContent = `.test-outlet-background { ${declaration}; }`;
+    document.head.append(style);
+    try {
+      animation.progressStart(true);
+      animation.progressStep(0.4);
+      expect(nav.style.backgroundColor).toBe('');
+      animation.destroy();
+      expect(nav.style.backgroundColor).toBe('');
+    } finally {
+      animation.destroy();
+      nav.remove();
+      style.remove();
+    }
+  },
+);
+
+test.each(['complete', 'cancel', 'destroy'] as const)(
+  'outlet cleanup preserves an application change during playback on %s',
+  async (end) => {
+    const { nav, animation } = outletTransition();
+    try {
+      animation.progressStart(true);
+      expect(nav.style.backgroundColor).toBe('var(--ion-background-color, #fff)');
+      nav.style.backgroundColor = 'rgb(22, 33, 44)';
+      let finished = false;
+      animation.onFinish(() => (finished = true));
+      if (end === 'destroy') animation.destroy();
+      else {
+        animation.progressEnd(end === 'complete' ? 1 : 0, 0.4, 0);
+        await vi.waitFor(() => expect(finished).toBe(true));
+      }
+      expect(nav.style.backgroundColor).toBe('rgb(22, 33, 44)');
+    } finally {
+      animation.destroy();
+      nav.remove();
+    }
+  },
+);
+
 test('a canceled Web transition releases the still-active leaving page', () => {
   const doc = document.implementation.createHTMLDocument();
   const app = doc.createElement('ion-app');
