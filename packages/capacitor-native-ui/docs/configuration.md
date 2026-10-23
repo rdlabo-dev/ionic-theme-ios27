@@ -86,7 +86,7 @@ Local `data-horizontal-bars="true|false"` and `data-vertical-bars="true|false"` 
 
 Native toolbar buttons receive presentation identities automatically. Ordinary buttons correspond by their toolbar, logical slot and order among projected buttons. Menu and Back buttons at the leading position correspond in both horizontal and vertical bars. Changing the layout axis preserves presentation identities and group order. Each surface has its own child positions, so adding or removing buttons inside one group does not change the identities of later surfaces or their buttons. Labels and click handlers may change without requiring an ID attribute. Header and footer toolbars are separate scopes.
 
-Optionally set `data-transition-id` on an individual button when it should follow a particular action through a reorder:
+Optionally set `data-transition-id` on an individual button when it should follow a particular action through a reorder within its corresponding surface:
 
 ```html
 <!-- Source page -->
@@ -95,7 +95,7 @@ Optionally set `data-transition-id` on an individual button when it should follo
 <ion-button data-transition-id="edit">Done</ion-button>
 ```
 
-An explicit key overrides the automatic position within the corresponding toolbar. It does not change HTML `id`, routing or click delivery. Keep the original handler on each page's source button. Blank values use automatic correspondence; duplicate explicit keys within a toolbar are treated as separate, unmatched sources. Put the attribute on each button, including children of an `ion-buttons` group.
+An explicit key overrides the automatic position within the corresponding toolbar. It does not change HTML `id`, routing or click delivery. Keep the original handler on each page's source button. Blank values use automatic correspondence; duplicate explicit keys within a toolbar are treated as separate, unmatched sources. Put the attribute on each button, including children of an `ion-buttons` group. Child keys match within a corresponding surface; they do not move an action between different groups. To preserve a whole group through a reorder, also give its `ion-buttons` element a surface key. The group key identifies the shared background and child keys identify its buttons, even when only one child remains.
 
 These identities drive the native SwiftUI Vertical Bars toolbar. With the theme's navigation animation adapter, corresponding horizontal fixed toolbar surfaces remain native and follow the Ionic page animation's progress, including interactive reversal. Geometry and content change during playback; action ownership changes only after navigation commits. A canceled swipe restores the original toolbar. Retained horizontal toolbar actions are ignored until navigation and the destination update finish.
 
@@ -103,7 +103,7 @@ Outgoing controls without corresponding surface identities return to Web before 
 
 Progress updates use an optional capability acknowledged by the native plugin. Older native binaries that do not acknowledge it are not sent the new bridge method: corresponding outgoing toolbar surfaces retain their earlier completion-time handoff. Older transition adapters keep their existing behavior. Updating both the theme and native plugin enables progress synchronization.
 
-This does not create a native navigation stack or reproduce every SwiftUI animation. Automatic positional identities intentionally request stronger correspondence than SwiftUI's default without explicit toolbar IDs. Unmatched controls use Ionic's Web animation rather than SwiftUI's native shrink/grow effect.
+Vertical Bars mirror the Web page hierarchy in a SwiftUI `NavigationStack` to use its standard push/pop toolbar animations. Web routing and each source button still determine navigation and actions; the native stack does not introduce another navigation history. Canceled navigation restores the previous path, and tab and modal pages retain their own ancestry. Vertical toolbar animation is not driven frame by frame by the Ionic swipe progress; that progress synchronization applies to horizontal toolbars. Automatic positional identities request correspondence by position, so use an explicit key when an action should follow a reorder instead.
 
 ### Other settings
 
