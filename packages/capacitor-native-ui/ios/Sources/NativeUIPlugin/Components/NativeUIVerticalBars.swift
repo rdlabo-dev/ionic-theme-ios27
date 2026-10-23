@@ -241,6 +241,8 @@ private struct NativeUIVerticalBarsView: View {
                 TabView(selection: Binding(get: { model.selection }, set: { model.select($0) })) {
                     ForEach(model.tabs) { item in
                         NativeUIVerticalBarsPage(model: model)
+                        // Keep toolbar and search accents independent of the tab selection.
+                        .tint(nil)
                         .tag(item.id)
                         .tabItem { NativeUIVerticalBarsLabel(item: item) }
                         .modifier(NativeUIVerticalBarsBadge(badge: item.badge))
@@ -249,6 +251,7 @@ private struct NativeUIVerticalBarsView: View {
                         .accessibilityIdentifier(item.id)
                     }
                 }
+                .tint(model.tabTint.map { Color(uiColor: NativeUIRendering.color($0)) })
                 .modifier(NativeUIExtensionAccessory(content: model.accessory))
             }
         }

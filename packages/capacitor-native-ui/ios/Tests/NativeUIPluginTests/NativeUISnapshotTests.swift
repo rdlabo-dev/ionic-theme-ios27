@@ -52,6 +52,20 @@ final class NativeUISnapshotTests: XCTestCase {
             if let tabs = parent as? UITabBarController { return tabs }
             return parent.children.lazy.compactMap { tabController($0) }.first
         }
+        func assertTint(_ actual: UIColor?, _ expected: UIColor?, traits: UITraitCollection,
+                        file: StaticString = #filePath, line: UInt = #line) throws {
+            func components(_ color: UIColor?) throws -> [CGFloat] {
+                let color = try XCTUnwrap(color, file: file, line: line).resolvedColor(with: traits)
+                var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+                XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha), file: file, line: line)
+                return [red, green, blue, alpha]
+            }
+            // SwiftUI may resolve a dynamic UIColor into a different RGB color
+            // space with tiny rounding differences. Compare the rendered components.
+            for (actual, expected) in zip(try components(actual), try components(expected)) {
+                XCTAssertEqual(actual, expected, accuracy: 0.001, file: file, line: line)
+            }
+        }
         var systemTint: UIColor?
         for (index, tint) in ([nil, "rgb(255, 0, 0)", "rgb(255, 0, 0)", "rgb(128, 0, 128)", nil] as [String?]).enumerated() {
             var value = control(["kind": "tab-bar", "placement": "vertical-bars", "items": [
@@ -65,7 +79,12 @@ final class NativeUISnapshotTests: XCTestCase {
             try await Task.sleep(nanoseconds: 500_000_000)
             let tabs = try XCTUnwrap(tabController(owner))
             if index == 0 { systemTint = tabs.tabBar.tintColor }
-            XCTAssertEqual(tabs.tabBar.tintColor, tint.map { NativeUIRendering.color($0) } ?? systemTint)
+            try assertTint(tabs.tabBar.tintColor, tint.map { NativeUIRendering.color($0) } ?? systemTint, traits: tabs.traitCollection)
+            if let tint {
+                // On iOS 27.1, the visible SwiftUI rail follows its controller's
+                // accent; setting only the legacy UITabBar property leaves it blue.
+                try assertTint(tabs.view.tintColor, NativeUIRendering.color(tint), traits: tabs.traitCollection)
+            }
             XCTAssertEqual(tabs.selectedIndex, index % 2)
             XCTAssertEqual(tabs.traitCollection.userInterfaceStyle, index == 3 ? .dark : .light)
             XCTAssertNil(tabs.tabBar.items?.first?.standardAppearance, "Keep the native background and state appearances")
