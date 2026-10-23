@@ -112,6 +112,7 @@ export const createRuntime = async (
   let forceRefresh = false;
   let dirty = false;
   let pending = false;
+  let retryingUpdate = false;
   let stopped = false;
   let destruction: Promise<void> | undefined;
   const retentions = new Set<{ accepts?: (id: string) => boolean; activation?: NativeUIActivation }>();
@@ -418,6 +419,26 @@ export const createRuntime = async (
     // The Web fallback re-evaluates eligibility once native projection is stopped.
     win.dispatchEvent(new Event('nativeUIRefresh'));
   };
+  const updateNative = async (snapshot: NativeUISnapshot) => {
+    let result;
+    try {
+      result = await bounded(plugin.update(snapshot));
+    } catch (error) {
+      if (stopped) return;
+      if (retryingUpdate) throw error;
+      // Keep the existing connection. A fresh read on the next frame retries
+      // only state synchronization, never the action that triggered it.
+      retryingUpdate = true;
+      lastSnapshot = '';
+      forceRefresh = true;
+      dirty = true;
+      diagnose('sync-retry: refreshing current state after an update failure.');
+      return;
+    }
+    if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
+    retryingUpdate = false;
+    return result;
+  };
   const sync = async () => {
     frame = 0;
     dirty = false;
@@ -482,9 +503,8 @@ export const createRuntime = async (
           };
           updatingRevision = retirement.revision;
           updates++;
-          const result = await bounded(plugin.update(retirement));
-          if (stopped) return;
-          if (result.revision !== retirement.revision) throw new Error('Native UI revision mismatch');
+          const result = await updateNative(retirement);
+          if (stopped || !result) return;
           renderedSnapshot = retirement;
           acceptedRevision = result.revision;
           acknowledged = retained;
@@ -646,9 +666,8 @@ export const createRuntime = async (
       forceRefresh = false;
       updates++;
       updatingRevision = snapshot.revision;
-      const result = await bounded(plugin.update(snapshot));
-      if (stopped || (retentions.size && !manualSuspensions.size)) return;
-      if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
+      const result = await updateNative(snapshot);
+      if (stopped || !result || (retentions.size && !manualSuspensions.size)) return;
       if (transition && navigation.current === transition && result.toolbarTransition === transition.id) {
         transition.native = true;
         navigation.mask(

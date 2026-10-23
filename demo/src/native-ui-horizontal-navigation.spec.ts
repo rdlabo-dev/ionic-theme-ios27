@@ -674,3 +674,57 @@ test('an acknowledged navigation handoff does not wait for unrelated refreshes t
     refresh = false;
   }
 });
+
+test.each([false, true])(
+  'one failed native update resynchronizes current DOM without restarting or replaying input (vertical=%s)',
+  async (vertical) => {
+    const f = await fixture();
+    const source = f.leaving.querySelector('button')!;
+    if (vertical) {
+      document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
+      source.setAttribute('data-native-ui-placement', 'rail');
+      await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.placement).toBe('vertical-bars'));
+    }
+    const clicked = vi.fn();
+    source.addEventListener('click', clicked);
+    const listener = f.listeners.get('activate');
+    let failedRevision = 0;
+    f.setAck(async (snapshot) => {
+      if (!failedRevision) {
+        failedRevision = snapshot.revision;
+        source.textContent = 'Latest';
+        throw new Error('Temporary connection failure');
+      }
+      return { revision: snapshot.revision };
+    });
+    source.textContent = 'Changed';
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Latest'));
+    await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+    expect(handle!.getStatus().state).toBe('native');
+    expect(handle!.getStatus().reason).toBeUndefined();
+    expect(f.listeners.get('activate')).toBe(listener);
+    expect(clicked).not.toHaveBeenCalled();
+    const current = f.snapshots.at(-1)!;
+    expect(current.revision).toBeGreaterThan(failedRevision);
+    listener!({ id: current.controls[0].items[0].id, revision: failedRevision, sequence: 1 });
+    expect(clicked).not.toHaveBeenCalled();
+    listener!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 2 });
+    expect(clicked).toHaveBeenCalledOnce();
+  },
+);
+
+test('a persistent native update failure stops after one resynchronization attempt', async () => {
+  const f = await fixture();
+  const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  let attempts = 0;
+  f.setAck(async () => {
+    attempts++;
+    throw new Error('Persistent connection failure');
+  });
+  f.leaving.querySelector('button')!.textContent = 'Changed';
+  await vi.waitFor(() => expect(handle!.getStatus().state).toBe('stopped'));
+  expect(attempts).toBe(2);
+  expect(handle!.getStatus().reason).toBe('Persistent connection failure');
+  expect(f.leaving.querySelector('[data-native-ui-projected]')).toBeNull();
+  expect(warning).toHaveBeenCalledOnce();
+});
