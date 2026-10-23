@@ -3147,6 +3147,34 @@ for (const edge of [null, 'trailing'] as const) {
   });
 }
 
+test('rejected tab selection does not disable the next stack toolbar transition', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page, false, null);
+  await page.goto('/main/index');
+  const menu = page.locator('index-page > ion-header ion-buttons[slot="end"]');
+  await expect(menu).toHaveAttribute('data-native-ui-projected', '');
+  await page.locator('ion-tab-button[tab="album"]').evaluate((button) => {
+    button.addEventListener('click', (event) => event.stopImmediatePropagation(), { capture: true, once: true });
+  });
+  await activate(page, 'Library');
+  await expect(menu).not.toHaveAttribute('data-native-ui-projected');
+  await expect(menu).toHaveAttribute('data-native-ui-projected', '');
+  await expect(page).toHaveURL(/\/main\/index/);
+  await page.getByText('native-ui', { exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+        return (
+          state.updates.some((snapshot) =>
+            snapshot.toolbarTransition?.destination.some((control) => control.items.some((item) => item.accessibilityLabel === 'Save')),
+          ) && state.toolbarProgress.length > 0
+        );
+      }),
+    )
+    .toBe(true);
+});
+
 test('tab switches hand off without a crossfade', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui');
@@ -3330,7 +3358,7 @@ test('rejected search retries when tab content changes without resizing', async 
   await page
     .locator('ion-tab-button ion-label')
     .first()
-    .evaluate((el) => (el.textContent = 'Index'));
+    .evaluate((el) => (el.textContent = 'Retry'));
   await expect(footer).toHaveAttribute('data-native-ui-projected', '');
   expect(await page.locator('ion-tab-bar').boundingBox()).toEqual(before);
 });

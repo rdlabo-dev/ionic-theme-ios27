@@ -1173,6 +1173,8 @@ export const createRuntime = async (
             leaving.forEach((page) => {
               if (tabActivationPages.get(page) === event.sequence) tabActivationPages.delete(page);
             });
+            // Rejected selection emits no DidChange/pageDid to end the handoff.
+            if (!tabActivationPages.size && !pages.size) endTabSwitchHandoff();
             if (!stopped) schedule();
           },
           Math.max(0, handoffUntil - win.performance.now()),
