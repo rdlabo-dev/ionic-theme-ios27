@@ -4906,6 +4906,14 @@ test('horizontal tabs retain measured native width on Web handoff without feedin
   await page.locator('html').evaluate((html) => html.classList.remove('width-padding'));
   await expect.poll(requestWidth).toBeCloseTo(original, 0);
   await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  // A phone measurement must not constrain the vertical rail, and returning to
+  // the phone must measure source CSS before applying the native width again.
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  await expect(bar).not.toHaveAttribute('data-native-tab-width');
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(48, 0);
+  await page.locator('ion-app').evaluate((app) => app.classList.remove('ios-theme-vertical-bars'));
+  await expect.poll(requestWidth).toBeCloseTo(original, 0);
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(274, 0);
   const updates = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.length);
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.length)).toBe(updates);
