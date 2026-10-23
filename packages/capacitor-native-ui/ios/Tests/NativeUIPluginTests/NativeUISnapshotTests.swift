@@ -5,6 +5,41 @@ import Capacitor
 @testable import NativeUIPlugin
 
 final class NativeUISnapshotTests: XCTestCase {
+    @MainActor func testMeasuredTabWidthTracksNativeContentWithAndWithoutSearch() async throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rendering = NativeUIControlRendering()
+        let bar = UITabBar()
+        NativeUITabBar.configureLayout(bar)
+        owner.view.addSubview(bar)
+        let controller = NativeUISearchController()
+        controller.attach(to: owner, in: owner.view)
+        defer { controller.detach(); window.isHidden = true }
+        let image = UIImage(systemName: "circle.fill")!.pngData()!.base64EncodedString()
+        let search: JSObject = ["id": "search", "field": item(), "trigger": item(["id": "trigger"]),
+            "closeId": "close", "active": false, "available": true, "focused": false,
+            "value": "", "placeholder": "Search", "disabled": false, "editSequence": 0, "valueVersion": 0]
+        for width in [299.0, 217.0, 299.0] {
+            let items = ["Index", "Docs", "Library"].enumerated().map { index, label in item([
+                "id": "tab-\(index)", "label": label, "selected": index == 0,
+                "icon": image, "iconWidth": 26.0, "iconHeight": 26.0, "fontSize": 9.44, "fontWeight": 500.0]) }
+            let node = try XCTUnwrap(decode([control(["kind": "tab-bar", "width": width, "height": 62.0,
+                "search": search, "items": items])]).controls.first)
+            let y = owner.view.bounds.height - 100
+            let bounds = CGRect(x: 16, y: y, width: width, height: 62)
+            NativeUITabBar.update(bar, node: node, rendering: rendering)
+            XCTAssertTrue(NativeUITabBar.fit(bar, node: node, bounds: bounds))
+            XCTAssertEqual(try XCTUnwrap(NativeUITabBar.contentFrame(bar)).width, min(width, 274), accuracy: 0.5)
+            XCTAssertTrue(controller.apply(node, webFrame: owner.view.bounds, barFrame: bounds,
+                triggerFrame: CGRect(x: 330, y: y, width: 56, height: 56), rendering: rendering))
+            try await Task.sleep(nanoseconds: 100_000_000)
+            XCTAssertEqual(try XCTUnwrap(controller.restingTabWidth), width, accuracy: 0.5)
+        }
+    }
+
     @MainActor func testHorizontalTabSelectionTintUpdatesAndResetsWithAndWithoutSearch() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
         let rendering = NativeUIControlRendering()

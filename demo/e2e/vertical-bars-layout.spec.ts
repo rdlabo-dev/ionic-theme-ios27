@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test';
 
+// This suite verifies the iOS 27 layout. Older test WebKit versions otherwise
+// load the iOS 26 sheet, whose 1px borders change the full-width modal geometry.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/styles.css', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: (await response.text()).replaceAll('overflow-anchor: auto', 'display: block') });
+  });
+});
+
 for (const direction of ['ltr', 'rtl'] as const) {
   test(`menus respect verticalBars safe-area insets in ${direction}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });

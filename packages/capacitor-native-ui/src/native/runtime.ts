@@ -1,3 +1,4 @@
+import { createTabBarWidths } from './shared/tab-bar-width';
 import { createVerticalNavigation } from './shared/vertical-navigation';
 import { createHorizontalNavigation, horizontalToolbar, navigationMarker } from './shared/horizontal-navigation';
 import { assignToolbarTransitionIds } from './shared/transition-identity';
@@ -100,6 +101,7 @@ export const createRuntime = async (
   let nextId = 0;
   let revision = 0;
   const tabGeometry = new Map<HTMLElement, () => void>();
+  const tabWidths = createTabBarWidths(doc);
   let acceptedRevision = 0;
   let updatingRevision: number | undefined;
   let pendingActivations: NativeUIActivation[] = [];
@@ -307,7 +309,7 @@ export const createRuntime = async (
       { control: candidate.control, icons: candidate.icons.map(({ source }) => source), assets: candidate.assets?.signature },
       includeTransitionIds ? undefined : (key, value) => (key === 'transitionId' ? undefined : value),
     );
-  const read = (): Candidate[] => {
+  const readSources = (): Candidate[] => {
     if (verticalGesture && (overlayOpen(true, true) || !verticalGesture.scopes.every(inVerticalBarsSurface))) verticalGesture = undefined;
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
@@ -374,6 +376,7 @@ export const createRuntime = async (
     assignToolbarTransitionIds(result);
     return navigation.retain(result);
   };
+  const read = (): Candidate[] => tabWidths.measure(readSources);
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
     for (const element of Array.from(scope.querySelectorAll<HTMLElement>(discovery))) {
@@ -748,6 +751,9 @@ export const createRuntime = async (
         verticalBarsMembers.add(element);
       }
       for (const candidate of accepted) {
+        const width = result.tabBarWidths?.[candidate.control.id];
+        if (candidate.control.kind === 'tab-bar' && candidate.control.placement !== 'vertical-bars' && width !== undefined)
+          tabWidths.apply(candidate.element, width);
         const instant = handoffInstant || (committingNavigation && horizontalToolbar(candidate));
         for (const element of candidateSources(candidate)) {
           const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
@@ -1125,6 +1131,7 @@ export const createRuntime = async (
       destruction = Promise.resolve().then(async () => {
         tabGeometry.forEach((restore) => restore());
         tabGeometry.clear();
+        tabWidths.clear();
         setNativeUIIntegration(doc);
         win.cancelAnimationFrame(frame);
         listeners.abort();

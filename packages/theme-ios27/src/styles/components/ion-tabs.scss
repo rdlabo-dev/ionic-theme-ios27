@@ -69,9 +69,6 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   max-width: 471px;
   height: 54px;
   min-height: 54px;
-  &:has(> ion-tab-button:nth-child(2):last-child) {
-    width: var(--ios-theme-side-tab-content-width, 180px); // 188px including the 4px inset on each side.
-  }
   &:has(:nth-child(5)) {
     width: var(
       --ios-theme-side-tab-content-width,
@@ -81,7 +78,7 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
   }
   padding: 4px;
 
-  > ion-tab-button:not(.ion-cloned-element) ~ ion-tab-button:not(.ion-cloned-element) {
+  > :where(ion-tab-button:not(.ion-cloned-element)) ~ :where(ion-tab-button:not(.ion-cloned-element)) {
     margin-inline-start: calc(-1 * var(--ios-theme-tab-overlap));
   }
 
@@ -89,11 +86,42 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
     --ios-theme-tab-overlap: 8px;
   }
 
+  // UIKit sizes two or three tabs from the widest label, with equal item
+  // widths; four or more tabs continue to use the available phone width.
+  @each $count in (2, 3) {
+    &:where(
+      :has(
+        > ion-tab-button:nth-child(#{$count} of ion-tab-button:not(.ion-cloned-element)):nth-last-child(
+            1 of ion-tab-button:not(.ion-cloned-element)
+          )
+      )
+    ) {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(0, 1fr);
+      contain: layout style;
+      // Keep intrinsic sizing when a visible split-pane menu sets the bar width.
+      --ios-theme-compact-tab-width: max-content;
+      width: max-content;
+      min-width: min(#{$count * 86px}, calc(100% - 119px - var(--ion-safe-area-left, 0px) - var(--ion-safe-area-right, 0px)));
+      max-width: calc(100% - 119px - var(--ion-safe-area-left, 0px) - var(--ion-safe-area-right, 0px));
+      padding-inline: 8px;
+
+      > ion-tab-button:not(.ion-cloned-element) {
+        min-width: 0;
+        max-width: none;
+        margin-inline: -4px;
+        --padding-start: 20px;
+        --padding-end: 20px;
+      }
+    }
+  }
+
   // iPad's stacked UIKit tabs use a compact platter instead of filling the
   // available width. Keep the phone sizing and constrain only roomy layouts.
   @media (min-width: 768px) {
     --ios-theme-tab-overlap: 16px;
-    @each $count, $width in (2: 188px, 3: 274px, 4: 336px, 5: 414px) {
+    @each $count, $width in (4: 336px, 5: 414px) {
       &:has(
         > ion-tab-button:nth-child(#{$count} of ion-tab-button:not(.ion-cloned-element)):nth-last-child(
             1 of ion-tab-button:not(.ion-cloned-element)

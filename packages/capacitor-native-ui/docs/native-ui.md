@@ -206,7 +206,7 @@ Menu buttons use Ionic's resolved default/configured icon or a supported slot ic
 
 ### Tab geometry and state updates
 
-The DOM owns labels, SVG content, placement, selected values and application behavior. `ion-tab-bar` itself is the placement reference; UIKit owns internal margins and platter sizing.
+The DOM owns labels, SVG content, placement, selected values and application behavior. `ion-tab-bar` itself is the placement reference; UIKit owns internal margins and platter sizing. After projection, the runtime applies the measured native width to the Web bar and retains it during Web fallback. Layout requests still use the original CSS width, preventing repeated projection from progressively shrinking the bar. Viewport, placement and source changes invalidate the measurement; destroying the runtime restores the original CSS. Older native binaries that do not report widths retain the theme's sizing.
 
 | Source or viewport                                                          | Native behavior                                                                  |
 | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -220,12 +220,13 @@ The DOM owns labels, SVG content, placement, selected values and application beh
 
 The Web theme's standard appearance targets are:
 
-| Measurement                                      | Target                                                                                           |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Viewport at least 768px wide, 2 / 3 / 4 / 5 tabs | Platter widths near 188 / 274 / 336 / 414pt respectively. Smaller viewports retain phone sizing. |
-| Bar height                                       | 62pt                                                                                             |
-| Selection height / inset                         | 54pt / 4pt                                                                                       |
-| Adjacent buttons                                 | Overlap like UIKit controls.                                                                     |
+| Measurement                              | Target                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 2 / 3 tabs                               | Minimum platter widths near 188 / 274pt, expanding for long labels within the available viewport width. |
+| Viewport at least 768px wide, 4 / 5 tabs | Platter widths near 336 / 414pt respectively. Smaller viewports retain phone sizing.                    |
+| Bar height                               | 62pt                                                                                                    |
+| Selection height / inset                 | 54pt / 4pt                                                                                              |
+| Adjacent buttons                         | Overlap like UIKit controls.                                                                            |
 
 These targets do not guarantee identical custom fonts, icons or labels; UIKit determines intrinsic width. Icon and label alignment is checked against simulator screenshots. The plugin measures the native tab subtree without private class names or fixed inset corrections.
 
