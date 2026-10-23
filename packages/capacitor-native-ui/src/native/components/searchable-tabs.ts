@@ -219,7 +219,12 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
         const pageUnavailable = blocked(binding.footer) || !!binding.footer.closest(excluded);
         const existing = states.get(binding);
         if (pageUnavailable) {
-          retainInactive(candidate, existing, !!existing?.last?.available && !pageHidden(binding.footer));
+          const keepAvailable = !!existing?.last?.available && !pageHidden(binding.footer);
+          retainInactive(candidate, existing, keepAvailable);
+          // The retained native search still owns its Web sources until the page
+          // hides. Releasing only those sources briefly draws both search buttons.
+          if (keepAvailable)
+            candidate.sources = [binding.tabBar, binding.trigger.closest<HTMLElement>('ion-fab') ?? binding.trigger, binding.footer];
           // A first registration on a cached/hidden page has no measurable trigger.
           // Keep ordinary tabs until the page becomes available; only reuse a previous valid search.
           continue;

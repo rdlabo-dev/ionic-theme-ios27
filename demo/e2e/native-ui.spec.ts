@@ -3006,6 +3006,34 @@ test('reduced motion hands off without a crossfade', async ({ page }) => {
 });
 
 for (const edge of [null, 'trailing'] as const) {
+  test(`tab search keeps Web trigger hidden while native search remains available (${edge ?? 'horizontal'})`, async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    await mockNative(page, false, edge);
+    await page.route('https://picsum.photos/**', (route) => route.abort());
+    await page.goto('/main/album');
+    const fab = page.locator('app-album-page ion-fab');
+    await expect(fab).toHaveAttribute('data-native-ui-projected', '');
+    await fab.evaluate((element) => {
+      const evidence: string[] = [];
+      Object.assign(window, { searchOwnershipGaps: evidence });
+      element.addEventListener('nativeUIChange', () => {
+        const state = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+        if (
+          !element.hasAttribute('data-native-ui-projected') &&
+          !element.closest('.ion-page-hidden, .ion-page-invisible') &&
+          state.updates.at(-1)?.controls.some((control) => control.search?.available)
+        ) {
+          evidence.push(location.pathname);
+        }
+      });
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI').delay = 150;
+    });
+    await activate(page, 'Index');
+    await expect(page).toHaveURL(/\/main\/index/);
+    await expect(fab).not.toHaveAttribute('data-native-ui-projected');
+    expect(await page.evaluate(() => (window as Window & { searchOwnershipGaps: string[] }).searchOwnershipGaps)).toEqual([]);
+  });
+
   test(`tab switches retire old controls before destination icons finish (${edge ?? 'horizontal'})`, async ({ page }) => {
     await page.setViewportSize({ width: 402, height: 874 });
     await mockNative(page, false, edge);
