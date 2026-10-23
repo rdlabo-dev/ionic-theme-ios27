@@ -3005,12 +3005,48 @@ test('reduced motion hands off without a crossfade', async ({ page }) => {
   await expect(segment).toHaveCSS('opacity', '1');
 });
 
+test('Duo hides the entering search FAB before native acknowledgement and restores rejected search', async ({ page }) => {
+  await mockNative(page);
+  await page.route('https://picsum.photos/**', (route) => route.abort());
+  await page.goto('/main/index');
+  await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+  await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-projected', '');
+  const fab = page.locator('app-album-page ion-fab');
+  for (let visit = 0; visit < 2; visit++) {
+    await page.evaluate(() => {
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI').delay = 150;
+      const evidence: number[] = [];
+      Object.assign(window, { enteringFabFrames: evidence });
+      const sample = () => {
+        const fab = document.querySelector('app-album-page ion-fab-button');
+        if (fab && !fab.closest('.ion-page-hidden, .ion-page-invisible') && getComputedStyle(fab).visibility === 'visible')
+          evidence.push(performance.now());
+        if (!document.querySelector('app-album-page ion-fab[data-native-ui-projected]')) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    await activate(page, 'Library');
+    await expect(fab).toHaveAttribute('data-native-ui-projected', '');
+    expect(await page.evaluate(() => (window as Window & { enteringFabFrames: number[] }).enteringFabFrames)).toEqual([]);
+    await activate(page, 'Index');
+    await expect(page).toHaveURL(/\/main\/index/);
+    await expect(fab).not.toHaveAttribute('data-native-ui-projected');
+  }
+  await page.evaluate(() => {
+    Capacitor.registerPlugin<NativeUIMock>('NativeUI').rejectAllSearch = true;
+  });
+  await activate(page, 'Library');
+  await expect(fab).not.toHaveClass(/native-ui-prehidden/);
+  await expect(fab).not.toHaveAttribute('data-native-ui-projected');
+});
+
 for (const edge of [null, 'trailing'] as const) {
   test(`tab search keeps Web trigger hidden while native search remains available (${edge ?? 'horizontal'})`, async ({ page }) => {
     await page.setViewportSize({ width: 402, height: 874 });
     await mockNative(page, false, edge);
     await page.route('https://picsum.photos/**', (route) => route.abort());
     await page.goto('/main/album');
+    if (edge) await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
     const fab = page.locator('app-album-page ion-fab');
     await expect(fab).toHaveAttribute('data-native-ui-projected', '');
     await fab.evaluate((element) => {
@@ -3039,6 +3075,7 @@ for (const edge of [null, 'trailing'] as const) {
     await mockNative(page, false, edge);
     await page.route('https://picsum.photos/**', (route) => route.abort());
     await page.goto('/main/index/native-ui');
+    if (edge) await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
     const segment = page.locator('app-native-ui ion-segment');
     await expect(segment).toHaveAttribute('data-native-ui-projected', '');
     const outgoing = await page.evaluate(() => {

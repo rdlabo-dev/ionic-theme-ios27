@@ -604,7 +604,10 @@ export const createRuntime = async (
         controls: candidates.map((candidate) => candidate.control),
       };
       const serialized = JSON.stringify(data);
-      if (serialized === lastSnapshot && !forceRefresh) return;
+      if (serialized === lastSnapshot && !forceRefresh) {
+        search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
+        return;
+      }
       const snapshot: NativeUISnapshot = {
         ...data,
         revision: ++revision,
@@ -707,6 +710,7 @@ export const createRuntime = async (
           if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIChange'));
         }
       }
+      if (!dirty && !invalidated) search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
       // Native has acknowledged this rendered snapshot even when a concurrent DOM
       // mutation invalidates its signature. An existing cover is still visible;
       // keep that snapshot available if navigation starts before the next update.
@@ -861,6 +865,7 @@ export const createRuntime = async (
       maskNavigationPage(page);
     }
     pages.add(page);
+    if (event.type === LIFECYCLE_WILL_ENTER && nativeVerticalBars()) search.prepare(page);
     schedule();
   };
   const pageDid: EventListener = (event) => {
@@ -1015,6 +1020,7 @@ export const createRuntime = async (
   on(win, 'scroll');
   on(win.matchMedia('(prefers-color-scheme: dark)'), 'change');
   on(win, 'nativeUIRefresh', (event) => {
+    if (nativeVerticalBars()) search.prepare();
     if ((event as Event & { retireSearch?: boolean }).retireSearch)
       getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
     refreshLayout();
