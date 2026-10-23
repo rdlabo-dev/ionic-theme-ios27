@@ -111,15 +111,20 @@ export const isVerticalBarsSource = (element: HTMLElement): boolean =>
       modalUsesVerticalBars(element) &&
       !!element.closest('ion-app.ios-theme-vertical-bars')));
 
+// Condense headers are the scrolling duplicate of a page's fixed header.
+// Keep this exclusion aligned with the entering-back prehide rule in vertical-bars.scss.
+const nonFixedToolbarSurface =
+  'ion-header[collapse="condense"], ion-header.header-collapse-condense, ion-content ion-header, ion-content ion-footer';
+
 export const isVerticalBarsBackPosition = (element: HTMLElement): boolean => {
-  if (element.closest('ion-header[collapse]:not([collapse="fade"]), ion-footer[collapse]')) return false;
+  if (element.closest(nonFixedToolbarSurface)) return false;
   const page = element.closest('.ion-page');
   if (!page) return true;
   const candidates = Array.from(page.querySelectorAll<HTMLElement>('ion-back-button')).filter(
     (back) =>
       back.closest('.ion-page') === page &&
       !back.matches('.ion-cloned-element') &&
-      !back.closest('ion-header[collapse]:not([collapse="fade"]), ion-footer[collapse], ion-menu, ion-popover') &&
+      !back.closest(`${nonFixedToolbarSurface}, ion-menu, ion-popover`) &&
       modalUsesVerticalBars(back),
   );
   const rank = (back: HTMLElement) =>
@@ -294,11 +299,5 @@ export const text = (element: Element): string => {
 
 export const inFixedToolbar = (element: Element): boolean => {
   const edge = element.closest('ion-toolbar')?.parentElement;
-  const verticalBars = !!element.closest('ion-app.ios-theme-vertical-bars');
-  return (
-    !!edge?.matches('ion-header, ion-footer') &&
-    !element.closest('ion-content') &&
-    (!edge.hasAttribute('collapse') || edge.matches('ion-header[collapse="fade"]')) &&
-    (verticalBars || !edge.matches('.header-collapse-condense'))
-  );
+  return !!edge?.matches('ion-header, ion-footer') && !element.closest('ion-content') && !element.closest(nonFixedToolbarSurface);
 };

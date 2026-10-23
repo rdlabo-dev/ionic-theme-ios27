@@ -845,6 +845,46 @@ test('verticalBars toolbar sources are hidden before ownership and restored with
   await expect(source).toHaveCSS('visibility', 'visible');
 });
 
+for (const tag of ['ion-header', 'ion-footer']) {
+  for (const vertical of [false, true]) {
+    test(`fixed fade ${tag} projects hydrated controls with verticalBars=${vertical}`, async ({ page }) => {
+      await mockNative(page);
+      await page.goto('/main/index/native-ui');
+      await expect(page.locator('app-native-ui ion-back-button')).toHaveAttribute('data-native-ui-projected', '');
+      await page.locator('app-native-ui').evaluate(
+        (element, { tag, vertical }) => {
+          element.dispatchEvent(new CustomEvent('ionViewWillLeave', { bubbles: true }));
+          element.dispatchEvent(new CustomEvent('ionViewDidLeave', { bubbles: true }));
+          document.querySelector('ion-app')!.classList.toggle('ios-theme-vertical-bars', vertical);
+          const surface = `<${tag} collapse="fade"><ion-toolbar><ion-buttons slot="start"><ion-back-button default-href="/main/index"></ion-back-button></ion-buttons><ion-title>Fixed surface</ion-title><ion-buttons slot="end"><ion-button fill="default" data-fixed-action aria-label="Fixed action"><ion-icon slot="icon-only" name="checkmark"></ion-icon></ion-button></ion-buttons></ion-toolbar></${tag}>`;
+          const content =
+            '<ion-content><ion-header collapse="condense"><ion-toolbar><ion-title size="large">Scrolling title</ion-title><ion-back-button default-href="/main/index" data-condense-copy></ion-back-button></ion-toolbar></ion-header><div style="height:2000px">Scrollable content</div></ion-content>';
+          element.innerHTML = tag === 'ion-header' ? surface + content : content + surface;
+          element.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
+          element.dispatchEvent(new CustomEvent('ionViewDidEnter', { bubbles: true }));
+        },
+        { tag, vertical },
+      );
+      // The condense layout initially hides its fixed counterpart. Scroll to the
+      // compact-header state before asserting native visibility.
+      await page.locator('app-native-ui > ion-content').evaluate((content: HTMLIonContentElement) => content.scrollToPoint(0, 400, 0));
+      const back = page.locator(`app-native-ui > ${tag} ion-back-button`);
+      const action = page.locator('app-native-ui ion-button[data-fixed-action]');
+      await expect(back).toHaveAttribute('data-native-ui-projected', '');
+      await expect(action).toHaveAttribute('data-native-ui-projected', '');
+      if (vertical) {
+        await expect(back).toHaveClass(/native-ui-prehidden/);
+        await expect(action).toHaveClass(/native-ui-prehidden/);
+      }
+      const duplicate = page.locator('[data-condense-copy]');
+      await expect(duplicate).toHaveClass(/hydrated/);
+      await expect(duplicate).not.toHaveAttribute('data-native-ui-projected', '');
+      await expect(duplicate).not.toHaveClass(/native-ui-prehidden/);
+      await expect(back).toHaveAttribute('data-native-ui-projected', '');
+    });
+  }
+}
+
 test('verticalBars preserve toolbar layout around horizontal native controls and titles', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/native-ui');
