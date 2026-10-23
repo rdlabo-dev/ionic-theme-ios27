@@ -45,6 +45,7 @@ final class NativeUIVerticalBarsModel: ObservableObject {
     @Published var navigation: [String] = []
     private var pageGroups: [String: [Group]] = [:]
     @Published var groups: [Group] = []
+    @Published var tabTint: String?
     @Published var tabs: [Item] = []
     @Published var selection = ""
     var activate: (String) -> Void = { _ in }
@@ -82,6 +83,7 @@ final class NativeUIVerticalBarsModel: ObservableObject {
             }
             // Keep all snapshot publications in this transaction. A later unanimated
             // accessory/tab publication can cancel the toolbar animation.
+            tabTint = controls.first(where: { $0.kind == .tabBar })?.tabTint
             tabs = controls.first(where: { $0.kind == .tabBar })?.items.map { item($0) } ?? []
             reconcileSelection(now: now)
         }
@@ -429,10 +431,12 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
     private final class TransparentHostingController<Content: View>: UIHostingController<Content> {
         var railEdge = "right"
         var layoutSearch: (() -> Void)?
+        var layoutTabs: (() -> Void)?
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
             makeFullSizeSurfacesTransparent(in: view)
             layoutSearch?()
+            layoutTabs?()
         }
 
         private func makeFullSizeSurfacesTransparent(in surface: UIView) {
@@ -542,6 +546,27 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
         controller.view.backgroundColor = .clear
         controller.view.isOpaque = false
         controller.layoutSearch = { [weak self] in self?.model.search?.configureField() }
+        controller.layoutTabs = { [weak self] in self?.applyTabTint() }
+    }
+
+    private weak var tintedTabBar: UITabBar?
+    private var appliedTabTint: String?
+
+    private func applyTabTint() {
+        let tint = model.tabTint.map { NativeUIRendering.color($0) }
+        func visit(_ owner: UIViewController) {
+            if let tabs = owner as? UITabBarController {
+                // Scope the accent to tabs, without recoloring toolbars or search.
+                if tintedTabBar !== tabs.tabBar || appliedTabTint != model.tabTint || (tint != nil && tabs.tabBar.tintColor != tint) {
+                    tabs.tabBar.tintColor = tint
+                    tintedTabBar = tabs.tabBar
+                    appliedTabTint = model.tabTint
+                }
+                return
+            }
+            owner.children.forEach(visit)
+        }
+        visit(controller)
     }
 
     @MainActor func attach(to owner: UIViewController, in parent: UIView) {

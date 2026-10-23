@@ -282,6 +282,8 @@ While enabled, Native UI suppresses the WebView’s top scroll-edge effect becau
 
 The native search controller remains visible over its own keyboard. Other projected controls are hidden while a Web input opens the keyboard. UIKit's own accessibility and Reduce Motion behavior apply to the standard controls; full VoiceOver traversal is not a verified parity guarantee.
 
+Vertical Bars tabs use Ionic's `--ion-color-primary-rgb` as the native selection tint, including light/dark palette updates. Without a valid token, they use the system tint. Normal and disabled colors, labels and glass backgrounds follow the native design; per-tab CSS colors and colored Web backgrounds are not reproduced.
+
 ## FAB behavior
 
 FABs retain Ionic's `activated`, per-child `show`, `close()` and original click handlers. Multiple lists, initial expansion, small buttons and `edge` use each button's measured layout. The native side reflects Ionic's staggered visibility without adding another timer or open/close controller. Main-button icon changes crossfade using the resolved `closeIcon`; Reduce Motion disables this crossfade. Native FAB button instances persist across open/close updates. The source FAB stays projected throughout ordinary opening and closing.

@@ -4787,3 +4787,41 @@ test('vertical group resizing preserves the following surface and its action ide
   await activate(page, 'Following');
   await expect(page.locator('#following-group')).toHaveAttribute('data-clicked', 'true');
 });
+
+test('Vertical Bars tabs follow the primary palette and retain native color surfaces', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await mockNative(page);
+  await page.goto('/main/index');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  await page.addStyleTag({
+    content: `ion-tab-bar { --ion-color-primary-rgb: 128, 0, 128; }
+    @media (prefers-color-scheme: dark) { ion-tab-bar { --ion-color-primary-rgb: 255, 170, 0; } }`,
+  });
+  const tint = () =>
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+          .updates.at(-1)
+          ?.controls.find((control) => control.kind === 'tab-bar')?.tabTint,
+    );
+  await expect.poll(tint).toBe('rgb(128, 0, 128)');
+  await activate(page, 'Docs');
+  await expect(page).toHaveURL('/main/docs');
+  await expect.poll(tint).toBe('rgb(128, 0, 128)');
+  await page.locator('ion-tab-bar').evaluate((bar: HTMLIonTabBarElement) => {
+    bar.color = 'primary';
+  });
+  await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-projected', '');
+  await expect.poll(tint).toBe('rgb(128, 0, 128)');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(tint).toBe('rgb(255, 170, 0)');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect.poll(tint).toBe('rgb(128, 0, 128)');
+  await page.locator('ion-tab-bar').evaluate((bar) => bar.style.setProperty('--ion-color-primary-rgb', 'invalid'));
+  await expect.poll(tint).toBeUndefined();
+  await page.locator('ion-tab-bar').evaluate((bar) => bar.style.setProperty('--ion-color-primary-rgb', ', ,'));
+  await expect.poll(tint).toBeUndefined();
+  await page.locator('ion-tab-bar').evaluate((bar) => bar.style.setProperty('--ion-color-primary-rgb', ''));
+  await expect.poll(tint).toBe('rgb(128, 0, 128)');
+});

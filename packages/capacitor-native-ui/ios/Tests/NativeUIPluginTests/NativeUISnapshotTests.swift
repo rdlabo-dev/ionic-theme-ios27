@@ -5,6 +5,40 @@ import Capacitor
 @testable import NativeUIPlugin
 
 final class NativeUISnapshotTests: XCTestCase {
+    @MainActor func testVerticalTabPrimaryTintUpdatesAndRestoresSystemAppearance() async throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI tabs") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: UIScreen.main.bounds)
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach(); window.isHidden = true }
+        func tabController(_ parent: UIViewController) -> UITabBarController? {
+            if let tabs = parent as? UITabBarController { return tabs }
+            return parent.children.lazy.compactMap { tabController($0) }.first
+        }
+        var systemTint: UIColor?
+        for (index, tint) in ([nil, "rgb(255, 0, 0)", "rgb(255, 0, 0)", "rgb(128, 0, 128)", nil] as [String?]).enumerated() {
+            var value = control(["kind": "tab-bar", "placement": "vertical-bars", "items": [
+                item(["id": "first", "label": "First", "selected": index % 2 == 0]),
+                item(["id": "second", "label": "Second", "selected": index % 2 != 0]),
+                item(["id": "disabled", "label": "Disabled", "disabled": true])]])
+            value["tabTint"] = tint
+            value["dark"] = index == 3
+            window.overrideUserInterfaceStyle = index == 3 ? .dark : .light
+            rail.apply(try decode([value]).controls, rendering: NativeUIControlRendering(), edge: "right", animated: false)
+            try await Task.sleep(nanoseconds: 500_000_000)
+            let tabs = try XCTUnwrap(tabController(owner))
+            if index == 0 { systemTint = tabs.tabBar.tintColor }
+            XCTAssertEqual(tabs.tabBar.tintColor, tint.map { NativeUIRendering.color($0) } ?? systemTint)
+            XCTAssertEqual(tabs.selectedIndex, index % 2)
+            XCTAssertEqual(tabs.traitCollection.userInterfaceStyle, index == 3 ? .dark : .light)
+            XCTAssertNil(tabs.tabBar.items?.first?.standardAppearance, "Keep the native background and state appearances")
+            XCTAssertNotEqual(owner.view.tintColor, UIColor.red, "The tab accent must not tint the surrounding controls")
+        }
+    }
+
     @MainActor func testPopoverReopensAfterPresentationIdentityKeepsReplacedSource() async throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI toolbar") }
         let owner = UIViewController()

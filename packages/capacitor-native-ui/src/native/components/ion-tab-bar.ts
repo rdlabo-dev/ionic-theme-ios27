@@ -1,5 +1,6 @@
 import { createCandidate, appendItem } from '../shared/candidate';
 import type { Candidate, Identify } from '../shared/candidate';
+import { isVerticalBarsSource } from '../shared/dom';
 
 export const tag = 'ion-tab-bar';
 export const shadowSelector = 'ion-tab-button';
@@ -22,6 +23,17 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
 
   const candidate = createCandidate(element, tag, id);
   const style = getComputedStyle(element);
+  if (isVerticalBarsSource(element)) {
+    // Ionic's RGB token is shared by its light/dark palettes. Keep the system
+    // appearance for normal/disabled tabs instead of reproducing Web CSS states.
+    const primary = style
+      .getPropertyValue('--ion-color-primary-rgb')
+      .split(',')
+      .map((value) => (value.trim() ? Number(value) : NaN));
+    if (primary.length === 3 && primary.every((value) => Number.isFinite(value) && value >= 0 && value <= 255)) {
+      candidate.control.tabTint = `rgb(${primary.join(', ')})`;
+    }
+  }
   const rtl = style.direction === 'rtl';
   const position = ['start', 'center', 'end'].find((value) => element.classList.contains(`tab-bar-position-${value}`));
   candidate.control.tabBarAnchor = {

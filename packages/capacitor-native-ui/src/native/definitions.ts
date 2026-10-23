@@ -191,6 +191,8 @@ export interface NativeUIControl extends Frame {
   items: NativeUIItem[];
   dark: boolean;
   rtl: boolean;
+  /** App primary tint for native Vertical Bars tabs; other tab appearance remains system-owned. */
+  tabTint?: string;
   tabBarAnchor?: { x: 0 | 0.5 | 1; y: 0 | 1 };
   search?: NativeUISearch;
 }

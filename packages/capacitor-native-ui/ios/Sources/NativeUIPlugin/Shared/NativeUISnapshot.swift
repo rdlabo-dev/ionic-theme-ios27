@@ -81,12 +81,13 @@ struct NativeUIControl: Decodable, Equatable {
     let items: [NativeUIItem]
     let dark: Bool
     let rtl: Bool
+    let tabTint: String?
     let tabBarAnchor: NativeUITabBar.Anchor?
     let search: NativeUISearch?
     let extensionContent: NativeUIExtensionContent?
 
     private enum CodingKeys: String, CodingKey {
-        case id, kind, placement, toolbarSlot, transitionId, items, dark, rtl, tabBarAnchor, search
+        case id, kind, placement, toolbarSlot, transitionId, items, dark, rtl, tabBarAnchor, tabTint, search
         case extensionContent = "extension"
     }
 
@@ -101,6 +102,7 @@ struct NativeUIControl: Decodable, Equatable {
         items = try values.decode([NativeUIItem].self, forKey: .items)
         dark = try values.decode(Bool.self, forKey: .dark)
         rtl = try values.decode(Bool.self, forKey: .rtl)
+        tabTint = try values.decodeIfPresent(String.self, forKey: .tabTint)
         tabBarAnchor = try values.decodeIfPresent(NativeUITabBar.Anchor.self, forKey: .tabBarAnchor)
         search = try values.decodeIfPresent(NativeUISearch.self, forKey: .search)
         extensionContent = try values.decodeIfPresent(NativeUIExtensionContent.self, forKey: .extensionContent)
