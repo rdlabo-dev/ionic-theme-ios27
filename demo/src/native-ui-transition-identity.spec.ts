@@ -100,8 +100,10 @@ test('duplicate live page identities fall back to source IDs rather than duplica
   expect(new Set(candidates.map((candidate) => candidate.control.transitionId)).size).toBe(2);
 });
 
-test('first children follow their surface and explicit children can follow an action across groups', () => {
-  const grouped = mount(toolbar('<ion-buttons><ion-button>A</ion-button><ion-button data-transition-id="b">B</ion-button></ion-buttons>'));
+test('start children follow their surface and explicit children can follow an action across groups', () => {
+  const grouped = mount(
+    toolbar('<ion-buttons slot="start"><ion-button>A</ion-button><ion-button data-transition-id="b">B</ion-button></ion-buttons>'),
+  );
   const group: Candidate = {
     ...grouped[0],
     element: grouped[0].element.parentElement!,
@@ -109,7 +111,9 @@ test('first children follow their surface and explicit children can follow an ac
     actions: new Map(grouped.flatMap((candidate) => [...candidate.actions])),
   };
   assignToolbarTransitionIds([group]);
-  const separate = resolve(toolbar('<ion-button>A</ion-button><ion-button data-transition-id="b">B</ion-button>'));
+  const separate = resolve(
+    toolbar('<ion-button slot="start">A</ion-button><ion-button slot="start" data-transition-id="b">B</ion-button>'),
+  );
   expect(group.control.items.map((item) => item.transitionId)).toEqual(ids(separate));
 });
 
@@ -164,9 +168,9 @@ test.each([undefined, 'vertical-bars'] as const)('surface and child identities s
   targets[0].control.items[0].buttonFill = 'clear';
   assignToolbarTransitionIds([group]);
   assignToolbarTransitionIds(targets);
-  expect(group.control.transitionId).toBe(targets[0].control.transitionId);
-  expect(group.control.transitionId).not.toBe(targets[1].control.transitionId);
-  expect(group.control.items[0].transitionId).toBe(targets[0].control.items[0].transitionId);
+  expect(group.control.transitionId).toBe(targets[1].control.transitionId);
+  expect(group.control.transitionId).not.toBe(targets[0].control.transitionId);
+  expect(group.control.items[1].transitionId).toBe(targets[1].control.items[0].transitionId);
   // Adding or removing a group child never renumbers the following surface.
   const following = targets[1];
   const before = following.control.transitionId;
@@ -219,4 +223,46 @@ test.each(['ion-button', 'ion-menu-button'])('a surviving explicit %s keeps its 
     expect([group.control.transitionId, group.control.items[0].transitionId]).toEqual(before);
     expect(group.actions.get(group.control.items[0].id)).toBe(children[0].element);
   }
+});
+
+test.each(['ltr', 'rtl'] as const)('automatic positions count from each logical outer edge in %s', (direction) => {
+  const from = mount(toolbar('<ion-button slot="start">Menu</ion-button><ion-button slot="end">Save</ion-button>'));
+  const to = mount(
+    toolbar(
+      '<ion-button slot="start">Back</ion-button><ion-button slot="start">Added</ion-button><ion-button slot="end">Cancel</ion-button><ion-button slot="end">Done</ion-button>',
+    ),
+  );
+  for (const candidates of [from, to]) {
+    candidates[0].element.closest<HTMLElement>('.ion-page')!.dir = direction;
+    candidates.forEach(({ control }) => {
+      control.rtl = direction === 'rtl';
+    });
+    assignToolbarTransitionIds(candidates);
+  }
+  expect(from[0].control.transitionId).toBe(to[0].control.transitionId);
+  expect(from[1].control.transitionId).toBe(to[3].control.transitionId);
+  expect(ids(from)).toEqual([ids(to)[0], ids(to)[3]]);
+  expect(from[1].control.transitionId).not.toBe(to[2].control.transitionId);
+});
+
+test.each(['ltr', 'rtl'] as const)('an end group associates its outer child with Save in %s', (direction) => {
+  const children = mount(toolbar('<ion-buttons slot="end"><ion-button>GitHub</ion-button><ion-button>Ionic</ion-button></ion-buttons>'));
+  const group: Candidate = {
+    ...children[0],
+    element: children[0].element.parentElement!,
+    control: { ...children[0].control, kind: 'button-group', items: children.flatMap(({ control }) => control.items) },
+    actions: new Map(children.flatMap(({ actions }) => [...actions])),
+  };
+  const targets = mount(toolbar('<ion-buttons slot="end"><ion-button>Cancel</ion-button><ion-button>Save</ion-button></ion-buttons>'));
+  for (const candidates of [[group], targets]) {
+    candidates[0].element.closest<HTMLElement>('.ion-page')!.dir = direction;
+    candidates.forEach(({ control }) => {
+      control.rtl = direction === 'rtl';
+    });
+    assignToolbarTransitionIds(candidates);
+  }
+  expect(group.control.transitionId).toBe(targets[1].control.transitionId);
+  expect(group.control.items[1].transitionId).toBe(targets[1].control.items[0].transitionId);
+  expect(group.control.items[0].transitionId).not.toBe(targets[1].control.items[0].transitionId);
+  expect(targets[1].actions.get(targets[1].control.items[0].id)).toBe(targets[1].element);
 });
