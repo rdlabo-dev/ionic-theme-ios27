@@ -215,7 +215,9 @@ test.each(['bridge', 'pagehide', 'bridge then pagehide'])('shell restarts after 
   const previous = shell;
   await vi.waitFor(() => expect(previous.getStatus().projected).toBe(2));
   if (cause !== 'pagehide') {
-    bridge.update.mockRejectedValueOnce(new Error('Temporary bridge failure'));
+    bridge.update
+      .mockRejectedValueOnce(new Error('Persistent bridge failure'))
+      .mockRejectedValueOnce(new Error('Persistent bridge failure'));
     count++;
     previous.markForCheck();
   } else window.dispatchEvent(new Event('pagehide'));

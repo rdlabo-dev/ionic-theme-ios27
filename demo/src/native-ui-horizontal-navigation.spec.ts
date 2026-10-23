@@ -674,3 +674,127 @@ test('an acknowledged navigation handoff does not wait for unrelated refreshes t
     refresh = false;
   }
 });
+
+test.each([false, true])(
+  'one failed native update resynchronizes current DOM without restarting or replaying input (vertical=%s)',
+  async (vertical) => {
+    const f = await fixture();
+    const source = f.leaving.querySelector('button')!;
+    if (vertical) {
+      document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
+      source.setAttribute('data-native-ui-placement', 'rail');
+      await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.placement).toBe('vertical-bars'));
+    }
+    const clicked = vi.fn();
+    source.addEventListener('click', clicked);
+    const listener = f.listeners.get('activate');
+    let failedRevision = 0;
+    let retryFrame: FrameRequestCallback | undefined;
+    let frameSpy: ReturnType<typeof vi.spyOn> | undefined;
+    f.setAck(async (snapshot) => {
+      if (!failedRevision) {
+        failedRevision = snapshot.revision;
+        source.textContent = 'Latest';
+        frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+          retryFrame = callback;
+          return 1;
+        });
+        throw new Error('Temporary connection failure');
+      }
+      return { revision: snapshot.revision };
+    });
+    source.textContent = 'Changed';
+    try {
+      await vi.waitFor(() => expect(retryFrame).toBeDefined());
+      listener!({ id: f.snapshots.at(-1)!.controls[0].items[0].id, revision: failedRevision, sequence: 1 });
+      expect(clicked).not.toHaveBeenCalled();
+    } finally {
+      frameSpy?.mockRestore();
+      retryFrame?.(performance.now());
+    }
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Latest'));
+    await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+    expect(handle!.getStatus().state).toBe('native');
+    expect(handle!.getStatus().reason).toBeUndefined();
+    expect(f.listeners.get('activate')).toBe(listener);
+    expect(clicked).not.toHaveBeenCalled();
+    const current = f.snapshots.at(-1)!;
+    expect(current.revision).toBeGreaterThan(failedRevision);
+    const updates = f.snapshots.length;
+    handle!.markForCheck();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    expect(f.snapshots).toHaveLength(updates);
+    listener!({ id: current.controls[0].items[0].id, revision: failedRevision, sequence: 1 });
+    expect(clicked).not.toHaveBeenCalled();
+    listener!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 2 });
+    listener!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 2 });
+    expect(clicked).toHaveBeenCalledOnce();
+  },
+);
+
+test.each(['rejection', 'revision mismatch'])('native update %s respects the retry boundary', async (failure) => {
+  const f = await fixture();
+  const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  let attempts = 0;
+  f.setAck(async (snapshot) => {
+    attempts++;
+    if (failure === 'revision mismatch') return { revision: snapshot.revision + 1 };
+    throw new Error('Persistent connection failure');
+  });
+  f.leaving.querySelector('button')!.textContent = 'Changed';
+  await vi.waitFor(() => expect(handle!.getStatus().state).toBe('stopped'));
+  expect(attempts).toBe(failure === 'revision mismatch' ? 1 : 2);
+  expect(handle!.getStatus().reason).toBe(
+    failure === 'revision mismatch' ? 'Native UI revision mismatch' : 'Persistent connection failure',
+  );
+  expect(f.leaving.querySelector('[data-native-ui-projected]')).toBeNull();
+  expect(warning).toHaveBeenCalledOnce();
+});
+
+test.each([false, true])('an update acknowledged during retention reconnects unchanged DOM (vertical=%s)', async (vertical) => {
+  const f = await fixture();
+  const source = f.leaving.querySelector('button')!;
+  if (vertical) {
+    document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
+    source.setAttribute('data-native-ui-placement', 'rail');
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.placement).toBe('vertical-bars'));
+  }
+  const initial = f.snapshots.at(-1)!;
+  let acknowledge: (() => void) | undefined;
+  f.setAck(
+    (snapshot) =>
+      new Promise((resolve) => {
+        acknowledge = () => resolve({ revision: snapshot.revision });
+      }),
+  );
+  source.textContent = 'Changed';
+  await vi.waitFor(() => expect(acknowledge).toBeDefined());
+  const release = (handle as NativeUIRuntimeHandle & { retain(): () => void }).retain();
+  source.textContent = 'Edit';
+  f.setAck(undefined);
+  acknowledge!();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  release();
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Edit'));
+  expect(f.snapshots.at(-1)!.revision).toBeGreaterThan(initial.revision);
+  const clicked = vi.fn();
+  source.addEventListener('click', clicked);
+  const current = f.snapshots.at(-1)!;
+  f.listeners.get('activate')!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 1 });
+  expect(clicked).toHaveBeenCalledOnce();
+});
+
+test('a successful synchronization restores the single retry allowance', async () => {
+  const f = await fixture();
+  for (const label of ['First', 'Second']) {
+    let attempts = 0;
+    f.setAck(async (snapshot) => {
+      if (++attempts === 1) throw new Error('Temporary failure');
+      return { revision: snapshot.revision };
+    });
+    f.leaving.querySelector('button')!.textContent = label;
+    await vi.waitFor(() => expect(attempts).toBe(2));
+    expect(handle!.getStatus().state).toBe('native');
+    expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe(label);
+  }
+});

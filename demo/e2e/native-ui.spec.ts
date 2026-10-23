@@ -4924,3 +4924,40 @@ test('horizontal tabs retain measured native width on Web handoff without feedin
   await expect(bar).not.toHaveAttribute('data-native-tab-width');
   expect((await bar.boundingBox())!.width).toBeCloseTo(337, 0);
 });
+
+test('Duo tab handoff recovers from one update failure without replaying the tab click', async ({ page }) => {
+  await mockNative(page);
+  await page.goto('/main/index/native-ui');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  const segment = page.locator('app-native-ui ion-segment').first();
+  await expect(segment).toHaveAttribute('data-native-ui-projected', '');
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+          .updates.at(-1)
+          ?.controls.some((control) => control.kind === 'tab-bar' && control.placement === 'vertical-bars'),
+      ),
+    )
+    .toBe(true);
+  await page.evaluate(() => {
+    const plugin = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+    const update = plugin.update.bind(plugin);
+    plugin.update = async () => {
+      plugin.update = update;
+      throw new Error('Temporary update failure');
+    };
+    const tab = document.querySelector('ion-tab-button[tab="album"]')!;
+    tab.setAttribute('data-activations', '0');
+    tab.addEventListener('click', () => tab.setAttribute('data-activations', String(Number(tab.getAttribute('data-activations')) + 1)));
+  });
+  await activate(page, 'Library', true);
+  await expect(page).toHaveURL(/\/main\/album/);
+  await expect(page.locator('ion-tab-button[tab="album"]')).toHaveAttribute('data-activations', '1');
+  await expect
+    .poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUI!.getStatus().state))
+    .toBe('native');
+  expect(await page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUI!.getStatus().reason)).toBeUndefined();
+  await activate(page, 'Index');
+  await expect(segment).toHaveAttribute('data-native-ui-projected', '');
+});
