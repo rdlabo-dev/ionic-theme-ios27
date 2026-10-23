@@ -100,6 +100,8 @@ ion-tab-bar.ios:not(.ios-theme-disabled, .ios26-disabled) {
       grid-auto-flow: column;
       grid-auto-columns: minmax(0, 1fr);
       contain: layout style;
+      // Keep intrinsic sizing when a visible split-pane menu sets the bar width.
+      --ios-theme-compact-tab-width: max-content;
       width: max-content;
       min-width: min(#{$count * 86px}, calc(100% - 119px - var(--ion-safe-area-left, 0px) - var(--ion-safe-area-right, 0px)));
       max-width: calc(100% - 119px - var(--ion-safe-area-left, 0px) - var(--ion-safe-area-right, 0px));
