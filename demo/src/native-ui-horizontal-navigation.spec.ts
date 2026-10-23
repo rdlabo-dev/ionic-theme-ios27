@@ -157,10 +157,11 @@ test.each(['Back', 'Save'])('Vertical Bars %s remains actionable while horizonta
 test.each([
   ['', 'Back'],
   ['Back', ''],
-])('unpaired controls stay Web until commit: %s → %s', async (from, to) => {
+])('older native binaries retain existing projection until commit: %s → %s', async (from, to) => {
   const f = await fixture(from, to);
   const release = await f.start();
-  expect(f.snapshots.at(-1)?.controls).toEqual([]);
+  expect(release.progress).toBeUndefined();
+  expect(f.snapshots.at(-1)?.controls.map((control) => control.items[0].label)).toEqual(from ? [from] : []);
   release();
   await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label ?? '').toBe(to));
   await vi.waitFor(() => expect(document.querySelector('[data-native-ui-navigation-source]')).toBeNull());
@@ -362,32 +363,24 @@ test('native toolbar receives prepared endpoints and reversible page progress be
   expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Menu');
 });
 
-test.each(['', 'Back'])('an unmatched outgoing action returns to Web before playback to %s, including cancellation', async (target) => {
+test.each(['', 'Back'])('an unmatched outgoing action stays native through playback to %s and cancellation', async (target) => {
   const f = await fixture('Edit', target, true);
-  (window.matchMedia('(prefers-reduced-motion: reduce)') as { matches: boolean }).matches = false;
   const source = f.leaving.querySelector('button')!;
-  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
   const release = await f.start();
-  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
-  expect(source.hasAttribute('data-native-ui-navigation-source')).toBe(false);
-  expect(source.hasAttribute('data-native-ui-fading')).toBe(false);
-  expect(f.snapshots.at(-1)!.transitionDuration).toBe(0);
-  expect(f.snapshots.at(-1)!.controls).toEqual([]);
-  if (target) {
-    expect(f.snapshots.at(-1)!.toolbarTransition?.sourceIds).toEqual([]);
-    expect(f.snapshots.at(-1)!.toolbarTransition?.destination[0].items[0].label).toBe(target);
-    expect(release.progress).toBeTypeOf('function');
-    expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(true);
-  } else {
-    expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined();
-    expect(release.progress).toBeUndefined();
-  }
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Edit');
+  expect(f.snapshots.at(-1)!.toolbarTransition?.sourceIds).toEqual([f.snapshots.at(-1)!.controls[0].id]);
+  expect(f.snapshots.at(-1)!.toolbarTransition?.destination).toHaveLength(target ? 1 : 0);
+  expect(release.progress).toBeTypeOf('function');
+  release.progress!(0.5);
+  await vi.waitFor(() => expect(f.progress).toHaveBeenLastCalledWith({ id: f.snapshots.at(-1)!.toolbarTransition!.id, progress: 0.5 }));
   release(true);
-  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  await vi.waitFor(() => expect(f.snapshots.at(-1)!.toolbarTransition).toBeUndefined());
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
   expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Edit');
 });
 
-test('different explicit action IDs retire the source and introduce a new native destination', async () => {
+test('different explicit action IDs retain the outgoing native surface until commit', async () => {
   const f = await fixture('Edit', 'Delete', true);
   const source = f.leaving.querySelector('button')!;
   const target = f.entering.querySelector('button')!;
@@ -395,13 +388,15 @@ test('different explicit action IDs retire the source and introduce a new native
   target.setAttribute('data-transition-id', 'delete');
   await vi.waitFor(() => expect(f.snapshots.at(-1)!.controls[0].items[0].transitionId).toContain('edit'));
   const release = await f.start();
-  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
   expect(target.hasAttribute('data-native-ui-navigation-source')).toBe(true);
-  expect(f.snapshots.at(-1)!.toolbarTransition?.sourceIds).toEqual([]);
+  expect(f.snapshots.at(-1)!.toolbarTransition?.sourceIds).toEqual([f.snapshots.at(-1)!.controls[0].id]);
   expect(f.snapshots.at(-1)!.toolbarTransition?.destination[0].items[0].label).toBe('Delete');
-  expect(f.snapshots.at(-1)!.controls).toEqual([]);
+  release.progress!(1);
   release();
   await vi.waitFor(() => expect(target.hasAttribute('data-native-ui-projected')).toBe(true));
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  expect(f.snapshots.at(-1)!.controls[0].items[0].label).toBe('Delete');
 });
 
 test('destination icon decode failure restores Web and lets navigation finish', async () => {
@@ -598,7 +593,7 @@ test.each(['replacement', 'hidden', 'viewport'] as const)('vertical swipe releas
   }
 });
 
-test('navigation decodes independent destination icons together and waits for all before playback', async () => {
+test('navigation waits for all destination icons and their own native acknowledgement before playback', async () => {
   const f = await fixture('Edit', 'Done', true);
   const target = f.entering.querySelector('button')!;
   const pending: (() => void)[] = [];
@@ -626,6 +621,15 @@ test('navigation decodes independent destination icons together and waits for al
     button.prepend(svg);
     if (index) target.parentElement!.append(button);
   }
+  let acknowledgeIntermediate: (() => void) | undefined;
+  let acknowledgePrepared: (() => void) | undefined;
+  f.setAck(async (snapshot) => {
+    await new Promise<void>((resolve) => {
+      if (snapshot.toolbarTransition) acknowledgePrepared = resolve;
+      else acknowledgeIntermediate = resolve;
+    });
+    return { revision: snapshot.revision, toolbarTransition: snapshot.toolbarTransition?.id };
+  });
   let ready = false;
   const preparation = f.start().then((release) => {
     ready = true;
@@ -637,8 +641,17 @@ test('navigation decodes independent destination icons together and waits for al
   pending[1]();
   await Promise.resolve();
   expect(ready).toBe(false);
+  window.dispatchEvent(new Event('nativeUIRefresh'));
+  await vi.waitFor(() => expect(acknowledgeIntermediate).toBeTypeOf('function'));
   pending[2]();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  acknowledgeIntermediate!();
+  await vi.waitFor(() => expect(acknowledgePrepared).toBeTypeOf('function'));
+  const startedBeforeAcknowledgement = ready;
+  f.setAck(undefined);
+  acknowledgePrepared!();
   const release = await preparation;
+  expect(startedBeforeAcknowledgement).toBe(false);
   expect(f.snapshots.at(-1)?.toolbarTransition?.destination).toHaveLength(3);
   release();
 });

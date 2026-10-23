@@ -670,7 +670,15 @@ export const createRuntime = async (
       received.forEach(activate);
       // Navigation only needs its acknowledged handoff. Unrelated refreshes and
       // fades may continue without holding the page at its starting position.
-      if (preparingNavigation && !invalidated && transition === navigation.current) finishWaiters(transition);
+      // An earlier lifecycle snapshot may finish after endpoint preparation. It
+      // cannot release playback before the prepared transition itself was sent.
+      if (
+        preparingNavigation &&
+        !invalidated &&
+        transition === navigation.current &&
+        (!transition?.prepared || snapshot.toolbarTransition?.id === transition.id)
+      )
+        finishWaiters(transition);
       await crossfade.settled();
       // Geometry belongs to the outgoing tab visual, not to other rail owners.
       // Keep it until that visual has completely faded back to native.
@@ -1146,13 +1154,8 @@ export const createRuntime = async (
         if (suspensionOptions?.navigation && !manualSuspensions.size && !overlayOpen() && !tabSwitchHandoff) {
           transition = navigation.begin(scopes, acknowledged, true);
           maskNavigationPage(scopes[0]);
-          // Release unmatched outgoing surfaces before playback. Incoming native surfaces
-          // are prepared with the transition so they never swap from Web at commit.
-          transition.frozen = transition.frozen.filter((source) =>
-            transition!.destination.some(
-              (target) => source.control.transitionId && source.control.transitionId === target.control.transitionId,
-            ),
-          );
+          // Keep outgoing surfaces native through playback, including those with
+          // no destination. Native progress fades them out in place.
           try {
             await Promise.all(
               transition.destination.flatMap((candidate) =>
@@ -1165,7 +1168,7 @@ export const createRuntime = async (
             await fail(error);
             return () => {};
           }
-          transition.prepared = transition.destination.length > 0;
+          transition.prepared = transition.frozen.length > 0 || transition.destination.length > 0;
         }
         const gesture = verticalGesture;
         getNativeSearchBindings(doc)

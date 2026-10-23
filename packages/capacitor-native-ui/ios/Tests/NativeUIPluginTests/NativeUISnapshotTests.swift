@@ -834,6 +834,37 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
+    func testUnmatchedToolbarSurfaceFadesInPlaceAndRestoresOnCancellation() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
+        for group in [false, true] {
+            let source = try XCTUnwrap(decode([control(["id": "source", "kind": group ? "ion-buttons" : "ion-button",
+                "items": [item(["id": "action", "label": "Save", "disabled": true]) ]])]).controls.first)
+            let rendering = NativeUIControlRendering()
+            let view: UIView = group
+                ? NativeUIButtons.make(source, scale: 1, rendering: rendering, activate: { _ in })
+                : try XCTUnwrap(NativeUIButton.make(source, rendering: rendering, activate: { _ in }))
+            view.frame = source.frame.rect
+            view.alpha = 0.7
+            let host = UIView()
+            host.addSubview(view)
+            let transition = NativeUIToolbarTransition(NativeUIToolbarTransitionSnapshot(id: 1, sourceIds: [source.id], destination: []),
+                sources: [source], controls: [source.id: view], scale: 1, origin: .zero, rendering: rendering)
+            for progress in [0.0, 0.2, 0.5, 0.8, 1.0, 0.5, 0.0] {
+                transition.setProgress(progress)
+                XCTAssertTrue(view.superview === host)
+                XCTAssertEqual(view.frame, source.frame.rect)
+                XCTAssertEqual(view.alpha, 0.7 * (1 - progress), accuracy: 0.001)
+                XCTAssertFalse(view.isUserInteractionEnabled)
+            }
+            transition.restore()
+            XCTAssertEqual(view.alpha, 0.7, accuracy: 0.001)
+            XCTAssertTrue(view.isUserInteractionEnabled)
+            let buttons = group ? (view as? UIVisualEffectView)?.contentView.subviews.compactMap { $0 as? UIButton } ?? [] : [try XCTUnwrap(view as? UIButton)]
+            XCTAssertFalse(try XCTUnwrap(buttons.first).isEnabled)
+        }
+    }
+
+    @MainActor
     func testUnchangedBackContentStaysOpaqueAtEveryPagePercentage() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires glass buttons") }
         let source = try XCTUnwrap(decode([control(["id": "source", "kind": "ion-back-button", "transitionId": "leading",

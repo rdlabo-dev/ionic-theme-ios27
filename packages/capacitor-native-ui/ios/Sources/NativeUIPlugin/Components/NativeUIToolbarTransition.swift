@@ -24,7 +24,19 @@ final class NativeUIToolbarTransition {
         for source in outgoing {
             guard let view = controls[source.id] else { continue }
             let match = remaining.firstIndex { $0.transitionId != nil && $0.transitionId == source.transitionId }
-            guard let match else { continue }
+            guard let match else {
+                // A removed surface exits in place instead of switching to the
+                // moving Web page. Keep the same clock so cancellation reverses it.
+                let alpha = view.alpha
+                let interactive = view.isUserInteractionEnabled
+                view.isUserInteractionEnabled = false
+                updates.append { value in view.alpha = alpha * (1 - value) }
+                restorations.append {
+                    view.alpha = alpha
+                    view.isUserInteractionEnabled = interactive
+                }
+                continue
+            }
             let destination = remaining.remove(at: match)
             let originalFrame = view.frame
             let sourceGlass = source.kind == .buttons || source.items.first?.content.buttonFill != .clear
