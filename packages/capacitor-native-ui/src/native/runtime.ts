@@ -126,7 +126,7 @@ export const createRuntime = async (
   let reason: string | undefined;
   let listener: PluginListenerHandle | undefined;
   let searchListener: PluginListenerHandle | undefined;
-  let waiters: (() => void)[] = [];
+  let waiters: { resolve: () => void; transition?: NonNullable<typeof navigation.current> }[] = [];
   const controlEnabled = (candidate: Candidate) => {
     const kind = candidate.control.kind;
     // Button readers apply selection/grouping per child; explicit HTML and extensions
@@ -182,10 +182,12 @@ export const createRuntime = async (
     verticalBarsMembers.forEach((element) => element.removeAttribute(verticalBarsMemberMarker));
     verticalBarsMembers.clear();
   };
-  const finishWaiters = () => {
-    const current = waiters;
-    waiters = [];
-    current.forEach((resolve) => resolve());
+  const finishWaiters = (transition?: NonNullable<typeof navigation.current>) => {
+    waiters = waiters.filter((waiter) => {
+      if (transition && waiter.transition !== transition) return true;
+      waiter.resolve();
+      return false;
+    });
   };
   const schedule = () => {
     if (stopped) return;
@@ -257,11 +259,11 @@ export const createRuntime = async (
     if (!candidate) diagnose('unsupported-control: check the supported Ionic markup, fixed placement, and styling requirements.', element);
     return candidate && controlEnabled(candidate) ? candidate : undefined;
   };
-  const flush = async () => {
+  const flush = async (transition?: NonNullable<typeof navigation.current>) => {
     if (stopped) return;
     schedule();
     try {
-      await bounded(new Promise<void>((resolve) => waiters.push(resolve)));
+      await bounded(new Promise<void>((resolve) => waiters.push({ resolve, transition })));
     } catch (error) {
       await fail(error);
     }
@@ -435,22 +437,26 @@ export const createRuntime = async (
       const signatures = new Map(candidates.map((candidate) => [candidate.element, signature(candidate)]));
       const rejectionSignatures = new Map(candidates.map((candidate) => [candidate.element, signature(candidate, false)]));
       const failedAssets = new Set<Candidate>();
-      for (const candidate of candidates) {
-        try {
-          await candidate.assets?.render(icons);
-        } catch {
-          failedAssets.add(candidate);
-          diagnose('invalid-assets: image conversion or serialized extension props failed.', candidate.element);
-        }
-        for (const icon of candidate.icons) {
-          const field = icon.field ?? 'icon';
-          icon.item[field] = await icons.render(
-            icon.source,
-            field === 'icon' ? icon.item.iconWidth! : icon.item.closeIconWidth!,
-            field === 'icon' ? icon.item.iconHeight! : icon.item.closeIconHeight!,
+      await Promise.all(
+        candidates.map(async (candidate) => {
+          try {
+            await candidate.assets?.render(icons);
+          } catch {
+            failedAssets.add(candidate);
+            diagnose('invalid-assets: image conversion or serialized extension props failed.', candidate.element);
+          }
+          await Promise.all(
+            candidate.icons.map(async (icon) => {
+              const field = icon.field ?? 'icon';
+              icon.item[field] = await icons.render(
+                icon.source,
+                field === 'icon' ? icon.item.iconWidth! : icon.item.closeIconWidth!,
+                field === 'icon' ? icon.item.iconHeight! : icon.item.closeIconHeight!,
+              );
+            }),
           );
-        }
-      }
+        }),
+      );
       candidates = candidates.filter((candidate) => !failedAssets.has(candidate));
       if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
       const retained = new Set([...candidates.flatMap(candidateSources), ...(verticalGesture?.sources ?? [])]);
@@ -662,6 +668,9 @@ export const createRuntime = async (
       const received = pendingActivations;
       pendingActivations = [];
       received.forEach(activate);
+      // Navigation only needs its acknowledged handoff. Unrelated refreshes and
+      // fades may continue without holding the page at its starting position.
+      if (preparingNavigation && !invalidated && transition === navigation.current) finishWaiters(transition);
       await crossfade.settled();
       // Geometry belongs to the outgoing tab visual, not to other rail owners.
       // Keep it until that visual has completely faded back to native.
@@ -1145,11 +1154,13 @@ export const createRuntime = async (
             ),
           );
           try {
-            for (const candidate of transition.destination) {
-              for (const icon of candidate.icons) {
-                icon.item.icon = await icons.render(icon.source, icon.item.iconWidth!, icon.item.iconHeight!);
-              }
-            }
+            await Promise.all(
+              transition.destination.flatMap((candidate) =>
+                candidate.icons.map(async (icon) => {
+                  icon.item.icon = await icons.render(icon.source, icon.item.iconWidth!, icon.item.iconHeight!);
+                }),
+              ),
+            );
           } catch (error) {
             await fail(error);
             return () => {};
@@ -1161,7 +1172,7 @@ export const createRuntime = async (
           .filter((binding) => scopes.some((scope) => scope.contains(binding.footer) || scope.contains(binding.tabBar)))
           .forEach((binding) => search.retire(binding));
         suspended.add(scopes);
-        await flush();
+        await flush(transition);
         // Moving content has returned to Web; fixed toolbar covers remain native for navigation.
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
         const release: NativeUITransitionRelease = (canceled = false) => {

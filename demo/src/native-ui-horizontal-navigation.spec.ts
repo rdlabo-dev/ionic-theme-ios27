@@ -597,3 +597,67 @@ test.each(['replacement', 'hidden', 'viewport'] as const)('vertical swipe releas
     oldRelease(true);
   }
 });
+
+test('navigation decodes independent destination icons together and waits for all before playback', async () => {
+  const f = await fixture('Edit', 'Done', true);
+  const target = f.entering.querySelector('button')!;
+  const pending: (() => void)[] = [];
+  vi.stubGlobal(
+    'Image',
+    class {
+      src = '';
+      decode() {
+        return new Promise<void>((resolve) => pending.push(resolve));
+      }
+    },
+  );
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:icon');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage() {} } as unknown as CanvasRenderingContext2D);
+  vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,rendered');
+  for (let index = 0; index < 3; index++) {
+    const button = index ? (target.cloneNode(true) as HTMLElement) : target;
+    button.textContent = `Action ${index}`;
+    button.getBoundingClientRect = target.getBoundingClientRect;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.innerHTML = `<path d="M${index} 0h24v24H0z" />`;
+    svg.getBoundingClientRect = () => ({ x: 10, y: 10, left: 10, top: 10, right: 34, bottom: 34, width: 24, height: 24 }) as DOMRect;
+    button.prepend(svg);
+    if (index) target.parentElement!.append(button);
+  }
+  let ready = false;
+  const preparation = f.start().then((release) => {
+    ready = true;
+    return release;
+  });
+  await vi.waitFor(() => expect(pending).toHaveLength(3));
+  expect(ready).toBe(false);
+  pending[0]();
+  pending[1]();
+  await Promise.resolve();
+  expect(ready).toBe(false);
+  pending[2]();
+  const release = await preparation;
+  expect(f.snapshots.at(-1)?.toolbarTransition?.destination).toHaveLength(3);
+  release();
+});
+
+test('an acknowledged navigation handoff does not wait for unrelated refreshes to become idle', async () => {
+  const f = await fixture('Edit', 'Done', true);
+  let refresh = true;
+  f.setAck(async (snapshot) => {
+    if (refresh) window.dispatchEvent(new Event('nativeUIRefresh'));
+    return { revision: snapshot.revision, toolbarTransition: snapshot.toolbarTransition?.id };
+  });
+  try {
+    const release = await f.start();
+    expect(f.snapshots.at(-1)?.toolbarTransition?.destination[0].items[0].label).toBe('Done');
+    expect(f.entering.querySelector('button')!.hasAttribute('data-native-ui-navigation-source')).toBe(true);
+    refresh = false;
+    release(true);
+    await vi.waitFor(() => expect(f.leaving.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(true));
+  } finally {
+    refresh = false;
+  }
+});

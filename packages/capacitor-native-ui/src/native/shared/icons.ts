@@ -28,7 +28,7 @@ export const iconSource = (svg: SVGElement, mirrored?: boolean): string | undefi
 };
 
 export const createIconRenderer = () => {
-  const cache = new Map<string, string>();
+  const cache = new Map<string, Promise<string>>();
   return {
     clear: () => cache.clear(),
     async render(source: string, width: number, height: number): Promise<string> {
@@ -36,21 +36,28 @@ export const createIconRenderer = () => {
       const key = `${width}:${height}:${scale}:${source}`;
       const cached = cache.get(key);
       if (cached) return cached;
-      const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
+      const rendering = (async () => {
+        const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
+        try {
+          const image = new Image();
+          image.src = url;
+          await image.decode();
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(width * scale);
+          canvas.height = Math.ceil(height * scale);
+          canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/png').split(',')[1];
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      })();
+      if (cache.size >= 128) cache.delete(cache.keys().next().value!);
+      cache.set(key, rendering);
       try {
-        const image = new Image();
-        image.src = url;
-        await image.decode();
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.ceil(width * scale);
-        canvas.height = Math.ceil(height * scale);
-        canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const data = canvas.toDataURL('image/png').split(',')[1];
-        if (cache.size >= 128) cache.delete(cache.keys().next().value!);
-        cache.set(key, data);
-        return data;
-      } finally {
-        URL.revokeObjectURL(url);
+        return await rendering;
+      } catch (error) {
+        if (cache.get(key) === rendering) cache.delete(key);
+        throw error;
       }
     },
   };
