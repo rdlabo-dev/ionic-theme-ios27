@@ -261,9 +261,13 @@ export interface NativeUIPlugin {
   dismissOverlay(options: { id: string; animated: boolean }): Promise<void>;
   closeOverlay(options: { id: string }): Promise<void>;
   stopOverlays(): Promise<void>;
-  update(
-    snapshot: NativeUISnapshot,
-  ): Promise<{ revision: number; rejectedSearches?: string[]; rejectedControls?: string[]; toolbarTransition?: number }>;
+  update(snapshot: NativeUISnapshot): Promise<{
+    revision: number;
+    rejectedSearches?: string[];
+    rejectedControls?: string[];
+    tabBarWidths?: Record<string, number>;
+    toolbarTransition?: number;
+  }>;
   setToolbarTransitionProgress(options: { id: number; progress: number }): Promise<void>;
   clear(options: { revision: number }): Promise<void>;
   addListener(name: 'activate', listener: (event: NativeUIActivation) => void): Promise<PluginListenerHandle>;

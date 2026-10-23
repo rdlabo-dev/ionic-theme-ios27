@@ -380,6 +380,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             }
             self.notifyWebViewMetricsChange()
             let duration = NativeUICrossfade.duration(snapshot.transitionDuration)
+            var tabBarWidths: [String: CGFloat] = [:]
             var existing = Set(self.controls.keys)
             let pendingVerticalNavigation = snapshot.verticalBarNavigationPhase != nil && self.verticalBars != nil
             let verticalBars = snapshot.controls.filter { $0.placement == .verticalBars }
@@ -570,6 +571,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     guard let control = self.controls[id] else { reject(); continue }
                     if let tabBar = control as? UITabBar {
                         guard NativeUITabBar.fit(tabBar, node: node, bounds: bounds) else { reject(); continue }
+                        if let content = NativeUITabBar.contentFrame(tabBar) { tabBarWidths[id] = content.width / scale }
                     } else if control.frame != bounds && !(self.toolbarTransition?.controlIds.contains(id) ?? false) {
                         control.frame = bounds
                     }
@@ -606,6 +608,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     if created, let previousCover, previousCover !== controller.surface {
                         previousCover.removeFromSuperview()
                     }
+                    if let measured = controller.restingTabWidth { tabBarWidths[id] = measured / scale }
                     controller.surface.isHidden = self.keyboardVisible && !controller.ownsKeyboard
                 }
             }
@@ -620,7 +623,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 } else if let transition = self.toolbarTransition { transition.setProgress(transition.progress) }
             }
             let complete = {
-                var result: [String: Any] = ["revision": next, "rejectedSearches": rejectedSearches, "rejectedControls": rejectedControls]
+                var result: [String: Any] = ["revision": next, "rejectedSearches": rejectedSearches, "rejectedControls": rejectedControls, "tabBarWidths": tabBarWidths]
                 if let transition = self.toolbarTransition { result["toolbarTransition"] = transition.id }
                 call.resolve(result)
             }

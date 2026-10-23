@@ -4846,3 +4846,73 @@ for (const vertical of [false, true]) {
     await expect.poll(tint).toBe('rgba(120, 40, 80, 0.8)');
   });
 }
+
+test('horizontal tabs retain measured native width on Web handoff without feeding it back', async ({ page }) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await mockNative(page, false, null);
+  // Keep this iOS 27 regression on the same theme in older test WebKit builds.
+  await page.route('**/styles.css', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: (await response.text()).replaceAll('overflow-anchor: auto', 'display: block') });
+  });
+  await page.goto('/main/index');
+  const bar = page.locator('#tab-bar-bottom');
+  await expect(bar).toHaveAttribute('data-native-ui-projected', '');
+  const original = (await bar.boundingBox())!.width;
+  await page.evaluate(() => {
+    const mock = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+    const update = mock.update.bind(mock);
+    mock.update = async (snapshot) => ({
+      ...(await update(snapshot)),
+      tabBarWidths: Object.fromEntries(
+        snapshot.controls.filter((control) => control.kind === 'tab-bar').map((control) => [control.id, 274]),
+      ),
+    });
+    document.querySelector('#tab-bar-bottom ion-label')!.textContent = 'Home';
+  });
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  await page.evaluate(async () => {
+    const app = document.querySelector('ion-app') as TestAppElement;
+    app.verticalBarsLease = await app.nativeUI!.suspend();
+  });
+  await expect(bar).not.toHaveAttribute('data-native-ui-projected');
+  expect((await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  // A normal Web press updates gesture classes and an inline scale variable.
+  // Those decorations must not discard the native resting width.
+  await bar.locator('ion-tab-button').first().click();
+  await page.waitForTimeout(600);
+  expect((await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  await page.evaluate(async () => {
+    const app = document.querySelector('ion-app') as TestAppElement;
+    // Native projection deliberately leaves a focused Web control accessible.
+    (document.activeElement as HTMLElement | null)?.blur();
+    await app.verticalBarsLease!.resume();
+  });
+  await expect(bar).toHaveAttribute('data-native-ui-projected', '');
+  expect((await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  const requestWidth = () =>
+    page.evaluate(
+      () =>
+        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+          .updates.findLast((snapshot) => snapshot.controls.some((control) => control.kind === 'tab-bar'))!
+          .controls.find((control) => control.kind === 'tab-bar')!.width,
+    );
+  await expect.poll(requestWidth).toBeCloseTo(original, 0);
+  // An ancestor CSS change can change padding while native reports the same width.
+  await page.addStyleTag({ content: 'html.width-padding #tab-bar-bottom { padding-inline: 8px !important; }' });
+  await page.locator('html').evaluate((html) => html.classList.add('width-padding'));
+  await expect(bar).toHaveCSS('padding-left', '8px');
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  await page.locator('html').evaluate((html) => html.classList.remove('width-padding'));
+  await expect.poll(requestWidth).toBeCloseTo(original, 0);
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  const updates = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.length);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.length)).toBe(updates);
+  await page.setViewportSize({ width: 440, height: 874 });
+  await expect.poll(requestWidth).toBeCloseTo(337, 0);
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  await page.evaluate(async () => (document.querySelector('ion-app') as TestAppElement).nativeUI!.destroy());
+  await expect(bar).not.toHaveAttribute('data-native-tab-width');
+  expect((await bar.boundingBox())!.width).toBeCloseTo(337, 0);
+});

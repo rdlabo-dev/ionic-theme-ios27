@@ -196,7 +196,7 @@ enum NativeUITabBar {
         }
     }
 
-    private static func contentFrame(_ tabBar: UITabBar) -> CGRect? {
+    static func contentFrame(_ tabBar: UITabBar) -> CGRect? {
         contentFrames(tabBar).reduce(nil) { (result: CGRect?, frame) in result.map { $0.union(frame) } ?? frame }
     }
 

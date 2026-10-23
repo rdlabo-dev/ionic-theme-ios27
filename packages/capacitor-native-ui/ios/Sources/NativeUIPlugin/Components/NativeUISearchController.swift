@@ -50,6 +50,7 @@ final class NativeUISearchInputDelegate: NSObject, UITextFieldDelegate {
 protocol NativeUISearchControlling: AnyObject {
     var surface: NativeUISearchHost { get }
     var ownsKeyboard: Bool { get }
+    var restingTabWidth: CGFloat? { get }
     var ownsKeyboardChrome: Bool { get }
     var transitionCoordinator: UIViewControllerTransitionCoordinator? { get }
     var activate: ((String) -> Void)? { get set }
@@ -68,6 +69,8 @@ final class NativeUISearchController: UITabBarController, UITabBarControllerDele
     private var restingBarFrame: CGRect?
     private var restingBarAnchor: NativeUITabBar.Anchor?
     private var fittingTabBar = false
+    private var measuredTabWidth: CGFloat?
+    var restingTabWidth: CGFloat? { session == .idle ? measuredTabWidth : nil }
     private let search = UISearchController(searchResultsController: nil)
     private let inputDelegate = NativeUISearchInputDelegate()
     private var searchTab: UISearchTab!
@@ -356,6 +359,7 @@ final class NativeUISearchController: UITabBarController, UITabBarControllerDele
         fittingTabBar = true
         defer { fittingTabBar = false }
         tabBar.layoutIfNeeded()
+        weak var ordinaryRegion: UIView?
         for _ in 0..<2 {
             let regions = NativeUITabBar.contentViews(tabBar)
             func controlCount(_ view: UIView) -> Int {
@@ -370,6 +374,7 @@ final class NativeUISearchController: UITabBarController, UITabBarControllerDele
                 return rtl ? $0.frame.midX < $1.frame.midX : $0.frame.midX > $1.frame.midX
             }) else { return false }
             let content = region.frame
+            ordinaryRegion = region
             let contents = regions.map { $0.frame }
             let measured = tabBar.convert(content, to: surface)
             let width = bounds.width - measured.width
@@ -390,6 +395,7 @@ final class NativeUISearchController: UITabBarController, UITabBarControllerDele
             view.setNeedsLayout()
             view.layoutIfNeeded()
         }
+        measuredTabWidth = ordinaryRegion?.frame.width
         // Fitting the ordinary platter can move UIKit's separate Search control
         // outside the WebView, especially for centered or trailing source bars.
         // Reject that layout so Search keeps its usable Web fallback.
