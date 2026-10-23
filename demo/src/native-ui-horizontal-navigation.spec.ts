@@ -689,15 +689,29 @@ test.each([false, true])(
     source.addEventListener('click', clicked);
     const listener = f.listeners.get('activate');
     let failedRevision = 0;
+    let retryFrame: FrameRequestCallback | undefined;
+    let frameSpy: ReturnType<typeof vi.spyOn> | undefined;
     f.setAck(async (snapshot) => {
       if (!failedRevision) {
         failedRevision = snapshot.revision;
         source.textContent = 'Latest';
+        frameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+          retryFrame = callback;
+          return 1;
+        });
         throw new Error('Temporary connection failure');
       }
       return { revision: snapshot.revision };
     });
     source.textContent = 'Changed';
+    try {
+      await vi.waitFor(() => expect(retryFrame).toBeDefined());
+      listener!({ id: f.snapshots.at(-1)!.controls[0].items[0].id, revision: failedRevision, sequence: 1 });
+      expect(clicked).not.toHaveBeenCalled();
+    } finally {
+      frameSpy?.mockRestore();
+      retryFrame?.(performance.now());
+    }
     await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Latest'));
     await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
     expect(handle!.getStatus().state).toBe('native');

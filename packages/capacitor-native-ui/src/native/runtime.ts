@@ -1185,6 +1185,8 @@ export const createRuntime = async (
       pendingActivations.push(event);
       return;
     }
+    // A failed update may have reached native without acknowledging its actions.
+    if (event.revision > acceptedRevision) return false;
     lastSequence = event.sequence;
     if (!element || (verticalGesture && owner && isVerticalBarsSource(owner))) return false;
     if (!owner || !inVerticalBarsSurface(owner)) return false;
