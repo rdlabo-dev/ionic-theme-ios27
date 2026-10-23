@@ -229,6 +229,7 @@ export interface NativeUISnapshot {
   verticalBarEdge?: 'left' | 'right';
   /** Visible foreground modal bounds; omitted for the full page. */
   verticalBarFrame?: Frame;
+  modalAnimation?: import('./shared/modal-animation').ModalAnimation;
   /** Web-owned page identities, from root through the active rail destination. */
   verticalBarNavigation?: string[];
   /** Keep the current native rail until an interactive navigation settles. */
@@ -252,7 +253,9 @@ export interface WebViewMetrics {
 }
 
 export interface NativeUIPlugin {
-  configure(options?: { suppressScrollEdgeEffect?: boolean }): Promise<{ supported: boolean; extensions?: string[] }>;
+  configure(options?: {
+    suppressScrollEdgeEffect?: boolean;
+  }): Promise<{ supported: boolean; extensions?: string[]; modalAnimation?: boolean }>;
   completeExtensionAction(options: { requestId: string; accepted: boolean }): Promise<void>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   getVerticalBarsGeometry(options: { viewportWidth: number; ids: string[] }): Promise<{ revision?: number; items: Record<string, Frame> }>;

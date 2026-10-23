@@ -15,7 +15,14 @@ import {
   validVerticalBarFrame,
 } from './shared/vertical-bars-geometry';
 import { projectionIds } from './shared/projection-id';
-import { inVerticalBarsSurface, topModal, modalUsesVerticalBars, modalVerticalBarFrame } from './shared/modal';
+import {
+  inVerticalBarsSurface,
+  topModal,
+  modalUsesVerticalBars,
+  modalVerticalBarFrame,
+  modalPreparing,
+  modalPresentation,
+} from './shared/modal';
 import type { PluginListenerHandle } from '@capacitor/core';
 import { LIFECYCLE_WILL_ENTER, LIFECYCLE_WILL_LEAVE, LIFECYCLE_DID_ENTER, LIFECYCLE_DID_LEAVE } from './shared/events';
 import type { NativeUITransitionRelease } from '../native-integration';
@@ -108,6 +115,7 @@ export const createRuntime = async (
   let lastSequence = 0;
   let lastTabSequence = 0;
   let lastSnapshot = '';
+  let playingModalAnimation: number | undefined;
   let renderedSnapshot: NativeUISnapshot | undefined;
   let interruptAssets: (() => void) | undefined;
   let viewport = `${win.innerWidth}:${win.innerHeight}`;
@@ -304,11 +312,19 @@ export const createRuntime = async (
     );
   };
   // Compare source data before PNG rendering mutates each item's payload.
-  const signature = (candidate: Candidate, includeTransitionIds = true) =>
-    JSON.stringify(
-      { control: candidate.control, icons: candidate.icons.map(({ source }) => source), assets: candidate.assets?.signature },
+  const signature = (candidate: Candidate, includeTransitionIds = true) => {
+    const modal = candidate.element.closest('ion-modal');
+    // Native owns placement during modal entry. Translation must not invalidate
+    // its acknowledgement, while label, disabled and artwork changes still do.
+    const control =
+      modal && modalPresentation(modal) && candidate.control.placement === 'vertical-bars'
+        ? { ...candidate.control, x: 0, y: 0, items: candidate.control.items.map((item) => ({ ...item, x: 0, y: 0 })) }
+        : candidate.control;
+    return JSON.stringify(
+      { control, icons: candidate.icons.map(({ source }) => source), assets: candidate.assets?.signature },
       includeTransitionIds ? undefined : (key, value) => (key === 'transitionId' ? undefined : value),
     );
+  };
   const readSources = (): Candidate[] => {
     if (verticalGesture && (overlayOpen(true, true) || !verticalGesture.scopes.every(inVerticalBarsSurface))) verticalGesture = undefined;
     search.keepSearchTabsVisible();
@@ -340,6 +356,7 @@ export const createRuntime = async (
               .filter(
                 (element) =>
                   inVerticalBarsSurface(element) &&
+                  !(topModal(doc) && modalPreparing(topModal(doc)!)) &&
                   !verticalBarsPages.isDeparted(element, true) &&
                   (!blocked(element) || (overlayVisible && isVerticalBarsSource(element))),
               )
@@ -453,6 +470,9 @@ export const createRuntime = async (
       // A retained sync performs no update; keep the modal handoff armed so the
       // deferred retirement still runs instantly after the overlay releases.
       if (retentions.size && !manualSuspensions.size) return;
+      const enteringModal = topModal(doc);
+      if (enteringModal && modalPresentation(enteringModal)?.animation.id === playingModalAnimation && playingModalAnimation !== undefined)
+        return;
       modalPresentHandoff = false;
       // A tab is a separate page, not a stack transition. Retire its covers before
       // rendering destination assets, which may continue changing as the page loads.
@@ -624,7 +644,7 @@ export const createRuntime = async (
               : 'right'
             : undefined;
       const modal = topModal(doc);
-      const verticalBarFrame = modal && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
+      const verticalBarFrame = modal && !modalPreparing(modal) && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
       const transition = navigation.current;
       const railCandidates = candidates.filter((candidate) => candidate.control.placement === 'vertical-bars');
       const activePage = railCandidates.length
@@ -653,6 +673,7 @@ export const createRuntime = async (
               }
             : undefined,
         verticalBarFrame,
+        modalAnimation: modal && verticalBarFrame ? modalPresentation(modal)?.animation : undefined,
         viewportWidth: win.innerWidth,
         verticalBarEdge,
         controls: candidates.map((candidate) => candidate.control),
@@ -774,6 +795,8 @@ export const createRuntime = async (
         (candidate) =>
           !result.rejectedControls?.includes(candidate.control.id) && candidateSources(candidate).some((source) => sources.has(source)),
       );
+      if (snapshot.modalAnimation && !result.rejectedControls?.length && !result.rejectedSearches?.length)
+        playingModalAnimation = snapshot.modalAnimation.id;
       if (committingNavigation && !invalidated) navigation.clear();
       const received = pendingActivations;
       pendingActivations = [];

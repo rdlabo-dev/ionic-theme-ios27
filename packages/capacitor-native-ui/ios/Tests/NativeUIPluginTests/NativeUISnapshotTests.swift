@@ -477,6 +477,19 @@ final class NativeUISnapshotTests: XCTestCase {
         try JSValueDecoder().decode(NativeUISnapshot.self, from: ["revision": 1, "viewportWidth": width, "controls": controls])
     }
 
+    func testModalAnimationRequiresBoundsAndValidTiming() throws {
+        let motion: JSObject = ["id": 1, "startedAt": 1000.0, "duration": 500.0, "fromY": 900.0,
+            "opacity": 1.0, "easing": [0.32, 0.72, 0.0, 1.0]]
+        var payload: JSObject = ["revision": 1, "viewportWidth": 466.0, "controls": [control()], "modalAnimation": motion]
+        XCTAssertFalse(try JSValueDecoder().decode(NativeUISnapshot.self, from: payload).isValid)
+        payload["verticalBarFrame"] = ["x": 0.0, "y": 0.0, "width": 466.0, "height": 900.0]
+        XCTAssertTrue(try JSValueDecoder().decode(NativeUISnapshot.self, from: payload).isValid)
+        for invalid: JSObject in [["duration": 0.0], ["opacity": 2.0], ["easing": [0.0]], ["easing": [-1.0, 0.0, 1.0, 1.0]]] {
+            payload["modalAnimation"] = motion.merging(invalid) { _, value in value }
+            XCTAssertFalse(try JSValueDecoder().decode(NativeUISnapshot.self, from: payload).isValid)
+        }
+    }
+
     func testModalRailFrameIsOptionalAndRequiresPositiveBounds() throws {
         var payload: JSObject = ["revision": 1, "viewportWidth": 466.0, "controls": [control()]]
         let page = try JSValueDecoder().decode(NativeUISnapshot.self, from: payload)

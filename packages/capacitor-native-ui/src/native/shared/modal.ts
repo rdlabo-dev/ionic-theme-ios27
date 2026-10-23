@@ -1,7 +1,12 @@
 import type { Frame } from '../definitions';
+import { readModalAnimation, type ModalAnimation } from './modal-animation';
 
 /** Modal hosts cover the viewport even when their visible dialog is centered. */
 export const modalRailClass = 'ios-theme-vertical-bars-modal';
+const presentations = new WeakMap<Element, { animation: ModalAnimation; frame: Frame } | null>();
+export const modalPresentation = (modal: Element) => presentations.get(modal);
+export const modalPreparing = (modal: Element) => presentations.has(modal) && presentations.get(modal) === null;
+
 const states = new WeakMap<Document, { top?: HTMLIonModalElement }>();
 
 export const topModal = (doc: Document): HTMLIonModalElement | undefined => states.get(doc)?.top;
@@ -16,7 +21,7 @@ export const inVerticalBarsSurface = (element: Element): boolean => {
   return modal ? element.closest('ion-modal') === modal && modalUsesVerticalBars(element) : !element.closest('ion-modal');
 };
 
-export const observeVerticalBarsModals = (doc: Document): (() => void) => {
+export const observeVerticalBarsModals = (doc: Document, animate: () => boolean = () => false): (() => void) => {
   const win = doc.defaultView!;
   const state: { top?: HTMLIonModalElement } = {};
   states.set(doc, state);
@@ -42,7 +47,16 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
     const top = active.sort((a, b) => a.overlayIndex - b.overlayIndex).slice(-1)[0];
     let changed = state.top !== top;
     state.top = top;
-    const nextBounds = top ? JSON.stringify(modalVerticalBarFrame(top)) : '';
+    if (top && modalPreparing(top)) {
+      const content = top.shadowRoot?.querySelector<HTMLElement>('[part~="content"]');
+      if (content?.getAnimations().some((animation) => animation.playState === 'running')) {
+        const presentation = readModalAnimation(content);
+        if (presentation) presentations.set(top, presentation);
+        else presentations.delete(top); // Unsupported custom animations retain the existing projection path.
+        changed = true;
+      }
+    }
+    const nextBounds = top && !modalPreparing(top) ? JSON.stringify(modalVerticalBarFrame(top)) : '';
     changed ||= bounds !== nextBounds;
     bounds = nextBounds;
     const wanted = new Set<Element>();
@@ -53,7 +67,7 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
       const fullWidth = !!content && Math.abs(content.offsetWidth - win.innerWidth) <= 1 && Math.abs(content.offsetLeft) <= 1;
       const enabled = !!app?.contains(modal) && active.includes(modal) && fullWidth;
       if (enabled) {
-        const top = modalVerticalBarFrame(modal)?.y ?? 0;
+        const top = modalPreparing(modal) ? 0 : (modalVerticalBarFrame(modal)?.y ?? 0);
         const offset = `${top}px`;
         if (modal.style.getPropertyValue(toolbarTop) !== offset) {
           modal.style.setProperty(toolbarTop, offset);
@@ -79,8 +93,10 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
     if (changed) win.dispatchEvent(new Event('nativeUIRefresh'));
     if (
       top &&
-      (pointerActive ||
-        Array.from(wanted).some((element) => element.getAnimations().some((animation) => animation.playState === 'running')))
+      (modalPreparing(top) ||
+        (!modalPresentation(top) &&
+          (pointerActive ||
+            Array.from(wanted).some((element) => element.getAnimations().some((animation) => animation.playState === 'running')))))
     )
       schedule();
   };
@@ -97,6 +113,10 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
       (event) => {
         const modal = event.target as HTMLIonModalElement;
         if (modal.localName !== 'ion-modal') return;
+        if (name === 'ionModalWillPresent' && animate() && modal.closest('ion-app.ios-theme-vertical-bars')) presentations.set(modal, null);
+        else if (name === 'ionModalDidPresent' || name === 'ionModalWillDismiss' || name === 'ionModalDidDismiss') {
+          if (presentations.delete(modal)) bounds = '';
+        }
         if (name === 'ionModalDidDismiss') {
           presenting.delete(modal);
           dismissed.add(modal);
@@ -128,7 +148,14 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
       },
       { capture: true, signal: listeners.signal },
     );
-  win.addEventListener('resize', schedule, { signal: listeners.signal });
+  win.addEventListener(
+    'resize',
+    () => {
+      if (state.top) presentations.delete(state.top);
+      schedule();
+    },
+    { signal: listeners.signal },
+  );
   win.addEventListener('nativeUIRefresh', schedule, { signal: listeners.signal });
   refresh();
   return () => {
@@ -139,6 +166,7 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
     listeners.abort();
     if (states.get(doc) !== state) return;
     states.delete(doc);
+    doc.querySelectorAll('ion-modal').forEach((modal) => presentations.delete(modal));
     doc.querySelectorAll<HTMLElement>(`.${modalRailClass}`).forEach((modal) => {
       modal.classList.remove(modalRailClass);
       modal.style.removeProperty(toolbarTop);
@@ -148,6 +176,8 @@ export const observeVerticalBarsModals = (doc: Document): (() => void) => {
 
 /** Visible modal bounds, clipped at the viewport for Ionic's translated sheets. */
 export const modalVerticalBarFrame = (modal: Element): Frame | undefined => {
+  const presentation = modalPresentation(modal);
+  if (presentation) return presentation.frame;
   const rect = modal.shadowRoot?.querySelector('[part~="content"]')?.getBoundingClientRect();
   const win = modal.ownerDocument.defaultView!;
   if (!rect) return;

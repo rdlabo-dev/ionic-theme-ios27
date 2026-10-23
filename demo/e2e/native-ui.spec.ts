@@ -29,8 +29,13 @@ interface NativeUIMock extends NativeUIMockCore {
   geometry?: Record<string, { x: number; y: number; width: number; height: number }>;
 }
 
-const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'trailing' | null | 'unreported' = 'trailing') => {
-  const script = ([fail, nativeEdge]: readonly [boolean, 'leading' | 'trailing' | null | 'unreported']) => {
+const mockNative = async (
+  page: Page,
+  fail = false,
+  nativeEdge: 'leading' | 'trailing' | null | 'unreported' = 'trailing',
+  modalAnimation = false,
+) => {
+  const script = ([fail, nativeEdge, modalAnimation]: readonly [boolean, 'leading' | 'trailing' | null | 'unreported', boolean]) => {
     const mock = {
       updates: [] as NativeUISnapshot[],
       toolbarProgress: [] as { id: number; progress: number }[],
@@ -68,7 +73,7 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       async stopOverlays() {},
       async configure(options: { suppressScrollEdgeEffect?: boolean }) {
         this.configuredWith = options;
-        return { supported: true, verticalBars: nativeEdge !== null };
+        return { supported: true, verticalBars: nativeEdge !== null, modalAnimation };
       },
       async getVerticalBarsGeometry() {
         return { revision: this.updates.at(-1)?.revision, items: (this as NativeUIMock).geometry ?? {} };
@@ -140,7 +145,7 @@ const mockNative = async (page: Page, fail = false, nativeEdge: 'leading' | 'tra
       },
     });
   };
-  await page.addInitScript(script, [fail, nativeEdge] as const);
+  await page.addInitScript(script, [fail, nativeEdge, modalAnimation] as const);
 };
 
 const activate = (page: Page, label: string, duplicate = false) =>
@@ -4981,7 +4986,9 @@ for (const native of [true, false]) {
           .toBe(true);
         await page.evaluate(() => {
           const plugin = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
-          plugin.geometry = {};
+          plugin.geometry = {
+            BackButton: { x: document.querySelector('ion-app')!.dir === 'rtl' ? 19 : innerWidth - 65, y: 175, width: 46, height: 46 },
+          };
           for (const control of plugin.updates.at(-1)!.controls) {
             control.items.forEach((item, index) => {
               if (item.accessibilityLabel?.includes('action'))
@@ -5001,6 +5008,13 @@ for (const native of [true, false]) {
       }
       await page.getByText('present:normal', { exact: true }).click();
       const modal = page.locator('ion-modal.show-modal');
+      const coveredBack = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
+      await expect(coveredBack).toBeVisible();
+      await expect(coveredBack).toHaveAttribute('inert', '');
+      await expect(coveredBack).toHaveAttribute('aria-hidden', 'true');
+      if (native) await expect.poll(() => coveredBack.boundingBox()).toEqual({ x: grouped ? 1035 : 19, y: 175, width: 46, height: 46 });
+      await coveredBack.dispatchEvent('click');
+      await expect(page).toHaveURL(/\/main\/index\/modal$/);
       await expect(action).toBeVisible();
       const surface = grouped ? projection : action;
       await expect(surface).toHaveAttribute('inert', '');
@@ -5016,6 +5030,7 @@ for (const native of [true, false]) {
       await expect(page.locator('app-modal ion-toolbar').first()).not.toHaveAttribute('data-activated');
       await modal.getByText('present:normal', { exact: true }).click();
       await expect(page.locator('ion-modal.show-modal')).toHaveCount(2);
+      await expect(coveredBack).toBeVisible();
       await expect(action).toBeVisible();
       await page
         .locator('ion-modal.show-modal')
@@ -5152,3 +5167,68 @@ test('Duo tab handoff recovers from one update failure without replaying the tab
   await activate(page, 'Index');
   await expect(segment).toHaveAttribute('data-native-ui-projected', '');
 });
+
+for (const type of ['normal', 'card', 'sheet']) {
+  test(`Duo ${type} modal sends one native presentation clock instead of moving frames`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page, false, 'trailing', true);
+    await page.goto('/main/index/modal');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    await page.evaluate(() => {
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI').delay = 40;
+      const duplicates: boolean[] = [];
+      (window as unknown as { modalDuplicates: boolean[] }).modalDuplicates = duplicates;
+      document.addEventListener(
+        'ionModalWillPresent',
+        (event) => {
+          const modal = event.target as HTMLElement;
+          let active = true;
+          modal.addEventListener('ionModalDidDismiss', () => (active = false), { once: true });
+          const sample = () => {
+            if (!active) return;
+            const native = Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+              .updates.at(-1)
+              ?.controls.some((control) => control.items.some((item) => item.accessibilityLabel === 'Done'));
+            duplicates.push(!!native && !!modal.querySelector(':scope > .ios-theme-vertical-bars-toolbar-projection'));
+            requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        },
+        { once: true },
+      );
+    });
+    await page.getByText(`present:${type}`, { exact: true }).click();
+    const modal = page.locator('ion-modal.show-modal');
+    await expect
+      .poll(() =>
+        page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.some((snapshot) => !!snapshot.modalAnimation)),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const last = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1);
+          return (
+            !last?.modalAnimation && last?.controls.some((control) => control.items.some((item) => item.accessibilityLabel === 'Done'))
+          );
+        }),
+      )
+      .toBe(true);
+    const snapshots = await page.evaluate(() =>
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.filter((snapshot) => snapshot.modalAnimation),
+    );
+    expect(new Set(snapshots.map((snapshot) => JSON.stringify(snapshot.modalAnimation))).size).toBe(1);
+    expect(new Set(snapshots.map((snapshot) => JSON.stringify(snapshot.verticalBarFrame))).size).toBe(1);
+    expect(snapshots.length).toBeLessThanOrEqual(3);
+    expect(snapshots[0].modalAnimation!.fromY).toBeGreaterThan(0);
+    expect(snapshots[0].controls.flatMap((control) => control.items.map((item) => item.accessibilityLabel))).toEqual(['Close', 'Done']);
+    const duplicates = await page.evaluate(() => (window as unknown as { modalDuplicates: boolean[] }).modalDuplicates);
+    expect(duplicates.length).toBeGreaterThan(0);
+    expect(duplicates.some(Boolean)).toBe(false);
+    const coveredBack = page.locator('ion-app > ion-back-button.ios-theme-vertical-bars-back-button-projection');
+    await expect(coveredBack).toBeVisible();
+    await expect(coveredBack).toHaveAttribute('inert', '');
+    await activate(page, 'Done', true);
+    await expect(modal).toHaveCount(0);
+  });
+}

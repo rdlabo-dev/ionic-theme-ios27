@@ -36,12 +36,28 @@ struct NativeUIToolbarTransitionSnapshot: Decodable {
     }
 }
 
+struct NativeUIModalAnimation: Decodable {
+    let id: Int
+    let startedAt: Double
+    let duration: Double
+    let fromY: Double
+    let opacity: Double
+    let easing: [Double]
+    var isValid: Bool {
+        id > 0 && [startedAt, duration, fromY, opacity].allSatisfy(\.isFinite) &&
+        duration > 0 && duration <= 60_000 && opacity >= 0 && opacity <= 1 &&
+        easing.count == 4 && easing.allSatisfy(\.isFinite) &&
+        (0...1).contains(easing[0]) && (0...1).contains(easing[2])
+    }
+}
+
 struct NativeUISnapshot: Decodable {
     let revision: Int
     let transitionDuration: Double?
     let toolbarTransition: NativeUIToolbarTransitionSnapshot?
     let viewportWidth: Double
     let verticalBarFrame: NativeUIFrame?
+    let modalAnimation: NativeUIModalAnimation?
     let verticalBarEdge: String?
     let verticalBarNavigation: [String]?
     let verticalBarNavigationPhase: String?
@@ -53,6 +69,7 @@ struct NativeUISnapshot: Decodable {
         (verticalBarNavigationPhase == nil || verticalBarNavigationPhase == "tracking" || verticalBarNavigationPhase == "settling") &&
         (verticalBarNavigation.map { Set($0).count == $0.count && $0.allSatisfy { !$0.isEmpty } } ?? true) &&
         (verticalBarFrame.map { $0.isValid } ?? true) &&
+        (modalAnimation.map { $0.isValid && verticalBarFrame != nil } ?? true) &&
         (verticalBarEdge == nil || verticalBarEdge == "left" || verticalBarEdge == "right") &&
         Set(controls.map(\.id)).count == controls.count && controls.allSatisfy(\.isValid)
     }

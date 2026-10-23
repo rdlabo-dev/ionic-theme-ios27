@@ -21,7 +21,7 @@ type OverlayFactory = (
 ) => Promise<OverlayController>;
 import { createVerticalBarsWebProjection } from './vertical-bars-web';
 import { prehideVerticalBarsToolbarSources } from './prehide';
-import { observeVerticalBarsModals } from './shared/modal';
+import { observeVerticalBarsModals, topModal, modalPreparing, modalPresentation } from './shared/modal';
 export { defineNativeUI } from './extensions';
 export type { NativeUIExtension, NativeUIValue } from './extensions';
 export type {
@@ -236,7 +236,8 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
       if (previousStop) await previousStop.catch(() => {});
       const platform = Capacitor.getPlatform();
       const diagnose = createDiagnostics(options.debug);
-      const stopModals = options.source === 'html' ? () => {} : observeVerticalBarsModals(document);
+      let nativeModalAnimations = () => false;
+      const stopModals = options.source === 'html' ? () => {} : observeVerticalBarsModals(document, () => nativeModalAnimations());
       const prehide =
         platform !== 'android' && options.source !== 'html' && options.ionic?.auto !== false
           ? prehideVerticalBarsToolbarSources(document, () => options.verticalBars?.enabled !== false, options.root, options)
@@ -340,6 +341,7 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
           const physicalEdge = app.classList.contains('ios-theme-vertical-bars-left') ? 'left' : 'right';
           return physicalEdge === nativeState.edge;
         };
+        nativeModalAnimations = () => capabilities.modalAnimation === true && nativeVerticalBars();
         const applyMetrics = (metrics: WebViewMetrics) => {
           if (ordinaryControls) nativeWebViewMetrics.radius = metrics.radius;
           deviceEdge = metrics.verticalBarEdge ?? null;
@@ -359,7 +361,13 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
         );
         runtime = combine(
           native,
-          webProjection(document, options, () => !nativeVerticalBars() || native.getStatus().projected === 0),
+          webProjection(document, options, () => {
+            const modal = topModal(document);
+            return (
+              !(modal && (modalPreparing(modal) || modalPresentation(modal))) &&
+              (!nativeVerticalBars() || native.getStatus().projected === 0)
+            );
+          }),
         );
         if (options.ionic?.verticalBars?.popover === true && overlayFactory)
           overlays = await overlayFactory(document, plugin, options, native.retain, nativeVerticalBars);

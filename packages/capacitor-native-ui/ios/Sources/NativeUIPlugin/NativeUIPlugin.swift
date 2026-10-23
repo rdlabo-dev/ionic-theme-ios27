@@ -34,6 +34,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     private var fingerprints: [String: NativeUIControl] = [:]
     private let rendering = NativeUIControlRendering()
     private var configurationGeneration = 0
+    private var modalAnimationID: Int?
     private var revision = 0
     private var sequence = 0
     private var keyboardVisible = false
@@ -217,7 +218,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                         effect.isHidden = true
                         self.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
                     }
-                    call.resolve(["supported": true, "extensions": NativeUI.names])
+                    call.resolve(["supported": true, "extensions": NativeUI.names, "modalAnimation": true])
                 }
                 else { call.resolve(["supported": false]) }
             }
@@ -318,6 +319,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         host = nil
         verticalBars?.detach(duration: duration)
         verticalBars = nil
+        modalAnimationID = nil
         rendering.clear()
         pendingTabSelections.removeAll()
         pendingTabExpiryWorks.values.forEach { $0.cancel() }
@@ -420,6 +422,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             if (verticalBars.isEmpty && !pendingVerticalNavigation) || (self.keyboardVisible && !verticalSearchActive) {
                 self.verticalBars?.detach(duration: duration)
                 self.verticalBars = nil
+                self.modalAnimationID = nil
                 if self.keyboardVisible { rejectedControls.append(contentsOf: verticalBars.map(\.id)) }
             } else if let owner = self.bridge?.viewController {
                 let rail = self.verticalBars ?? NativeUIVerticalBarsController(
@@ -435,7 +438,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     rail.view.frame = owner.view.bounds
                 }
                 rail.view.isHidden = false
-                if enteringVerticalBars { NativeUICrossfade.enter(rail.view, duration: duration) }
+                if enteringVerticalBars && snapshot.modalAnimation == nil { NativeUICrossfade.enter(rail.view, duration: duration) }
             } else {
                 rejectedControls.append(contentsOf: verticalBars.map(\.id))
             }
@@ -457,7 +460,34 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             // Publish toolbar, tabs and accessory together so the hosting tree receives
             // one animation transaction. The shell owns only the initial crossfade.
             self.verticalBars?.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right",
-                                     animated: !enteringVerticalBars, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
+                                     animated: !enteringVerticalBars && snapshot.modalAnimation == nil, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
+            self.verticalBars?.view.isUserInteractionEnabled = snapshot.modalAnimation == nil
+            if let layer = self.verticalBars?.view.layer {
+                if let motion = snapshot.modalAnimation {
+                    if self.modalAnimationID != motion.id {
+                        self.modalAnimationID = motion.id
+                        let translate = CABasicAnimation(keyPath: "transform.translation.y")
+                        translate.fromValue = motion.fromY * scale
+                        translate.toValue = 0
+                        let opacity = CABasicAnimation(keyPath: "opacity")
+                        opacity.fromValue = motion.opacity
+                        opacity.toValue = 1
+                        let group = CAAnimationGroup()
+                        group.animations = [translate, opacity]
+                        group.duration = motion.duration / 1000
+                        translate.duration = group.duration
+                        opacity.duration = group.duration
+                        group.timingFunction = CAMediaTimingFunction(controlPoints: Float(motion.easing[0]), Float(motion.easing[1]), Float(motion.easing[2]), Float(motion.easing[3]))
+                        let elapsed = max(0, Date().timeIntervalSince1970 - motion.startedAt / 1000)
+                        group.beginTime = layer.convertTime(CACurrentMediaTime(), from: nil) - elapsed
+                        layer.add(group, forKey: "native-ui-modal-entry")
+                    }
+                } else {
+                    self.modalAnimationID = nil
+                    layer.removeAnimation(forKey: "native-ui-modal-entry")
+                }
+            }
+
             if snapshots.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.host?.removeFromSuperview()
                 self.host = nil
