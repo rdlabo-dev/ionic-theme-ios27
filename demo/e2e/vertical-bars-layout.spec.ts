@@ -185,7 +185,8 @@ test('stacked modals keep rail controls inside the active dialog and restore the
   await expect(modals.first().locator(projection)).toBeVisible();
   await modals.first().getByText('present:normal', { exact: true }).click();
   await expect(modals).toHaveCount(2);
-  await expect(modals.first().locator(projection)).toHaveCount(0);
+  await expect(modals.first().locator(projection)).toBeVisible();
+  await expect(modals.first().locator(projection)).toHaveAttribute('inert', '');
   await expect(modals.last().locator(projection)).toBeVisible();
   await modals.last().getByRole('button', { name: 'Close', exact: true }).focus();
   await expect(modals.last().getByRole('button', { name: 'Close', exact: true })).toBeFocused();

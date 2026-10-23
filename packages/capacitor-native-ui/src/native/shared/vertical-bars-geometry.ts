@@ -26,10 +26,11 @@ export const alignVerticalBarClone = (clone: HTMLElement, source: Element, paren
   const frame = verticalBarFrame(source);
   if (!frame) return;
   const origin = parent.getBoundingClientRect();
+  // Absolute children use the padding edge, not the outer edge of a glass group.
   Object.assign(clone.style, {
     position: 'absolute',
-    left: `${frame.x - origin.left}px`,
-    top: `${frame.y - origin.top}px`,
+    left: `${frame.x - origin.left - parent.clientLeft}px`,
+    top: `${frame.y - origin.top - parent.clientTop}px`,
     right: 'auto',
     bottom: 'auto',
     width: `${frame.width}px`,

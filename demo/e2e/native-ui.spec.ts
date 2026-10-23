@@ -4846,3 +4846,116 @@ for (const vertical of [false, true]) {
     await expect.poll(tint).toBe('rgba(120, 40, 80, 0.8)');
   });
 }
+
+for (const native of [true, false]) {
+  for (const grouped of [true, false]) {
+    test(`covered rail buttons remain Web-projected behind modals: native=${native}, grouped=${grouped}`, async ({ page }) => {
+      await page.setViewportSize({ width: grouped ? 1100 : 700, height: 900 });
+      await page.route('**/styles.css', async (route) => {
+        const response = await route.fetch();
+        await route.fulfill({ response, body: (await response.text()).replaceAll('overflow-anchor: auto', 'display: block') });
+      });
+      await mockNative(page, !native);
+      await page.goto('/main/index/modal');
+      await page
+        .locator('app-modal ion-toolbar')
+        .first()
+        .evaluate((toolbar, grouped) => {
+          const group = document.createElement('ion-buttons');
+          group.slot = 'end';
+          for (const label of grouped ? ['Covered action', 'Disabled action'] : ['Covered action']) {
+            const button = document.createElement('ion-button');
+            button.setAttribute('aria-label', label);
+            if (label === 'Covered action') button.id = 'covered-action';
+            button.disabled = label === 'Disabled action';
+            button.innerHTML = '<ion-icon name="add" slot="icon-only"></ion-icon>';
+            button.addEventListener('click', () => toolbar.setAttribute('data-activated', label));
+            group.append(button);
+          }
+          toolbar.append(group);
+        }, grouped);
+      await page.locator('ion-app').evaluate((app, grouped) => {
+        app.dir = grouped ? 'ltr' : 'rtl';
+        app.classList.add('ios-theme-vertical-bars');
+        app.classList.toggle('ios-theme-vertical-bars-left', !grouped);
+      }, grouped);
+      const source = page.locator('#covered-action');
+      const projection = page
+        .locator('ion-app > .ios-theme-vertical-bars-toolbar-projection')
+        .filter({ has: page.locator('[aria-label="Covered action"]') });
+      const action = page.locator(
+        'ion-app > ion-button.ios-theme-vertical-bars-toolbar-projection[aria-label="Covered action"], ion-app > ion-buttons.ios-theme-vertical-bars-toolbar-projection > ion-button[aria-label="Covered action"]',
+      );
+      let before;
+      if (native) {
+        await expect(grouped ? source.locator('..') : source).toHaveAttribute('data-native-ui-projected', '');
+        await expect
+          .poll(() =>
+            page.evaluate(() =>
+              Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+                .updates.at(-1)
+                ?.controls.some(
+                  (control) =>
+                    control.placement === 'vertical-bars' && control.items.some((item) => item.accessibilityLabel === 'Covered action'),
+                ),
+            ),
+          )
+          .toBe(true);
+        await page.evaluate(() => {
+          const plugin = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+          plugin.geometry = {};
+          for (const control of plugin.updates.at(-1)!.controls) {
+            control.items.forEach((item, index) => {
+              if (item.accessibilityLabel?.includes('action'))
+                plugin.geometry![item.id] = {
+                  x: document.querySelector('ion-app')!.dir === 'rtl' ? 19 : innerWidth - 65,
+                  y: 300 + index * 46,
+                  width: 46,
+                  height: 46,
+                };
+            });
+          }
+        });
+        before = { x: grouped ? 1035 : 19, y: 300, width: 46, height: 46 };
+      } else {
+        await expect(action).toBeVisible();
+        before = await action.boundingBox();
+      }
+      await page.getByText('present:normal', { exact: true }).click();
+      const modal = page.locator('ion-modal.show-modal');
+      await expect(action).toBeVisible();
+      const surface = grouped ? projection : action;
+      await expect(surface).toHaveAttribute('inert', '');
+      await expect(surface).toHaveAttribute('aria-hidden', 'true');
+      await expect.poll(() => action.boundingBox()).toEqual(before);
+      if (grouped) await expect(projection.locator('ion-button[aria-label="Disabled action"]')).toHaveJSProperty('disabled', true);
+      await source.evaluate((button: HTMLIonButtonElement) => (button.disabled = true));
+      await expect(action).toHaveJSProperty('disabled', true);
+      await source.evaluate((button: HTMLIonButtonElement) => (button.disabled = false));
+      await expect(action).toHaveJSProperty('disabled', false);
+      // Even delayed or synthetic clicks cannot activate the covered page.
+      await action.dispatchEvent('click');
+      await expect(page.locator('app-modal ion-toolbar').first()).not.toHaveAttribute('data-activated');
+      await modal.getByText('present:normal', { exact: true }).click();
+      await expect(page.locator('ion-modal.show-modal')).toHaveCount(2);
+      await expect(action).toBeVisible();
+      await page
+        .locator('ion-modal.show-modal')
+        .last()
+        .evaluate((element: HTMLIonModalElement) => element.dismiss());
+      await expect(action).toBeVisible();
+      await page
+        .locator('ion-modal.show-modal')
+        .last()
+        .evaluate((element: HTMLIonModalElement) => element.dismiss());
+      if (native) {
+        await expect(action).toHaveCount(0);
+        await expect(grouped ? source.locator('..') : source).toHaveAttribute('data-native-ui-projected', '');
+      } else {
+        await expect(surface).not.toHaveAttribute('inert');
+        await action.click();
+        await expect(page.locator('app-modal ion-toolbar').first()).toHaveAttribute('data-activated', 'Covered action');
+      }
+    });
+  }
+}
