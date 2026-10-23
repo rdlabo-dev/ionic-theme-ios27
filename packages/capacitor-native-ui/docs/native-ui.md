@@ -282,7 +282,7 @@ While enabled, Native UI suppresses the WebView’s top scroll-edge effect becau
 
 The native search controller remains visible over its own keyboard. Other projected controls are hidden while a Web input opens the keyboard. UIKit's own accessibility and Reduce Motion behavior apply to the standard controls; full VoiceOver traversal is not a verified parity guarantee.
 
-Vertical Bars tabs use Ionic's `--ion-color-primary-rgb` as the native selection tint, including light/dark palette updates. Without a valid token, they use the system tint. Normal and disabled colors, labels and glass backgrounds follow the native design; per-tab CSS colors and colored Web backgrounds are not reproduced.
+Vertical Bars tabs use the selected Ionic tab button's computed foreground color as the native selection tint. This follows `--color-selected`, per-tab overrides and light/dark theme changes without requiring a separate RGB palette token. Without a selected tab or a supported computed RGB color, they use the system tint. Tab bars with an Ionic `color` palette also keep the system tint: their Web contrast color assumes a colored background that the native glass does not reproduce. Normal and disabled colors, labels and glass backgrounds follow the native design; colored Web backgrounds are not reproduced.
 
 ## FAB behavior
 

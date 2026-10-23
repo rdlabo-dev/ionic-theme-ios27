@@ -5,7 +5,7 @@ import Capacitor
 @testable import NativeUIPlugin
 
 final class NativeUISnapshotTests: XCTestCase {
-    @MainActor func testVerticalTabPrimaryTintUpdatesAndRestoresSystemAppearance() async throws {
+    @MainActor func testVerticalTabSelectionTintUpdatesAndRestoresSystemAppearance() async throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI tabs") }
         let owner = UIViewController()
         let window = UIWindow(frame: UIScreen.main.bounds)

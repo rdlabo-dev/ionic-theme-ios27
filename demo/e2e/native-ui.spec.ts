@@ -4788,15 +4788,17 @@ test('vertical group resizing preserves the following surface and its action ide
   await expect(page.locator('#following-group')).toHaveAttribute('data-clicked', 'true');
 });
 
-test('Vertical Bars tabs follow the primary palette and retain native color surfaces', async ({ page }) => {
+test('Vertical Bars tabs use the applied selection color across overrides and dark mode', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
   await page.emulateMedia({ colorScheme: 'light' });
   await mockNative(page);
   await page.goto('/main/index');
   await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
   await page.addStyleTag({
-    content: `ion-tab-bar { --ion-color-primary-rgb: 128, 0, 128; }
-    @media (prefers-color-scheme: dark) { ion-tab-bar { --ion-color-primary-rgb: 255, 170, 0; } }`,
+    content: `ion-tab-bar {
+    --ion-color-primary: #800080; --ion-color-primary-rgb: 1, 2, 3;
+    --ion-tab-bar-color-selected: var(--ion-color-primary);
+  }`,
   });
   const tint = () =>
     page.evaluate(
@@ -4806,22 +4808,37 @@ test('Vertical Bars tabs follow the primary palette and retain native color surf
           ?.controls.find((control) => control.kind === 'tab-bar')?.tabTint,
     );
   await expect.poll(tint).toBe('rgb(128, 0, 128)');
+  await page.addStyleTag({
+    content: `ion-tab-bar { --color-selected: orange; }
+    ion-tab-button[tab="docs"] { color-scheme: light dark; --color-selected: light-dark(blue, yellow); }`,
+  });
+  await expect.poll(tint).toBe('rgb(255, 165, 0)');
   await activate(page, 'Docs');
   await expect(page).toHaveURL('/main/docs');
-  await expect.poll(tint).toBe('rgb(128, 0, 128)');
+  await expect.poll(tint).toBe('rgb(0, 0, 255)');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect.poll(tint).toBe('rgb(255, 255, 0)');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect.poll(tint).toBe('rgb(0, 0, 255)');
+  await page.locator('ion-tab-button[tab="docs"]').evaluate((tab) => {
+    tab.style.setProperty('--color-selected', 'currentColor');
+  });
+  await page.locator('ion-tab-bar').evaluate((bar) => {
+    bar.style.color = 'rgb(200, 0, 0)';
+  });
+  await expect.poll(tint).toBe('rgb(200, 0, 0)');
+  await activate(page, 'Index');
+  await expect(page).toHaveURL('/main/index');
+  await expect.poll(tint).toBe('rgb(255, 165, 0)');
+  await page.locator('ion-tab-bar').evaluate((bar) => bar.style.setProperty('--color-selected', 'rgba(120, 40, 80, 0.8)'));
+  await expect.poll(tint).toBe('rgba(120, 40, 80, 0.8)');
   await page.locator('ion-tab-bar').evaluate((bar: HTMLIonTabBarElement) => {
     bar.color = 'primary';
   });
   await expect(page.locator('ion-tab-bar')).toHaveAttribute('data-native-ui-projected', '');
-  await expect.poll(tint).toBe('rgb(128, 0, 128)');
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await expect.poll(tint).toBe('rgb(255, 170, 0)');
-  await page.emulateMedia({ colorScheme: 'light' });
-  await expect.poll(tint).toBe('rgb(128, 0, 128)');
-  await page.locator('ion-tab-bar').evaluate((bar) => bar.style.setProperty('--ion-color-primary-rgb', 'invalid'));
   await expect.poll(tint).toBeUndefined();
-  await page.locator('ion-tab-bar').evaluate((bar) => bar.style.setProperty('--ion-color-primary-rgb', ', ,'));
-  await expect.poll(tint).toBeUndefined();
-  await page.locator('ion-tab-bar').evaluate((bar) => bar.style.setProperty('--ion-color-primary-rgb', ''));
-  await expect.poll(tint).toBe('rgb(128, 0, 128)');
+  await page.locator('ion-tab-bar').evaluate((bar: HTMLIonTabBarElement) => {
+    bar.color = undefined;
+  });
+  await expect.poll(tint).toBe('rgba(120, 40, 80, 0.8)');
 });
