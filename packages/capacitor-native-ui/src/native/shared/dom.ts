@@ -112,14 +112,14 @@ export const isVerticalBarsSource = (element: HTMLElement): boolean =>
       !!element.closest('ion-app.ios-theme-vertical-bars')));
 
 export const isVerticalBarsBackPosition = (element: HTMLElement): boolean => {
-  if (element.closest('ion-header[collapse], ion-footer[collapse]')) return false;
+  if (element.closest('ion-header[collapse]:not([collapse="fade"]), ion-footer[collapse]')) return false;
   const page = element.closest('.ion-page');
   if (!page) return true;
   const candidates = Array.from(page.querySelectorAll<HTMLElement>('ion-back-button')).filter(
     (back) =>
       back.closest('.ion-page') === page &&
       !back.matches('.ion-cloned-element') &&
-      !back.closest('ion-header[collapse], ion-footer[collapse], ion-menu, ion-popover') &&
+      !back.closest('ion-header[collapse]:not([collapse="fade"]), ion-footer[collapse], ion-menu, ion-popover') &&
       modalUsesVerticalBars(back),
   );
   const rank = (back: HTMLElement) =>
@@ -298,7 +298,7 @@ export const inFixedToolbar = (element: Element): boolean => {
   return (
     !!edge?.matches('ion-header, ion-footer') &&
     !element.closest('ion-content') &&
-    !edge.hasAttribute('collapse') &&
+    (!edge.hasAttribute('collapse') || edge.matches('ion-header[collapse="fade"]')) &&
     (verticalBars || !edge.matches('.header-collapse-condense'))
   );
 };

@@ -147,8 +147,10 @@ Glass appearance alone is not enough. Ordinary projection requires fixed control
 | Buttons directly inside a header/footer, standalone toolbars, or toolbars/headers in scrolling content | Stay on the Web.                                                                                                                    |
 | FAB                                                                                                    | Must use the `ion-content` fixed slot.                                                                                              |
 | Back button with `.ios-theme-vertical-bars` enabled                                                    | Can project outside a fixed toolbar, including routed content or a persistent app shell. Vertical Bars does not require `ios` mode. |
-| Collapsed headers, opted-out controls and departed pages                                               | Excluded.                                                                                                                           |
+| Condense headers, collapsing footers, opted-out controls and departed pages                            | Excluded.                                                                                                                           |
 | Full-width foreground modal                                                                            | Can participate in Vertical Bars; other overlay surfaces keep their own layout.                                                     |
+
+A fixed `ion-header collapse="fade"` remains eligible, including its back button and icon-only actions in Vertical Bars. Keep the fade attribute; only condense headers and collapsing footers are excluded by their collapse mode. Headers inside `ion-content` do not provide a fixed toolbar.
 
 Moving a projected control to an excluded location restores its Web rendering; moving it back re-evaluates eligibility. The application chooses where to enable Vertical Bars and which Ionic component mode to use.
 
