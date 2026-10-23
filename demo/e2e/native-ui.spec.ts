@@ -4959,3 +4959,81 @@ for (const native of [true, false]) {
     });
   }
 }
+
+for (const native of [true, false]) {
+  test(`covered mixed automatic and explicit toolbar controls keep separate ownership: native=${native}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.route('**/styles.css', async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: (await response.text()).replaceAll('overflow-anchor: auto', 'display: block') });
+    });
+    await mockNative(page, !native);
+    await page.goto('/main/index/modal');
+    await page
+      .locator('app-modal ion-toolbar')
+      .first()
+      .evaluate((toolbar) => {
+        const icon = '<ion-icon name="add" slot="icon-only"></ion-icon>';
+        toolbar.insertAdjacentHTML(
+          'beforeend',
+          `
+        <ion-buttons slot="end" id="edge-group">
+          <ion-button id="edge-group-a" aria-label="Edge group A">${icon}</ion-button>
+          <ion-button id="edge-group-b" aria-label="Edge group B">${icon}</ion-button>
+        </ion-buttons>
+        <ion-button slot="end" id="edge-single" aria-label="Edge single">${icon}</ion-button>
+        <ion-buttons slot="start" id="edge-mixed">
+          <ion-button id="edge-mixed-auto" aria-label="Edge mixed auto">${icon}</ion-button>
+          <button id="edge-explicit" data-native-ui="button" aria-label="Edge explicit">Explicit</button>
+        </ion-buttons>`,
+        );
+        for (const button of toolbar.querySelectorAll<HTMLElement>('[id^="edge-"]:not(ion-buttons)')) {
+          button.setAttribute('data-clicks', '0');
+          button.addEventListener('click', () =>
+            button.setAttribute('data-clicks', String(Number(button.getAttribute('data-clicks')) + 1)),
+          );
+        }
+      });
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const labels = ['Edge group A', 'Edge group B', 'Edge single', 'Edge mixed auto'];
+    const clone = (label: string) =>
+      page.locator(
+        `ion-app > .ios-theme-vertical-bars-toolbar-projection[aria-label="${label}"], ion-app > .ios-theme-vertical-bars-toolbar-projection > ion-button[aria-label="${label}"]`,
+      );
+    if (native) {
+      await expect(page.locator('#edge-group')).toHaveAttribute('data-native-ui-projected', '');
+      await expect(page.locator('#edge-single')).toHaveAttribute('data-native-ui-projected', '');
+      await expect(page.locator('#edge-mixed-auto')).toHaveAttribute('data-native-ui-projected', '');
+      await expect(page.locator('#edge-explicit')).toHaveAttribute('data-native-ui-projected', '');
+    } else for (const label of labels) await expect(clone(label)).toBeVisible();
+    await page.getByText('present:normal', { exact: true }).click();
+    await expect(page.locator('ion-modal.show-modal')).toHaveCount(1);
+    for (const label of labels) {
+      await expect(clone(label)).toHaveCount(1);
+      await expect(clone(label)).toBeVisible();
+      expect(await clone(label).evaluate((element) => !!element.closest('[inert]'))).toBe(true);
+      await clone(label).dispatchEvent('click');
+    }
+    await expect(clone('Edge explicit')).toHaveCount(0);
+    await expect(page.locator('#edge-explicit')).not.toHaveAttribute('data-native-ui-projected');
+    for (const id of ['edge-group-a', 'edge-group-b', 'edge-single', 'edge-mixed-auto', 'edge-explicit'])
+      await expect(page.locator(`#${id}`)).toHaveAttribute('data-clicks', '0');
+    await page.locator('#edge-group-b').evaluate((element: HTMLIonButtonElement) => (element.disabled = true));
+    await expect(clone('Edge group B')).toHaveJSProperty('disabled', true);
+    await page.locator('ion-modal.show-modal').evaluate((modal: HTMLIonModalElement) => modal.dismiss());
+    if (native) {
+      for (const label of labels) await expect(clone(label)).toHaveCount(0);
+      await expect(page.locator('#edge-explicit')).toHaveAttribute('data-native-ui-projected', '');
+      await activate(page, 'Edge group A', true);
+      await activate(page, 'Edge single', true);
+      await activate(page, 'Edge mixed auto', true);
+      await activate(page, 'Edge explicit', true);
+    } else {
+      for (const label of labels.filter((label) => label !== 'Edge group B')) await clone(label).click();
+      await page.locator('#edge-explicit').click();
+    }
+    for (const id of ['edge-group-a', 'edge-single', 'edge-mixed-auto', 'edge-explicit'])
+      await expect(page.locator(`#${id}`)).toHaveAttribute('data-clicks', '1');
+    await expect(page.locator('#edge-group-b')).toHaveAttribute('data-clicks', '0');
+  });
+}

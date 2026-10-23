@@ -355,7 +355,7 @@ ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-them
       :where(ion-menu *, ion-modal:not(.ios-theme-vertical-bars-modal) *, ion-popover *)
     )
     ion-buttons:is(.ios, .md):has(> :is(ion-back-button, ion-button, ion-menu-button)[data-native-ui-projected]):not(
-      :has(> :is(ion-back-button, ion-button, ion-menu-button):not([data-native-ui-projected]))
+      :has(> :not([data-native-ui-projected]))
     ) {
     display: none;
   }
