@@ -3,12 +3,18 @@ import type { Page } from '@playwright/test';
 import { compile, NodePackageImporter } from 'sass';
 import { resolve } from 'node:path';
 import * as overlayTypes from '../src/app/overlay-types';
-import type { NativeUIControl, NativeUIItem, NativeUISnapshot } from '../../packages/capacitor-native-ui/src/native/definitions';
+import type {
+  NativeUIControl,
+  NativeUIItem,
+  NativeUISnapshot,
+  NativeUIPlugin,
+} from '../../packages/capacitor-native-ui/src/native/definitions';
 import type { NativeUIMockCore, TestAppElement } from './native-ui-mock';
 
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
 interface NativeUIMock extends NativeUIMockCore {
+  update: NativeUIPlugin['update'];
   toolbarProgress: { id: number; progress: number }[];
   delay: number;
   hang: boolean;
@@ -2998,6 +3004,83 @@ test('reduced motion hands off without a crossfade', async ({ page }) => {
   await expect(segment).not.toHaveAttribute('data-native-ui-projected');
   await expect(segment).toHaveCSS('opacity', '1');
 });
+
+for (const edge of [null, 'trailing'] as const) {
+  test(`tab switches retire old controls before destination icons finish (${edge ?? 'horizontal'})`, async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    await mockNative(page, false, edge);
+    await page.route('https://picsum.photos/**', (route) => route.abort());
+    await page.goto('/main/index/native-ui');
+    const segment = page.locator('app-native-ui ion-segment');
+    await expect(segment).toHaveAttribute('data-native-ui-projected', '');
+    const outgoing = await page.evaluate(() => {
+      const controls = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.controls;
+      return controls.filter((control) => control.kind !== 'tab-bar').map((control) => control.id);
+    });
+    await page.evaluate((ids) => {
+      const state = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+      const update = state.update.bind(state);
+      state.update = async (snapshot) => {
+        if (!snapshot.controls.some((control) => ids.includes(control.id))) {
+          const evidence = window as Window & { tabRetiredAt?: string };
+          evidence.tabRetiredAt ??= location.pathname;
+        }
+        return update(snapshot);
+      };
+      const decode = HTMLImageElement.prototype.decode;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      HTMLImageElement.prototype.decode = async function () {
+        await decode.call(this);
+        if (this.src.startsWith('blob:')) await gate;
+      };
+      Object.assign(window, {
+        releaseTabIcons: () => {
+          HTMLImageElement.prototype.decode = decode;
+          release();
+        },
+      });
+    }, outgoing);
+    await activate(page, 'Library');
+    await expect(page).toHaveURL(/\/main\/album/);
+    expect(await page.evaluate(() => (window as Window & { tabRetiredAt?: string }).tabRetiredAt)).toBe('/main/index/native-ui');
+    await expect
+      .poll(() =>
+        page.evaluate((ids) => {
+          const snapshot = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!;
+          return snapshot.controls.some((control) => ids.includes(control.id));
+        }, outgoing),
+      )
+      .toBe(false);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const snapshot = Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!;
+          return snapshot.controls.some((control) => control.kind === 'tab-bar');
+        }),
+      )
+      .toBe(true);
+    await page.evaluate(() => (window as Window & { releaseTabIcons(): void }).releaseTabIcons());
+    await activate(page, 'Index');
+    await expect(segment).toHaveAttribute('data-native-ui-projected', '');
+    await page.evaluate(() => {
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI').delay = 150;
+    });
+    await activate(page, 'Library');
+    await activate(page, 'Docs');
+    await expect(page).toHaveURL(/\/main\/docs/);
+    await activate(page, 'Index');
+    await expect(segment).toHaveAttribute('data-native-ui-projected', '');
+    // A rejected click must return the unchanged page to native ownership.
+    await page.locator('ion-tab-button[tab="album"]').evaluate((button) => {
+      button.addEventListener('click', (event) => event.stopImmediatePropagation(), { capture: true, once: true });
+    });
+    await activate(page, 'Library');
+    await expect(segment).not.toHaveAttribute('data-native-ui-projected');
+    await expect(segment).toHaveAttribute('data-native-ui-projected', '');
+    await expect(page).toHaveURL(/\/main\/index\/native-ui/);
+  });
+}
 
 test('tab switches hand off without a crossfade', async ({ page }) => {
   await mockNative(page);

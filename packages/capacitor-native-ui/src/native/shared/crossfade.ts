@@ -21,15 +21,16 @@ export const createCrossfade = (win: Window) => {
     duration: (instant = false) => (reduced.matches || instant ? 0 : handoffDuration),
     play(element: HTMLElement, toNative: boolean, instant = false) {
       const previous = active.get(element);
+      // Instant handoffs must not force layout before retiring an outgoing tab.
+      if (reduced.matches || instant || !element.isConnected) {
+        if (previous) finish(element, previous);
+        element.removeAttribute(fadeMarker);
+        return;
+      }
       const current = Number(win.getComputedStyle(element).opacity);
       previous?.cancel();
       active.delete(element);
       const opacity = Number(win.getComputedStyle(element).opacity);
-      // Tab switches skip the opacity handoff so a retiring native snapshot cannot linger.
-      if (reduced.matches || instant || !element.isConnected) {
-        element.removeAttribute(fadeMarker);
-        return;
-      }
       element.setAttribute(fadeMarker, '');
       const animation = element.animate([{ opacity: previous ? current : toNative ? opacity : 0 }, { opacity: toNative ? 0 : opacity }], {
         duration: handoffDuration,
@@ -55,6 +56,7 @@ export const createCrossfade = (win: Window) => {
       retired.add(element);
       api.play(element, true);
     },
+    finish: cancelAll,
     async settled() {
       await Promise.all(Array.from(active.values(), (animation) => animation.finished.catch(() => {})));
     },
