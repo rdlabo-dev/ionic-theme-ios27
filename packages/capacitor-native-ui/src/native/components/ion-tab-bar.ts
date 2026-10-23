@@ -1,6 +1,5 @@
 import { createCandidate, appendItem } from '../shared/candidate';
 import type { Candidate, Identify } from '../shared/candidate';
-import { isVerticalBarsSource } from '../shared/dom';
 
 export const tag = 'ion-tab-bar';
 export const shadowSelector = 'ion-tab-button';
@@ -24,7 +23,7 @@ export const read = (element: HTMLElement, id: Identify): Candidate | undefined 
   const candidate = createCandidate(element, tag, id);
   const style = getComputedStyle(element);
   // Palette contrast colors assume a colored Web background; keep native tint there.
-  const projectSelectionColor = isVerticalBarsSource(element) && !element.classList.contains('ion-color');
+  const projectSelectionColor = !element.classList.contains('ion-color');
   const rtl = style.direction === 'rtl';
   const position = ['start', 'center', 'end'].find((value) => element.classList.contains(`tab-bar-position-${value}`));
   candidate.control.tabBarAnchor = {

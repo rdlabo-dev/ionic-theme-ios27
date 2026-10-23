@@ -56,6 +56,7 @@ enum NativeUITabBar {
 
     static func update(_ tabBar: UITabBar, node: NativeUIControl, rendering: NativeUIControlRendering,
                        pendingSelection: inout PendingSelection?) {
+        tabBar.tintColor = node.tabTint.map { rendering.color($0) }
         let items = node.items
         let ids = items.map(\.id)
         var needsTitleWarmup = false

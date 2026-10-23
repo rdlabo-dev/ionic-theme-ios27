@@ -5,6 +5,40 @@ import Capacitor
 @testable import NativeUIPlugin
 
 final class NativeUISnapshotTests: XCTestCase {
+    @MainActor func testHorizontalTabSelectionTintUpdatesAndResetsWithAndWithoutSearch() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
+        let rendering = NativeUIControlRendering()
+        let bar = UITabBar()
+        let controller = NativeUISearchController()
+        controller.loadViewIfNeeded()
+        let plainSystemTint = bar.tintColor
+        let searchSystemTint = controller.tabBar.tintColor
+        let frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let search: JSObject = ["id": "search", "field": item(), "trigger": item(["id": "trigger"]),
+            "closeId": "close", "active": false, "available": true, "focused": false,
+            "value": "", "placeholder": "Search", "disabled": false, "editSequence": 0, "valueVersion": 0]
+        for (index, tint) in (["rgb(255, 0, 0)", "rgb(128, 0, 128)", nil] as [String?]).enumerated() {
+            var value = control(["kind": "tab-bar", "search": search, "items": [
+                item(["id": "first", "selected": index % 2 == 0]),
+                item(["id": "second", "selected": index % 2 != 0]),
+                item(["id": "disabled", "disabled": true])]])
+            value["tabTint"] = tint
+            let node = try XCTUnwrap(decode([value]).controls.first)
+            NativeUITabBar.update(bar, node: node, rendering: rendering)
+            _ = controller.apply(node, webFrame: frame,
+                barFrame: CGRect(x: 18, y: 730, width: 280, height: 62),
+                triggerFrame: CGRect(x: 320, y: 730, width: 56, height: 56), rendering: rendering)
+            XCTAssertEqual(bar.tintColor, tint.map { rendering.color($0) } ?? plainSystemTint)
+            XCTAssertEqual(controller.tabBar.tintColor, tint.map { rendering.color($0) } ?? searchSystemTint)
+            XCTAssertEqual(bar.selectedItem?.accessibilityIdentifier, index % 2 == 0 ? "first" : "second")
+            XCTAssertEqual(controller.selectedTab?.identifier, index % 2 == 0 ? "first" : "second")
+            XCTAssertEqual(bar.items?.last?.isEnabled, false)
+            XCTAssertEqual(controller.tabs.first { $0.identifier == "disabled" }?.isEnabled, false)
+            XCTAssertNil(bar.items?.first?.standardAppearance)
+            XCTAssertNotEqual(controller.view.tintColor, UIColor.red, "Do not tint the search field or content")
+        }
+    }
+
     @MainActor func testVerticalTabSelectionTintUpdatesAndRestoresSystemAppearance() async throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI tabs") }
         let owner = UIViewController()

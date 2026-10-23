@@ -248,6 +248,7 @@ final class NativeUISearchController: UITabBarController, UITabBarControllerDele
         let available = configuration.available
         let active = available && configuration.active
         let wanted = wantedSession(active: active, focused: configuration.focused)
+        tabBar.tintColor = snapshot.tabTint.map { rendering.color($0) }
         let items = snapshot.items
         let ids = items.map(\.id)
         for id in Array(ordinary.keys) where !ids.contains(id) { ordinary.removeValue(forKey: id) }
