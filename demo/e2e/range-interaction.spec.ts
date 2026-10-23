@@ -25,6 +25,8 @@ for (const direction of ['ltr', 'rtl']) {
       const knob = range.locator(endpoint === 0 ? '[part~="knob-b"]' : '[part~="knob-a"]');
       await expect(knob).toBeVisible();
       await expect(range.getByRole('slider').nth(endpoint === 0 ? 1 : 0)).toHaveAttribute('aria-valuenow', endpoint === 0 ? '10' : '90');
+      // Hydration precedes Ionic's lazy gesture import; wait before pointerdown.
+      await page.waitForLoadState('networkidle');
       const initial = (await knob.boundingBox())!;
       const track = (await range.locator('[part="bar"]').boundingBox())!;
       const endX = (endpoint === 0) === (direction === 'ltr') ? track.x : track.x + track.width;
@@ -57,6 +59,8 @@ for (const direction of ['ltr', 'rtl']) {
     }, direction);
     const knob = range.locator('[part~="knob"]');
     await expect(range.getByRole('slider')).toHaveAttribute('aria-valuenow', '20');
+    // Hydration precedes Ionic's lazy gesture import; wait before pointerdown.
+    await page.waitForLoadState('networkidle');
     const box = (await knob.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
