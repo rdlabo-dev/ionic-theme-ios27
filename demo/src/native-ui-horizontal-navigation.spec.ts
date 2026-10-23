@@ -742,3 +742,36 @@ test('a persistent native update failure stops after one resynchronization attem
   expect(f.leaving.querySelector('[data-native-ui-projected]')).toBeNull();
   expect(warning).toHaveBeenCalledOnce();
 });
+
+test.each([false, true])('an update acknowledged during retention reconnects unchanged DOM (vertical=%s)', async (vertical) => {
+  const f = await fixture();
+  const source = f.leaving.querySelector('button')!;
+  if (vertical) {
+    document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
+    source.setAttribute('data-native-ui-placement', 'rail');
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.placement).toBe('vertical-bars'));
+  }
+  const initial = f.snapshots.at(-1)!;
+  let acknowledge: (() => void) | undefined;
+  f.setAck(
+    (snapshot) =>
+      new Promise((resolve) => {
+        acknowledge = () => resolve({ revision: snapshot.revision });
+      }),
+  );
+  source.textContent = 'Changed';
+  await vi.waitFor(() => expect(acknowledge).toBeDefined());
+  const release = (handle as NativeUIRuntimeHandle & { retain(): () => void }).retain();
+  source.textContent = 'Edit';
+  f.setAck(undefined);
+  acknowledge!();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  release();
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Edit'));
+  expect(f.snapshots.at(-1)!.revision).toBeGreaterThan(initial.revision);
+  const clicked = vi.fn();
+  source.addEventListener('click', clicked);
+  const current = f.snapshots.at(-1)!;
+  f.listeners.get('activate')!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 1 });
+  expect(clicked).toHaveBeenCalledOnce();
+});

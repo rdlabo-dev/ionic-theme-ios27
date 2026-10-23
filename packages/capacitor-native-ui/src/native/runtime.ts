@@ -420,6 +420,9 @@ export const createRuntime = async (
     win.dispatchEvent(new Event('nativeUIRefresh'));
   };
   const updateNative = async (snapshot: NativeUISnapshot) => {
+    // Native can apply this update even if retention or viewport changes prevent
+    // accepting its response. Only a fully accepted snapshot is safe to deduplicate.
+    lastSnapshot = '';
     let result;
     try {
       result = await bounded(plugin.update(snapshot));
@@ -429,7 +432,6 @@ export const createRuntime = async (
       // Keep the existing connection. A fresh read on the next frame retries
       // only state synchronization, never the action that triggered it.
       retryingUpdate = true;
-      lastSnapshot = '';
       forceRefresh = true;
       dirty = true;
       diagnose('sync-retry: refreshing current state after an update failure.');
