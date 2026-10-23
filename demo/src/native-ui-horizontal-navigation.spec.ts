@@ -720,25 +720,33 @@ test.each([false, true])(
     expect(clicked).not.toHaveBeenCalled();
     const current = f.snapshots.at(-1)!;
     expect(current.revision).toBeGreaterThan(failedRevision);
+    const updates = f.snapshots.length;
+    handle!.markForCheck();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    expect(f.snapshots).toHaveLength(updates);
     listener!({ id: current.controls[0].items[0].id, revision: failedRevision, sequence: 1 });
     expect(clicked).not.toHaveBeenCalled();
+    listener!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 2 });
     listener!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 2 });
     expect(clicked).toHaveBeenCalledOnce();
   },
 );
 
-test('a persistent native update failure stops after one resynchronization attempt', async () => {
+test.each(['rejection', 'revision mismatch'])('native update %s respects the retry boundary', async (failure) => {
   const f = await fixture();
   const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
   let attempts = 0;
-  f.setAck(async () => {
+  f.setAck(async (snapshot) => {
     attempts++;
+    if (failure === 'revision mismatch') return { revision: snapshot.revision + 1 };
     throw new Error('Persistent connection failure');
   });
   f.leaving.querySelector('button')!.textContent = 'Changed';
   await vi.waitFor(() => expect(handle!.getStatus().state).toBe('stopped'));
-  expect(attempts).toBe(2);
-  expect(handle!.getStatus().reason).toBe('Persistent connection failure');
+  expect(attempts).toBe(failure === 'revision mismatch' ? 1 : 2);
+  expect(handle!.getStatus().reason).toBe(
+    failure === 'revision mismatch' ? 'Native UI revision mismatch' : 'Persistent connection failure',
+  );
   expect(f.leaving.querySelector('[data-native-ui-projected]')).toBeNull();
   expect(warning).toHaveBeenCalledOnce();
 });
@@ -774,4 +782,19 @@ test.each([false, true])('an update acknowledged during retention reconnects unc
   const current = f.snapshots.at(-1)!;
   f.listeners.get('activate')!({ id: current.controls[0].items[0].id, revision: current.revision, sequence: 1 });
   expect(clicked).toHaveBeenCalledOnce();
+});
+
+test('a successful synchronization restores the single retry allowance', async () => {
+  const f = await fixture();
+  for (const label of ['First', 'Second']) {
+    let attempts = 0;
+    f.setAck(async (snapshot) => {
+      if (++attempts === 1) throw new Error('Temporary failure');
+      return { revision: snapshot.revision };
+    });
+    f.leaving.querySelector('button')!.textContent = label;
+    await vi.waitFor(() => expect(attempts).toBe(2));
+    expect(handle!.getStatus().state).toBe('native');
+    expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe(label);
+  }
 });
