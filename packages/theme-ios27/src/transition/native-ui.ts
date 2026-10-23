@@ -63,8 +63,12 @@ export const connectNativeUITransition = (
   let interactiveReady = false;
   let step: number | undefined;
   let end: Parameters<Animation['progressEnd']> | undefined;
-  const prepare = () =>
-    (preparation ??= suspendNativeUI(scopes, { navigation: true, ...(direction ? { direction } : {}) }).then((resume) => {
+  const prepare = (interactive = false) =>
+    (preparation ??= suspendNativeUI(scopes, {
+      navigation: true,
+      ...(direction ? { direction } : {}),
+      ...(interactive ? { interactive: true } : {}),
+    }).then((resume) => {
       if (disposed) resume(true);
       else release = resume;
     }));
@@ -92,7 +96,7 @@ export const connectNativeUITransition = (
     interactiveReady = false;
     step = undefined;
     end = undefined;
-    void prepare().then(() => {
+    void prepare(true).then(() => {
       if (disposed) return;
       progressStart(...args);
       track();
@@ -101,7 +105,10 @@ export const connectNativeUITransition = (
         progressStep(step);
         release?.progress?.(step);
       }
-      if (end) progressEnd(...end);
+      if (end) {
+        release?.finishGesture?.(end[0] === 1);
+        progressEnd(...end);
+      }
     });
     return animation;
   };
@@ -115,7 +122,10 @@ export const connectNativeUITransition = (
   };
   animation.progressEnd = (...args) => {
     end = args;
-    if (interactiveReady) progressEnd(...args);
+    if (interactiveReady) {
+      release?.finishGesture?.(args[0] === 1);
+      progressEnd(...args);
+    }
     return animation;
   };
   animation.destroy = (...args) => {

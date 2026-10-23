@@ -6,7 +6,7 @@ protocol NativeUIVerticalBarsControlling: AnyObject {
     var view: UIView { get }
     func measuredFrames(relativeTo webView: UIView) -> [String: CGRect]
     @MainActor func attach(to owner: UIViewController, in parent: UIView)
-    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool, accessory: AnyView?, navigation: [String])
+    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool, accessory: AnyView?, navigation: [String], navigationPhase: String?)
     var ownsKeyboardChrome: Bool { get }
     func presentPopover(anchor: String, host: NativeUIOverlayHost, completion: @escaping (Bool) -> Void) -> Bool
     @MainActor func detach(duration: TimeInterval)
@@ -269,7 +269,7 @@ private struct NativeUIVerticalBarsPage: View {
     }
 
     private func page(_ id: String?) -> some View {
-        Color.clear.modifier(NativeUIVerticalBarsToolbarAdapter(model: model, page: id))
+        NativeUIVerticalBarsContent().modifier(NativeUIVerticalBarsToolbarAdapter(model: model, page: id))
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 if model.search?.configuration.available == true {
@@ -277,6 +277,42 @@ private struct NativeUIVerticalBarsPage: View {
                 }
             }
     }
+}
+
+// Only this library-owned empty page suppresses UIKit's content slide.
+// App-local extension views may contain their own, fully visible navigation stacks.
+@available(iOS 26.0, *)
+private struct NativeUIVerticalBarsContent: UIViewControllerRepresentable {
+    final class Controller: UIViewController {
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            suppressContentTransition()
+        }
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            suppressContentTransition()
+        }
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            suppressContentTransition()
+        }
+        private func suppressContentTransition() {
+            guard let transition = transitionCoordinator,
+                  transition.presentationStyle == .none,
+                  !transition.containerView.isHidden else { return }
+            let content = transition.containerView
+            content.isHidden = true
+            if !transition.animate(alongsideTransition: nil, completion: { _ in content.isHidden = false }) {
+                content.isHidden = false
+            }
+        }
+    }
+    func makeUIViewController(context: Context) -> Controller {
+        let controller = Controller()
+        controller.view.backgroundColor = .clear
+        return controller
+    }
+    func updateUIViewController(_ controller: Controller, context: Context) {}
 }
 
 @available(iOS 26.0, *)
@@ -522,7 +558,11 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
         controller.didMove(toParent: owner)
     }
 
-    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool = true, accessory: AnyView? = nil, navigation: [String] = []) {
+    @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool = true, accessory: AnyView? = nil, navigation: [String] = [], navigationPhase: String? = nil) {
+        // Native vertical toolbars retain their source throughout a back swipe.
+        // Begin when the finger commits; keep input locked until Web settles.
+        container.isUserInteractionEnabled = navigationPhase == nil
+        guard navigationPhase != "tracking" else { return }
         container.railEdge = edge
         controller.railEdge = edge
         // A presentation identity can survive source replacement, but an open

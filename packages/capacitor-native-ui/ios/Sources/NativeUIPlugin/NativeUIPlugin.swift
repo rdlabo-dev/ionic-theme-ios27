@@ -381,6 +381,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             self.notifyWebViewMetricsChange()
             let duration = NativeUICrossfade.duration(snapshot.transitionDuration)
             var existing = Set(self.controls.keys)
+            let pendingVerticalNavigation = snapshot.verticalBarNavigationPhase != nil && self.verticalBars != nil
             let verticalBars = snapshot.controls.filter { $0.placement == .verticalBars }
             let accessories = snapshot.controls.filter { $0.extensionContent?.tabBarId != nil }
             var snapshots = snapshot.controls.filter { $0.placement != .verticalBars && $0.extensionContent?.tabBarId == nil }
@@ -400,7 +401,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             let verticalSearchActive = verticalBars.contains { $0.search.map { $0.available && $0.active } ?? false }
             let width = snapshot.viewportWidth
             self.revision = next
-            if snapshots.isEmpty && verticalBars.isEmpty && accessories.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
+            if !pendingVerticalNavigation && snapshots.isEmpty && verticalBars.isEmpty && accessories.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.removeControls(duration: duration)
                 call.resolve(["revision": next]); return
             }
@@ -415,7 +416,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             var searches: [(NativeUISearchControlling, NativeUIControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
             let enteringVerticalBars = self.verticalBars == nil
-            if verticalBars.isEmpty || (self.keyboardVisible && !verticalSearchActive) {
+            if (verticalBars.isEmpty && !pendingVerticalNavigation) || (self.keyboardVisible && !verticalSearchActive) {
                 self.verticalBars?.detach(duration: duration)
                 self.verticalBars = nil
                 if self.keyboardVisible { rejectedControls.append(contentsOf: verticalBars.map(\.id)) }
@@ -455,7 +456,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             // Publish toolbar, tabs and accessory together so the hosting tree receives
             // one animation transaction. The shell owns only the initial crossfade.
             self.verticalBars?.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right",
-                                     animated: !enteringVerticalBars, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [])
+                                     animated: !enteringVerticalBars, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
             if snapshots.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.host?.removeFromSuperview()
                 self.host = nil

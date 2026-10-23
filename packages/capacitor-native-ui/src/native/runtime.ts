@@ -85,6 +85,7 @@ export const createRuntime = async (
   const suspended = new Set<HTMLElement[]>();
   const navigation = createHorizontalNavigation();
   const verticalNavigation = createVerticalNavigation();
+  let verticalGesture: { pending: boolean; scopes: HTMLElement[]; sources: Set<HTMLElement> } | undefined;
   let acknowledged: Candidate[] = [];
   const pages = new Set<HTMLElement>();
   const verticalBarsPages = createVerticalBarsPageState();
@@ -299,15 +300,18 @@ export const createRuntime = async (
       includeTransitionIds ? undefined : (key, value) => (key === 'transitionId' ? undefined : value),
     );
   const read = (): Candidate[] => {
+    if (verticalGesture && (overlayOpen(true, true) || !verticalGesture.scopes.every(inVerticalBarsSurface))) verticalGesture = undefined;
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
     for (const surface of moving.keys()) if (!surface.isConnected) moving.delete(surface);
     if (doc.hidden || overlayOpen(false, true, railPreservingOverlays)) {
       navigation.clear();
+      verticalGesture = undefined;
       return [];
     }
     if (win.visualViewport && (win.visualViewport.scale !== 1 || win.visualViewport.offsetTop !== 0) && !search.hasActive()) {
       navigation.clear();
+      verticalGesture = undefined;
       return [];
     }
     const overlayVisible = overlayOpen();
@@ -449,7 +453,7 @@ export const createRuntime = async (
       }
       candidates = candidates.filter((candidate) => !failedAssets.has(candidate));
       if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
-      const retained = new Set(candidates.flatMap(candidateSources));
+      const retained = new Set([...candidates.flatMap(candidateSources), ...(verticalGesture?.sources ?? [])]);
       const removed = Array.from(sources.keys()).filter((element) => !retained.has(element));
       if (removed.some(isVerticalBarsSource)) {
         actions.forEach(forgetVerticalBarFrame);
@@ -529,6 +533,7 @@ export const createRuntime = async (
             }))
         : undefined;
       const data = {
+        verticalBarNavigationPhase: verticalGesture ? (verticalGesture.pending ? ('tracking' as const) : ('settling' as const)) : undefined,
         verticalBarNavigation: activePage ? verticalNavigation.read(activePage).map(id) : undefined,
         toolbarTransition:
           transition?.prepared && transition.phase !== 'committing'
@@ -592,7 +597,7 @@ export const createRuntime = async (
       // A page mutation must not tear down unchanged shared controls such as tabs.
       const currentCandidates = dirty ? read() : candidates;
       const current = dirty ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)])) : signatures;
-      const currentSources = new Set(currentCandidates.flatMap(candidateSources));
+      const currentSources = new Set([...currentCandidates.flatMap(candidateSources), ...(verticalGesture?.sources ?? [])]);
       const accepted = candidates.filter((candidate) => current.get(candidate.element) === signatures.get(candidate.element));
       accepted.forEach((candidate) => setRejected(candidate.element, false));
       const acceptedVerticalBarsOwners = new Set(
@@ -972,6 +977,7 @@ export const createRuntime = async (
       let resumed = false;
       if (!stopped) {
         navigation.clear();
+        verticalGesture = undefined;
         manualSuspensions.add(token);
         getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
         await flush();
@@ -1001,6 +1007,7 @@ export const createRuntime = async (
         pendingActivations = [];
         navigation.clear();
         acknowledged = [];
+        verticalGesture = undefined;
         search.destroy();
         crossfade.destroy();
         restoreAll();
@@ -1053,7 +1060,7 @@ export const createRuntime = async (
       return;
     }
     lastSequence = event.sequence;
-    if (!element) return false;
+    if (!element || (verticalGesture && owner && isVerticalBarsSource(owner))) return false;
     if (!owner || !inVerticalBarsSurface(owner)) return false;
     const direct = !blocked(owner) && unprojected(sources.keys(), () => readEnabledCandidate(owner));
     const candidate = direct || read().find((candidate) => candidate.actions.has(event.id));
@@ -1103,9 +1110,12 @@ export const createRuntime = async (
         return !stopped && search.projected(binding);
       },
       async suspend(scopes, suspensionOptions) {
-        if (!suspensionOptions?.navigation) navigation.clear();
+        verticalGesture = undefined;
+        if (!suspensionOptions?.navigation) {
+          navigation.clear();
+        }
         let transition: typeof navigation.current;
-        let finishVertical: ((canceled: boolean) => void) | undefined;
+        let finishVertical: ((canceled: boolean) => boolean) | undefined;
         if (
           suspensionOptions?.navigation &&
           !tabSwitchHandoff &&
@@ -1114,6 +1124,15 @@ export const createRuntime = async (
           scopes.every(inVerticalBarsSurface)
         ) {
           finishVertical = verticalNavigation.begin(scopes[0], scopes[1], suspensionOptions.direction);
+          if (suspensionOptions.interactive) {
+            verticalGesture = {
+              pending: true,
+              scopes,
+              sources: new Set(
+                acknowledged.filter((candidate) => candidate.control.placement === 'vertical-bars').flatMap(candidateSources),
+              ),
+            };
+          }
         }
         if (suspensionOptions?.navigation && !manualSuspensions.size && !overlayOpen() && !tabSwitchHandoff) {
           transition = navigation.begin(scopes, acknowledged, true);
@@ -1137,6 +1156,7 @@ export const createRuntime = async (
           }
           transition.prepared = transition.destination.length > 0;
         }
+        const gesture = verticalGesture;
         getNativeSearchBindings(doc)
           .filter((binding) => scopes.some((scope) => scope.contains(binding.footer) || scope.contains(binding.tabBar)))
           .forEach((binding) => search.retire(binding));
@@ -1145,8 +1165,10 @@ export const createRuntime = async (
         // Moving content has returned to Web; fixed toolbar covers remain native for navigation.
         await new Promise<void>((resolve) => win.requestAnimationFrame(() => resolve()));
         const release: NativeUITransitionRelease = (canceled = false) => {
-          finishVertical?.(canceled);
+          const currentVertical = finishVertical?.(canceled) !== false;
           suspended.delete(scopes);
+          if (!currentVertical) return;
+          if (verticalGesture === gesture) verticalGesture = undefined;
           if (canceled || !scopes.some((scope) => scope.closest('ion-app.ios-theme-vertical-bars'))) {
             scopes.forEach((scope) => pages.delete(scope)); // Preserve ordinary iPhone handoff; cancellation has no DidLeave.
             if (canceled) {
@@ -1156,6 +1178,13 @@ export const createRuntime = async (
           if (transition) finishNavigation(transition);
           schedule();
         };
+        if (gesture) {
+          release.finishGesture = (complete) => {
+            if (!complete || verticalGesture !== gesture) return;
+            gesture.pending = false;
+            schedule();
+          };
+        }
         if (transition?.native) {
           let requested = 0;
           let sent = -1;

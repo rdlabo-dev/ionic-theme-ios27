@@ -229,6 +229,8 @@ export interface NativeUISnapshot {
   verticalBarFrame?: Frame;
   /** Web-owned page identities, from root through the active rail destination. */
   verticalBarNavigation?: string[];
+  /** Keep the current native rail until an interactive navigation settles. */
+  verticalBarNavigationPhase?: 'tracking' | 'settling';
   controls: NativeUIControl[];
 }
 

@@ -144,7 +144,23 @@ final class NativeUISnapshotTests: XCTestCase {
             let page = path.last!
             let controls = try decode([control(["id": page, "kind": "button", "placement": "vertical-bars",
                 "transitionId": "end-0", "items": [item(["id": page, "label": page, "transitionId": "action-0"])]])]).controls
+            if let outgoing {
+                let previousCount = navigation(owner)?.viewControllers.count
+                rail.apply(controls, rendering: NativeUIControlRendering(), edge: "right", animated: true,
+                           navigation: path, navigationPhase: "tracking")
+                try await Task.sleep(nanoseconds: 500_000_000)
+                owner.view.layoutIfNeeded()
+                XCTAssertEqual(navigation(owner)?.viewControllers.count, previousCount)
+                let entry = navigation(owner)?.topViewController?.navigationItem
+                let titles = ((entry?.leadingItemGroups ?? []) + (entry?.trailingItemGroups ?? [])).flatMap(\.barButtonItems).compactMap(\.title)
+                XCTAssertTrue(titles.contains(outgoing))
+                XCTAssertFalse(rail.view.isUserInteractionEnabled)
+            }
+            rail.apply(controls, rendering: NativeUIControlRendering(), edge: "right", animated: false,
+                       navigation: path, navigationPhase: "settling")
+            XCTAssertFalse(rail.view.isUserInteractionEnabled)
             rail.apply(controls, rendering: NativeUIControlRendering(), edge: "right", animated: false, navigation: path)
+            XCTAssertTrue(rail.view.isUserInteractionEnabled)
             model.apply(controls, rendering: NativeUIControlRendering(), animated: false, navigation: path)
             for retainedPage in Set([page] + (outgoing.map { [$0] } ?? [])) {
                 let group = try XCTUnwrap(model.groups(on: retainedPage).first)

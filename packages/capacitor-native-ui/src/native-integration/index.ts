@@ -3,11 +3,17 @@
 export interface NativeUISuspensionOptions {
   /** Navigation-only toolbar handoff; omitted for explicit Web ownership requests. */
   navigation?: boolean;
+  /** A swipe whose navigation result has not yet been committed. */
+  interactive?: boolean;
   /** Direction supplied by Ionic's navigation animation builder. */
   direction?: 'forward' | 'back' | 'root';
 }
 
-export type NativeUITransitionRelease = ((canceled?: boolean) => void) & { progress?: (value: number) => void };
+export type NativeUITransitionRelease = ((canceled?: boolean) => void) & {
+  progress?: (value: number) => void;
+  /** The finger lifted; Web will now settle toward its chosen endpoint. */
+  finishGesture?: (complete: boolean) => void;
+};
 
 export interface NativeUIIntegration {
   suspend(scopes: HTMLElement[], options?: NativeUISuspensionOptions): Promise<NativeUITransitionRelease>;

@@ -67,11 +67,11 @@ const fixture = async (from = 'Edit', to = 'Done', nativeProgress = false) => {
     setAck: (next: typeof acknowledge) => {
       acknowledge = next;
     },
-    async start() {
+    async start(interactive = false) {
       entering.classList.replace('ion-page-hidden', 'ion-page-invisible');
       emit(entering, 'ionViewWillEnter');
       emit(leaving, 'ionViewWillLeave');
-      const release = await suspendNativeUI([entering, leaving], { navigation: true });
+      const release = await suspendNativeUI([entering, leaving], { navigation: true, ...(interactive ? { interactive: true } : {}) });
       entering.classList.remove('ion-page-invisible');
       return Object.assign(
         (canceled = false) => {
@@ -82,7 +82,7 @@ const fixture = async (from = 'Edit', to = 'Done', nativeProgress = false) => {
             emit(entering, 'ionViewDidEnter');
           }
         },
-        { progress: release.progress },
+        { progress: release.progress, finishGesture: release.finishGesture },
       );
     },
   };
@@ -544,4 +544,56 @@ test('a presented vertical modal keeps its own push path and restores it on canc
   f.leaving.classList.add('ion-page-hidden');
   pop(true);
   await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigation).toEqual(path));
+});
+
+test.each([true, false])('vertical swipe keeps both Web sources hidden until it settles (cancel=%s)', async (canceled) => {
+  const f = await fixture('Back', 'Menu');
+  document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
+  for (const source of document.querySelectorAll('button')) source.setAttribute('data-native-ui-placement', 'rail');
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.placement).toBe('vertical-bars'));
+  const old = f.leaving.querySelector('button')!,
+    next = f.entering.querySelector('button')!;
+  const click = vi.fn();
+  old.addEventListener('click', click);
+  next.addEventListener('click', click);
+  const release = await f.start(true);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBe('tracking'));
+  expect(old.hasAttribute('data-native-ui-projected')).toBe(true);
+  expect(next.hasAttribute('data-native-ui-projected')).toBe(true);
+  const during = f.snapshots.at(-1)!;
+  f.listeners.get('activate')!({ id: during.controls[0].items[0].id, revision: during.revision, sequence: 1 });
+  expect(click).not.toHaveBeenCalled();
+  release.finishGesture?.(!canceled);
+  if (!canceled) {
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBe('settling'));
+    expect(old.hasAttribute('data-native-ui-projected')).toBe(true);
+    expect(next.hasAttribute('data-native-ui-projected')).toBe(true);
+  } else expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBe('tracking');
+  release(canceled);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBeUndefined());
+  expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe(canceled ? 'Back' : 'Menu');
+  expect((canceled ? old : next).hasAttribute('data-native-ui-projected')).toBe(true);
+});
+
+test.each(['replacement', 'hidden', 'viewport'] as const)('vertical swipe releases pending ownership on %s', async (boundary) => {
+  const f = await fixture('Back', 'Menu');
+  document.querySelector('ion-app')!.classList.add('ios-theme-vertical-bars');
+  for (const source of document.querySelectorAll('button')) source.setAttribute('data-native-ui-placement', 'rail');
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.placement).toBe('vertical-bars'));
+  const oldRelease = await f.start(true);
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBe('tracking'));
+  if (boundary === 'replacement') {
+    const release = await suspendNativeUI([f.entering, f.leaving], { navigation: true });
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBeUndefined());
+    oldRelease(true);
+    release();
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Menu'));
+  } else {
+    if (boundary === 'hidden') vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    else vi.stubGlobal('visualViewport', { scale: 2, offsetTop: 0 });
+    window.dispatchEvent(new Event('nativeUIRefresh'));
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls).toEqual([]));
+    expect(f.snapshots.at(-1)?.verticalBarNavigationPhase).toBeUndefined();
+    oldRelease(true);
+  }
 });

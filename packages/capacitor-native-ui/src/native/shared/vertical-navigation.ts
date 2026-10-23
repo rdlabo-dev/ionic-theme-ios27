@@ -17,11 +17,12 @@ export const createVerticalNavigation = () => {
       const current = { entering, leaving, before, after };
       transition = current;
       return (canceled: boolean) => {
-        if (transition !== current) return;
+        if (transition !== current) return false;
         if (canceled) {
           if (leaving) paths.set(leaving, before);
         } else paths.set(entering, after);
         transition = undefined;
+        return true;
       };
     },
     read(page: HTMLElement): HTMLElement[] {

@@ -257,3 +257,30 @@ test('interactive page progress reaches the native toolbar before completion and
   finish(0);
   expect(calls.slice(-2)).toEqual(['native:0', 'resume:true']);
 });
+
+test('only interactive playback asks the vertical toolbar to wait for navigation to settle', async () => {
+  const doc = document.implementation.createHTMLDocument();
+  const entering = doc.createElement('main'),
+    leaving = doc.createElement('main');
+  const resume = Object.assign(vi.fn(), { finishGesture: vi.fn() });
+  const suspend = vi.fn(async () => resume);
+  setNativeUIIntegration(doc, { suspend });
+  const animation = {
+    onFinish: vi.fn(),
+    play: vi.fn(async () => {}),
+    progressStart: vi.fn(),
+    progressStep: vi.fn(),
+    progressEnd: vi.fn(),
+    destroy: vi.fn(),
+  } as unknown as Animation;
+  connectNativeUITransition(animation, entering, leaving, 'back');
+  animation.progressStart(true);
+  animation.progressEnd(1, 0.8, 100);
+  await vi.waitFor(() =>
+    expect(suspend).toHaveBeenCalledExactlyOnceWith([entering, leaving], { navigation: true, direction: 'back', interactive: true }),
+  );
+  await vi.waitFor(() => expect(resume.finishGesture).toHaveBeenCalledExactlyOnceWith(true));
+  animation.destroy();
+  await vi.waitFor(() => expect(resume).toHaveBeenCalledWith(true));
+  setNativeUIIntegration(doc);
+});
