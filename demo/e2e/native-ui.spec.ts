@@ -1682,7 +1682,8 @@ for (const nativeEdge of [null, 'trailing'] as const) {
     await expect(group).toHaveAttribute('data-native-ui-projected', '');
     await refresh.evaluate((element) => element.remove());
     await expect(group).not.toHaveAttribute('data-native-ui-projected');
-    await expect(github.locator('button')).toHaveCSS('visibility', 'visible');
+    // A one-item group becomes an independent native button, not a Web handoff.
+    await expect(github).toHaveAttribute('data-native-ui-projected', '');
   });
 }
 
@@ -3064,9 +3065,45 @@ for (const edge of [null, 'trailing'] as const) {
       });
       Capacitor.registerPlugin<NativeUIMock>('NativeUI').delay = 150;
     });
+    await page.evaluate(() => {
+      const decode = HTMLImageElement.prototype.decode;
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      HTMLImageElement.prototype.decode = async function () {
+        await decode.call(this);
+        if (this.src.startsWith('blob:')) await gate;
+      };
+      Object.assign(window, {
+        releaseSearchDestinationIcons: () => {
+          HTMLImageElement.prototype.decode = decode;
+          release();
+        },
+      });
+    });
     await activate(page, 'Index');
     await expect(page).toHaveURL(/\/main\/index/);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+            .updates.at(-1)
+            ?.controls.some((control) => control.search?.available),
+        ),
+      )
+      .toBe(false);
+    // A router may finish hiding the departing page after its lifecycle event.
+    // The normal read must not resurrect a Search already retired natively.
+    await page.locator('app-album-page').evaluate((element) => element.classList.remove('ion-page-hidden'));
+    await page.evaluate(() => (window as Window & { releaseSearchDestinationIcons(): void }).releaseSearchDestinationIcons());
     await expect(fab).not.toHaveAttribute('data-native-ui-projected');
+    expect(
+      await page.evaluate(() =>
+        Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+          .updates.at(-1)
+          ?.controls.some((control) => control.search?.available),
+      ),
+    ).toBe(false);
+    await page.locator('app-album-page').evaluate((element) => element.classList.add('ion-page-hidden'));
     expect(await page.evaluate(() => (window as Window & { searchOwnershipGaps: string[] }).searchOwnershipGaps)).toEqual([]);
   });
 
@@ -3147,33 +3184,45 @@ for (const edge of [null, 'trailing'] as const) {
   });
 }
 
-test('rejected tab selection does not disable the next stack toolbar transition', async ({ page }) => {
-  await page.setViewportSize({ width: 402, height: 874 });
-  await mockNative(page, false, null);
-  await page.goto('/main/index');
-  const menu = page.locator('index-page > ion-header ion-buttons[slot="end"]');
-  await expect(menu).toHaveAttribute('data-native-ui-projected', '');
-  await page.locator('ion-tab-button[tab="album"]').evaluate((button) => {
-    button.addEventListener('click', (event) => event.stopImmediatePropagation(), { capture: true, once: true });
+for (const edge of [null, 'trailing'] as const) {
+  test(`rejected tab selection preserves the next stack transition (${edge ?? 'horizontal'})`, async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 874 });
+    await mockNative(page, false, edge);
+    await page.goto('/main/index');
+    if (edge) await page.locator('ion-app').evaluate((element) => element.classList.add('ios-theme-vertical-bars'));
+    const menu = page.locator('index-page > ion-header ion-buttons[slot="end"]');
+    await expect(menu).toHaveAttribute('data-native-ui-projected', '');
+    await page.locator('ion-tab-button[tab="album"]').evaluate((button) => {
+      button.addEventListener('click', (event) => event.stopImmediatePropagation(), { capture: true, once: true });
+    });
+    await activate(page, 'Library');
+    await expect(menu).not.toHaveAttribute('data-native-ui-projected');
+    await expect(menu).toHaveAttribute('data-native-ui-projected', '');
+    await expect(page).toHaveURL(/\/main\/index/);
+    await page.getByText('native-ui', { exact: true }).click();
+    if (edge) {
+      const depth = () =>
+        page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)?.verticalBarNavigation?.length);
+      await expect.poll(depth).toBe(2);
+      await page.goBack();
+      await expect(page).toHaveURL(/\/main\/index/);
+      await expect.poll(depth).toBe(1);
+      return;
+    }
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const state = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+          return (
+            state.updates.some((snapshot) =>
+              snapshot.toolbarTransition?.destination.some((control) => control.items.some((item) => item.accessibilityLabel === 'Save')),
+            ) && state.toolbarProgress.length > 0
+          );
+        }),
+      )
+      .toBe(true);
   });
-  await activate(page, 'Library');
-  await expect(menu).not.toHaveAttribute('data-native-ui-projected');
-  await expect(menu).toHaveAttribute('data-native-ui-projected', '');
-  await expect(page).toHaveURL(/\/main\/index/);
-  await page.getByText('native-ui', { exact: true }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const state = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
-        return (
-          state.updates.some((snapshot) =>
-            snapshot.toolbarTransition?.destination.some((control) => control.items.some((item) => item.accessibilityLabel === 'Save')),
-          ) && state.toolbarProgress.length > 0
-        );
-      }),
-    )
-    .toBe(true);
-});
+}
 
 test('tab switches hand off without a crossfade', async ({ page }) => {
   await mockNative(page);

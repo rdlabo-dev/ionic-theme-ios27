@@ -439,7 +439,30 @@ export const createRuntime = async (
             !candidate.element.closest('.ion-page-hidden') &&
             !Array.from(tabActivationPages.keys()).some((page) => page.contains(candidate.element)),
         );
-        if (retained.length !== acknowledged.length) {
+        const retiredSearches = new Set(
+          retained
+            .filter(
+              (candidate) =>
+                candidate.control.search?.available &&
+                candidateSources(candidate).some(
+                  (source) => !source.isConnected || verticalBarsPages.isDeparted(source, true) || !!source.closest('.ion-page-hidden'),
+                ),
+            )
+            .map((candidate) => candidate.control.id),
+        );
+        if (retained.length !== acknowledged.length || retiredSearches.size) {
+          // The tabs are shared, but their Search belongs to the departing page.
+          // Retire it before destination assets without returning its FAB to Web.
+          for (const candidate of retained) {
+            if (!retiredSearches.has(candidate.control.id)) continue;
+            const configuration = candidate.control.search!;
+            getNativeSearchBindings(doc)
+              .filter((binding) => candidateSources(candidate).includes(binding.footer))
+              .forEach((binding) => search.retire(binding, true));
+            candidate.control = { ...candidate.control, search: { ...configuration, available: false, active: false, focused: false } };
+            candidate.actions.delete(configuration.trigger.id);
+            candidate.actions.delete(configuration.closeId);
+          }
           const retainedIds = new Set(retained.map((candidate) => candidate.control.id));
           const retainedSources = new Set(retained.flatMap(candidateSources));
           for (const element of sources.keys()) if (!retainedSources.has(element)) restore(element, true);
@@ -449,7 +472,13 @@ export const createRuntime = async (
             transitionDuration: 0,
             toolbarTransition: undefined,
             verticalBarNavigation: undefined,
-            controls: renderedSnapshot.controls.filter((control) => retainedIds.has(control.id)),
+            controls: renderedSnapshot.controls
+              .filter((control) => retainedIds.has(control.id))
+              .map((control) =>
+                retiredSearches.has(control.id)
+                  ? { ...control, search: { ...control.search!, available: false, active: false, focused: false } }
+                  : control,
+              ),
           };
           updatingRevision = retirement.revision;
           updates++;

@@ -508,8 +508,9 @@ export const createSearchSupport = (doc: Document, id: (element: Element) => str
       }
       schedule();
     },
-    retire(binding: NativeSearchBinding) {
+    retire(binding: NativeSearchBinding, unavailable = false) {
       const state = states.get(binding);
+      if (unavailable && state?.last) state.last = { ...state.last, available: false, active: false, focused: false };
       // Keep ownership until keyboardWillHide can release this class.
       if (state?.keyboardHidden && keyboardVisible) binding.tabBar.classList.add('tab-bar-hidden');
       if (state?.focused) {
