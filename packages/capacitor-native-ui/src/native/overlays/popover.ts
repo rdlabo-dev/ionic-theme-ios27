@@ -10,14 +10,10 @@ export const popoverTrigger = (overlay: HTMLIonPopoverElement): Element | undefi
   return target?.closest?.('ion-button,ion-fab-button,ion-item') ?? target;
 };
 
-/** Only accepted native rail buttons can retain the page projection. */
+/** Anchoring is independent of click eligibility: handlers may disable the trigger after a valid tap. */
 export const verticalBarsPopoverAnchor = (overlay: HTMLIonPopoverElement): string | undefined => {
   const trigger = popoverTrigger(overlay);
-  if (
-    !trigger?.matches('ion-button[data-native-ui-vertical-bars-member]') ||
-    !trigger.closest('[data-native-ui-projected]') ||
-    (trigger as HTMLIonButtonElement).disabled
-  )
+  if (!trigger?.matches('ion-button[data-native-ui-vertical-bars-member]') || !trigger.closest('[data-native-ui-projected]'))
     return undefined;
   return projectionIds.get(trigger);
 };

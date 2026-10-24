@@ -3983,6 +3983,47 @@ for (const refusal of ['disabled', 'md'])
     await expect(trigger).toHaveAttribute('data-native-ui-vertical-bars-member', '');
   });
 
+for (const phase of ['click', 'presented']) {
+  test(`Vertical Bars popover keeps its anchor when disabled at ${phase}`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto('/main/index/popover');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const trigger = page.locator('#native-popover-trigger');
+    await expect(trigger).toHaveAttribute('data-native-ui-vertical-bars-member', '');
+    await page.evaluate((phase) => {
+      const plugin = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+      Object.assign(plugin, { async prepareOverlay() {}, async presentOverlay() {}, async dismissOverlay() {} });
+      const button = document.querySelector<HTMLIonButtonElement>('#native-popover-trigger')!;
+      if (phase === 'click')
+        button.addEventListener(
+          'click',
+          () => {
+            button.disabled = true;
+          },
+          { capture: true, once: true },
+        );
+    }, phase);
+    const opened = page.waitForEvent('popup');
+    await activate(page, 'Open popover');
+    const relay = await opened;
+    await expect(relay.getByText('Toolbar popover', { exact: true })).toBeVisible();
+    if (phase === 'presented')
+      await trigger.evaluate((button: HTMLIonButtonElement) => {
+        button.disabled = true;
+      });
+    await expect(trigger).toHaveJSProperty('disabled', true);
+    await expect(trigger).toHaveAttribute('data-native-ui-projected', '');
+    await relay.getByRole('button', { name: 'Increment', exact: true }).click();
+    await expect(relay.getByText('Count: 1', { exact: true })).toBeVisible();
+    await relay.getByRole('button', { name: 'Close popover', exact: true }).click();
+    await expect.poll(() => relay.isClosed()).toBe(true);
+    await activate(page, 'Open popover');
+    await expect.poll(() => page.context().pages().length).toBe(1);
+    await expect(trigger).toHaveJSProperty('disabled', true);
+  });
+}
+
 for (const disabled of [false, true])
   test(`Vertical Bars popover handles anchor clicks during dismissal (${disabled ? 'disabled before replay' : 'reopens once'})`, async ({
     page,

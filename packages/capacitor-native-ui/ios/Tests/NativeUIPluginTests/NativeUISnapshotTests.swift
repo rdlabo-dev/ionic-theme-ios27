@@ -410,27 +410,30 @@ final class NativeUISnapshotTests: XCTestCase {
 
     @MainActor func testDetachingRailSettlesPopoverPresentationAndDismissal() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native Vertical Bars") }
-        let owner = UIViewController()
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
-        window.rootViewController = owner
-        window.makeKeyAndVisible()
-        defer { window.isHidden = true }
-        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
-        rail.attach(to: owner, in: owner.view)
-        rail.apply(try decode([control(["placement": "vertical-bars"])]).controls,
-                   rendering: NativeUIControlRendering(), edge: "right")
-        let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
-        var presentations: [Bool] = []
-        XCTAssertTrue(rail.presentPopover(anchor: "action", host: host) { presentations.append($0) })
-        host.anchoredVisible = true
-        var dismissals = 0
-        host.dismissPopover(animated: false) { dismissals += 1 }
-        rail.detach()
-        XCTAssertEqual(presentations, [false])
-        XCTAssertEqual(dismissals, 1)
-        XCTAssertFalse(host.anchoredVisible)
-        rail.detach()
-        XCTAssertEqual(dismissals, 1)
+        // Disabling a valid trigger after a tap must not invalidate its popover anchor.
+        for disabled in [false, true] {
+            let owner = UIViewController()
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
+            window.rootViewController = owner
+            window.makeKeyAndVisible()
+            defer { window.isHidden = true }
+            let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+            rail.attach(to: owner, in: owner.view)
+            rail.apply(try decode([control(["placement": "vertical-bars", "items": [item(["disabled": disabled])]])]).controls,
+                       rendering: NativeUIControlRendering(), edge: "right")
+            let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+            var presentations: [Bool] = []
+            XCTAssertTrue(rail.presentPopover(anchor: "action", host: host) { presentations.append($0) })
+            host.anchoredVisible = true
+            var dismissals = 0
+            host.dismissPopover(animated: false) { dismissals += 1 }
+            rail.detach()
+            XCTAssertEqual(presentations, [false])
+            XCTAssertEqual(dismissals, 1)
+            XCTAssertFalse(host.anchoredVisible)
+            rail.detach()
+            XCTAssertEqual(dismissals, 1)
+        }
     }
 
     @MainActor func testStoppingPreparedPopoverRestoresWebViewAndAllowsNewSession() {

@@ -611,7 +611,7 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
 
     func presentPopover(anchor: String, host: NativeUIOverlayHost, completion: @escaping (Bool) -> Void) -> Bool {
         guard container.window != nil, model.popoverAnchor == nil,
-              model.groups.flatMap(\.items).contains(where: { $0.id == anchor && !$0.disabled }) else { return false }
+              model.groups.flatMap(\.items).contains(where: { $0.id == anchor }) else { return false }
         model.popoverHost = host
         model.popoverPresented = completion
         host.anchoredVisible = false
