@@ -41,7 +41,7 @@ ion-app.ios-theme-vertical-bars ion-modal:not(.ios-theme-vertical-bars-modal) {
 ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal {
   --ios-theme-vertical-bars-modal-toolbar-top: max(
     24px,
-    calc(var(--ios-theme-vertical-bars-toolbar-top, 220px) - var(--ios-theme-vertical-bars-modal-offset-top, 0px))
+    calc(var(--ios-theme-vertical-bars-toolbar-top, 170px) - var(--ios-theme-vertical-bars-modal-offset-top, 0px))
   );
 }
 
@@ -367,25 +367,25 @@ ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-them
   > ion-back-button.ios-theme-vertical-bars-back-button-projection {
     position: fixed;
     z-index: 1001;
-    top: var(--ios-theme-vertical-bars-modal-toolbar-top, var(--ios-theme-vertical-bars-toolbar-top, 220px));
-    right: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 46px) / 2));
+    top: var(--ios-theme-vertical-bars-modal-toolbar-top, var(--ios-theme-vertical-bars-toolbar-top, 170px));
+    right: max(24px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 48px) / 2));
     display: block;
-    width: 46px;
-    height: 46px;
+    width: 48px;
+    height: 48px;
     margin: 0;
   }
   > :is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     position: fixed;
     z-index: 1001;
     top: calc(
-      var(--ios-theme-vertical-bars-modal-toolbar-top, var(--ios-theme-vertical-bars-toolbar-top, 220px)) +
+      var(--ios-theme-vertical-bars-modal-toolbar-top, var(--ios-theme-vertical-bars-toolbar-top, 170px)) +
         var(--ios-theme-vertical-bars-toolbar-offset, 0px)
     );
-    right: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 46px) / 2));
-    width: 46px;
-    min-width: 46px;
-    height: 46px;
-    min-height: 46px;
+    right: max(24px, calc((var(--ios-theme-vertical-bars-safe-area-right-resolved) - 48px) / 2));
+    width: 48px;
+    min-width: 48px;
+    height: 48px;
+    min-height: 48px;
     margin: 0;
     :is(ion-icon, svg) {
       width: 22px;
@@ -411,15 +411,18 @@ ion-app.ios-theme-vertical-bars ion-modal.ios-theme-vertical-bars-modal.ios-them
   > ion-buttons:is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     display: flex;
     flex-direction: column;
+    gap: 4px;
+    padding: 0;
+    border: 0;
     height: auto;
     min-height: 0;
     > :is(ion-button, ion-menu-button):is(.ios, .md).ios-theme-vertical-bars-toolbar-action {
       display: block;
-      width: 44px;
-      min-width: 44px;
-      height: 46px;
-      min-height: 46px;
-      margin: 0 1px;
+      width: 48px;
+      min-width: 48px;
+      height: 48px;
+      min-height: 48px;
+      margin: 0;
       &::part(native) {
         margin-inline: auto;
       }
@@ -432,7 +435,7 @@ ion-app.ios-theme-vertical-bars.ios-theme-vertical-bars-left ion-modal.ios-theme
   > ion-back-button.ios-theme-vertical-bars-back-button-projection,
   > :is(.ios, .md).ios-theme-vertical-bars-toolbar-projection {
     right: auto;
-    left: max(4px, calc((var(--ios-theme-vertical-bars-safe-area-left-resolved) - 46px) / 2));
+    left: max(24px, calc((var(--ios-theme-vertical-bars-safe-area-left-resolved) - 48px) / 2));
   }
 }
 

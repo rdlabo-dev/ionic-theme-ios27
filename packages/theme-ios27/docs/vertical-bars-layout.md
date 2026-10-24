@@ -32,6 +32,12 @@ The classes are physical — `-left` always means the physical left edge — bec
 | `setVerticalBarsLayout({ edge, inset })` | The supplied inset, even below `80px`.                                                              |
 | Custom CSS preview                       | Override `--ios-theme-vertical-bars-safe-area-left` or `--ios-theme-vertical-bars-safe-area-right`. |
 
+### Web toolbar placement
+
+The Web rail uses the iPhone Duo toolbar layout even without native geometry: a 170px top origin, 48px square controls, 4px between controls in a group, and 12px between groups. Controls sit at least 24px from the physical edge, or centered in the reserved rail when that requires a larger offset. These defaults also apply to the background controls behind a sheet modal. A back button occupies one control followed by the group gap.
+
+`--ios-theme-vertical-bars-toolbar-top` overrides the top origin. Modal toolbar positioning continues to account for the sheet offset. When native measurements are available, they take precedence over these Web defaults.
+
 ### Content and overlay layout
 
 | Surface                                  | Layout with the rail stylesheet                                                                                                                                                              |

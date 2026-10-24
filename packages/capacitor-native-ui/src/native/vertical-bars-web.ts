@@ -29,8 +29,10 @@ import {
 const backProjectionClass = 'ios-theme-vertical-bars-back-button-projection';
 const toolbarProjectionClass = 'ios-theme-vertical-bars-toolbar-projection';
 const readyClass = 'ios-theme-vertical-bars-toolbar-ready';
-const toolbarControlSize = 46;
-const toolbarControlGap = 10;
+const toolbarControlSize = 48;
+const toolbarItemGap = 4;
+const toolbarControlGap = 12;
+const toolbarGroupHeight = (count: number) => count * toolbarControlSize + Math.max(0, count - 1) * toolbarItemGap;
 
 interface ToolbarProjection {
   source: HTMLElement;
@@ -269,7 +271,7 @@ export const createVerticalBarsWebProjection = (
           actions.forEach(({ source, projection: clone }) => alignVerticalBarClone(clone, source, projection));
         }
       }
-      offsets.set(surface, topOffset + actions.length * toolbarControlSize + toolbarControlGap);
+      offsets.set(surface, topOffset + toolbarGroupHeight(actions.length) + toolbarControlGap);
     }
   };
   const project = (nextBacks: HTMLIonBackButtonElement[], groups: ToolbarSource[]) => {
@@ -324,7 +326,7 @@ export const createVerticalBarsWebProjection = (
       const surface = surfaceOf(group);
       surface.append(projection);
       toolbarProjections.push({ source: group, root: surface, projection, actions });
-      topOffset += actions.length * toolbarControlSize + toolbarControlGap;
+      topOffset += toolbarGroupHeight(actions.length) + toolbarControlGap;
     }
     syncExisting();
     if (nextBacks.length || toolbarProjections.length) root.classList.add(readyClass);
