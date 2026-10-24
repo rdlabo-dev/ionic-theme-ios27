@@ -343,6 +343,35 @@ final class NativeUISnapshotTests: XCTestCase {
         XCTAssertTrue(NativeUIVerticalBarsGeometry.measure(in: root, relativeTo: web, ids: ["missing"]).isEmpty)
     }
 
+    @MainActor func testVerticalTabGeometryMeasuresCornersFromSurfacesInsteadOfInferringSize() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native corner configuration") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 466, height: 678))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach(); window.isHidden = true }
+        rail.apply(try decode([control(["kind": "tab-bar", "items": [item(["label": "Measured tab", "accessibilityLabel": "Measured tab"])]])]).controls,
+                   rendering: NativeUIControlRendering(), edge: "right")
+        // The outer layout wrapper has no shape; the inner platter owns the corners.
+        let wrapper = UIView(frame: CGRect(x: 350, y: 400, width: 72, height: 220))
+        rail.view.insertSubview(wrapper, at: 0)
+        let platter = UIView(frame: wrapper.bounds)
+        wrapper.addSubview(platter)
+        let tab = UIControl(frame: CGRect(x: 4, y: 4, width: 64, height: 64))
+        tab.accessibilityLabel = "Measured tab"
+        platter.addSubview(tab)
+        for (radius, platterRadius) in [(9.0, 11.0), (0.0, 0.0)] {
+            platter.cornerConfiguration = .uniformCorners(radius: .fixed(platterRadius))
+            tab.cornerConfiguration = .uniformCorners(radius: .fixed(radius))
+            let frames = rail.measuredFrames(relativeTo: owner.view)
+            XCTAssertEqual(try XCTUnwrap(frames["action"]).cornerRadius, radius)
+            XCTAssertEqual(try XCTUnwrap(frames["__tabBar"]).cornerRadius, platterRadius)
+            XCTAssertEqual(frames["action"]?.frame.size, CGSize(width: 64, height: 64))
+        }
+    }
+
     @MainActor func testVerticalPopoverCanCancelBeforeSwiftUIAppearsAndReopen() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native Vertical Bars") }
         let owner = UIViewController()

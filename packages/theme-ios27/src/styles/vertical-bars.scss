@@ -232,6 +232,10 @@ ion-app.ios-theme-vertical-bars
       margin: 0;
       font-size: 28px;
     }
+    // Override the horizontal icon/label layout's bottom margin as well.
+    &.tab-layout-icon-top.tab-has-icon.tab-has-label ion-icon {
+      margin: 0;
+    }
   }
   > ion-tab-button.ion-activated {
     transform: scale(1.16);

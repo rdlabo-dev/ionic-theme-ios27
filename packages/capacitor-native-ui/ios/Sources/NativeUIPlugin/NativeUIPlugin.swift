@@ -240,10 +240,15 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                   webView.bounds.width > 0 else { call.resolve(["items": [:]]); return }
             let scale = width / webView.bounds.width
             let ids = Set(call.getArray("ids", String.self) ?? [])
-            let measured = NativeUIVerticalBarsGeometry.measure(in: rail.view, relativeTo: webView, ids: ids).merging(rail.measuredFrames(relativeTo: webView).filter { ids.contains($0.key) }) { _, swiftUI in swiftUI }
-            let items = measured.mapValues { frame in
+            let measured = NativeUIVerticalBarsGeometry.measure(in: rail.view, relativeTo: webView, ids: ids)
+            var items = measured.mapValues { frame in
                 ["x": frame.minX * scale, "y": frame.minY * scale,
                  "width": frame.width * scale, "height": frame.height * scale]
+            }
+            for (id, surface) in rail.measuredFrames(relativeTo: webView) where ids.contains(id) {
+                items[id] = ["x": surface.frame.minX * scale, "y": surface.frame.minY * scale,
+                             "width": surface.frame.width * scale, "height": surface.frame.height * scale,
+                             "cornerRadius": surface.cornerRadius * scale]
             }
             call.resolve(["revision": self.revision, "items": items])
         }

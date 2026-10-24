@@ -4,7 +4,7 @@ import UIKit
 
 protocol NativeUIVerticalBarsControlling: AnyObject {
     var view: UIView { get }
-    func measuredFrames(relativeTo webView: UIView) -> [String: CGRect]
+    func measuredFrames(relativeTo webView: UIView) -> [String: (frame: CGRect, cornerRadius: CGFloat)]
     @MainActor func attach(to owner: UIViewController, in parent: UIView)
     @MainActor func apply(_ controls: [NativeUIControl], rendering: NativeUIControlRendering, edge: String, animated: Bool, accessory: AnyView?, navigation: [String], navigationPhase: String?)
     var ownsKeyboardChrome: Bool { get }
@@ -509,8 +509,8 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
     private let changed: (String, NativeUISearchPhase, String, Bool, Int) -> Int
 
     var view: UIView { container }
-    func measuredFrames(relativeTo webView: UIView) -> [String: CGRect] {
-        var frames: [String: CGRect] = [:]
+    func measuredFrames(relativeTo webView: UIView) -> [String: (frame: CGRect, cornerRadius: CGFloat)] {
+        var frames: [String: (frame: CGRect, cornerRadius: CGFloat)] = [:]
         let labels = Dictionary(grouping: model.tabs, by: \.accessibilityLabel)
         var tabViews: [UIView] = []
         func visit(_ view: UIView) {
@@ -519,7 +519,7 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
                let label = control.accessibilityLabel, let items = labels[label], items.count == 1,
                !control.isHidden, control.bounds.width > 0, control.bounds.height > 0 {
                 if frames[items[0].id] != nil { return }
-                frames[items[0].id] = control.convert(control.bounds, to: webView)
+                frames[items[0].id] = (control.convert(control.bounds, to: webView), control.effectiveRadius(corner: .allCorners))
                 tabViews.append(control)
             }
             view.subviews.forEach(visit)
@@ -528,13 +528,19 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
         if let first = tabViews.first, tabViews.count >= model.tabs.count {
             var ancestor: UIView? = first.superview
             var platter: UIView?
+            var cornerRadius: CGFloat = 0
             while let current = ancestor, current !== container {
                 if current.bounds.width >= webView.bounds.width * 0.5 { break }
                 if current.bounds.width > 0, current.bounds.height > 0,
-                   tabViews.allSatisfy({ $0.isDescendant(of: current) }) { platter = current }
+                   tabViews.allSatisfy({ $0.isDescendant(of: current) }) {
+                    platter = current
+                    // Layout wrappers can enclose the shaped surface without owning corners.
+                    let radius = current.effectiveRadius(corner: .allCorners)
+                    if radius > 0 { cornerRadius = radius }
+                }
                 ancestor = current.superview
             }
-            if let platter { frames["__tabBar"] = platter.convert(platter.bounds, to: webView) }
+            if let platter { frames["__tabBar"] = (platter.convert(platter.bounds, to: webView), cornerRadius) }
         }
         return frames
     }

@@ -26,7 +26,7 @@ interface NativeUIMock extends NativeUIMockCore {
   tabRetirements: number;
   retirementDetails: { path: string; tabs: string }[];
   preparedPopovers: number;
-  geometry?: Record<string, { x: number; y: number; width: number; height: number }>;
+  geometry?: Awaited<ReturnType<NativeUIPlugin['getVerticalBarsGeometry']>>['items'];
 }
 
 const mockNative = async (
@@ -4278,8 +4278,14 @@ for (const invalidation of ['resize', 'mode'])
     await expect(clone).toHaveCount(0);
   });
 
-for (const partial of [false, true])
-  test(`Vertical tab geometry survives ${partial ? 'partial' : 'full'} handoff until its fade completes`, async ({ page }) => {
+for (const { partial, cornerRadius } of [
+  { partial: false, cornerRadius: undefined },
+  { partial: true, cornerRadius: 18 },
+  { partial: false, cornerRadius: 0 },
+])
+  test(`Vertical tab geometry survives ${partial ? 'partial' : 'full'} handoff until its fade completes (radius=${cornerRadius ?? 'legacy'})`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 700, height: 900 });
     await mockNative(page);
     await page.goto('/main/index/alert');
@@ -4287,19 +4293,40 @@ for (const partial of [false, true])
     const bar = page.locator('ion-tab-bar');
     await expect(bar).toHaveAttribute('data-native-ui-vertical-bars', '');
     await expect(bar).not.toHaveAttribute('data-native-ui-fading');
-    await page.evaluate(() => {
-      const mock = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
-      const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'tab-bar')!;
-      mock.geometry = {
-        __tabBar: { x: 628, y: 600, width: 48, height: 220 },
-        ...Object.fromEntries(tabs.items.map((item, index) => [item.id, { x: 632, y: 604 + index * 50, width: 40, height: 50 }])),
-      };
-    });
+    const itemSize = partial ? 64 : 40;
+    const barWidth = partial ? 72 : 48;
+    // Explicit native radii deliberately differ from the legacy capsule inference.
+    await page.evaluate(
+      ({ itemSize, barWidth, cornerRadius }) => {
+        const mock = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+        const tabs = mock.updates.at(-1)!.controls.find((control) => control.kind === 'tab-bar')!;
+        mock.geometry = {
+          __tabBar: { x: 628, y: 600, width: barWidth, height: 220, cornerRadius },
+          ...Object.fromEntries(
+            tabs.items.map((item, index) => [
+              item.id,
+              { x: 632, y: 604 + index * 50, width: itemSize, height: itemSize === 64 ? 64 : 50, cornerRadius },
+            ]),
+          ),
+        };
+      },
+      { itemSize, barWidth, cornerRadius },
+    );
     if (partial) await bar.evaluate((el) => el.setAttribute('data-native-ui', 'disabled'));
     else await page.getByText('present:button-only', { exact: true }).click();
     await expect(bar).not.toHaveAttribute('data-native-ui-vertical-bars');
     await expect(bar).not.toHaveAttribute('data-native-ui-fading');
-    await expect.poll(() => bar.boundingBox()).toEqual({ x: 628, y: 600, width: 48, height: 220 });
+    await expect.poll(() => bar.boundingBox()).toEqual({ x: 628, y: 600, width: barWidth, height: 220 });
+    await expect(bar).toHaveCSS('border-radius', `${cornerRadius ?? barWidth / 2}px`);
+    await expect(bar.locator('ion-tab-button:not(.ion-cloned-element) ion-icon').first()).toHaveCSS('margin', '0px');
+    await expect(bar.locator('ion-tab-button:not(.ion-cloned-element)').first()).toHaveCSS(
+      'border-radius',
+      `${cornerRadius ?? itemSize / 2}px`,
+    );
+    await expect(bar.locator('ion-tab-button:not(.ion-cloned-element) [part=native]').first()).toHaveCSS(
+      'border-radius',
+      `${cornerRadius ?? itemSize / 2}px`,
+    );
     if (partial) await expect(page.locator('app-alert ion-back-button')).toHaveAttribute('data-native-ui-vertical-bars', '');
     await bar.evaluate((el) => {
       const animate = el.animate.bind(el);
@@ -4315,7 +4342,16 @@ for (const partial of [false, true])
     await expect(bar).toHaveAttribute('data-native-ui-vertical-bars', '');
     await expect(bar).toHaveAttribute('data-native-ui-fading', '');
     expect(await bar.evaluate((el) => Number(getComputedStyle(el).opacity))).toBeCloseTo(0.5, 1);
-    await expect.poll(() => bar.boundingBox()).toEqual({ x: 628, y: 600, width: 48, height: 220 });
+    await expect.poll(() => bar.boundingBox()).toEqual({ x: 628, y: 600, width: barWidth, height: 220 });
+    await expect(bar).toHaveCSS('border-radius', `${cornerRadius ?? barWidth / 2}px`);
+    await expect(bar.locator('ion-tab-button:not(.ion-cloned-element)').first()).toHaveCSS(
+      'border-radius',
+      `${cornerRadius ?? itemSize / 2}px`,
+    );
+    await expect(bar.locator('ion-tab-button:not(.ion-cloned-element) [part=native]').first()).toHaveCSS(
+      'border-radius',
+      `${cornerRadius ?? itemSize / 2}px`,
+    );
     await bar.evaluate((el) => el.getAnimations().forEach((animation) => animation.finish()));
     await expect(bar).not.toHaveAttribute('data-native-rail-geometry');
   });

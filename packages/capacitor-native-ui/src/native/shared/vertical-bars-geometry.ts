@@ -1,4 +1,4 @@
-import type { Frame } from '../definitions';
+import type { Frame, NativeUIVerticalBarFrame } from '../definitions';
 
 const measurements = new WeakMap<Element, { frame: Frame; viewport: string }>();
 const viewport = (element: Element) => {
@@ -44,15 +44,22 @@ export const alignVerticalBarClone = (clone: HTMLElement, source: Element, paren
   });
 };
 
-export const alignVerticalTabBar = (tabBar: HTMLElement, frame: Frame, items: Map<HTMLElement, Frame>): (() => void) => {
+export const alignVerticalTabBar = (
+  tabBar: HTMLElement,
+  frame: NativeUIVerticalBarFrame,
+  items: Map<HTMLElement, NativeUIVerticalBarFrame>,
+): (() => void) => {
   const doc = tabBar.ownerDocument;
   const style = doc.createElement('style');
   const token = `rail-${Math.random().toString(36).slice(2)}`;
   const selector = `[data-native-rail-geometry="${token}"]`;
   const origin = (tabBar.offsetParent as HTMLElement | null)?.getBoundingClientRect() ?? { left: 0, top: 0 };
   tabBar.setAttribute('data-native-rail-geometry', token);
-  const box = (rect: Frame, x: number, y: number) =>
-    `position:absolute!important;left:${rect.x - x}px!important;top:${rect.y - y}px!important;right:auto!important;bottom:auto!important;width:${rect.width}px!important;min-width:${rect.width}px!important;max-width:${rect.width}px!important;height:${rect.height}px!important;min-height:${rect.height}px!important;max-height:${rect.height}px!important;margin:0!important;padding:0!important;box-sizing:border-box!important;`;
+  // Preserve the measured shape. Only older binaries need the capsule fallback.
+  const radius = (rect: NativeUIVerticalBarFrame) =>
+    Number.isFinite(rect.cornerRadius) && rect.cornerRadius! >= 0 ? rect.cornerRadius! : Math.min(rect.width, rect.height) / 2;
+  const box = (rect: NativeUIVerticalBarFrame, x: number, y: number) =>
+    `position:absolute!important;left:${rect.x - x}px!important;top:${rect.y - y}px!important;right:auto!important;bottom:auto!important;width:${rect.width}px!important;min-width:${rect.width}px!important;max-width:${rect.width}px!important;height:${rect.height}px!important;min-height:${rect.height}px!important;max-height:${rect.height}px!important;margin:0!important;padding:0!important;box-sizing:border-box!important;border-radius:${radius(rect)}px!important;`;
   style.textContent =
     `${selector}{${box(frame, origin.left, origin.top)}}` +
     [...items]

@@ -130,6 +130,12 @@ export interface Frame {
   height: number;
 }
 
+/** Measured native rail surface, in Web viewport pixels. */
+export interface NativeUIVerticalBarFrame extends Frame {
+  /** Optional for compatibility with older native binaries. */
+  cornerRadius?: number;
+}
+
 export interface NativeUIBadge {
   value: string;
   color: string;
@@ -258,7 +264,10 @@ export interface NativeUIPlugin {
   }): Promise<{ supported: boolean; extensions?: string[]; modalAnimation?: boolean }>;
   completeExtensionAction(options: { requestId: string; accepted: boolean }): Promise<void>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
-  getVerticalBarsGeometry(options: { viewportWidth: number; ids: string[] }): Promise<{ revision?: number; items: Record<string, Frame> }>;
+  getVerticalBarsGeometry(options: {
+    viewportWidth: number;
+    ids: string[];
+  }): Promise<{ revision?: number; items: Record<string, NativeUIVerticalBarFrame> }>;
   prepareOverlay(options: { id: string }): Promise<void>;
   presentOverlay(options: { id: string; presentation?: NativeUIPopoverPresentation }): Promise<void>;
   dismissOverlay(options: { id: string; animated: boolean }): Promise<void>;
