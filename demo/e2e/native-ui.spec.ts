@@ -4277,7 +4277,7 @@ for (const invalidation of ['resize', 'mode'])
       await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
       await page.setViewportSize({ width: 800, height: 900 });
     }
-    await expect.poll(async () => (await clone.boundingBox())?.y).toBe(220);
+    await expect.poll(async () => (await clone.boundingBox())?.y).toBe(170);
     await page.locator('ion-alert').evaluate((overlay: HTMLIonAlertElement) => overlay.dismiss());
     await expect(back).toHaveAttribute('data-native-ui-vertical-bars', '');
     await expect(clone).toHaveCount(0);
