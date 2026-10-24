@@ -3545,32 +3545,37 @@ for (const type of ['normal', 'card', 'sheet']) {
   });
 }
 
-test('vertical tab bar skips modal presentation fade and fades back to native', async ({ page }) => {
-  await page.setViewportSize({ width: 700, height: 900 });
-  await mockNative(page);
-  await page.goto('/main/index/modal');
-  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
-  const bar = page.locator('ion-tab-bar');
-  await expect(bar).toHaveAttribute('data-native-ui-projected', '');
-  await expect(bar).not.toHaveAttribute('data-native-ui-fading');
-  await bar.evaluate((element) => {
-    const animate = element.animate.bind(element);
-    element.animate = (frames, options) => {
-      element.setAttribute('data-fade-frames', JSON.stringify(frames));
-      element.setAttribute('data-fade-count', String(Number(element.getAttribute('data-fade-count') ?? 0) + 1));
-      return animate(frames, options);
-    };
+for (const type of ['normal', 'sheet'])
+  test(`vertical tab bar hands off instantly on ${type} modal presentation and dismissal`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto('/main/index/modal');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const bar = page.locator('ion-tab-bar');
+    await expect(bar).toHaveAttribute('data-native-ui-projected', '');
+    await expect(bar).not.toHaveAttribute('data-native-ui-fading');
+    await bar.evaluate((element) => {
+      const animate = element.animate.bind(element);
+      element.animate = (frames, options) => {
+        element.setAttribute('data-fade-frames', JSON.stringify(frames));
+        element.setAttribute('data-fade-count', String(Number(element.getAttribute('data-fade-count') ?? 0) + 1));
+        return animate(frames, options);
+      };
+    });
+    await page.getByText(`present:${type}`, { exact: true }).click();
+    await expect(bar).not.toHaveAttribute('data-fade-frames');
+    await expect(bar).not.toHaveAttribute('data-fade-count');
+    await expect(bar).not.toHaveAttribute('data-native-ui-projected');
+    await page.locator('ion-modal.show-modal').evaluate((modal: HTMLIonModalElement) => modal.dismiss());
+    await expect(page.locator('ion-modal.show-modal')).toHaveCount(0);
+    await expect(bar).toHaveAttribute('data-native-ui-projected', '');
+    await expect(bar).not.toHaveAttribute('data-native-ui-fading');
+    await expect(bar).not.toHaveAttribute('data-fade-frames');
+    await expect(bar).not.toHaveAttribute('data-fade-count');
+    await expect
+      .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)?.transitionDuration))
+      .toBe(0);
   });
-  await page.getByText('present:normal', { exact: true }).click();
-  await expect(bar).not.toHaveAttribute('data-fade-frames');
-  await expect(bar).not.toHaveAttribute('data-fade-count');
-  await expect(page.locator('ion-modal ion-toolbar ion-button').nth(1)).toHaveAttribute('data-native-ui-vertical-bars-member', '');
-  await activate(page, 'Done', true);
-  await expect(page.locator('ion-modal.show-modal')).toHaveCount(0);
-  await expect(bar).toHaveAttribute('data-native-ui-projected', '');
-  await expect(bar).toHaveAttribute('data-fade-frames', JSON.stringify([{ opacity: 1 }, { opacity: 0 }]));
-  await expect(bar).toHaveAttribute('data-fade-count', '1');
-});
 
 for (const { fill, native, grouped } of [
   { fill: 'solid', native: true, grouped: false },
