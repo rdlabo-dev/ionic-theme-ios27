@@ -798,3 +798,66 @@ test('a successful synchronization restores the single retry allowance', async (
     expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe(label);
   }
 });
+
+test('a dismissing modal retires once and never reacquires while its frame moves', async () => {
+  const f = await fixture('Menu', 'Back');
+  const app = document.querySelector('ion-app')!;
+  app.classList.add('ios-theme-vertical-bars');
+  const modal = document.createElement('ion-modal');
+  Object.assign(modal.style, { visibility: 'visible', opacity: '1', transform: 'none' });
+  const content = document.createElement('div');
+  content.setAttribute('part', 'content');
+  Object.defineProperties(content, {
+    offsetWidth: { value: window.innerWidth },
+    offsetLeft: { value: 0 },
+  });
+  content.getBoundingClientRect = () =>
+    ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }) as DOMRect;
+  content.getAnimations = () => [];
+  modal.attachShadow({ mode: 'open' }).append(content);
+  app.append(modal);
+  modal.append(f.leaving, f.entering);
+  for (const button of modal.querySelectorAll('button')) button.setAttribute('data-native-ui-placement', 'rail');
+  const stopModals = observeVerticalBarsModals(document);
+  onTestFinished(stopModals);
+  modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+  await vi.waitFor(() => {
+    expect(modal.classList.contains('ios-theme-vertical-bars-modal')).toBe(true);
+    expect(f.snapshots.at(-1)?.verticalBarNavigation).toHaveLength(1);
+  });
+  modal.dispatchEvent(new CustomEvent('ionModalWillDismiss', { bubbles: true }));
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls).toHaveLength(0));
+  expect(f.snapshots.at(-1)?.transitionDuration).toBe(0);
+  const retired = f.snapshots.length;
+  for (let i = 0; i < 5; i++) {
+    content.getBoundingClientRect = () =>
+      ({
+        x: 0,
+        y: 100 + i * 50,
+        top: 100 + i * 50,
+        left: 0,
+        right: window.innerWidth,
+        bottom: window.innerHeight,
+        width: window.innerWidth,
+        height: 300,
+      }) as DOMRect;
+    window.dispatchEvent(new Event('nativeUIRefresh'));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
+  expect(f.snapshots).toHaveLength(retired);
+  expect(f.leaving.querySelector('button')!.hasAttribute('data-native-ui-projected')).toBe(false);
+  modal.dispatchEvent(new CustomEvent('ionModalDidDismiss', { bubbles: true }));
+  app.append(f.leaving, f.entering);
+  modal.remove();
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls.length).toBeGreaterThan(0));
+  expect(f.snapshots.at(-1)?.transitionDuration).toBe(0);
+});

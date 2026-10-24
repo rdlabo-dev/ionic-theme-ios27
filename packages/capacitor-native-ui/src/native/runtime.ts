@@ -21,6 +21,7 @@ import {
   modalUsesVerticalBars,
   modalVerticalBarFrame,
   modalPreparing,
+  modalDismissing,
   modalPresentation,
 } from './shared/modal';
 import type { PluginListenerHandle } from '@capacitor/core';
@@ -135,7 +136,7 @@ export const createRuntime = async (
   /** Captured at the start of each sync so an in-flight update keeps a stable duration. */
   let handoffInstant = false;
   /** Retire native controls immediately as a modal starts covering the page. */
-  let modalPresentHandoff = false;
+  let modalHandoff = false;
   let frame = 0;
   let updates = 0;
   let reason: string | undefined;
@@ -326,6 +327,10 @@ export const createRuntime = async (
     );
   };
   const readSources = (): Candidate[] => {
+    // Ionic owns the closing animation. Keep the covered page on Web until
+    // DidDismiss instead of repeatedly projecting the moving modal controls.
+    const modal = topModal(doc);
+    if (modal && modalDismissing(modal)) return [];
     if (verticalGesture && (overlayOpen(true, true) || !verticalGesture.scopes.every(inVerticalBarsSurface))) verticalGesture = undefined;
     search.keepSearchTabsVisible();
     for (const page of pages) if (!page.isConnected) pages.delete(page);
@@ -465,15 +470,18 @@ export const createRuntime = async (
     frame = 0;
     dirty = false;
     pending = true;
-    handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalPresentHandoff || win.performance.now() < handoffUntil;
+    handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalHandoff || win.performance.now() < handoffUntil;
     try {
       // A retained sync performs no update; keep the modal handoff armed so the
       // deferred retirement still runs instantly after the overlay releases.
       if (retentions.size && !manualSuspensions.size) return;
       const enteringModal = topModal(doc);
+      // Geometry refreshes continue for the Web rail during the Ionic animation.
+      // Once native has acknowledged retirement, they must not publish it again.
+      if (enteringModal && modalDismissing(enteringModal) && renderedSnapshot?.controls.length === 0) return;
       if (enteringModal && modalPresentation(enteringModal)?.animation.id === playingModalAnimation && playingModalAnimation !== undefined)
         return;
-      modalPresentHandoff = false;
+      modalHandoff = false;
       // A tab is a separate page, not a stack transition. Retire its covers before
       // rendering destination assets, which may continue changing as the page loads.
       // Keep shared surfaces (especially the tab bar and its accessory) native.
@@ -644,7 +652,10 @@ export const createRuntime = async (
               : 'right'
             : undefined;
       const modal = topModal(doc);
-      const verticalBarFrame = modal && !modalPreparing(modal) && modalUsesVerticalBars(modal) ? modalVerticalBarFrame(modal) : undefined;
+      const verticalBarFrame =
+        modal && !modalPreparing(modal) && !modalDismissing(modal) && modalUsesVerticalBars(modal)
+          ? modalVerticalBarFrame(modal)
+          : undefined;
       const transition = navigation.current;
       const railCandidates = candidates.filter((candidate) => candidate.control.placement === 'vertical-bars');
       const activePage = railCandidates.length
@@ -1040,7 +1051,7 @@ export const createRuntime = async (
       else railPopovers.delete(element);
     }
     if (element.matches('ion-modal')) {
-      modalPresentHandoff = true;
+      modalHandoff = true;
       // A pending bridge update must retire the old controls immediately too.
       if (pending) handoffInstant = true;
     }
@@ -1049,9 +1060,18 @@ export const createRuntime = async (
   // Adoption changes the document, but not the in-flight Ionic event path.
   // Do not replay WillPresent: application handlers must run exactly once.
   on(doc, 'nativeUIOverlayAdopted', (event) => overlayPresenting((event as CustomEvent<HTMLElement>).detail));
+  on(doc, 'ionModalWillDismiss', () => {
+    modalHandoff = true;
+    if (pending) handoffInstant = true;
+    schedule();
+  });
   for (const name of overlayNames) {
     on(doc, `ion${name}WillPresent`, (event) => overlayPresenting(event.target as HTMLElement));
     on(doc, `ion${name}DidDismiss`, (event) => {
+      if (name === 'Modal') {
+        modalHandoff = true;
+        if (pending) handoffInstant = true;
+      }
       presented.delete(event.target as HTMLElement);
       railPopovers.delete(event.target as HTMLElement);
       schedule();
