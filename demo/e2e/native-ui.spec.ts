@@ -18,6 +18,7 @@ interface NativeUIMock extends NativeUIMockCore {
   overlayTest?: { state: string; id?: string; presentations: number; checks: number; resolve?: () => void };
   update: NativeUIPlugin['update'];
   connectionUpdateAttempts?: number;
+  connectionCheckRevision?: number;
   toolbarProgress: { id: number; progress: number }[];
   delay: number;
   hang: boolean;
@@ -4057,6 +4058,12 @@ for (const vertical of [false, true])
       const revision = await page.evaluate((failure) => {
         const mock = Capacitor.registerPlugin<NativeUIMock & NativeUIPlugin>('NativeUI');
         const previous = mock.updates.at(-1)!.revision;
+        const handshake = mock.getConnectionState.bind(mock);
+        mock.getConnectionState = async () => {
+          const state = await handshake();
+          mock.connectionCheckRevision ??= state.revision;
+          return state;
+        };
         if (failure === 'listeners') mock.listeners = {};
         else if (failure === 'native-state' || failure === 'surface') {
           const read = mock.getConnectionState.bind(mock);
@@ -4088,6 +4095,10 @@ for (const vertical of [false, true])
         }
         return previous;
       }, failure);
+      await expect
+        .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').connectionCheckRevision))
+        .toBeGreaterThanOrEqual(0);
+      const checkedRevision = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').connectionCheckRevision!);
       if (failure === 'permanent-updates') {
         await expect
           .poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUI!.getStatus().state))
@@ -4102,7 +4113,7 @@ for (const vertical of [false, true])
       }
       await expect
         .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.at(-1)!.revision))
-        .toBeGreaterThan(revision);
+        .toBeGreaterThan(Math.max(revision, checkedRevision));
       await expect
         .poll(() =>
           page.evaluate(() =>
