@@ -67,7 +67,10 @@ final class NativeUIVerticalBarsModel: ObservableObject {
                  badge: source.content.badge, disabled: source.content.disabled, isBack: isBack,
                  selected: source.content.selected)
         }
-        withAnimation(animated && !UIAccessibility.isReduceMotionEnabled ? .default : nil) {
+        var transaction = Transaction(animation: animated && !UIAccessibility.isReduceMotionEnabled ? .default : nil)
+        // A newly created system tab host must not animate its selection shape.
+        transaction.disablesAnimations = !animated
+        withTransaction(transaction) {
             if self.navigation != navigation {
                 if let page = self.navigation.last { pageGroups[page] = groups }
                 let retained = Set(self.navigation + navigation)
@@ -611,7 +614,16 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
             if model.search?.configuration.id == search.id { model.search?.apply(search) }
             else { model.search = NativeUIVerticalSearchModel(search, in: container, activate: model.activate, changed: changed) }
         } else { model.search = nil }
-        model.apply(controls, rendering: rendering, animated: animated, accessory: accessory, navigation: navigation)
+        if animated {
+            model.apply(controls, rendering: rendering, animated: true, accessory: accessory, navigation: navigation)
+        } else {
+            // Resolve UIKit layout in the same unanimated handoff as SwiftUI.
+            UIView.performWithoutAnimation {
+                model.apply(controls, rendering: rendering, animated: false, accessory: accessory, navigation: navigation)
+                controller.view.setNeedsLayout()
+                controller.view.layoutIfNeeded()
+            }
+        }
         controller.overrideUserInterfaceStyle = controls.contains(where: \.dark) ? .dark : .light
     }
 
