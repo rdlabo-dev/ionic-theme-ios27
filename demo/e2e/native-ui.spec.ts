@@ -4960,6 +4960,10 @@ test('horizontal tabs retain measured native width on Web handoff without feedin
   await page.locator('ion-app').evaluate((app) => app.classList.remove('ios-theme-vertical-bars'));
   await expect.poll(requestWidth).toBeCloseTo(original, 0);
   await expect.poll(async () => (await bar.boundingBox())!.width).toBeCloseTo(274, 0);
+  // Toolbar artwork can finish after the tab width is acknowledged. Wait for
+  // the complete handoff before checking that synchronization has settled.
+  await expect(page.locator('index-page ion-buttons[slot=start]')).toHaveAttribute('data-native-ui-projected', '');
+  await expect(page.locator('index-page ion-buttons[slot=end]')).toHaveAttribute('data-native-ui-projected', '');
   const updates = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.length);
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').updates.length)).toBe(updates);
