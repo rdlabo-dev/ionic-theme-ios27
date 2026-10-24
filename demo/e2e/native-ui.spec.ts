@@ -14,6 +14,7 @@ import type { NativeUIMockCore, TestAppElement } from './native-ui-mock';
 const importer = new NodePackageImporter(resolve(__dirname, '../../'));
 
 interface NativeUIMock extends NativeUIMockCore {
+  overlayTest?: { state: string; presentations: number; checks: number; resolve?: (value: { state: string }) => void };
   update: NativeUIPlugin['update'];
   toolbarProgress: { id: number; progress: number }[];
   delay: number;
@@ -3926,6 +3927,89 @@ test('native popover disappearance releases retained controls and accepts later 
       .toBe(true);
   }
 });
+
+for (const loss of ['dismissed', 'missing', 'non-dismissible', 'read-failure', 'transient-failure', 'stale-response'] as const)
+  test(`native popover reconciles ${loss} without replaying its opening action`, async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await mockNative(page);
+    await page.goto('/main/index/popover');
+    await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+    const trigger = page.locator('#native-popover-trigger');
+    await expect(trigger).toHaveAttribute('data-native-ui-vertical-bars-member', '');
+    await page.evaluate((loss) => {
+      const data: NonNullable<NativeUIMock['overlayTest']> = { state: 'presented', presentations: 0, checks: 0 };
+      const overlay = document.querySelector<HTMLIonPopoverElement>('ion-popover[trigger="native-popover-trigger"]')!;
+      if (loss === 'non-dismissible') overlay.backdropDismiss = false;
+      Object.assign(Capacitor.registerPlugin<NativeUIMock>('NativeUI'), {
+        overlayTest: data,
+        async prepareOverlay() {},
+        async presentOverlay() {
+          data.presentations++;
+          data.state = 'presented';
+          return { stateCheck: true };
+        },
+        async getOverlayState() {
+          data.checks++;
+          if (data.state === 'stale-response')
+            return new Promise((resolve) => {
+              data.resolve = resolve;
+            });
+          if (data.state === 'transient-failure') {
+            data.state = 'presented';
+            throw new Error('One lost response');
+          }
+          if (data.state === 'read-failure') throw new Error('Lost state response');
+          return { state: data.state };
+        },
+        async dismissOverlay() {},
+      });
+    }, loss);
+    const opened = page.waitForEvent('popup');
+    await activate(page, 'Open popover');
+    const relay = await opened;
+    await expect(relay.getByText('Toolbar popover', { exact: true })).toBeVisible();
+    const presentations = () => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').overlayTest!.presentations);
+    await expect.poll(presentations).toBe(1);
+    await relay.evaluate(() => {
+      (window as Window & { retainedValue?: string }).retainedValue = 'unsaved';
+    });
+    // No dismissal event: recover from the native connection's retained state.
+    await page.evaluate((loss) => {
+      Capacitor.registerPlugin<NativeUIMock>('NativeUI').overlayTest!.state = loss === 'non-dismissible' ? 'dismissed' : loss;
+    }, loss);
+    const overlay = page.locator('ion-popover[trigger="native-popover-trigger"]');
+    if (loss === 'stale-response' || loss === 'transient-failure') {
+      await expect
+        .poll(() =>
+          page.evaluate(() => {
+            const data = Capacitor.registerPlugin<NativeUIMock>('NativeUI').overlayTest!;
+            return data.resolve !== undefined || data.checks >= 2;
+          }),
+        )
+        .toBe(true);
+      expect(relay.isClosed()).toBe(false);
+      await overlay.evaluate((el: HTMLIonPopoverElement) => el.dismiss());
+      await expect.poll(() => relay.isClosed()).toBe(true);
+      await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').overlayTest!.resolve?.({ state: 'missing' }));
+      await expect.poll(presentations).toBe(1);
+    } else if (loss === 'dismissed' || loss === 'read-failure') {
+      await expect.poll(() => relay.isClosed()).toBe(true);
+      await expect(overlay).toHaveJSProperty('presented', loss === 'read-failure');
+      if (loss === 'read-failure') await expect(overlay).not.toHaveCSS('opacity', '0');
+      await expect.poll(presentations).toBe(1);
+    } else {
+      await expect.poll(presentations).toBe(2);
+      await expect(overlay).toHaveJSProperty('presented', true);
+      expect(await relay.evaluate(() => (window as Window & { retainedValue?: string }).retainedValue)).toBe('unsaved');
+      await overlay.evaluate((el: HTMLIonPopoverElement) => el.dismiss());
+      await expect.poll(() => relay.isClosed()).toBe(true);
+    }
+    // Cleanup stops health reads; a stale response cannot reopen a closed overlay.
+    const readChecks = () => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').overlayTest!.checks);
+    const checks = await readChecks();
+    await page.waitForTimeout(1200);
+    expect(await readChecks()).toBe(checks);
+  });
 
 test('ordinary popovers stay in the source WebView', async ({ page }) => {
   await mockNative(page);

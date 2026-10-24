@@ -187,8 +187,15 @@ final class NativeUISnapshotTests: XCTestCase {
         host.dismissAnchored?()
         try await Task.sleep(nanoseconds: 1_000_000_000)
         XCTAssertEqual(events, ["dismiss"], "Native closure must release the Web projection lease")
-        let nextHost = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
-        XCTAssertTrue(rail.presentPopover(anchor: "old-action", host: nextHost, completion: { _ in }), "Replacing the source must not retain the old popover anchor")
+        XCTAssertTrue(host.disappeared)
+        XCTAssertTrue(rail.presentPopover(anchor: "old-action", host: host, completion: { _ in }), "Reconnect the retained content without recreating its WebView")
+        for _ in 0..<50 {
+            if host.anchoredVisible { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertTrue(host.anchoredVisible)
+        XCTAssertFalse(host.disappeared)
+        XCTAssertEqual(events, ["dismiss"], "Reconnection does not repeat the opening action or dismissal")
     }
 
     @MainActor func testReplacingPendingPopoverSourceCompletesPresentationOnceAndAllowsReopen() throws {
@@ -437,6 +444,7 @@ final class NativeUISnapshotTests: XCTestCase {
         host.presentationDidDisappear()
         XCTAssertEqual(events, ["dismiss"])
         XCTAssertFalse(host.anchoredVisible)
+        XCTAssertTrue(host.disappeared, "A missed event remains observable until the connection closes")
         host.presentationDidDisappear()
         XCTAssertEqual(events, ["dismiss"])
     }
@@ -450,6 +458,7 @@ final class NativeUISnapshotTests: XCTestCase {
         host.dismissPopover(animated: false) { completed = true }
         host.presentationDidDisappear()
         XCTAssertTrue(completed)
+        XCTAssertFalse(host.disappeared, "Web dismissal must not create a pending native dismissal")
         XCTAssertTrue(events.isEmpty)
     }
 

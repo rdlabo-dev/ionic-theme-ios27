@@ -31,6 +31,8 @@ interface Connection {
   stopAnimation?: () => void;
   hideAnimation?: () => void;
   stopLifecycle?: () => void;
+  stopStateCheck?: () => void;
+  reconciling?: Promise<void>;
 }
 
 /** Ionic owns lifecycle and dismissal; only one overlay is relayed at a time. */
@@ -58,6 +60,7 @@ export const createOverlayController = async (
       }
     };
     try {
+      await stage('stateCheck', connection.stopStateCheck);
       await stage('events', connection.stopEvents);
       await stage('lifecycle', connection.stopLifecycle);
       await stage('childEvents', connection.stopChildEvents);
@@ -90,6 +93,66 @@ export const createOverlayController = async (
     if (current) await release(current);
   };
   const excluded = (overlay: HTMLElement) => isPermanentlyExcluded(overlay) || isExcluded(overlay) || isNativeUIDisabled(overlay);
+  // Events are the fast path; the retained native state also lets us reconcile
+  // a missed event without replaying the action that opened the popover.
+  const reconcile = (connection: Connection, state: 'dismissed' | 'missing') => {
+    if (connection.reconciling) return connection.reconciling;
+    if (stopped || suspensions.size || current !== connection || connection.closing || connection.nativeClosing || connection.dismissed)
+      return Promise.resolve();
+    connection.reconciling = (async () => {
+      if (state === 'dismissed' && connection.overlay.backdropDismiss) {
+        if (await bounded(connection.overlay.dismiss(undefined, 'backdrop'))) return;
+      }
+      if (current !== connection || connection.closing || connection.nativeClosing || stopped || suspensions.size) return;
+      // Keep the same WebView and adopted live nodes. Only reconnect presentation;
+      // Ionic lifecycle, click handlers and application requests must not repeat.
+      await bounded(
+        plugin.presentOverlay({
+          id: connection.id,
+          presentation: { ...popoverPresentation(connection.overlay), animated: false },
+        }),
+      );
+    })()
+      .catch(async (error) => {
+        await release(connection);
+        doc.defaultView!.dispatchEvent(new Event('nativeUIRefresh'));
+        console.error('Native overlay reconnection failed; restored the source content.', error);
+      })
+      .finally(() => {
+        connection.reconciling = undefined;
+      });
+    return connection.reconciling;
+  };
+  const watchState = (connection: Connection) => {
+    let timer: ReturnType<typeof setTimeout>;
+    let cancelled = false;
+    let failed = false;
+    const check = async () => {
+      if (cancelled || current !== connection || connection.closing || connection.nativeClosing || connection.dismissed) return;
+      try {
+        const { state } = await bounded(plugin.getOverlayState({ id: connection.id }));
+        if (cancelled || current !== connection) return;
+        failed = false;
+        if (state !== 'presented') await reconcile(connection, state);
+      } catch (error) {
+        if (cancelled || current !== connection) return;
+        // A single failed read is not evidence that the presentation is gone.
+        if (failed) {
+          await release(connection);
+          doc.defaultView!.dispatchEvent(new Event('nativeUIRefresh'));
+          console.error('Native overlay state unavailable; restored the source content.', error);
+          return;
+        }
+        failed = true;
+      }
+      if (!cancelled) timer = setTimeout(() => void check(), 1000);
+    };
+    connection.stopStateCheck = () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    timer = setTimeout(() => void check(), 1000);
+  };
   const connect = async (connection: Connection, ready: Promise<void>, presentation: Presentation) => {
     const { overlay } = connection;
     const gone = () =>
@@ -190,12 +253,14 @@ export const createOverlayController = async (
         overlay.removeEventListener(lifecycle(overlay, 'DidDismiss'), close);
       };
       // SwiftUI owns the only visible presentation animation.
-      await bounded(
+      const presented = await bounded(
         plugin.presentOverlay({
           id: connection.id,
           presentation: { ...nativePresentation, animated: presentation.animated },
         }),
       );
+      // Older native binaries return no capability and keep their event-only path.
+      if (presented?.stateCheck && current === connection && !connection.closing) watchState(connection);
       (focused?.isConnected && focused.ownerDocument === staged.win.document ? focused : content.root).focus({ preventScroll: true });
     } catch (error) {
       await release(connection);
@@ -310,8 +375,7 @@ export const createOverlayController = async (
   const listener = await boundedListener(
     plugin.addListener('overlay', (event) => {
       if (event.id !== current?.id) return;
-      if (event.action === 'dismiss' && current.overlay.backdropDismiss)
-        void current.overlay.dismiss(undefined, 'backdrop').catch(console.error);
+      if (event.action === 'dismiss') void reconcile(current, 'dismissed');
     }),
   );
   win.addEventListener('resize', invalidate);

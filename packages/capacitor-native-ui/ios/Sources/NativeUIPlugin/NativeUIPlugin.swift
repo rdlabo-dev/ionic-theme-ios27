@@ -17,6 +17,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prepareOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "presentOverlay", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getOverlayState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "dismissOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "closeOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopOverlays", returnType: CAPPluginReturnPromise)
@@ -134,8 +135,15 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 }
                 return true
             }) { presented in
-                if presented { call.resolve() } else { call.reject("Native Vertical Bars anchor unavailable") }
+                if presented { call.resolve(["stateCheck": true]) } else { call.reject("Native Vertical Bars anchor unavailable") }
             }
+        }
+    }
+
+    @objc func getOverlayState(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let id = call.getString("id") else { call.reject("Missing overlay id"); return }
+            call.resolve(["state": self?.overlays?.state(id) ?? "missing"])
         }
     }
 

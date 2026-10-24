@@ -269,7 +269,8 @@ export interface NativeUIPlugin {
     ids: string[];
   }): Promise<{ revision?: number; items: Record<string, NativeUIVerticalBarFrame> }>;
   prepareOverlay(options: { id: string }): Promise<void>;
-  presentOverlay(options: { id: string; presentation?: NativeUIPopoverPresentation }): Promise<void>;
+  presentOverlay(options: { id: string; presentation?: NativeUIPopoverPresentation }): Promise<void | { stateCheck?: boolean }>;
+  getOverlayState(options: { id: string }): Promise<{ state: 'presented' | 'dismissed' | 'missing' }>;
   dismissOverlay(options: { id: string; animated: boolean }): Promise<void>;
   closeOverlay(options: { id: string }): Promise<void>;
   stopOverlays(): Promise<void>;

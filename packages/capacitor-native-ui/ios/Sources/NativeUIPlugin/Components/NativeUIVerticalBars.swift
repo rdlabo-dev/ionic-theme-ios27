@@ -635,6 +635,7 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
         model.popoverHost = host
         model.popoverPresented = completion
         host.anchoredVisible = false
+        host.disappeared = false
         host.cancelAnchored = { [weak self] in
             // Native presentation callbacks and their deadline run on the main queue.
             MainActor.assumeIsolated { self?.detach() }
