@@ -144,7 +144,10 @@ for (const { type, edge, direction } of [
     await expect(done).toHaveAttribute('fill', 'solid');
     await expect(done).toHaveAttribute('color', 'primary');
     await expect(close).toBeVisible();
-    await expect(page.locator('ion-app > .ios-theme-vertical-bars-back-button-projection')).toHaveCount(0);
+    const coveredBack = page.locator('ion-app > .ios-theme-vertical-bars-back-button-projection');
+    await expect(coveredBack).toBeVisible();
+    await expect(coveredBack).toHaveAttribute('inert', '');
+    await expect(coveredBack).toHaveAttribute('aria-hidden', 'true');
     const bounds = await close.boundingBox();
     expect(edge === 'left' ? bounds!.x < 80 : bounds!.x > 620).toBe(true);
     // A centered dialog on the open display keeps its own toolbar and width.
