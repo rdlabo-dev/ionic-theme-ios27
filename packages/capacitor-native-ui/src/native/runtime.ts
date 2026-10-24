@@ -7,6 +7,7 @@ import { createDiagnostics } from './shared/diagnostics';
 import { htmlSelector, readHTMLControl } from './html';
 import { extensionAncestors, readExtension } from './extensions';
 import { bounded, boundedListener } from './shared/bridge';
+import type { NativeUIConnection } from './shared/connection';
 import { popoverTrigger } from './overlays/popover';
 import {
   alignVerticalTabBar,
@@ -69,6 +70,7 @@ export const createRuntime = async (
   options: NativeUIRuntimeOptions = {},
   nativeVerticalBars: () => boolean = () => true,
   onStop?: (cause: 'failure' | 'pagehide') => void,
+  connection?: NativeUIConnection,
 ): Promise<NativeUIRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
   const win = doc.defaultView!;
   const extensions = options.extensions ?? [];
@@ -124,6 +126,11 @@ export const createRuntime = async (
   let dirty = false;
   let pending = false;
   let retryingUpdate = false;
+  let awaitingConnection = false;
+  let reconciledUpdate = false;
+  let lastUpdateStarted = 0;
+  let connectionSession: string | undefined;
+  let stopConnectionCheck: (() => void) | undefined;
   let stopped = false;
   let destruction: Promise<void> | undefined;
   const retentions = new Set<{ accepts?: (id: string) => boolean; activation?: NativeUIActivation }>();
@@ -448,12 +455,20 @@ export const createRuntime = async (
     // Native can apply this update even if retention or viewport changes prevent
     // accepting its response. Only a fully accepted snapshot is safe to deduplicate.
     lastSnapshot = '';
+    lastUpdateStarted = win.performance.now();
     let result;
     try {
       result = await bounded(plugin.update(snapshot));
     } catch (error) {
       if (stopped) return;
-      if (retryingUpdate) throw error;
+      if (retryingUpdate) {
+        if (!connection || reconciledUpdate) throw error;
+        // The common handshake will retry current state once the bridge responds.
+        // Keep subscriptions and identities; never replay the triggering action.
+        awaitingConnection = true;
+        dirty = false;
+        return;
+      }
       // Keep the existing connection. A fresh read on the next frame retries
       // only state synchronization, never the action that triggered it.
       retryingUpdate = true;
@@ -462,8 +477,15 @@ export const createRuntime = async (
       diagnose('sync-retry: refreshing current state after an update failure.');
       return;
     }
-    if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
+    if (result.revision !== snapshot.revision) {
+      if (!connection || reconciledUpdate) throw new Error('Native UI revision mismatch');
+      awaitingConnection = true;
+      dirty = false;
+      return;
+    }
     retryingUpdate = false;
+    awaitingConnection = false;
+    reconciledUpdate = false;
     return result;
   };
   const sync = async () => {
@@ -474,7 +496,7 @@ export const createRuntime = async (
     try {
       // A retained sync performs no update; keep the modal handoff armed so the
       // deferred retirement still runs instantly after the overlay releases.
-      if (retentions.size && !manualSuspensions.size) return;
+      if (awaitingConnection || (retentions.size && !manualSuspensions.size)) return;
       const enteringModal = topModal(doc);
       // Geometry refreshes continue for the Web rail during the Ionic animation.
       // Once native has acknowledged retirement, they must not publish it again.
@@ -1171,6 +1193,7 @@ export const createRuntime = async (
     destroy() {
       if (destruction) return destruction;
       stopped = true;
+      stopConnectionCheck?.();
       destruction = Promise.resolve().then(async () => {
         tabGeometry.forEach((restore) => restore());
         tabGeometry.clear();
@@ -1293,9 +1316,10 @@ export const createRuntime = async (
     return true;
   };
   try {
-    listener = await boundedListener(plugin.addListener('activate', activate));
+    const listen = connection?.listen ?? plugin.addListener.bind(plugin);
+    listener = await boundedListener(listen('activate', activate));
     searchListener = await boundedListener(
-      plugin.addListener('search', (event) => {
+      listen('search', (event) => {
         if (
           stopped ||
           doc.hidden ||
@@ -1307,6 +1331,31 @@ export const createRuntime = async (
         search.event(event);
       }),
     );
+    stopConnectionCheck = connection?.observe((state, restored, requestedAt) => {
+      if (stopped || pending || lastUpdateStarted > requestedAt) return;
+      const restarted =
+        (connectionSession !== undefined && connectionSession !== state.session) ||
+        (state.revision < acceptedRevision && state.sequence < lastSequence);
+      connectionSession = state.session;
+      const missingSurface = acknowledged.some(
+        ({ control }) =>
+          !control.extension?.tabBarId && !(control.placement === 'vertical-bars' ? state.surfaces.vertical : state.surfaces.horizontal),
+      );
+      if (!restored && !awaitingConnection && !missingSurface && state.revision === acceptedRevision) return;
+      // Native may have restarted or advanced while an acknowledgement was lost.
+      // Advance the revision gate before refreshing, rejecting stale action events.
+      revision = Math.max(revision, state.revision);
+      acceptedRevision = revision + 1;
+      lastSequence = restarted ? state.sequence : Math.max(lastSequence, state.sequence);
+      lastTabSequence = 0;
+      pendingActivations = [];
+      reconciledUpdate = awaitingConnection;
+      awaitingConnection = false;
+      retryingUpdate = false;
+      forceRefresh = true;
+      lastSnapshot = '';
+      schedule();
+    });
     doc.head.append(style);
     observer.observe(doc.documentElement, observation);
     setNativeUIIntegration(doc, {

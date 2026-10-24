@@ -1,5 +1,6 @@
 import type { NativeUIOptions, NativeUIPlugin } from '../definitions';
 import { bounded, boundedListener } from '../shared/bridge';
+import type { NativeUIConnection } from '../shared/connection';
 import { isExcluded, isPermanentlyExcluded, isNativeUIDisabled } from '../shared/dom';
 import { activeElement, trapFocus } from './focus';
 import { relayPopover, popoverPresentation, verticalBarsPopoverAnchor } from './popover';
@@ -42,6 +43,7 @@ export const createOverlayController = async (
   options: NativeUIOptions,
   retainProjection: (deferActivation?: (id: string) => boolean) => () => void,
   nativeVerticalBars: () => boolean,
+  connection?: NativeUIConnection,
 ) => {
   let current: Connection | undefined;
   let opening = Promise.resolve();
@@ -123,36 +125,12 @@ export const createOverlayController = async (
       });
     return connection.reconciling;
   };
-  const watchState = (connection: Connection) => {
-    let timer: ReturnType<typeof setTimeout>;
-    let cancelled = false;
-    let failed = false;
-    const check = async () => {
-      if (cancelled || current !== connection || connection.closing || connection.nativeClosing || connection.dismissed) return;
-      try {
-        const { state } = await bounded(plugin.getOverlayState({ id: connection.id }));
-        if (cancelled || current !== connection) return;
-        failed = false;
-        if (state !== 'presented') await reconcile(connection, state);
-      } catch (error) {
-        if (cancelled || current !== connection) return;
-        // A single failed read is not evidence that the presentation is gone.
-        if (failed) {
-          await release(connection);
-          doc.defaultView!.dispatchEvent(new Event('nativeUIRefresh'));
-          console.error('Native overlay state unavailable; restored the source content.', error);
-          return;
-        }
-        failed = true;
-      }
-      if (!cancelled) timer = setTimeout(() => void check(), 1000);
-    };
-    connection.stopStateCheck = () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-    timer = setTimeout(() => void check(), 1000);
-  };
+  const observeConnection = (currentConnection: Connection) =>
+    connection?.observe(async (state) => {
+      if (current !== currentConnection) return;
+      const native = state.overlay?.id === currentConnection.id ? state.overlay.state : 'missing';
+      if (native !== 'presented') await reconcile(currentConnection, native);
+    });
   const connect = async (connection: Connection, ready: Promise<void>, presentation: Presentation) => {
     const { overlay } = connection;
     const gone = () =>
@@ -253,14 +231,14 @@ export const createOverlayController = async (
         overlay.removeEventListener(lifecycle(overlay, 'DidDismiss'), close);
       };
       // SwiftUI owns the only visible presentation animation.
-      const presented = await bounded(
+      await bounded(
         plugin.presentOverlay({
           id: connection.id,
           presentation: { ...nativePresentation, animated: presentation.animated },
         }),
       );
-      // Older native binaries return no capability and keep their event-only path.
-      if (presented?.stateCheck && current === connection && !connection.closing) watchState(connection);
+
+      if (current === connection && !connection.closing) connection.stopStateCheck = observeConnection(connection);
       (focused?.isConnected && focused.ownerDocument === staged.win.document ? focused : content.root).focus({ preventScroll: true });
     } catch (error) {
       await release(connection);
@@ -373,7 +351,7 @@ export const createOverlayController = async (
     if (doc.hidden) invalidate();
   };
   const listener = await boundedListener(
-    plugin.addListener('overlay', (event) => {
+    (connection?.listen ?? plugin.addListener.bind(plugin))('overlay', (event) => {
       if (event.id !== current?.id) return;
       if (event.action === 'dismiss') void reconcile(current, 'dismissed');
     }),

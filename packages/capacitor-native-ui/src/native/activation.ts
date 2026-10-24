@@ -8,6 +8,7 @@ import { nativeWebViewMetrics } from '../native-integration';
 import type { NativeUIRuntimeHandle, NativeUIRuntimeOptions, NativeUIPlugin, VerticalBarEdge, WebViewMetrics } from './definitions';
 import { createRuntime } from './runtime';
 import { bounded, boundedListener } from './shared/bridge';
+import { createNativeConnection, type NativeUIConnection } from './shared/connection';
 interface OverlayController {
   suspend(): Promise<() => void>;
   destroy(): Promise<void>;
@@ -18,6 +19,7 @@ type OverlayFactory = (
   options: NativeUIRuntimeOptions,
   retain: (deferActivation?: (id: string) => boolean) => () => void,
   nativeRail: () => boolean,
+  connection?: NativeUIConnection,
 ) => Promise<OverlayController>;
 import { createVerticalBarsWebProjection } from './vertical-bars-web';
 import { prehideVerticalBarsToolbarSources } from './prehide';
@@ -260,11 +262,13 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
       if (!Capacitor.isPluginAvailable('NativeUI')) return fallback('Native UI plugin is not registered');
       let runtime: NativeUIRuntimeHandle | undefined;
       let overlays: OverlayController | undefined;
+      let connection: NativeUIConnection | undefined;
       let metricsListener: Awaited<ReturnType<typeof plugin.addListener>> | undefined;
       let nativeRelease: Promise<void> | undefined;
       releaseNative = () =>
         (nativeRelease ??= (async () => {
           try {
+            connection?.stop();
             await overlays?.destroy();
           } finally {
             if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});
@@ -286,6 +290,8 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
         );
         const capabilities = await bounded(plugin.configure({ suppressScrollEdgeEffect: ordinaryControls }));
         if (!capabilities.supported) return fallback('Native UI is unavailable on this device');
+        if (capabilities.connectionState) connection = createNativeConnection(document, plugin);
+        const listen = connection?.listen ?? plugin.addListener.bind(plugin);
         const unavailableExtensions = new Map<string, string>();
         for (const extension of extensions) {
           if (platform === 'android' && extension.placement === 'tab-accessory')
@@ -308,13 +314,15 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
             },
             () => false,
             runtimeStopped,
+            connection,
           );
           runtime = combine(runtime, webProjection(document, options));
           metricsListener = await boundedListener(
-            plugin.addListener('webViewMetricsChange', () => {
+            listen('webViewMetricsChange', () => {
               document.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
             }),
           );
+          connection?.start();
           return manage(runtime, {
             stopping: stop,
             destroy: cleanup,
@@ -348,16 +356,23 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
           updateNativeEdge();
           document.defaultView?.dispatchEvent(new Event('nativeUIRefresh'));
         };
-        metricsListener = await boundedListener(plugin.addListener('webViewMetricsChange', applyMetrics));
+        metricsListener = await boundedListener(listen('webViewMetricsChange', applyMetrics));
         await bounded(Promise.resolve().then(() => plugin.getWebViewMetrics()))
           .then(applyMetrics)
           .catch(() => undefined);
+        connection?.observe(async (_, restored) => {
+          if (restored)
+            await bounded(plugin.getWebViewMetrics())
+              .then(applyMetrics)
+              .catch(() => undefined);
+        });
         const native = await createRuntime(
           document,
           plugin,
           { ...options, extensions, unavailableExtensions },
           nativeVerticalBars,
           runtimeStopped,
+          connection,
         );
         runtime = combine(
           native,
@@ -370,7 +385,8 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
           }),
         );
         if (options.ionic?.verticalBars?.popover === true && overlayFactory)
-          overlays = await overlayFactory(document, plugin, options, native.retain, nativeVerticalBars);
+          overlays = await overlayFactory(document, plugin, options, native.retain, nativeVerticalBars, connection);
+        connection?.start();
         return manage(runtime, {
           suspend: async () => {
             const restorePrehide = prehide?.suspend();
@@ -384,6 +400,7 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
           destroy: cleanup,
         });
       } catch (error) {
+        connection?.stop();
         await overlays?.destroy().catch(() => {});
         await runtime?.destroy().catch(() => {});
         if (metricsListener) await bounded(metricsListener.remove()).catch(() => {});

@@ -17,7 +17,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prepareOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "presentOverlay", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getOverlayState", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getConnectionState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "dismissOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "closeOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopOverlays", returnType: CAPPluginReturnPromise)
@@ -35,6 +35,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     private var fingerprints: [String: NativeUIControl] = [:]
     private let rendering = NativeUIControlRendering()
     private var configurationGeneration = 0
+    private var connectionSession = UUID().uuidString
     private var modalAnimationID: Int?
     private var revision = 0
     private var sequence = 0
@@ -135,15 +136,21 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 }
                 return true
             }) { presented in
-                if presented { call.resolve(["stateCheck": true]) } else { call.reject("Native Vertical Bars anchor unavailable") }
+                if presented { call.resolve() } else { call.reject("Native Vertical Bars anchor unavailable") }
             }
         }
     }
 
-    @objc func getOverlayState(_ call: CAPPluginCall) {
+    @objc func getConnectionState(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            guard let id = call.getString("id") else { call.reject("Missing overlay id"); return }
-            call.resolve(["state": self?.overlays?.state(id) ?? "missing"])
+            guard let self else { call.reject("Plugin released"); return }
+            var state: JSObject = [
+                "session": self.connectionSession, "revision": self.revision, "sequence": self.sequence,
+                "surfaces": ["horizontal": self.host?.window != nil, "vertical": self.verticalBars?.view.window != nil],
+                "listeners": ["activate", "search", "overlay", "webViewMetricsChange"].filter { self.hasListeners($0) }
+            ]
+            if let overlay = self.overlays?.connectionState { state["overlay"] = overlay.mapValues { $0 as JSValue } }
+            call.resolve(state)
         }
     }
 
@@ -217,6 +224,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 self.restoreTopEdge = nil
                 self.removeControls()
                 self.revision = 0
+                self.connectionSession = UUID().uuidString
                 if #available(iOS 26.0, *) {
                     self.bridge?.webView?.layoutIfNeeded()
                     // Ionic already paints the header edge; a second native effect can
@@ -226,7 +234,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                         effect.isHidden = true
                         self.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
                     }
-                    call.resolve(["supported": true, "extensions": NativeUI.names, "modalAnimation": true])
+                    call.resolve(["supported": true, "extensions": NativeUI.names, "modalAnimation": true, "connectionState": true])
                 }
                 else { call.resolve(["supported": false]) }
             }

@@ -55,6 +55,12 @@ This is an opt-in feature. The ordinary `@rdlabo/ionic-theme-ios27` theme entry 
 
 Native light/dark appearance is resolved from each source element’s computed style. See [Light and dark appearance](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/appearance) for theme inheritance, priority, live updates and the shared Vertical Bars behavior.
 
+## Connection recovery
+
+Supporting iOS binaries share one connection check across ordinary controls, Vertical Bars, extensions and native popovers. While the document is visible, it runs once per second without measuring layout. It checks the native session, acknowledged revision, attached surfaces and event subscriptions, including while an overlay retains page updates.
+
+Lost subscriptions are replaced without duplicate callbacks. Lost native state is rebuilt from the current Web state; clicks, submissions and extension actions are never replayed. Failed checks are bounded and do not overlap. After repeated update failures, a successful connection check permits another state synchronization; a persistent update error retains the existing Web fallback instead of retrying updates indefinitely. Older binaries keep their existing event and update-retry behavior.
+
 ## Toolbar selection and grouping
 
 Use `controls` to choose selection and grouping by placement:
@@ -369,7 +375,7 @@ When Vertical Bars return to Web rendering, the runtime measures the current nat
 
 The page's native controls stay projected throughout preparation, presentation and dismissal. If the same native anchor accepts a tap while Ionic is still dismissing, one activation is retained and revalidated after cleanup; repeated taps coalesce. The relay prepares its child WebView while Ionic initializes the content, completes the Web enter animation without motion behind the hidden source host, and presents through the button's standard SwiftUI popover. It does not resize or reparent the source WebView. Ionic retains its controller, lifecycle, live application handlers and dismissal data; the live content temporarily moves into the child document and is restored during cleanup.
 
-On native binaries that support state reconciliation, the adapter checks connection state once per second only while a popover is presented; these checks do not measure layout. A missed native dismissal is reconciled with Ionic. If the presentation is lost while Ionic still requires it (including `backdropDismiss: false`), the adapter reconnects the same live content without replaying the opening action. Repeated bridge failures or an unavailable native anchor restore the Web content and release retained controls. Older native binaries keep the event-only behavior.
+Native popovers participate in the shared connection recovery described above. A missed native dismissal is reconciled with Ionic. If presentation is lost while Ionic still requires it (including `backdropDismiss: false`), the adapter reconnects the same live content without replaying the opening action. An unavailable anchor restores the Web content and releases retained controls.
 
 Only one popover is relayed at a time. A nested popover or modal created in the child document is moved as a live element back to the source document before the child closes, including overlays appended outside the relayed content. It continues as a Web overlay with its handlers and dismissal data; its presentation event is not replayed. Opening another overlay or menu, leaving the page, suspending the shell, or losing the native layout restores Web rendering. Modal, sheet and alert relay are outside this feature.
 
