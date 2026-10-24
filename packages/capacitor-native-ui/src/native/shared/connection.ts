@@ -3,16 +3,21 @@ import type { NativeUIConnectionState, NativeUIPlugin } from '../definitions';
 import { bounded, boundedListener } from './bridge';
 
 type Check = (state: NativeUIConnectionState, restored: boolean, requestedAt: number) => void | Promise<void>;
+type Failure = (error: unknown) => void | Promise<void>;
+const failureLimit = 3;
+
 type Registration = { name: string; callback: (event: never) => void; handle?: PluginListenerHandle };
 
 /** One connection check for the shell, independent of projection retention. */
 export const createNativeConnection = (doc: Document, plugin: NativeUIPlugin) => {
   const registrations = new Set<Registration>();
   const checks = new Set<Check>();
+  const failures = new Map<Check, Failure>();
   let stopped = false;
   let timer: ReturnType<typeof setTimeout>;
   let session: string | undefined;
   let failed = false;
+  let consecutiveFailures = 0;
   const install = async (registration: Registration) => {
     const add = plugin.addListener as (name: string, callback: (event: never) => void) => Promise<PluginListenerHandle>;
     const handle = await boundedListener(add.call(plugin, registration.name, registration.callback));
@@ -60,20 +65,30 @@ export const createNativeConnection = (doc: Document, plugin: NativeUIPlugin) =>
           if (stopped) return;
         }
         failed = false;
-      } catch {
+        consecutiveFailures = 0;
+      } catch (error) {
+        if (stopped) return;
         // A later successful handshake repairs subscriptions and resynchronizes
-        // current state. Failed requests are bounded and never overlap.
+        // current state. A timeout ends this logical check, not the underlying request.
         failed = true;
+        if (++consecutiveFailures >= failureLimit) {
+          for (const callback of observed) {
+            if (checks.has(callback)) await failures.get(callback)?.(error);
+            if (stopped) return;
+          }
+        }
       }
     }
     if (!stopped) timer = setTimeout(() => void check(), 1000);
   };
   return {
     listen,
-    observe(callback: Check) {
+    observe(callback: Check, failure?: Failure) {
       checks.add(callback);
+      if (failure) failures.set(callback, failure);
       return () => {
         checks.delete(callback);
+        failures.delete(callback);
       };
     },
     start() {
@@ -83,6 +98,7 @@ export const createNativeConnection = (doc: Document, plugin: NativeUIPlugin) =>
       stopped = true;
       clearTimeout(timer);
       checks.clear();
+      failures.clear();
     },
   };
 };

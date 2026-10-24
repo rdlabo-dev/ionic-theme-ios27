@@ -57,7 +57,7 @@ test('one shared handshake restores lost subscriptions without replaying actions
   expect(f.plugin.addListener).toHaveBeenCalledTimes(4);
 });
 
-test('a hung connection read never overlaps another and recovery uses a fresh handshake', async () => {
+test('a timed-out connection check retries without accepting the stale response', async () => {
   const f = fixture();
   f.read.mockImplementationOnce(() => new Promise(() => {}));
   const reconcile = vi.fn();
@@ -90,4 +90,48 @@ test('a late response after stop cannot resubscribe or synchronize', async () =>
   await vi.advanceTimersByTimeAsync(5000);
   expect(reconcile).not.toHaveBeenCalled();
   expect(f.plugin.addListener).toHaveBeenCalledOnce();
+});
+
+test('three failed handshakes notify fallback once and stop checking after teardown', async () => {
+  const f = fixture();
+  f.read.mockRejectedValue(new Error('Disconnected'));
+  const fallback = vi.fn(() => connection.stop());
+  connection.observe(vi.fn(), fallback);
+  connection.start();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(fallback).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(fallback).toHaveBeenCalledOnce();
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.read).toHaveBeenCalledTimes(3);
+});
+
+test('a successful handshake resets the consecutive failure budget', async () => {
+  const f = fixture();
+  const fallback = vi.fn();
+  connection.observe(vi.fn(), fallback);
+  connection.start();
+  f.read.mockRejectedValueOnce(new Error('Disconnected')).mockRejectedValueOnce(new Error('Disconnected'));
+  await vi.advanceTimersByTimeAsync(3000);
+  f.read.mockRejectedValueOnce(new Error('Disconnected')).mockRejectedValueOnce(new Error('Disconnected'));
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(fallback).not.toHaveBeenCalled();
+});
+
+test('three timed-out handshakes exhaust recovery and late replies cannot resume it', async () => {
+  const f = fixture();
+  const replies: ((state: NativeUIConnectionState) => void)[] = [];
+  f.read.mockImplementation(() => new Promise((resolve) => replies.push(resolve)));
+  const reconcile = vi.fn();
+  const fallback = vi.fn(() => connection.stop());
+  connection.observe(reconcile, fallback);
+  connection.start();
+  await vi.advanceTimersByTimeAsync(17999);
+  expect(fallback).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(fallback).toHaveBeenCalledOnce();
+  replies.forEach((reply) => reply(f.state));
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(f.read).toHaveBeenCalledTimes(3);
+  expect(reconcile).not.toHaveBeenCalled();
 });

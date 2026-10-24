@@ -1331,31 +1331,36 @@ export const createRuntime = async (
         search.event(event);
       }),
     );
-    stopConnectionCheck = connection?.observe((state, restored, requestedAt) => {
-      if (stopped || pending || lastUpdateStarted > requestedAt) return;
-      const restarted =
-        (connectionSession !== undefined && connectionSession !== state.session) ||
-        (state.revision < acceptedRevision && state.sequence < lastSequence);
-      connectionSession = state.session;
-      const missingSurface = acknowledged.some(
-        ({ control }) =>
-          !control.extension?.tabBarId && !(control.placement === 'vertical-bars' ? state.surfaces.vertical : state.surfaces.horizontal),
-      );
-      if (!restored && !awaitingConnection && !missingSurface && state.revision === acceptedRevision) return;
-      // Native may have restarted or advanced while an acknowledgement was lost.
-      // Advance the revision gate before refreshing, rejecting stale action events.
-      revision = Math.max(revision, state.revision);
-      acceptedRevision = revision + 1;
-      lastSequence = restarted ? state.sequence : Math.max(lastSequence, state.sequence);
-      lastTabSequence = 0;
-      pendingActivations = [];
-      reconciledUpdate = awaitingConnection;
-      awaitingConnection = false;
-      retryingUpdate = false;
-      forceRefresh = true;
-      lastSnapshot = '';
-      schedule();
-    });
+    stopConnectionCheck = connection?.observe(
+      (state, restored, requestedAt) => {
+        if (stopped || pending || lastUpdateStarted > requestedAt) return;
+        const restarted =
+          (connectionSession !== undefined && connectionSession !== state.session) ||
+          (state.revision < acceptedRevision && state.sequence < lastSequence);
+        connectionSession = state.session;
+        const missingSurface = acknowledged.some(
+          ({ control }) =>
+            !control.extension?.tabBarId && !(control.placement === 'vertical-bars' ? state.surfaces.vertical : state.surfaces.horizontal),
+        );
+        if (!restored && !awaitingConnection && !missingSurface && state.revision === acceptedRevision) return;
+        // Native may have restarted or advanced while an acknowledgement was lost.
+        // Advance the revision gate before refreshing, rejecting stale action events.
+        revision = Math.max(revision, state.revision);
+        acceptedRevision = revision + 1;
+        lastSequence = restarted ? state.sequence : Math.max(lastSequence, state.sequence);
+        lastTabSequence = 0;
+        pendingActivations = [];
+        reconciledUpdate = awaitingConnection;
+        awaitingConnection = false;
+        retryingUpdate = false;
+        forceRefresh = true;
+        lastSnapshot = '';
+        schedule();
+      },
+      async (error) => {
+        if (!stopped) await fail(error);
+      },
+    );
     doc.head.append(style);
     observer.observe(doc.documentElement, observation);
     setNativeUIIntegration(doc, {

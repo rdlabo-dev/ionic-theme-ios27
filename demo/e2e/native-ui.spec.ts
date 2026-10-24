@@ -4032,7 +4032,7 @@ for (const loss of ['dismissed', 'missing', 'non-dismissible', 'transient-failur
   });
 
 for (const vertical of [false, true])
-  for (const failure of ['listeners', 'native-state', 'surface', 'updates', 'revision', 'permanent-updates'] as const)
+  for (const failure of ['listeners', 'native-state', 'surface', 'updates', 'revision', 'permanent-updates', 'disconnected'] as const)
     test(`shared Native UI connection recovers ${failure} without replaying actions (vertical=${vertical})`, async ({ page }) => {
       await page.setViewportSize({ width: vertical ? 700 : 402, height: 900 });
       await mockNative(page, false, 'trailing', false, true);
@@ -4081,7 +4081,12 @@ for (const vertical of [false, true])
           let failures = 0;
           mock.update = async (snapshot) => {
             mock.connectionUpdateAttempts = failures + 1;
-            if (failure === 'permanent-updates') {
+            if (failure === 'permanent-updates' || failure === 'disconnected') {
+              if (failure === 'disconnected')
+                mock.getConnectionState = async () => {
+                  mock.connectionCheckRevision = 0;
+                  throw new Error('Connection unavailable');
+                };
               failures++;
               throw new Error('Persistent update error');
             }
@@ -4099,7 +4104,7 @@ for (const vertical of [false, true])
         .poll(() => page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').connectionCheckRevision))
         .toBeGreaterThanOrEqual(0);
       const checkedRevision = await page.evaluate(() => Capacitor.registerPlugin<NativeUIMock>('NativeUI').connectionCheckRevision!);
-      if (failure === 'permanent-updates') {
+      if (failure === 'permanent-updates' || failure === 'disconnected') {
         await expect
           .poll(() => page.evaluate(() => (document.querySelector('ion-app') as TestAppElement).nativeUI!.getStatus().state))
           .toBe('web');
