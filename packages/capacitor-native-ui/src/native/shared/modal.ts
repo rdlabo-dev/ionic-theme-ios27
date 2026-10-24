@@ -25,20 +25,39 @@ export const inVerticalBarsSurface = (element: Element): boolean => {
 
 /** Release Ionic's dormant sheet gesture effect before the leave animation owns opacity.
  * WillDismiss is emitted only after canDismiss succeeds. A gesture dismissal already
- * owns its animation and must not be interrupted. Do not cancel running/custom effects.
+ * owns its animation and must not be interrupted. Match only Ionic's standard
+ * opacity-only keyframes; leave running and nonmatching effects alone.
  */
 export const releaseSheetBackdropGesture = (modal: HTMLElement, role?: string): void => {
   if (role === 'gesture' || !modal.matches('.modal-sheet.ios-theme-vertical-bars-modal')) return;
   const backdrop = modal.shadowRoot?.querySelector('ion-backdrop');
+  const breakpoint = (modal as HTMLIonModalElement).backdropBreakpoint ?? 0;
+  const expected =
+    breakpoint === 0
+      ? [
+          { offset: 0, opacity: 'var(--backdrop-opacity)' },
+          { offset: 1, opacity: '0.01' },
+        ]
+      : [
+          { offset: 0, opacity: 'var(--backdrop-opacity)' },
+          { offset: 1 - breakpoint, opacity: '0' },
+          { offset: 1, opacity: '0' },
+        ];
   for (const animation of backdrop?.getAnimations() ?? []) {
     const effect = animation.effect;
     if (animation.playState !== 'paused' || !(effect instanceof KeyframeEffect)) continue;
     const frames = effect.getKeyframes();
     if (
       effect.target !== backdrop ||
-      frames.length !== 2 ||
-      frames[0].opacity !== 'var(--backdrop-opacity)' ||
-      frames[1].opacity !== '0.01'
+      frames.length !== expected.length ||
+      !frames.every(
+        (frame, index) =>
+          frame.offset === expected[index].offset &&
+          frame['opacity'] === expected[index].opacity &&
+          frame.easing === 'linear' &&
+          (frame.composite === 'auto' || frame.composite === 'replace') &&
+          Object.keys(frame).every((key) => ['offset', 'computedOffset', 'easing', 'composite', 'opacity'].includes(key)),
+      )
     )
       continue;
     animation.cancel();
