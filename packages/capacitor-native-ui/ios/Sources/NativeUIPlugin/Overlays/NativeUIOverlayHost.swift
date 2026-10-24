@@ -14,6 +14,15 @@ final class NativeUIOverlayHost: UIViewController {
     private var dismissalCompletions: [() -> Void]?
     private var dismissalTimeout: DispatchWorkItem?
 
+    func presentationDidDisappear() {
+        // SwiftUI may disappear before (or without) updating isPresented.
+        // Notify through this retained host, not the model's already-cleared host.
+        // Web-initiated dismissal already owns Ionic's lifecycle; do not echo it.
+        let nativeDismissal = anchoredVisible && dismissalCompletions == nil
+        completeDismissal()
+        if nativeDismissal { event("dismiss") }
+    }
+
     func completeDismissal() {
         dismissalTimeout?.cancel()
         dismissalTimeout = nil

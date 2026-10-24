@@ -160,6 +160,37 @@ final class NativeUISnapshotTests: XCTestCase {
         XCTAssertTrue(rail.presentPopover(anchor: "new-action", host: nextHost, completion: { _ in }), "Replacing the source must not retain the old popover anchor")
     }
 
+    @MainActor func testNativePopoverClosureNotifiesWebBeforeReopening() async throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI toolbar") }
+        let owner = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 700, height: 900))
+        window.rootViewController = owner
+        window.makeKeyAndVisible()
+        let rail = NativeUIVerticalBarsController(activate: { _ in }, changed: { _, _, _, _, _ in 0 })
+        rail.attach(to: owner, in: owner.view)
+        defer { rail.detach(); window.isHidden = true }
+        func page(_ action: String) throws -> [NativeUIControl] {
+            try decode([control(["kind": "button", "placement": "vertical-bars", "transitionId": "stable-group",
+                "items": [item(["id": action, "transitionId": "stable-button"]) ]])]).controls
+        }
+        rail.apply(try page("old-action"), rendering: NativeUIControlRendering(), edge: "right", animated: false)
+        try await Task.sleep(nanoseconds: 500_000_000)
+        var events: [String] = []
+        let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: ["animated": false], event: { events.append($0) })
+        host.preferredContentSize = CGSize(width: 180, height: 180)
+        XCTAssertTrue(rail.presentPopover(anchor: "old-action", host: host, completion: { _ in }))
+        for _ in 0..<50 {
+            if host.anchoredVisible { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertTrue(host.anchoredVisible, "Fixture must display the actual SwiftUI popover")
+        host.dismissAnchored?()
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        XCTAssertEqual(events, ["dismiss"], "Native closure must release the Web projection lease")
+        let nextHost = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
+        XCTAssertTrue(rail.presentPopover(anchor: "old-action", host: nextHost, completion: { _ in }), "Replacing the source must not retain the old popover anchor")
+    }
+
     @MainActor func testReplacingPendingPopoverSourceCompletesPresentationOnceAndAllowsReopen() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI toolbar") }
         let owner = UIViewController()
@@ -396,6 +427,37 @@ final class NativeUISnapshotTests: XCTestCase {
             host.dismissAnchored?()
             XCTAssertEqual(results, [false], "Cancellation must settle presentation only once")
         }
+    }
+
+    @MainActor func testNativePopoverDisappearanceNotifiesWebOnceWithoutBindingCallback() {
+        var events: [String] = []
+        let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil) { events.append($0) }
+        host.anchoredVisible = true
+        // SwiftUI can remove the presentation before or without updating its binding.
+        host.presentationDidDisappear()
+        XCTAssertEqual(events, ["dismiss"])
+        XCTAssertFalse(host.anchoredVisible)
+        host.presentationDidDisappear()
+        XCTAssertEqual(events, ["dismiss"])
+    }
+
+    @MainActor func testWebRequestedPopoverDisappearanceDoesNotEchoDismissal() {
+        var events: [String] = []
+        let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil) { events.append($0) }
+        host.anchoredVisible = true
+        host.dismissAnchored = {}
+        var completed = false
+        host.dismissPopover(animated: false) { completed = true }
+        host.presentationDidDisappear()
+        XCTAssertTrue(completed)
+        XCTAssertTrue(events.isEmpty)
+    }
+
+    @MainActor func testPopoverDisappearanceBeforeAppearanceDoesNotDismissWeb() {
+        var events: [String] = []
+        let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil) { events.append($0) }
+        host.presentationDidDisappear()
+        XCTAssertTrue(events.isEmpty)
     }
 
     @MainActor func testVisiblePopoverDismissalNotifiesAllOverlappingCallersOnce() {

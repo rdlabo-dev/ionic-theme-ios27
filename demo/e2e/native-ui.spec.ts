@@ -3884,6 +3884,49 @@ for (const standalone of [false, true])
     }
   });
 
+test('native popover disappearance releases retained controls and accepts later actions', async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 900 });
+  await mockNative(page);
+  await page.goto('/main/index/popover');
+  await page.locator('ion-app').evaluate((app) => app.classList.add('ios-theme-vertical-bars'));
+  const trigger = page.locator('#native-popover-trigger');
+  await expect(trigger).toHaveAttribute('data-native-ui-vertical-bars-member', '');
+  await page.evaluate(() => {
+    const mock = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+    Object.assign(mock, {
+      async prepareOverlay({ id }: { id: string }) {
+        document.documentElement.dataset['testNativeOverlay'] = id;
+      },
+      async presentOverlay() {},
+      async dismissOverlay() {},
+    });
+  });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const opened = page.waitForEvent('popup');
+    await activate(page, attempt === 0 ? 'Open popover' : 'Reopen popover');
+    const relay = await opened;
+    await expect(relay.getByText('Toolbar popover', { exact: true })).toBeVisible();
+    // A native disappearance must release the projection lease even though
+    // no Web close button was clicked and the source overlay is invisible.
+    await trigger.evaluate((el) => el.setAttribute('aria-label', 'Reopen popover'));
+    await page.evaluate(() => {
+      const mock = Capacitor.registerPlugin<NativeUIMock>('NativeUI');
+      mock.notifyListeners('overlay', { id: document.documentElement.dataset['testNativeOverlay'], action: 'dismiss' });
+    });
+    await expect.poll(() => relay.isClosed()).toBe(true);
+    await expect(page.locator('ion-popover[trigger="native-popover-trigger"]')).toHaveJSProperty('presented', false);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Capacitor.registerPlugin<NativeUIMock>('NativeUI')
+            .updates.at(-1)
+            ?.controls.some((control) => control.items.some((item) => item.accessibilityLabel === 'Reopen popover')),
+        ),
+      )
+      .toBe(true);
+  }
+});
+
 test('ordinary popovers stay in the source WebView', async ({ page }) => {
   await mockNative(page);
   await page.goto('/main/index/popover');
