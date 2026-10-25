@@ -9,7 +9,13 @@ export const modalPreparing = (modal: Element) => presentations.has(modal) && pr
 
 const dismissing = new WeakSet<Element>();
 export const modalDismissing = (modal: Element) => dismissing.has(modal);
-const states = new WeakMap<Document, { top?: HTMLIonModalElement; moving?: HTMLIonModalElement }>();
+interface ModalState {
+  top?: HTMLIonModalElement;
+  moving?: HTMLIonModalElement;
+  stack: HTMLIonModalElement[];
+}
+const states = new WeakMap<Document, ModalState>();
+export const modalStack = (doc: Document): readonly HTMLIonModalElement[] => states.get(doc)?.stack ?? [];
 export const movingModal = (doc: Document) => states.get(doc)?.moving;
 export const modalMotionEvent = 'nativeUIModalMotion';
 
@@ -68,7 +74,7 @@ export const releaseSheetBackdropGesture = (modal: HTMLElement, role?: string): 
 
 export const observeVerticalBarsModals = (doc: Document, animate: () => boolean = () => false): (() => void) => {
   const win = doc.defaultView!;
-  const state: { top?: HTMLIonModalElement; moving?: HTMLIonModalElement } = {};
+  const state: ModalState = { stack: [] };
   states.set(doc, state);
   const presenting = new Set<HTMLIonModalElement>();
   const dismissed = new WeakSet<HTMLIonModalElement>();
@@ -89,7 +95,8 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
       (modal) => !dismissed.has(modal) && ((modal as HTMLIonModalElement & { presented?: boolean }).presented || presenting.has(modal)),
     );
     for (const modal of presenting) if (!modal.isConnected) presenting.delete(modal);
-    const top = active.sort((a, b) => a.overlayIndex - b.overlayIndex).slice(-1)[0];
+    state.stack = active.sort((a, b) => a.overlayIndex - b.overlayIndex);
+    const top = state.stack[state.stack.length - 1];
     let changed = state.top !== top;
     state.top = top;
     if (top && modalPreparing(top)) {

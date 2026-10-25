@@ -4449,7 +4449,7 @@ for (const [route, tag, trigger, keep] of [
   ['alert', 'ion-alert', 'present:button-only', false],
   ['action-sheet', 'ion-action-sheet', 'present:button-only', false],
   ['progress-indicators', 'ion-loading', 'Show IconOnly', false],
-  ['popover', 'ion-popover', '#click-trigger-button', true],
+  ['popover', 'ion-popover', '#click-trigger-button', false],
   ['toast', 'ion-toast', 'present:middle', true],
 ] as const) {
   test(`Vertical Bars overlay policy: ${tag}`, async ({ page }) => {
@@ -4621,6 +4621,8 @@ test('Vertical Bars picker keeps input but cannot override a Web alert', async (
   await page.evaluate(() => {
     const picker = document.createElement('ion-picker');
     picker.id = 'legacy-picker';
+    // This route is explicitly nonblocking; a backdrop-owning picker retires the rail.
+    Object.assign(picker, { showBackdrop: false });
     document.querySelector('ion-app')!.append(picker);
     picker.dispatchEvent(new CustomEvent('ionPickerWillPresent', { bubbles: true }));
   });

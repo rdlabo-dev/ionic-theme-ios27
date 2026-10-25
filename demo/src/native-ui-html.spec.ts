@@ -903,3 +903,131 @@ test.each([0, 0.25, 0.5])('sheet breakpoint %s keeps dismissal on the acknowledg
     expect(latest!.controls).toHaveLength(1);
   }
 });
+
+test.each([2, 3])('%s modal surfaces keep independent images through nesting, dragging and dismissal', async (depth) => {
+  const { observeVerticalBarsModals, movingModal } = await import('../../packages/capacitor-native-ui/src/native/shared/modal');
+  const { source, options } = mount(
+    '<ion-app class="ios-theme-vertical-bars"><ion-modal><button data-native-ui="button" data-native-ui-placement="rail">Save</button></ion-modal></ion-app>',
+  );
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const decode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+  onTestFinished(() => {
+    if (decode) Object.defineProperty(HTMLImageElement.prototype, 'decode', decode);
+    else delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+  });
+  const configure = (modal: HTMLIonModalElement, index: number) => {
+    Object.assign(modal, { overlayIndex: index, presented: true, breakpoints: [0, 0.5, 0.8] });
+    Object.assign(modal.style, { visibility: 'visible', opacity: '1', transform: 'none', overflow: 'visible' });
+    modal.getBoundingClientRect = () => DOMRect.fromRect({ width: innerWidth, height: innerHeight });
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('part', 'content');
+    modal.attachShadow({ mode: 'open' }).append(wrapper);
+    let y = 100;
+    wrapper.getBoundingClientRect = () => DOMRect.fromRect({ y, width: innerWidth, height: innerHeight - y });
+    wrapper.getAnimations = () => [];
+    modal.getAnimations = () => [];
+    Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
+    Object.defineProperty(wrapper, 'offsetLeft', { value: 0 });
+    return {
+      modal,
+      move: () => {
+        y += 60;
+      },
+    };
+  };
+  const first = configure(source.closest('ion-modal')!, 1);
+  const surfaces = [{ ...first, source }];
+  const stopModals = observeVerticalBarsModals(document);
+  const listeners = new Set<symbol>();
+  let captures = 0;
+  const capture = vi.fn(async (args: { action: string; ids?: string[] }) =>
+    args.action === 'prepare'
+      ? {
+          token: `surface-image-${++captures}`,
+          parts: args.ids!.map((id) => ({ ids: [id], url: 'file:///image.png', x: 10, y: 10, width: 80, height: 44 })),
+        }
+      : { shown: true },
+  );
+  const plugin = {
+    coveredSnapshot: capture,
+    addListener: async (name: string) => {
+      const id = Symbol();
+      if (name === 'snapshotInteraction') listeners.add(id);
+      return {
+        remove: async () => {
+          listeners.delete(id);
+        },
+      };
+    },
+    update: async (snapshot: NativeUISnapshot) => {
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, { ...options, source: 'auto', coveredSnapshots: true });
+  handles.push(runtime);
+  try {
+    first.modal.dispatchEvent(new Event('ionModalDidPresent', { bubbles: true }));
+    await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot')).toBe(true));
+    for (let index = 2; index <= depth; index++) {
+      const child = document.createElement('ion-modal');
+      const button = document.createElement('button');
+      button.setAttribute('data-native-ui', 'button');
+      button.setAttribute('data-native-ui-placement', 'rail');
+      button.textContent = `Save ${index}`;
+      button.style.cssText = source.style.cssText;
+      button.getBoundingClientRect = source.getBoundingClientRect;
+      child.append(button);
+      document.querySelector('ion-app')!.append(child);
+      const next = { ...configure(child, index), source: button };
+      child.dispatchEvent(new Event('ionModalWillPresent', { bubbles: true }));
+      for (const previous of surfaces) expect(previous.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+      child.dispatchEvent(new Event('ionModalDidPresent', { bubbles: true }));
+      surfaces.push(next);
+      await vi.waitFor(() => expect(button.hasAttribute('data-native-ui-snapshot')).toBe(true));
+    }
+    // Moving the top surface does not replace the covered surfaces' images.
+    const top = surfaces[surfaces.length - 1];
+    top.modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    top.move();
+    await vi.waitFor(() => expect(movingModal(document)).toBe(top.modal));
+    await vi.waitFor(() => expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true));
+    for (const covered of surfaces.slice(0, -1)) expect(covered.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+    top.modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    await vi.waitFor(() => expect(top.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
+    while (surfaces.length > 1) {
+      const departing = surfaces.pop()!;
+      departing.modal.dispatchEvent(new Event('ionModalWillDismiss', { bubbles: true }));
+      Object.assign(departing.modal, { presented: false });
+      departing.modal.dispatchEvent(new Event('ionModalDidDismiss', { bubbles: true }));
+      departing.modal.remove();
+      const exposed = surfaces[surfaces.length - 1].source;
+      await vi.waitFor(() => expect(exposed.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
+      expect(exposed.hasAttribute('data-native-ui-projected')).toBe(true);
+      for (const covered of surfaces.slice(0, -1)) expect(covered.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+      expect(listeners.size).toBe(surfaces.length + 1);
+    }
+    // Removal without a dismissal event must not leak a surface or listener.
+    first.modal.remove();
+    runtime.markForCheck();
+    await vi.waitFor(() => expect(listeners.size).toBe(1));
+    expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+    await runtime.destroy();
+    expect(listeners.size).toBe(0);
+  } finally {
+    stopModals();
+  }
+});

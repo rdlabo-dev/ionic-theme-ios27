@@ -30,8 +30,9 @@ export const createCrossfade = (win: Window) => {
       const current = Number(win.getComputedStyle(element).opacity);
       previous?.cancel();
       active.delete(element);
-      const opacity = Number(win.getComputedStyle(element).opacity);
+      // Measure the Web appearance after lifting ownership concealment.
       element.setAttribute(fadeMarker, '');
+      const opacity = Number(win.getComputedStyle(element).opacity);
       const animation = element.animate([{ opacity: previous ? current : toNative ? opacity : 0 }, { opacity: toNative ? 0 : opacity }], {
         duration: handoffDuration,
         easing: 'ease-in-out',

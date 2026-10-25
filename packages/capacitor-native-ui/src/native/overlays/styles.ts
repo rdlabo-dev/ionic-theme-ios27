@@ -88,7 +88,7 @@ export const relayStyles = (
     const local = (record: MutationRecord) => {
       const target = record.target instanceof Element ? record.target : record.target.parentElement;
       if (target?.closest('style[data-overlay-relay-local]')) return true;
-      const nodes = [...record.addedNodes, ...record.removedNodes];
+      const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
       return record.type === 'childList' && nodes.length > 0 && nodes.every(localStyle);
     };
     if (records.every(local)) return;
