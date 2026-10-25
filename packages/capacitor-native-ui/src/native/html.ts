@@ -1,3 +1,4 @@
+import { snapshotOwns, snapshotMutation, coveredSourcesChanged } from './shared/covered-source';
 import { fitsClip } from './shared/clipping';
 import type { NativeUIRuntimeOptions, NativeUIRuntimeHandle } from './definitions';
 import { appendItem, createCandidate, type Candidate, type Identify } from './shared/candidate';
@@ -91,7 +92,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
       for (const source of sources) {
         // An accepted native surface owns its source and descendants. Rejected sources
         // lose the marker and can return to the Web rail on the next render.
-        if (!htmlRailSource(source) || host.contains(source) || source.closest(`[${marker}]`)) continue;
+        if (!htmlRailSource(source) || host.contains(source) || source.closest(`[${marker}]`) || snapshotOwns(source)) continue;
         const iconRoot = source.querySelector('ion-icon')?.shadowRoot;
         if (iconRoot) observer.observe(iconRoot, { subtree: true, childList: true, attributes: true, characterData: true });
         const candidate = measure(source, () => readHTMLControl(source, () => 'web', options));
@@ -119,7 +120,8 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
               !htmlRailSource(source) ||
               !host.isConnected ||
               current.control.items[0].disabled ||
-              source.closest(`[${marker}]`)
+              source.closest(`[${marker}]`) ||
+              snapshotOwns(source)
             )
               return;
             source.click(); // Source owns submission, custom handlers and back navigation.
@@ -164,9 +166,12 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
   const schedule = () => {
     if (!stopped && !frame) frame = win.requestAnimationFrame(render);
   };
-  const observer = new MutationObserver(schedule);
+  const observer = new MutationObserver((records) => {
+    if (records.some((record) => !snapshotMutation(record))) schedule();
+  });
   win.addEventListener('resize', schedule);
   win.addEventListener('nativeUIRefresh', schedule);
+  win.addEventListener(coveredSourcesChanged, schedule);
   render();
   return {
     markForCheck: schedule,
@@ -192,6 +197,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
       win.cancelAnimationFrame(frame);
       win.removeEventListener('resize', schedule);
       win.removeEventListener('nativeUIRefresh', schedule);
+      win.removeEventListener(coveredSourcesChanged, schedule);
       for (const source of owned.keys()) restore(source);
       style.remove();
     },

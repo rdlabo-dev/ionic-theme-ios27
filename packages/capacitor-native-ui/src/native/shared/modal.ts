@@ -9,7 +9,9 @@ export const modalPreparing = (modal: Element) => presentations.has(modal) && pr
 
 const dismissing = new WeakSet<Element>();
 export const modalDismissing = (modal: Element) => dismissing.has(modal);
-const states = new WeakMap<Document, { top?: HTMLIonModalElement }>();
+const states = new WeakMap<Document, { top?: HTMLIonModalElement; moving?: HTMLIonModalElement }>();
+export const movingModal = (doc: Document) => states.get(doc)?.moving;
+export const modalMotionEvent = 'nativeUIModalMotion';
 
 export const topModal = (doc: Document): HTMLIonModalElement | undefined => states.get(doc)?.top;
 export const modalUsesVerticalBars = (element: Element): boolean => {
@@ -66,7 +68,7 @@ export const releaseSheetBackdropGesture = (modal: HTMLElement, role?: string): 
 
 export const observeVerticalBarsModals = (doc: Document, animate: () => boolean = () => false): (() => void) => {
   const win = doc.defaultView!;
-  const state: { top?: HTMLIonModalElement } = {};
+  const state: { top?: HTMLIonModalElement; moving?: HTMLIonModalElement } = {};
   states.set(doc, state);
   const presenting = new Set<HTMLIonModalElement>();
   const dismissed = new WeakSet<HTMLIonModalElement>();
@@ -100,8 +102,25 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
       }
     }
     const nextBounds = top && !modalPreparing(top) ? JSON.stringify(modalVerticalBarFrame(top)) : '';
+    const moved = bounds !== '' && nextBounds !== '' && bounds !== nextBounds;
     changed ||= bounds !== nextBounds;
     bounds = nextBounds;
+    const wrapper = top?.shadowRoot?.querySelector<HTMLElement>('[part~="content"]');
+    const animating = wrapper?.getAnimations().some((animation) => animation.playState === 'running') ?? false;
+    const moving =
+      top &&
+      app &&
+      !modalPreparing(top) &&
+      !modalDismissing(top) &&
+      (state.moving === top ? pointerActive || animating : moved && (pointerActive || animating))
+        ? top
+        : undefined;
+    if (state.moving !== moving) {
+      const previous = state.moving;
+      state.moving = moving;
+      win.dispatchEvent(new CustomEvent(modalMotionEvent, { detail: { modal: moving ?? previous, moving: !!moving } }));
+      changed = true;
+    }
     const wanted = new Set<Element>();
     for (const modal of modals) {
       const content = modal.shadowRoot?.querySelector<HTMLElement>('[part~="content"]');
@@ -133,7 +152,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
         observed.add(element);
       }
     }
-    if (changed) win.dispatchEvent(new Event('nativeUIRefresh'));
+    if (changed) win.dispatchEvent(new CustomEvent('nativeUIRefresh', { detail: { modalMotion: !!state.moving } }));
     if (
       top &&
       (modalPreparing(top) ||

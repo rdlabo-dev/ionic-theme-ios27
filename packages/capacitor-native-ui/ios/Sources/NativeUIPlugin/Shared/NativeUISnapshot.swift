@@ -53,6 +53,7 @@ struct NativeUIModalAnimation: Decodable {
 
 struct NativeUISnapshot: Decodable {
     let revision: Int
+    var coveredSnapshotToken: String? = nil
     let transitionDuration: Double?
     let toolbarTransition: NativeUIToolbarTransitionSnapshot?
     let viewportWidth: Double

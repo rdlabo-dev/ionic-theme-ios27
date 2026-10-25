@@ -43,3 +43,28 @@ Use the same class for your application's dark palette. This example assumes nei
 Ordinary controls resolve appearance from their own source styles. Vertical Bars shares one native rail appearance: **if any projected control is dark, the whole rail uses dark appearance**. It does not render separate light and dark rail regions. Keep sources projected into the same rail on a consistent Web palette.
 
 Native light/dark appearance selects the system material and control appearance; it does not reproduce arbitrary application CSS. Vertical button fill and tint remain governed by the separate [button appearance settings](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/vertical-bars#choose-button-appearance).
+
+## Temporary images beneath Web overlays
+
+When a blocking Web overlay requires native controls to leave the foreground, the runtime can display a prepared image on each original Web component or its Vertical Bars clone. This is a visual handoff, not another interactive control. Ionic keeps ownership of the overlay lifecycle, backdrop, focus and dismissal.
+
+The handoff follows these rules:
+
+1. Prepare images after an accepted native update and coalesce subsequent visual changes. Do not capture during a touch. Keep the last completed image while a replacement is being prepared. Web clones receive the prepared state before insertion or layout, and stay hidden as an entire composited layer until handoff so their appearance cannot bleed into live native glass.
+2. At presentation, reuse the prepared image without waiting for capture, encoding, decoding or a bridge response. Never delay the application's click or replay it to complete the handoff.
+3. Put the image on the source surface below the Web backdrop. When an overlay animates its `presentingElement`, attach the prepared image-only layer inside that element so the images inherit the same transform, filter and clip as its background. Do not move the actual Ionic controls. Convert coordinates once before the animation; no per-frame position or color synchronization is needed. A shared native rail requires images for all of its retiring controls.
+4. While a sheet moves, let its Web surface carry the image. Do not send a native position update for every animation frame.
+5. On return, recreate native controls at the current position and remove the image after the corresponding native update is accepted. Only an update started after restoration was requested and accepting every captured control may acknowledge the return. Install Native ownership before removing the images, without a Web-to-Native crossfade. An older or partial response must not retire a newer handoff. Retire only the temporary return copy; keep an image whose return coordinates are unchanged available for immediate reopening until its replacement is ready. Images whose return coordinates changed are prepared again at the settled position. A Modal image may only return to the Modal that supplied it.
+6. Discard images after incompatible viewport, layout or appearance changes of their own sources. Changes to another surface do not invalidate a completed image. Missing images and bridge failures must release ownership to the existing Web presentation rather than block input or leave a stale image indefinitely.
+
+Background controls and controls on a moving Modal use the same image lifecycle. They keep separate image ownership because they can be visible simultaneously on different coordinate surfaces. The Modal supplies its moved return coordinates; component adapters supply native bounds and the Web rendering target. Neither defines its own capture, handoff, acknowledgement or failure policy. JavaScript updates the ownership attributes; permanent runtime CSS controls concealment and image visibility. Per-image styles contain only geometry and image URLs, so releasing an image never releases Native ownership of a Web clone.
+
+| Situation                                                                            | Route                                                          |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Native popover retaining its native source controls                                  | Keep the native controls; do not freeze them.                  |
+| Blocking Web Modal (including card), popover, alert, action sheet, loading or picker | Use prepared background images when available.                 |
+| Sheet leaving the background interactive, or an overlay without a backdrop           | Keep the existing live presentation.                           |
+| Menu transforming content                                                            | Keep the existing route; do not apply fixed background images. |
+| Toast                                                                                | Keep the existing live route.                                  |
+
+Image availability is not permission to change the control's disabled state, dispatch an action, bypass focus trapping or prolong an overlay. App-local extensions use the same pre-overlay image rule; their image freezes the last prepared content while the overlay prevents interaction. Capture fidelity must be checked against the displayed native material, including blur, before a component is enabled for image handoff.

@@ -236,13 +236,16 @@ export const activateProjectedElement = (element: HTMLElement): void => {
 export const unprojected = <T>(elements: Iterable<HTMLElement>, read: () => T): T => {
   const list = Array.from(elements);
   const hidden = list.filter((element) => element.hasAttribute(marker));
+  const snapshotHidden = list.filter((element) => element.hasAttribute('data-native-ui-snapshot-source'));
   const webHidden = list.filter((element) => element.hasAttribute('data-native-ui-web-source'));
   hidden.forEach((element) => element.removeAttribute(marker));
+  snapshotHidden.forEach((element) => element.removeAttribute('data-native-ui-snapshot-source'));
   webHidden.forEach((element) => element.removeAttribute('data-native-ui-web-source'));
   try {
     return read();
   } finally {
     hidden.forEach((element) => element.setAttribute(marker, ''));
+    snapshotHidden.forEach((element) => element.setAttribute('data-native-ui-snapshot-source', ''));
     webHidden.forEach((element) => element.setAttribute('data-native-ui-web-source', ''));
   }
 };

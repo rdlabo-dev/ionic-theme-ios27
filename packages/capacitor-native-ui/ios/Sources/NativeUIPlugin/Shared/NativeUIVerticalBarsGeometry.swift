@@ -49,4 +49,44 @@ enum NativeUIVerticalBarsGeometry {
         visit(root, depth: 0)
         return result
     }
+    /// When AX is lazy, bind the visible UIKit controls by the same start/end
+    /// ordering used by our toolbar. A count mismatch declines the measurement.
+    static func componentFrames(in root: UIView, relativeTo webView: UIView, controls: [NativeUIControl]) -> [String: CGRect] {
+        guard controls.allSatisfy({ [.button, .buttons, .backButton, .menuButton, .tabBar].contains($0.kind) }),
+              controls.allSatisfy({ $0.search == nil }) else { return [:] }
+        let ordered = controls.filter { $0.kind != .tabBar && ($0.toolbarSlot == .start || $0.kind == .backButton) }
+            + controls.filter { $0.kind != .tabBar && $0.toolbarSlot != .start && $0.kind != .backButton }
+            + controls.filter { $0.kind == .tabBar }
+        var frames: [CGRect] = []
+        func visit(_ view: UIView) {
+            guard !view.isHidden, view.alpha > 0.05 else { return }
+            if view is UIControl {
+                var surface = view
+                var ancestor = view.superview
+                while let current = ancestor, current !== root, current.bounds.width < 100, current.bounds.height < 100 {
+                    if current.bounds.width >= surface.bounds.width, current.bounds.height >= surface.bounds.height,
+                       abs(current.bounds.width - current.bounds.height) < 1 { surface = current }
+                    ancestor = current.superview
+                }
+                let frame = surface.convert(surface.bounds, to: webView)
+                if frame.width > 0, frame.height > 0, frame.width < 100, frame.height < 100,
+                   webView.bounds.contains(frame), !frames.contains(frame) { frames.append(frame) }
+                return
+            }
+            view.subviews.forEach(visit)
+        }
+        visit(root)
+        guard frames.count == ordered.reduce(0, { $0 + $1.items.count }) else { return [:] }
+        frames.sort { $0.midY < $1.midY }
+        guard let first = frames.first, frames.allSatisfy({ abs($0.midX - first.midX) < 2 }),
+              zip(frames, frames.dropFirst()).allSatisfy({ $0.midY < $1.midY }) else { return [:] }
+        var result: [String: CGRect] = [:]
+        var offset = 0
+        for control in ordered {
+            result[control.id] = frames[offset..<(offset + control.items.count)].reduce(CGRect.null) { $0.union($1) }
+            offset += control.items.count
+        }
+        return result
+    }
+
 }

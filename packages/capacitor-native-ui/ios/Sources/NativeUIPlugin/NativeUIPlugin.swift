@@ -9,6 +9,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     public let jsName = "NativeUI"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "completeExtensionAction", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "coveredSnapshot", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "configure", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getWebViewMetrics", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getVerticalBarsGeometry", returnType: CAPPluginReturnPromise),
@@ -22,6 +23,8 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
         CAPPluginMethod(name: "closeOverlay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stopOverlays", returnType: CAPPluginReturnPromise)
     ]
+    private let coveredSnapshots = NativeUICoveredSnapshots()
+    private var snapshotControls: [NativeUIControl] = []
     private var overlays: NativeUIOverlayController?
     private var toolbarTransition: NativeUIToolbarTransition?
     private var host: NativeUIHost?
@@ -70,6 +73,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     }
                 }
                 if !keyboard {
+                    self.resetCoveredSnapshots()
                     self.host?.isHidden = true
                     self.verticalBars?.view.isHidden = true
                     self.extensionControllers.values.forEach { $0.view.isHidden = true }
@@ -147,7 +151,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             var state: JSObject = [
                 "session": self.connectionSession, "revision": self.revision, "sequence": self.sequence,
                 "surfaces": ["horizontal": self.host?.window != nil, "vertical": self.verticalBars?.view.window != nil],
-                "listeners": ["activate", "search", "overlay", "webViewMetricsChange"].filter { self.hasListeners($0) }
+                "listeners": ["activate", "search", "overlay", "webViewMetricsChange", "snapshotInteraction"].filter { self.hasListeners($0) }
             ]
             if let overlay = self.overlays?.connectionState { state["overlay"] = overlay.mapValues { $0 as JSValue } }
             call.resolve(state)
@@ -222,6 +226,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 // A new JS context starts revision numbering again (live reload / navigation).
                 self.restoreTopEdge?()
                 self.restoreTopEdge = nil
+                self.resetCoveredSnapshots()
                 self.removeControls()
                 self.revision = 0
                 self.connectionSession = UUID().uuidString
@@ -234,7 +239,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                         effect.isHidden = true
                         self.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
                     }
-                    call.resolve(["supported": true, "extensions": NativeUI.names, "modalAnimation": true, "connectionState": true])
+                    call.resolve(["supported": true, "extensions": NativeUI.names, "modalAnimation": true, "connectionState": true, "coveredSnapshots": true])
                 }
                 else { call.resolve(["supported": false]) }
             }
@@ -246,6 +251,99 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     configure()
                 }
             } else { configure() }
+        }
+    }
+
+    private func resetCoveredSnapshots() {
+        coveredSnapshots.reset()
+    }
+
+    @objc func coveredSnapshot(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let webView = self.bridge?.webView else { call.resolve([:]); return }
+            switch call.getString("action") {
+            case "prepare":
+                guard call.getInt("revision") == self.revision, let width = call.getDouble("viewportWidth"), width > 0,
+                      let ids = call.getArray("ids", String.self), !ids.isEmpty, let window = webView.window,
+                      !self.keyboardVisible, self.toolbarTransition == nil else { call.resolve([:]); return }
+                self.coveredSnapshots.observe(window) { [weak self] active in
+                    self?.notifyListeners("snapshotInteraction", data: ["active": active])
+                }
+                let nodes = self.snapshotControls.filter { ids.contains($0.id) }
+                guard nodes.count == ids.count else { call.resolve([:]); return }
+                let measure = { [weak self, weak webView] () -> [String: CGRect] in
+                    guard let self, let webView else { return [:] }
+                    let itemIDs = Set(nodes.flatMap { $0.items.map(\.id) } + nodes.filter { $0.extensionContent?.tabBarId != nil }.map(\.id) + ["BackButton", "__tabBar"])
+                    var measured = self.verticalBars.map { NativeUIVerticalBarsGeometry.measure(in: $0.view, relativeTo: webView, ids: itemIDs) } ?? [:]
+                    self.verticalBars?.measuredFrames(relativeTo: webView).forEach { measured[$0.key] = $0.value.frame }
+                    var frames: [String: CGRect] = [:]
+                    for node in nodes {
+                        if node.extensionContent?.tabBarId != nil {
+                            frames[node.id] = measured[node.id]
+                        } else if node.placement == .verticalBars {
+                            if node.kind == .tabBar { frames[node.id] = measured["__tabBar"] }
+                            else {
+                                let rects = node.items.compactMap { measured[node.kind == .backButton ? "BackButton" : $0.id] }
+                                if rects.count == node.items.count { frames[node.id] = rects.reduce(CGRect.null) { $0.union($1) } }
+                            }
+                        } else if let view = self.controls[node.id], !view.isHidden, view.window != nil {
+                            let surfaces: [UIView]
+                            if let fab = view as? NativeUIFab { surfaces = fab.buttons.values.filter { !$0.isHidden } }
+                            else { surfaces = [view] }
+                            if !surfaces.isEmpty {
+                                frames[node.id] = surfaces.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: webView)) }
+                            }
+                        }
+                    }
+                    if frames.count != ids.count, let rail = self.verticalBars {
+                        let railNodes = self.snapshotControls.filter { $0.placement == .verticalBars }
+                        let components = NativeUIVerticalBarsGeometry.componentFrames(in: rail.view, relativeTo: webView, controls: railNodes)
+                        for node in nodes where frames[node.id] == nil { frames[node.id] = components[node.id] }
+                    }
+                    return frames.count == ids.count ? frames : [:]
+                }
+                self.coveredSnapshots.prepare(frames: measure, in: webView, viewportWidth: width) { call.resolve($0) }
+            case "cover":
+                guard let token = call.getString("token") else { call.resolve(["shown": false]); return }
+                let ids = self.coveredSnapshots.identifiers(for: token)
+                let railIDs = Set(self.snapshotControls.filter { $0.placement == .verticalBars }.map(\.id))
+                // A shared rail can only retire when every one of its controls has a prepared image.
+                guard !ids.isEmpty, Set(self.snapshotControls.map(\.id)).isSuperset(of: ids),
+                      ids.isDisjoint(with: railIDs) || ids.isSuperset(of: railIDs),
+                      (call.getBool("transient") == true || self.coveredSnapshots.cover(token, in: webView)),
+                      self.coveredSnapshots.restore(in: webView, token: token, entry: true) else {
+                    call.resolve(["shown": false]); return
+                }
+                var views = Array(self.controls.filter { ids.contains($0.key) }.values)
+                if !railIDs.isEmpty, ids.isSuperset(of: railIDs), let rail = self.verticalBars { views.append(rail.view) }
+                self.coveredSnapshots.hide(views, for: token)
+                call.resolve(["shown": true])
+            case "painted":
+                if let token = call.getString("token") { self.coveredSnapshots.retireCopy(token) }
+                call.resolve()
+            case "restore":
+                guard let token = call.getString("token"), let width = call.getDouble("viewportWidth"), width.isFinite, width > 0,
+                      let parts = call.getArray("parts", JSObject.self), !parts.isEmpty else { call.resolve(["shown": false]); return }
+                let scale = webView.bounds.width / width
+                var frames: [String: CGRect] = [:]
+                for part in parts {
+                    guard let ids = part["ids"] as? [String], let x = part["x"] as? Double, let y = part["y"] as? Double,
+                          let w = part["width"] as? Double, let h = part["height"] as? Double,
+                          [x, y, w, h].allSatisfy({ $0.isFinite }), w > 0, h > 0 else { call.resolve(["shown": false]); return }
+                    for id in ids { frames[id] = CGRect(x: x * scale, y: y * scale, width: w * scale, height: h * scale) }
+                }
+                call.resolve(["shown": self.coveredSnapshots.restore(in: webView, token: token, frames: frames)])
+            case "restored":
+                if let token = call.getString("token") { self.coveredSnapshots.retireCopy(token, entry: false) }
+                call.resolve()
+            case "release":
+                if let token = call.getString("token") { self.coveredSnapshots.release(token) }
+                call.resolve()
+            case "reset":
+                self.resetCoveredSnapshots()
+                call.resolve()
+            default: call.resolve([:])
+            }
         }
     }
 
@@ -309,6 +407,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 self.revision = next
                 self.restoreTopEdge?()
                 self.restoreTopEdge = nil
+                self.resetCoveredSnapshots()
                 self.removeControls()
             }
             call.resolve()
@@ -330,6 +429,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     }
 
     private func removeControls(duration: TimeInterval = 0) {
+        snapshotControls = []
         toolbarTransition?.restore()
         toolbarTransition = nil
         extensionActions.cancel()
@@ -396,6 +496,16 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             // Decode and validate the entire batch before changing visible controls.
             guard let snapshot = try? call.decode(NativeUISnapshot.self), snapshot.isValid else {
                 call.reject("Invalid control snapshot"); return
+            }
+            self.coveredSnapshots.restoreControls()
+            if let token = snapshot.coveredSnapshotToken {
+                self.coveredSnapshots.cover(token, in: webView)
+            }
+            else if self.coveredSnapshots.covering { _ = self.coveredSnapshots.restore(in: webView) }
+            defer {
+                if snapshot.coveredSnapshotToken == nil {
+                    self.coveredSnapshots.finishCovering()
+                }
             }
             if self.toolbarTransition?.id != snapshot.toolbarTransition?.id {
                 self.toolbarTransition?.restore()
@@ -476,12 +586,12 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     continue
                 }
                 self.extensionNodes[node.id] = node
-                accessoryContent = content
+                accessoryContent = AnyView(content.background(NativeUICoveredSnapshotAnchor(id: node.id)))
             }
             // Publish toolbar, tabs and accessory together so the hosting tree receives
             // one animation transaction. The shell owns only the initial crossfade.
             self.verticalBars?.apply(verticalBars, rendering: self.rendering, edge: snapshot.verticalBarEdge ?? "right",
-                                     animated: !enteringVerticalBars && snapshot.modalAnimation == nil, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
+                                     animated: !enteringVerticalBars && snapshot.modalAnimation == nil && !self.coveredSnapshots.covering, accessory: accessoryContent, navigation: snapshot.verticalBarNavigation ?? [], navigationPhase: snapshot.verticalBarNavigationPhase)
             self.verticalBars?.view.isUserInteractionEnabled = snapshot.modalAnimation == nil
             if let layer = self.verticalBars?.view.layer {
                 if let motion = snapshot.modalAnimation {
@@ -512,6 +622,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
             if snapshots.isEmpty && (snapshot.toolbarTransition?.destination.isEmpty ?? true) {
                 self.host?.removeFromSuperview()
                 self.host = nil
+                self.snapshotControls = snapshot.controls.filter { !rejectedControls.contains($0.id) }
                 call.resolve(["revision": next, "rejectedControls": rejectedControls])
                 return
             }
@@ -673,6 +784,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                         scale: scale, origin: origin, rendering: self.rendering)
                 } else if let transition = self.toolbarTransition { transition.setProgress(transition.progress) }
             }
+            self.snapshotControls = snapshot.controls.filter { !rejectedControls.contains($0.id) }
             let complete = {
                 var result: [String: Any] = ["revision": next, "rejectedSearches": rejectedSearches, "rejectedControls": rejectedControls, "tabBarWidths": tabBarWidths]
                 if let transition = self.toolbarTransition { result["toolbarTransition"] = transition.id }

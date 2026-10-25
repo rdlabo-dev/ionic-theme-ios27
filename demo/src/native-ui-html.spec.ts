@@ -1,4 +1,5 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { owners, coveredSourcesChanged } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+import { afterEach, expect, test, vi, onTestFinished } from 'vitest';
 import { createHTMLWebProjection, readHTMLControl } from '../../packages/capacitor-native-ui/src/native/html';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';
 import type {
@@ -521,4 +522,188 @@ test('toolbar correspondence crosses source replacement while stale actions stay
   next.setAttribute('data-transition-id', 'edit');
   await vi.waitFor(() => expect(snapshots.at(-1)!.controls[0].items[0].transitionId).not.toBe(incoming.transitionId));
   expect(snapshots.at(-1)!.controls[0].items[0].id).toBe(incoming.id);
+});
+
+test('a frozen native image suppresses HTML rail proxies and stale proxy clicks until release', async () => {
+  const { source, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Save</button>');
+  const click = vi.fn();
+  source.addEventListener('click', click);
+  const handle = createHTMLWebProjection(document, options);
+  handles.push(handle);
+  const previous = options.rail!.host.querySelector<HTMLButtonElement>('button')!;
+  try {
+    owners.add(source);
+    previous.click();
+    expect(click).not.toHaveBeenCalled();
+    window.dispatchEvent(new Event(coveredSourcesChanged));
+    await vi.waitFor(() => expect(options.rail!.host.children.length).toBe(0));
+    owners.delete(source);
+    window.dispatchEvent(new Event(coveredSourcesChanged));
+    await vi.waitFor(() => expect(options.rail!.host.querySelector('button')).not.toBeNull());
+    options.rail!.host.querySelector<HTMLButtonElement>('button')!.click();
+    expect(click).toHaveBeenCalledOnce();
+  } finally {
+    owners.delete(source);
+  }
+});
+
+test('native popover retention skips image handoff; a Web fallback reuses it without replaying activation', async () => {
+  const { source, options } = mount();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const decode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+  onTestFinished(() => {
+    if (decode) Object.defineProperty(HTMLImageElement.prototype, 'decode', decode);
+    else delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+  });
+  let latest: NativeUISnapshot;
+  const updates: NativeUISnapshot[] = [];
+  const capture = vi.fn(async (args: { action: string; ids?: string[] }) =>
+    args.action === 'prepare'
+      ? {
+          token: 'ready-image',
+          parts: args.ids!.map((id) => ({ ids: [id], url: 'file:///snapshot.png', x: 0, y: 0, width: 80, height: 44 })),
+        }
+      : { shown: true },
+  );
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: NativeUISnapshot) => {
+      latest = snapshot;
+      updates.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    coveredSnapshot: capture,
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, { ...options, source: 'auto', coveredSnapshots: true });
+  handles.push(runtime);
+  // Native-owned clones must hide the whole composited layer: a child may
+  // explicitly remain visible even when its host has visibility:hidden.
+  const clone = document.createElement('ion-button');
+  clone.className = 'ion-cloned-element';
+  clone.innerHTML = '<span style="visibility:visible">Save</span>';
+  document.body.append(clone);
+  for (const marker of [
+    'data-native-ui-vertical-bars',
+    'data-native-ui-vertical-bars-member',
+    'data-native-ui-snapshot-source',
+    'data-native-ui-snapshot-prepared',
+  ]) {
+    clone.setAttribute(marker, '');
+    expect(getComputedStyle(clone).opacity).toBe('0');
+    expect(getComputedStyle(clone).contentVisibility).toBe('hidden');
+    clone.setAttribute('data-native-ui-snapshot-visible', '');
+    expect(getComputedStyle(clone).opacity).not.toBe('0');
+    expect(getComputedStyle(clone).contentVisibility).not.toBe('hidden');
+    clone.removeAttribute('data-native-ui-snapshot-visible');
+    clone.removeAttribute(marker);
+    expect(getComputedStyle(clone).opacity).not.toBe('0');
+    expect(getComputedStyle(clone).contentVisibility).not.toBe('hidden');
+  }
+  clone.remove();
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot')).toBe(true));
+  const click = vi.fn();
+  source.addEventListener('click', click);
+  const popover = document.createElement('ion-popover');
+  document.body.append(popover);
+  const content = document.createElement('div');
+  content.className = 'ion-page';
+  popover.append(content);
+  content.dispatchEvent(new CustomEvent('ionViewWillEnter', { bubbles: true }));
+  expect(source.hasAttribute('data-native-ui-snapshot')).toBe(true);
+  Object.assign(popover, { presented: true });
+  runtime.markForCheck();
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  expect(runtime.getStatus().projected).toBe(1);
+  popover.dispatchEvent(new CustomEvent('ionPopoverWillPresent', { bubbles: true }));
+  const release = runtime.retain();
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  expect(capture.mock.calls.some(([args]) => args.action === 'cover')).toBe(false);
+  release();
+  await vi.waitFor(() => expect(capture.mock.calls.some(([args]) => args.action === 'cover')).toBe(true));
+  expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+  const beforeReturn = updates.length;
+  popover.dispatchEvent(new CustomEvent('ionPopoverDidDismiss', { bubbles: true }));
+  popover.remove();
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
+  expect(updates[beforeReturn].controls).toHaveLength(1);
+  expect(updates[beforeReturn].transitionDuration).toBe(0);
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  expect(source.hasAttribute('data-native-ui-fading')).toBe(false);
+  expect(latest!.controls).toHaveLength(1);
+  expect(click).not.toHaveBeenCalled();
+});
+
+test('older Native binaries keep modal rail projection and geometry updates during dragging', async () => {
+  const { observeVerticalBarsModals, movingModal } = await import('../../packages/capacitor-native-ui/src/native/shared/modal');
+  const { source, options } = mount(
+    '<ion-app class="ios-theme-vertical-bars"><ion-modal><button data-native-ui="button" data-native-ui-placement="rail">Save</button></ion-modal></ion-app>',
+  );
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const modal = source.closest('ion-modal')!;
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('part', 'content');
+  modal.attachShadow({ mode: 'open' }).append(wrapper);
+  let y = 100;
+  wrapper.getBoundingClientRect = () => DOMRect.fromRect({ y, width: innerWidth, height: innerHeight - y });
+  wrapper.getAnimations = () => [];
+  modal.getAnimations = () => [];
+  Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
+  Object.defineProperty(wrapper, 'offsetLeft', { value: 0 });
+  const stopModals = observeVerticalBarsModals(document);
+  const snapshots: NativeUISnapshot[] = [];
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: NativeUISnapshot) => {
+      snapshots.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, { ...options, source: 'auto' });
+  handles.push(runtime);
+  try {
+    modal.dispatchEvent(new Event('ionModalDidPresent', { bubbles: true }));
+    await vi.waitFor(() => expect(snapshots.at(-1)?.controls).toHaveLength(1));
+    const controlID = snapshots.at(-1)!.controls[0].id;
+    const firstFrame = snapshots.at(-1)!.verticalBarFrame;
+    expect(firstFrame).toBeDefined();
+    modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    y = 200;
+    await vi.waitFor(() => expect(movingModal(document)).toBe(modal));
+    await vi.waitFor(() => {
+      const current = snapshots.at(-1)!;
+      expect(current.controls.map((control) => control.id)).toContain(controlID);
+      expect(current.verticalBarFrame).toBeDefined();
+      expect(current.verticalBarFrame).not.toEqual(firstFrame);
+    });
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  } finally {
+    stopModals();
+  }
 });

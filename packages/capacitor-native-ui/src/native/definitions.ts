@@ -68,6 +68,8 @@ export type VerticalControlAreaOptions = NativeUIOptions;
 export interface NativeUIRuntimeOptions extends NativeUIOptions {
   source?: 'ionic' | 'html' | 'auto' | 'extensions';
   nativeState?: { edge?: 'left' | 'right' };
+  /** @internal Negotiated native support; absent on older binaries. */
+  coveredSnapshots?: boolean;
   unavailableExtensions?: ReadonlyMap<string, string>;
   rail?: { host: HTMLElement; edge: 'left' | 'right' };
 }
@@ -226,6 +228,8 @@ export interface NativeUISearchEvent extends NativeUIActivation {
 }
 
 export interface NativeUISnapshot {
+  /** Prepared Web image currently covering the inactive root surface. */
+  coveredSnapshotToken?: string;
   revision: number;
   transitionDuration?: number;
   /** Prepared native toolbar endpoints, controlled by the page animation clock. */
@@ -268,10 +272,29 @@ export interface NativeUIConnectionState {
   overlay?: { id: string; state: 'presented' | 'dismissed' | 'missing' };
 }
 
+/** @internal Prepared native pixels, served through Capacitor's local resource handler. */
+export interface CoveredSnapshot {
+  token: string;
+  parts: (Frame & { ids: string[]; url: string })[];
+}
+
 export interface NativeUIPlugin {
-  configure(options?: {
-    suppressScrollEdgeEffect?: boolean;
-  }): Promise<{ supported: boolean; extensions?: string[]; modalAnimation?: boolean; connectionState?: boolean }>;
+  configure(options?: { suppressScrollEdgeEffect?: boolean }): Promise<{
+    supported: boolean;
+    extensions?: string[];
+    modalAnimation?: boolean;
+    connectionState?: boolean;
+    coveredSnapshots?: boolean;
+  }>;
+  coveredSnapshot?(options: {
+    action: 'prepare' | 'cover' | 'painted' | 'restore' | 'restored' | 'release' | 'reset';
+    transient?: boolean;
+    parts?: (Frame & { ids: string[] })[];
+    revision?: number;
+    viewportWidth?: number;
+    ids?: string[];
+    token?: string;
+  }): Promise<Partial<CoveredSnapshot> & { shown?: boolean }>;
   completeExtensionAction(options: { requestId: string; accepted: boolean }): Promise<void>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   getVerticalBarsGeometry(options: {
@@ -293,6 +316,7 @@ export interface NativeUIPlugin {
   }>;
   setToolbarTransitionProgress(options: { id: number; progress: number }): Promise<void>;
   clear(options: { revision: number }): Promise<void>;
+  addListener(name: 'snapshotInteraction', listener: (event: { active: boolean }) => void): Promise<PluginListenerHandle>;
   addListener(name: 'activate', listener: (event: NativeUIActivation) => void): Promise<PluginListenerHandle>;
   addListener(name: 'search', listener: (event: NativeUISearchEvent) => void): Promise<PluginListenerHandle>;
   addListener(name: 'webViewMetricsChange', listener: (event: WebViewMetrics) => void): Promise<PluginListenerHandle>;
