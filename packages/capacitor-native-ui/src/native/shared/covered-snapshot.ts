@@ -1,7 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import type { Candidate } from './candidate';
-import type { CoveredSnapshot, NativeUIPlugin } from '../definitions';
+import type { CoveredSnapshot, Frame, NativeUIPlugin } from '../definitions';
 import { bounded, boundedListener } from './bridge';
+import { projectionAncestors } from './clipping';
 
 import {
   imageMarker,
@@ -20,6 +21,7 @@ interface Prepared {
   sources: HTMLElement[];
   targets: HTMLElement[];
   vertical: boolean[];
+  frames: Frame[];
   viewport: string;
   revision: number;
   layout: string;
@@ -27,6 +29,42 @@ interface Prepared {
 
 const layout = (candidates: Candidate[]) =>
   JSON.stringify(candidates.map(({ control: c }) => [c.id, c.kind, c.placement, c.x, c.y, c.width, c.height, c.dark, c.rtl]));
+
+// Native frames are viewport pixels; absolute children use the target's local
+// padding box. Keep the conversion independent of theme dimensions.
+const coordinateSpace = (target: HTMLElement, win: Window, style = win.getComputedStyle(target)) => {
+  const rect = target.getBoundingClientRect();
+  // offsetWidth/Height round fractional CSS sizes, which would introduce drift.
+  const borderBox = (size: string, sides: string[]) => {
+    const value = parseFloat(size);
+    return style.display !== 'inline' && Number.isFinite(value)
+      ? value +
+          (style.boxSizing === 'border-box' ? 0 : sides.reduce((sum, side) => sum + (parseFloat(style.getPropertyValue(side)) || 0), 0))
+      : NaN;
+  };
+  const width = borderBox(style.width, ['padding-left', 'padding-right', 'border-left-width', 'border-right-width']);
+  const height = borderBox(style.height, ['padding-top', 'padding-bottom', 'border-top-width', 'border-bottom-width']);
+  // Inline dimensions may be auto (or an ignored specified width). Native element
+  // projection excludes transformed ancestors; use CSS zoom, not rounded offsets.
+  let zoom = 1;
+  if (!(width > 0 && height > 0)) {
+    for (const element of [target, ...projectionAncestors(target)]) {
+      const value = (element === target ? style : win.getComputedStyle(element)).getPropertyValue('zoom');
+      zoom *= (parseFloat(value) || 1) / (value.endsWith('%') ? 100 : 1);
+    }
+  }
+  const scaleX = width > 0 ? rect.width / width : zoom;
+  const scaleY = height > 0 ? rect.height / height : zoom;
+  return {
+    x: rect.x,
+    y: rect.y,
+    scaleX: scaleX || 1,
+    scaleY: scaleY || 1,
+    left: (parseFloat(style.borderLeftWidth) || 0) - target.scrollLeft,
+    top: (parseFloat(style.borderTopWidth) || 0) - target.scrollTop,
+    position: style.position,
+  };
+};
 
 /** Images are prepared after accepted native updates, never on the overlay's critical path. */
 export const createCoveredSnapshots = async (
@@ -180,6 +218,7 @@ export const createCoveredSnapshots = async (
         vertical: result.parts.map(
           (part) => selected.find((candidate) => part.ids.includes(candidate.control.id))!.control.placement === 'vertical-bars',
         ),
+        frames: [],
         viewport: size,
         revision,
         layout: layout(selected),
@@ -222,6 +261,10 @@ export const createCoveredSnapshots = async (
     if (cached?.revision !== revision || preparedVisualRevision !== visualRevision) schedule();
   };
   const changed = () => {
+    if (active) {
+      updateOffsets();
+      followBorderAnimation();
+    }
     visualRevision++;
     generation++;
     schedule();
@@ -244,6 +287,9 @@ export const createCoveredSnapshots = async (
   const detach = () => {
     presentation++;
     win.cancelAnimationFrame(paintFrame);
+    win.cancelAnimationFrame(offsetFrame);
+    offsetFrame = 0;
+    offsets.clear();
     paintFrame = 0;
     handoffPending = false;
     surfaceLayer?.remove();
@@ -299,17 +345,61 @@ export const createCoveredSnapshots = async (
     if (ending) finishRestoration();
     pendingCleanup.forEach((run) => run());
   };
+  // Preparation, display and restoration must resolve the same captured placement.
+  // An element-placement image never belongs to a previous rail proxy.
+  const targetsFor = (image: Prepared) =>
+    image.targets.map((source, index) => {
+      const projection = snapshotTargets.get(source);
+      return image.vertical[index] && (projection || source.matches('ion-button, ion-buttons, ion-back-button, ion-menu-button'))
+        ? projection?.isConnected
+          ? projection
+          : undefined
+        : source;
+    });
   const rendered = new Set<HTMLElement>();
   const preparedKeys = new Map<HTMLElement, string>();
+  const offsets = new Map<HTMLElement, { x: number; y: number; style: CSSStyleDeclaration }>();
+  let offsetFrame = 0;
+  const updateOffsets = () => {
+    for (const [target, offset] of offsets) {
+      if (!target.isConnected) continue;
+      const style = win.getComputedStyle(target);
+      const left = `${offset.x - (parseFloat(style.borderLeftWidth) || 0) + target.scrollLeft}px`;
+      const top = `${offset.y - (parseFloat(style.borderTopWidth) || 0) + target.scrollTop}px`;
+      if (offset.style.left !== left) offset.style.setProperty('left', left, 'important');
+      if (offset.style.top !== top) offset.style.setProperty('top', top, 'important');
+    }
+  };
+  const followBorderAnimation = () => {
+    if (offsetFrame || !active || surfaceLayer) return;
+    const movingBorder = [...offsets.keys()].some((target) =>
+      target
+        .getAnimations?.()
+        .some(
+          (animation) =>
+            animation.playState === 'running' &&
+            (animation.effect as KeyframeEffect | null)
+              ?.getKeyframes()
+              .some((frame) => ['borderLeftWidth', 'borderTopWidth', 'borderWidth'].some((property) => property in frame)),
+        ),
+    );
+    if (movingBorder)
+      offsetFrame = win.requestAnimationFrame(() => {
+        offsetFrame = 0;
+        updateOffsets();
+        followBorderAnimation();
+      });
+  };
   const render = () => {
     const image = active ?? cached;
     if (!image || ending) return;
+    const targets = targetsFor(image);
     if (active) {
       const next = new Set<HTMLElement>();
-      for (const source of image.targets) {
+      for (const [index, source] of image.targets.entries()) {
         const key = preparedKeys.get(source);
-        const target = snapshotTargets.get(source) ?? source;
-        if (!key || !target.isConnected) continue;
+        const target = targets[index];
+        if (!key || !target?.isConnected) continue;
         target.setAttribute(imageMarker, key);
         target.setAttribute('data-native-ui-snapshot-source', '');
         target.toggleAttribute('data-native-ui-snapshot-visible', !surfaceLayer);
@@ -321,6 +411,7 @@ export const createCoveredSnapshots = async (
       return;
     }
     preparedKeys.clear();
+    offsets.clear();
     rendered.forEach(clearTarget);
     rendered.clear();
     // Reuse the image stylesheet. Presentation states belong to the runtime's
@@ -329,52 +420,66 @@ export const createCoveredSnapshots = async (
     sheet.setAttribute(imageMarker, '');
     sheet.setAttribute('data-overlay-relay-local', '');
     const rules: string[] = [];
+    const positions: { target: HTMLElement; x: number; y: number }[] = [];
 
-    const targets = image.targets.map((source, index) => {
-      const projection = snapshotTargets.get(source);
-      return image.vertical[index] && source.matches('ion-button, ion-buttons, ion-back-button, ion-menu-button')
-        ? projection?.isConnected
-          ? projection
-          : undefined
-        : source;
-    });
     for (const target of new Set(targets)) {
       if (!target) continue;
       rendered.add(target);
       // A decoded clone stays concealed even if this cache is invalidated before
       // the projection adapter publishes its next Native/Web ownership state.
       if (target !== image.targets[targets.indexOf(target)]) target.setAttribute('data-native-ui-snapshot-prepared', '');
-      target.removeAttribute('data-native-ui-snapshot-visible');
+      target.toggleAttribute('data-native-ui-snapshot-visible', !!active && !surfaceLayer);
+      if (active) target.setAttribute('data-native-ui-snapshot-source', '');
       const indices = targets.flatMap((owner, index) => (owner === target ? [index] : []));
-      const parts = indices.map((index) => image.data.parts[index]);
-      const x = Math.min(...parts.map((part) => part.x));
-      const y = Math.min(...parts.map((part) => part.y));
-      const right = Math.max(...parts.map((part) => part.x + part.width));
-      const bottom = Math.max(...parts.map((part) => part.y + part.height));
-      const rect = target.getBoundingClientRect();
-      const targetStyle = win.getComputedStyle(target);
-      const borderLeft = parseFloat(targetStyle.borderLeftWidth) || 0;
-      const borderTop = parseFloat(targetStyle.borderTopWidth) || 0;
+      const style = win.getComputedStyle(target);
+      {
+        const space = coordinateSpace(target, win, style);
+        indices.forEach((index) => {
+          const part = image.data.parts[index];
+          image.frames[index] = {
+            x: (part.x - space.x) / space.scaleX,
+            y: (part.y - space.y) / space.scaleY,
+            width: part.width / space.scaleX,
+            height: part.height / space.scaleY,
+          };
+        });
+      }
+      const frames = indices.map((index) => image.frames[index]);
+      const x = Math.min(...frames.map((frame) => frame.x));
+      const y = Math.min(...frames.map((frame) => frame.y));
+      const right = Math.max(...frames.map((frame) => frame.x + frame.width));
+      const bottom = Math.max(...frames.map((frame) => frame.y + frame.height));
+      const left = (parseFloat(style.borderLeftWidth) || 0) - target.scrollLeft;
+      const top = (parseFloat(style.borderTopWidth) || 0) - target.scrollTop;
       const key = `${image.data.token}-${indices[0]}`;
       indices.forEach((index) => preparedKeys.set(image.targets[index], key));
       target.setAttribute(imageMarker, key);
       rules.push(
-        `[${imageMarker}="${key}"][data-native-ui-snapshot-visible] { ${targetStyle.position === 'static' ? 'position:relative!important;' : ''} }`,
+        `[${imageMarker}="${key}"][data-native-ui-snapshot-visible] { ${style.position === 'static' ? 'position:relative!important;' : ''} }`,
       );
       const backgrounds = indices.map((index) => {
-        const part = image.data.parts[index];
-        return `url(${JSON.stringify(image.images[index].src)}) ${part.x - x}px ${part.y - y}px / ${part.width}px ${part.height}px no-repeat`;
+        const frame = image.frames[index];
+        return `url(${JSON.stringify(image.images[index].src)}) ${frame.x - x}px ${frame.y - y}px / ${frame.width}px ${frame.height}px no-repeat`;
       });
       const declaration = doc.createElement('span').style;
-      declaration.cssText = `left:${x - rect.x - borderLeft}px;top:${y - rect.y - borderTop}px;width:${right - x}px;height:${bottom - y}px;background:${backgrounds.join(',')};`;
+      declaration.cssText = `left:${x - left}px;top:${y - top}px;width:${right - x}px;height:${bottom - y}px;background:${backgrounds.join(',')};`;
       for (const property of Array.from(declaration))
         declaration.setProperty(property, declaration.getPropertyValue(property), 'important');
       rules.push(`[${imageMarker}="${key}"][${imageMarker}]::before { ${declaration.cssText} }`);
+      positions.push({ target, x, y });
     }
     sheet.textContent = rules.join('\n');
     if (!sheet.isConnected) doc.head.append(sheet);
+    positions.forEach(({ target, x, y }, index) =>
+      offsets.set(target, {
+        x,
+        y,
+        style: (sheet!.sheet!.cssRules[index * 2 + 1] as CSSStyleRule).style,
+      }),
+    );
   };
-  win.addEventListener(snapshotTargetsChanged, render);
+  const targetsChanged = () => render();
+  win.addEventListener(snapshotTargetsChanged, targetsChanged);
   const begin = (presentingSurface?: HTMLElement) => {
     retireRestoration();
     if (stopped || active) return;
@@ -388,6 +493,9 @@ export const createCoveredSnapshots = async (
       [...rendered].some((target) => !target.isConnected)
     )
       return;
+    // Keep the captured border-box geometry; only rebase the CSS padding-box
+    // offset after pre-interaction state changes. No capture or viewport remeasure.
+    updateOffsets();
     // A cached image may span multiple presentations; bridge replies may not.
     const currentPresentation = ++presentation;
     const isCurrent = () => presentation === currentPresentation;
@@ -396,10 +504,12 @@ export const createCoveredSnapshots = async (
     if (presentingSurface?.isConnected) {
       // One coordinate conversion before Ionic starts its animation. The browser
       // then applies the same transform, filter and clip to page and images.
-      const rect = presentingSurface.getBoundingClientRect();
+      const space = coordinateSpace(presentingSurface, win);
       surfaceLayer = image.layer;
-      surfaceLayer.style.left = `${-rect.left - presentingSurface.clientLeft}px`;
-      surfaceLayer.style.top = `${-rect.top - presentingSurface.clientTop}px`;
+      surfaceLayer.style.left = `${-space.x / space.scaleX - space.left}px`;
+      surfaceLayer.style.top = `${-space.y / space.scaleY - space.top}px`;
+      surfaceLayer.style.transformOrigin = '0 0';
+      surfaceLayer.style.transform = `scale(${1 / space.scaleX}, ${1 / space.scaleY})`;
       presentingSurface.append(surfaceLayer);
     }
     // Reuse decoded pixels; no capture, bridge acknowledgement or animation wait.
@@ -428,6 +538,8 @@ export const createCoveredSnapshots = async (
       if (!isCurrent()) return;
       // The optional cover acknowledgement must not stall unrelated Native UI updates.
       handoffPending = false;
+      updateOffsets();
+      followBorderAnimation();
       void call({ action: 'painted', token: image.data.token }).catch(() => {
         if (isCurrent()) abandon(image, false);
       });
@@ -444,25 +556,28 @@ export const createCoveredSnapshots = async (
     if (callbacks.blocked()) return;
     if (callbacks.modal) {
       const image = active;
-      const parts = image.targets.map((source, index) => {
-        const target = snapshotTargets.get(source) ?? source;
-        const rect = target.getBoundingClientRect();
-        const pseudo = win.getComputedStyle(target, '::before');
-        const style = win.getComputedStyle(target);
-        const peers = image.data.parts.filter((_, i) => preparedKeys.get(image.targets[i]) === preparedKeys.get(source));
-        const part = image.data.parts[index];
+      const targets = targetsFor(image);
+      if (targets.some((target) => !target?.isConnected)) {
+        abandon(image, false);
+        return;
+      }
+      const parts = targets.map((target, index) => {
+        const space = coordinateSpace(target!, win);
+        const frame = image.frames[index];
         return {
-          ...part,
-          x:
-            rect.x +
-            (parseFloat(style.borderLeftWidth) || 0) +
-            (parseFloat(pseudo.left) || 0) +
-            part.x -
-            Math.min(...peers.map((p) => p.x)),
-          y: rect.y + (parseFloat(style.borderTopWidth) || 0) + (parseFloat(pseudo.top) || 0) + part.y - Math.min(...peers.map((p) => p.y)),
+          ...image.data.parts[index],
+          x: space.x + frame.x * space.scaleX,
+          y: space.y + frame.y * space.scaleY,
+          width: frame.width * space.scaleX,
+          height: frame.height * space.scaleY,
         };
       });
-      if (parts.some((part, index) => part.x !== image.data.parts[index].x || part.y !== image.data.parts[index].y)) cached = undefined;
+      if (
+        parts.some((part, index) =>
+          ['x', 'y', 'width', 'height'].some((key) => part[key as keyof Frame] !== image.data.parts[index][key as keyof Frame]),
+        )
+      )
+        cached = undefined;
       // Both requests use the same ordered bridge. Reprojection need not await this optional copy.
       void call({ action: 'restore', token: image.data.token, viewportWidth: win.innerWidth, parts }).catch(() => {});
     }
@@ -516,7 +631,7 @@ export const createCoveredSnapshots = async (
     invalidate,
     async destroy() {
       stopped = true;
-      win.removeEventListener(snapshotTargetsChanged, render);
+      win.removeEventListener(snapshotTargetsChanged, targetsChanged);
       invalidate();
       await bounded(Promise.resolve(listener?.remove())).catch(() => {});
       if (!callbacks.modal) await bounded(call({ action: 'reset' })).catch(() => {});

@@ -1031,3 +1031,40 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
     stopModals();
   }
 });
+
+test.each([false, true])('covered HTML suspension falls back without a prepared image (capability: %s)', async (capability) => {
+  const { source, options } = mount();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const capture = vi.fn(async () => ({}));
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: NativeUISnapshot) => ({ revision: snapshot.revision }),
+    clear: async () => {},
+    coveredSnapshot: capture,
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, { ...options, coveredSnapshots: capability });
+  handles.push(runtime);
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  const first = await runtime.suspend({ covered: true });
+  const second = await runtime.suspend({ covered: true });
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+  await first.resume();
+  await first.resume();
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(false);
+  await second.resume();
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+  if (!capability) expect(capture).not.toHaveBeenCalled();
+});

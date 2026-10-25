@@ -346,7 +346,7 @@ test('covered visual belongs to its source surface and does not append a foregro
   expect(document.querySelector('style[data-native-ui-snapshot]')).toBeNull();
 });
 
-test('handoff reuses prepared DOM without layout reads or waiting for the native reply', async () => {
+test('handoff reuses prepared DOM without viewport reads or waiting for the native reply', async () => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
@@ -357,7 +357,7 @@ test('handoff reuses prepared DOM without layout reads or waiting for the native
   expect(f.manager.begin()).toBeUndefined();
   expect(f.manager.handoffPending).toBe(true);
   expect(bounds).not.toHaveBeenCalled();
-  expect(styles).not.toHaveBeenCalled();
+  expect(styles).toHaveBeenCalledTimes(1); // Only the current border offset; no viewport geometry or capture.
   expect(document.querySelector('style[data-native-ui-snapshot]')).toBe(sheet);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
   await vi.advanceTimersByTimeAsync(20);
@@ -421,6 +421,8 @@ test('moving modal keeps the background cache and resumes only after its own con
   const modal = document.createElement('ion-modal');
   document.body.append(modal);
   const foreground = await fixture(modal);
+  const clone = snapshotTargets.get(foreground.button)!;
+  clone.getBoundingClientRect = () => DOMRect.fromRect({ x: 13, y: 14, width: 48, height: 48 });
   foreground.manager.consider(2, [foreground.candidate]);
   await drain();
   expect(preparedOwners.has(background.button)).toBe(true);
@@ -429,13 +431,7 @@ test('moving modal keeps the background cache and resumes only after its own con
   await drain();
   expect(foreground.bridge).toHaveBeenCalledWith({ action: 'cover', token: 'image-1', transient: true });
   expect(snapshotOwns(background.button)).toBe(true);
-  const clone = snapshotTargets.get(foreground.button)!;
   clone.getBoundingClientRect = () => DOMRect.fromRect({ x: 394, y: 339, width: 48, height: 48 });
-  const nativeStyle = window.getComputedStyle.bind(window);
-  vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
-    if (element === clone && pseudo) return { left: '-12px', top: '-12px' } as CSSStyleDeclaration;
-    return nativeStyle(element);
-  });
   foreground.bridge.mockImplementation(async (args) => (args.action === 'restore' ? new Promise(() => {}) : { shown: true }));
   foreground.manager.end();
   expect(snapshotOwns(foreground.button)).toBe(false);
@@ -682,4 +678,89 @@ test.each(['cover-false', 'cover-error', 'painted-error'])('ignores a previous p
   expect(f.manager.token).toBe('image-1');
   expect(snapshotOwns(f.button)).toBe(true);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+});
+
+test('a scaled modal restores the captured image at its current viewport size and position', async () => {
+  const modal = document.createElement('ion-modal');
+  document.body.append(modal);
+  const f = await fixture(modal);
+  const target = snapshotTargets.get(f.button)!;
+  Object.assign(target.style, { width: '127.5px', height: '63.25px', boxSizing: 'border-box', border: '3px solid black' });
+  let x = 10.25,
+    y = 20.5,
+    scale = 1.25;
+  target.getBoundingClientRect = () => DOMRect.fromRect({ x, y, width: 127.5 * scale, height: 63.25 * scale });
+  f.manager.consider(1, [f.candidate]);
+  await drain();
+  f.manager.begin();
+  await drain();
+  x = 100.25;
+  y = 200.5;
+  scale = 0.8;
+  f.manager.end();
+  expect(f.bridge).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: 'restore',
+      parts: [
+        expect.objectContaining({
+          x: expect.closeTo(100.25 + ((1 - 10.25) * 0.8) / 1.25, 8),
+          y: expect.closeTo(200.5 + ((2 - 20.5) * 0.8) / 1.25, 8),
+          width: expect.closeTo((50 * 0.8) / 1.25, 8),
+          height: expect.closeTo((40 * 0.8) / 1.25, 8),
+        }),
+      ],
+    }),
+  );
+  expect(target.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+  f.manager.updated(undefined, ['button'], 2);
+  expect(target.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+});
+
+test('a source moved from rail to element keeps its image on the source after target notifications', async () => {
+  const f = await fixture();
+  const proxy = document.createElement('button');
+  document.body.append(proxy);
+  snapshotTargets.set(f.button, proxy);
+  f.candidate.control.placement = 'vertical-bars';
+  f.manager.consider(1, [f.candidate]);
+  await drain();
+  expect(proxy.hasAttribute('data-native-ui-snapshot')).toBe(true);
+  proxy.remove();
+  f.candidate.control.placement = undefined;
+  f.manager.consider(2, [f.candidate]);
+  await drain();
+  expect(f.button.hasAttribute('data-native-ui-snapshot')).toBe(true);
+  f.manager.begin();
+  window.dispatchEvent(new Event('nativeUISnapshotTargetsChange'));
+  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+  expect(proxy.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+  f.manager.end();
+  f.manager.updated(undefined, ['button'], 3);
+  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+});
+
+test('border offset correction continues until the delayed native restore acknowledgement removes the image', async () => {
+  const f = await fixture();
+  f.button.style.border = '3px solid black';
+  f.manager.consider(1, [f.candidate]);
+  await drain();
+  f.button.getAnimations = () =>
+    [{ playState: 'running', effect: { getKeyframes: () => [{ borderLeftWidth: '3px' }] } }] as unknown as Animation[];
+  f.manager.begin();
+  await vi.advanceTimersToNextFrame();
+  f.manager.end();
+  // Native has not acknowledged yet; the image remains the visible owner.
+  f.button.style.borderWidth = '7px';
+  await vi.advanceTimersToNextFrame();
+  const rule = (document.querySelector<HTMLStyleElement>('style[data-native-ui-snapshot]')!.sheet!.cssRules[1] as CSSStyleRule).style;
+  expect(rule.left).toBe('-6px');
+  f.button.style.borderWidth = '5px';
+  f.manager.changed();
+  expect(rule.left).toBe('-4px');
+  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+  f.manager.updated(undefined, ['button'], 2);
+  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+  const styles = vi.spyOn(window, 'getComputedStyle');
+  await vi.advanceTimersToNextFrame();
+  expect(styles).not.toHaveBeenCalled();
 });

@@ -410,6 +410,8 @@ try {
 }
 ```
 
+For a non-interactive background covered by a custom overlay, use `shell.suspend({ covered: true })` to reuse prepared native images. This works with HTML sources without Ionic or theme CSS. Images retain the native capture's dimensions and their offset from the source DOM; they do not resize the application's controls. The browser applies subsequent translation and scaling together with the source. Resume after the overlay closes to restore live Native UI. No image is captured on the presentation path; missing images or unsupported native binaries retain the existing Web fallback. Use plain `suspend()` whenever the Web controls must remain interactive, including navigation. A plain suspension takes precedence over a nested covered suspension.
+
 Suspensions are nestable and `resume()` is idempotent. Native projection resumes only after every active suspension has been released, using the current DOM rather than a stale snapshot.
 
 The native material and control appearance follow the running iOS version; an iOS 26 device does not acquire iOS 27's appearance merely by installing this theme.
@@ -438,7 +440,7 @@ The generated reference below documents the handle returned by `enableNativeUI()
 - [`disableVerticalControlArea()`](#disableverticalcontrolarea)
 - [`markForCheck()`](#markforcheck)
 - [`getStatus()`](#getstatus)
-- [`suspend()`](#suspend)
+- [`suspend(...)`](#suspend)
 - [`destroy()`](#destroy)
 - [Interfaces](#interfaces)
 
@@ -491,13 +493,17 @@ Returns the current Web/native projection state.
 
 ---
 
-### suspend()
+### suspend(...)
 
 ```typescript
-suspend() => Promise<NativeUISuspension>
+suspend(options?: { covered?: boolean | undefined; } | undefined) => Promise<NativeUISuspension>
 ```
 
-Restores projected controls to the Web until the returned lease is resumed.
+Restores Web controls until resumed. Use covered only while the background is non-interactive; prepared native images preserve its appearance.
+
+| Param         | Type                                |
+| ------------- | ----------------------------------- |
+| **`options`** | <code>{ covered?: boolean; }</code> |
 
 **Returns:** <code>Promise&lt;<a href="#nativeuisuspension">NativeUISuspension</a>&gt;</code>
 

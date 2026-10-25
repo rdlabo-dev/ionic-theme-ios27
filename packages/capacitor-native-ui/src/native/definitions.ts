@@ -94,8 +94,8 @@ export interface NativeUIRuntimeHandle {
   markForCheck(): void;
   /** Returns the current Web/native projection state. */
   getStatus(): NativeUIStatus;
-  /** Restores projected controls to the Web until the returned lease is resumed. */
-  suspend(): Promise<NativeUISuspension>;
+  /** Restores Web controls until resumed. Use covered only while the background is non-interactive; prepared native images preserve its appearance. */
+  suspend(options?: { covered?: boolean }): Promise<NativeUISuspension>;
   /** Stops synchronization, restores Web controls and releases native resources. */
   destroy(): Promise<void>;
 }

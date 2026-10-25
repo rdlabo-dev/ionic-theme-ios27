@@ -115,7 +115,7 @@ export const createRuntime = async (
   const verticalBarsPages = createVerticalBarsPageState();
   const presented = new Set<HTMLElement>();
   const blockingRailOverlays = new WeakSet<HTMLElement>();
-  const manualSuspensions = new Set<symbol>();
+  const manualSuspensions = new Map<symbol, boolean>();
   const moving = new Map<HTMLElement, Set<string>>();
   const observed = new Set<Element | ShadowRoot>();
   const listeners = new AbortController();
@@ -213,7 +213,11 @@ export const createRuntime = async (
     search.release(element);
     element.removeAttribute(marker);
     if (!stopped)
-      crossfade.play(element, false, instant || handoffInstant || (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')));
+      crossfade.play(
+        element,
+        false,
+        instant || handoffInstant || snapshotVisible(element) || (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')),
+      );
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
       if (previous == null) element.removeAttribute('aria-hidden');
@@ -1279,13 +1283,18 @@ export const createRuntime = async (
       updates,
       reason,
     }),
-    async suspend() {
+    async suspend(suspensionOptions) {
       const token = Symbol();
       let resumed = false;
       if (!stopped) {
         navigation.clear();
         verticalGesture = undefined;
-        manualSuspensions.add(token);
+        manualSuspensions.set(token, suspensionOptions?.covered === true);
+        if ([...manualSuspensions.values()].every(Boolean)) imagesFor(topModal(doc))?.begin();
+        else
+          imageSurfaces().forEach((surface) => {
+            if (surface.token || surface.restoring) surface.invalidate();
+          });
         getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
         await flush();
       }
@@ -1294,6 +1303,7 @@ export const createRuntime = async (
           if (resumed) return;
           resumed = true;
           if (stopped || !manualSuspensions.delete(token)) return;
+          imageSurfaces().forEach((surface) => surface.end());
           await flush();
         },
       };
@@ -1426,7 +1436,7 @@ export const createRuntime = async (
     schedule();
     return true;
   };
-  if (options.coveredSnapshots && plugin.coveredSnapshot && (options.source === 'auto' || options.source === 'ionic')) {
+  if (options.coveredSnapshots && plugin.coveredSnapshot) {
     try {
       const shared = {
         wake: () => {
@@ -1487,11 +1497,20 @@ export const createRuntime = async (
       on(win, 'orientationchange', () => {
         imageSurfaces().forEach((surface) => surface.invalidate());
       });
-      for (const name of ['load', 'transitionend', 'animationend'])
+      for (const name of [
+        'load',
+        'transitionrun',
+        'transitionend',
+        'transitioncancel',
+        'animationstart',
+        'animationend',
+        'animationcancel',
+      ])
         on(doc, name, (event) => {
-          if (!(event.target instanceof Element && event.target.hasAttribute('data-native-ui-snapshot'))) {
-            imageSurfaces().forEach((surface) => surface.changed());
-          }
+          const target = event.target instanceof Element ? event.target : undefined;
+          if (target?.closest('style[data-native-ui-snapshot], [data-native-ui-snapshot-layer]')) return;
+          if (target?.hasAttribute('data-native-ui-snapshot') && (event as TransitionEvent).pseudoElement) return;
+          imageSurfaces().forEach((surface) => surface.changed());
         });
       on(doc, 'visibilitychange', () => {
         if (doc.hidden) {

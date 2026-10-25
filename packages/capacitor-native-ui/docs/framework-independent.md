@@ -66,6 +66,10 @@ const shell = await enableNativeUI({
 
 Call once after the source root exists. Keep the handle and call `await shell.destroy()` when that root is disposed. The plugin does not add page padding or safe-area rules; retain your application's CSS. For Angular, React, or Vue, use the [app-root lifecycle examples](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/setup#place-startup-in-your-frameworks-app-root) with the `/core` import. For animated navigation, use [suspension through completion and cancellation](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/setup#navigation-without-the-theme).
 
+### Custom overlays
+
+Before presenting a custom modal that makes the background non-interactive, call `await shell.suspend({ covered: true })` and resume the returned lease after dismissal. Prepared native images preserve the background appearance without imposing native dimensions on your HTML. Rail images are anchored to their proxies inside your `webHost`, so scrolling the original source does not move them. Their image width and height come from Native even when your source and proxy buttons have different CSS sizes. Call `shell.suspend()` without options when controls must remain interactive on the Web. See [custom overlay suspension](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/native-ui#custom-overlay-suspension) for lifecycle and fallback behavior.
+
 ### Match the HTML theme
 
 For a custom HTML theme, declare `color-scheme: light` or `color-scheme: dark` in the same CSS that selects your Web palette. Background colors alone do not select native appearance. See [Light and dark appearance](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/appearance) for a manual-toggle example, precedence when Ionic/theme variables are present, and shared rail behavior.

@@ -1,4 +1,12 @@
-import { snapshotOwns, snapshotMutation, coveredSourcesChanged } from './shared/covered-source';
+import {
+  snapshotOwns,
+  snapshotVisible,
+  snapshotMutation,
+  coveredSourcesChanged,
+  preparedOwners,
+  snapshotTargets,
+  snapshotTargetsChanged,
+} from './shared/covered-source';
 import { fitsClip } from './shared/clipping';
 import type { NativeUIRuntimeOptions, NativeUIRuntimeHandle } from './definitions';
 import { appendItem, createCandidate, type Candidate, type Identify } from './shared/candidate';
@@ -56,7 +64,8 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
   const win = doc.defaultView!;
   const owned = new Map<HTMLElement, { clone: HTMLButtonElement; aria: string | null; signature: string }>();
   const style = doc.createElement('style');
-  style.textContent = `[data-native-ui-web-source] { visibility: hidden !important; pointer-events: none !important; }`;
+  style.textContent = `[data-native-ui-web-source] { visibility: hidden !important; pointer-events: none !important; }
+    [data-native-ui-proxy][data-native-ui-snapshot-prepared] { position: absolute !important; }`;
   doc.head.append(style);
   let frame = 0;
   let stopped = false;
@@ -67,6 +76,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
     if (!state) return;
     const focused = state.clone.contains(doc.activeElement);
     state.clone.remove();
+    if (stopped && snapshotTargets.get(source) === state.clone) snapshotTargets.delete(source);
     source.removeAttribute('data-native-ui-web-source');
     if (focused && source.isConnected && !source.hasAttribute(marker)) source.focus();
     owned.delete(source);
@@ -86,13 +96,26 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
     observer.disconnect();
     observer.observe(doc.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
     const wanted = new Set<HTMLElement>();
-    if (!suspended && options.verticalBars?.enabled !== false && host?.isConnected && options.root?.isConnected) {
+    if (options.verticalBars?.enabled !== false && host?.isConnected && options.root?.isConnected) {
       const sources = Array.from(options.root.querySelectorAll<HTMLElement>(htmlSelector));
       let back = false;
       for (const source of sources) {
         // An accepted native surface owns its source and descendants. Rejected sources
         // lose the marker and can return to the Web rail on the next render.
-        if (!htmlRailSource(source) || host.contains(source) || source.closest(`[${marker}]`) || snapshotOwns(source)) continue;
+        if (!htmlRailSource(source) || host.contains(source)) continue;
+        const covered = snapshotVisible(source);
+        const prepared = preparedOwners.has(source);
+        if ((suspended && !covered) || (!covered && !prepared && (source.closest(`[${marker}]`) || snapshotOwns(source)))) continue;
+        // Keep the prepared target stable through coverage and native restoration.
+        // Reading a changed/disabled source here must not replace its pre-touch image.
+        const existing = owned.get(source);
+        if (covered && existing) {
+          wanted.add(source);
+          existing.clone.inert = true;
+          existing.clone.setAttribute('aria-hidden', 'true');
+          back ||= existing.clone.getAttribute('data-native-ui-proxy') === 'back-button';
+          continue;
+        }
         const iconRoot = source.querySelector('ion-icon')?.shadowRoot;
         if (iconRoot) observer.observe(iconRoot, { subtree: true, childList: true, attributes: true, characterData: true });
         const candidate = measure(source, () => readHTMLControl(source, () => 'web', options));
@@ -127,8 +150,14 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
             source.click(); // Source owns submission, custom handlers and back navigation.
             schedule();
           });
+          clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);
+          snapshotTargets.set(source, clone);
           host.append(clone);
         }
+        state.clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);
+        state.clone.inert = prepared || covered;
+        if (prepared || covered) state.clone.setAttribute('aria-hidden', 'true');
+        else state.clone.removeAttribute('aria-hidden');
         if (state.signature !== signature) {
           state.signature = signature;
           state.clone.replaceChildren();
@@ -160,6 +189,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
     });
     // Moving an existing button can blur it; retain keyboard focus across source reordering.
     if (focused && doc.activeElement !== focused) focused.focus({ preventScroll: true });
+    win.dispatchEvent(new Event(snapshotTargetsChanged));
     // Ignore our own synchronous DOM writes; later application mutations still schedule a refresh.
     observer.takeRecords();
   };
@@ -175,10 +205,14 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
   render();
   return {
     markForCheck: schedule,
-    getStatus: () => ({ state: stopped ? 'stopped' : 'web', projected: owned.size, updates }),
+    getStatus: () => ({
+      state: stopped ? 'stopped' : 'web',
+      projected: [...owned.values()].filter(({ clone }) => !clone.inert).length,
+      updates,
+    }),
     async suspend() {
       suspended++;
-      for (const source of owned.keys()) restore(source);
+      render();
       let resumed = false;
       return {
         async resume() {

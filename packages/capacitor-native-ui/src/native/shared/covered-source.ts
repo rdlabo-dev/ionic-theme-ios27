@@ -9,7 +9,7 @@ export const snapshotOwns = (element: HTMLElement) => Array.from(owners).some((o
 export const snapshotMutation = (record: MutationRecord) => {
   // Rendering a prepared clone does not change the source's Native appearance.
   const target = record.target instanceof Element ? record.target : record.target.parentElement;
-  if (target?.closest(`.ion-cloned-element[${imageMarker}], [data-native-ui-snapshot-layer]`)) return true;
+  if (target?.closest(`:is(.ion-cloned-element, [data-native-ui-proxy])[${imageMarker}], [data-native-ui-snapshot-layer]`)) return true;
   if (
     record.type === 'attributes' &&
     [imageMarker, 'data-native-ui-snapshot-prepared', 'data-native-ui-snapshot-source', 'data-native-ui-snapshot-visible'].includes(
@@ -17,7 +17,9 @@ export const snapshotMutation = (record: MutationRecord) => {
     )
   )
     return true;
-  const image = (node: Node) => node instanceof Element && node.matches(`style[${imageMarker}], [data-native-ui-snapshot-layer]`);
+  const image = (node: Node) =>
+    node instanceof Element &&
+    node.matches(`style[${imageMarker}], [data-native-ui-snapshot-layer], [data-native-ui-proxy][data-native-ui-snapshot-prepared]`);
   const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
   return image(record.target) || (record.type === 'childList' && nodes.length > 0 && nodes.every(image));
 };

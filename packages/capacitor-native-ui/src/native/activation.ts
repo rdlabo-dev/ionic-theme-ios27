@@ -86,8 +86,8 @@ const combine = (native: NativeUIRuntimeHandle, fallback: NativeUIRuntimeHandle)
       updates: nativeStatus.updates + fallbackStatus.updates,
     };
   },
-  async suspend() {
-    const [nativeLease, fallbackLease] = await Promise.all([native.suspend(), fallback.suspend()]);
+  async suspend(options) {
+    const [nativeLease, fallbackLease] = await Promise.all([native.suspend(options), fallback.suspend(options)]);
     return { resume: async () => void (await Promise.all([nativeLease.resume(), fallbackLease.resume()])) };
   },
   async destroy() {
@@ -112,8 +112,8 @@ const manage = (
       if (!destruction) handle.markForCheck();
     },
     getStatus: () => (lifecycle.reason ? { ...handle.getStatus(), reason: lifecycle.reason } : handle.getStatus()),
-    async suspend() {
-      const lease = await handle.suspend();
+    async suspend(options) {
+      const lease = await handle.suspend(options);
       const resume = await lifecycle.suspend?.();
       return {
         async resume() {
