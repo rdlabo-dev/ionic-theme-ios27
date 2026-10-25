@@ -344,13 +344,18 @@ export const createRuntime = async (
     const modal = candidate.element.closest('ion-modal');
     // Native owns placement during modal entry. Translation must not invalidate
     // its acknowledgement, while label, disabled and artwork changes still do.
-    const control =
-      modal && modalPresentation(modal) && candidate.control.placement === 'vertical-bars'
-        ? { ...candidate.control, x: 0, y: 0, items: candidate.control.items.map((item) => ({ ...item, x: 0, y: 0 })) }
-        : candidate.control;
+    const animatedRail = modal && modalPresentation(modal) && candidate.control.placement === 'vertical-bars';
+    const control = animatedRail
+      ? { ...candidate.control, x: 0, y: 0, items: candidate.control.items.map((item) => ({ ...item, x: 0, y: 0 })) }
+      : candidate.control;
     return JSON.stringify(
       { control, icons: candidate.icons.map(({ source }) => source), assets: candidate.assets?.signature },
-      includeTransitionIds ? undefined : (key, value) => (key === 'transitionId' ? undefined : value),
+      (key, value) => {
+        if (!includeTransitionIds && key === 'transitionId') return undefined;
+        // Translated DOMRects contain floating-point noise even when the control
+        // has not resized. Keep subpixel changes, not numerical round-off.
+        return animatedRail && typeof value === 'number' ? Math.round(value * 1000) / 1000 : value;
+      },
     );
   };
   const readSources = (): Candidate[] => {
@@ -835,8 +840,6 @@ export const createRuntime = async (
         element.removeAttribute(verticalBarsMarker);
         verticalBarsOwners.delete(element);
       }
-      if (acceptedVerticalBarsOwners.size)
-        win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: handoffInstant } }));
       for (const element of acceptedVerticalBarsOwners) {
         element.setAttribute(verticalBarsMarker, '');
         verticalBarsOwners.add(element);
@@ -850,6 +853,8 @@ export const createRuntime = async (
         element.setAttribute(verticalBarsMemberMarker, '');
         verticalBarsMembers.add(element);
       }
+      if (acceptedVerticalBarsOwners.size)
+        win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: handoffInstant } }));
       for (const candidate of accepted) {
         const width = result.tabBarWidths?.[candidate.control.id];
         if (candidate.control.kind === 'tab-bar' && candidate.control.placement !== 'vertical-bars' && width !== undefined)
@@ -880,7 +885,7 @@ export const createRuntime = async (
         (candidate) =>
           !result.rejectedControls?.includes(candidate.control.id) && candidateSources(candidate).some((source) => sources.has(source)),
       );
-      if (snapshot.modalAnimation && !result.rejectedControls?.length && !result.rejectedSearches?.length)
+      if (snapshot.modalAnimation && !invalidated && !result.rejectedControls?.length && !result.rejectedSearches?.length)
         playingModalAnimation = snapshot.modalAnimation.id;
       if (committingNavigation && !invalidated) navigation.clear();
       const received = pendingActivations;
@@ -1418,7 +1423,20 @@ export const createRuntime = async (
       });
       modalSnapshots = await createCoveredSnapshots(doc, plugin, connection?.listen ?? plugin.addListener.bind(plugin), {
         ...shared,
-        blocked: () => !topModal(doc) || !!movingModal(doc) || !!navigation.current || stopped || overlayOpen(true, true),
+        blocked: () => {
+          const modal = topModal(doc);
+          // Entry runs on the native animation clock. Capture its settled
+          // appearance only after DidPresent, never a mid-animation screen.
+          return (
+            !modal ||
+            modalPreparing(modal) ||
+            !!modalPresentation(modal) ||
+            !!movingModal(doc) ||
+            !!navigation.current ||
+            stopped ||
+            overlayOpen(true, true)
+          );
+        },
         modal: () => topModal(doc),
       });
       on(win, modalMotionEvent, (event) => {

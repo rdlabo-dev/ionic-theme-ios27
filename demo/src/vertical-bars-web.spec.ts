@@ -1,6 +1,6 @@
 import { observeVerticalBarsModals } from '../../packages/capacitor-native-ui/src/native/shared/modal';
 import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { createVerticalBarsWebProjection } from '../../packages/capacitor-native-ui/src/native/vertical-bars-web';
 import {
   coveredSourcesChanged,
@@ -228,5 +228,39 @@ test('rebuilding modal controls preserves the covered background rail positionin
     visibleOwners.delete(source);
     await handle.destroy();
     stop();
+  }
+});
+
+test('native acquisition updates existing image targets without measuring or creating Web controls', async () => {
+  mountEligibleBackButton();
+  const source = document.querySelector<HTMLElement>('ion-back-button')!;
+  preparedOwners.add(source);
+  let web = false;
+  const handle = createVerticalBarsWebProjection(document, {}, () => web);
+  try {
+    await nextFrame();
+    const clone = snapshotTargets.get(source)!;
+    const incoming = document.createElement('ion-button');
+    incoming.className = 'ios';
+    incoming.textContent = 'Save';
+    incoming.setAttribute('data-vertical-bars', 'true');
+    incoming.style.visibility = 'visible';
+    incoming.getBoundingClientRect = () => DOMRect.fromRect({ width: 44, height: 44 });
+    source.parentElement!.append(incoming);
+    setVerticalBarsPlacement(incoming, true);
+    web = true;
+    const measure = vi.spyOn(source, 'getBoundingClientRect');
+    source.setAttribute('data-native-ui-vertical-bars', '');
+    window.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: true } }));
+    expect(snapshotTargets.get(source)).toBe(clone);
+    expect(clone.hasAttribute('data-native-ui-vertical-bars')).toBe(true);
+    expect(clone.isConnected).toBe(true);
+    expect(measure).not.toHaveBeenCalled();
+    expect(snapshotTargets.has(incoming)).toBe(false);
+    expect(incoming.getAttribute('aria-hidden')).toBeNull();
+    measure.mockRestore();
+  } finally {
+    preparedOwners.delete(source);
+    await handle.destroy();
   }
 });

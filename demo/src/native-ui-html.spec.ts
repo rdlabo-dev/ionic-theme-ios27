@@ -707,3 +707,127 @@ test('older Native binaries keep modal rail projection and geometry updates duri
     stopModals();
   }
 });
+
+test('Native rail acquisition publishes owner and member attributes before notifying Web', async () => {
+  const { source, options } = mount('<button data-native-ui="button" data-native-ui-placement="rail">Save</button>');
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const observed: boolean[][] = [];
+  const acquired = () =>
+    observed.push([source.hasAttribute('data-native-ui-vertical-bars'), source.hasAttribute('data-native-ui-vertical-bars-member')]);
+  window.addEventListener('nativeUIVerticalBarsAcquire', acquired);
+  onTestFinished(() => window.removeEventListener('nativeUIVerticalBarsAcquire', acquired));
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: NativeUISnapshot) => ({ revision: snapshot.revision }),
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, options);
+  handles.push(runtime);
+  await vi.waitFor(() => expect(runtime.getStatus().projected).toBe(1));
+  expect(observed.length).toBeGreaterThan(0);
+  expect(observed.every(([owner, member]) => owner && member)).toBe(true);
+});
+
+test.each([0.00001525878906, 1])('modal entry accepts round-off but resynchronizes a real size change (%s px)', async (delta) => {
+  const { observeVerticalBarsModals, modalPresentation } = await import('../../packages/capacitor-native-ui/src/native/shared/modal');
+  const { source, options } = mount(
+    '<ion-app class="ios-theme-vertical-bars"><ion-modal><button data-native-ui="button" data-native-ui-placement="rail">Save</button></ion-modal></ion-app>',
+  );
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.stubGlobal(
+    'DOMMatrixReadOnly',
+    class {
+      a = 1;
+      d = 1;
+      b = 0;
+      c = 0;
+      m41 = 0;
+      m42 = 100;
+      isIdentity = true;
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const modal = source.closest('ion-modal')!;
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('part', 'content');
+  modal.attachShadow({ mode: 'open' }).append(wrapper);
+  wrapper.getBoundingClientRect = () => DOMRect.fromRect({ y: 139.99999993, width: innerWidth, height: innerHeight - 40.00000006 });
+  Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
+  Object.defineProperty(wrapper, 'offsetLeft', { value: 0 });
+  wrapper.getAnimations = () =>
+    [
+      {
+        playState: 'running',
+        playbackRate: 1,
+        currentTime: 100,
+        effect: {
+          getTiming: () => ({ duration: 500, iterations: 1, direction: 'normal', delay: 0, easing: 'linear' }),
+          getKeyframes: () => [
+            { transform: 'translateY(600px)', easing: 'linear' },
+            { transform: 'translateY(0px)', easing: 'linear' },
+          ],
+        },
+      },
+    ] as unknown as Animation[];
+  modal.getAnimations = () => [];
+  let height = 44;
+  source.getBoundingClientRect = () => DOMRect.fromRect({ x: 10, y: 10, width: 80, height });
+  const stopModals = observeVerticalBarsModals(document, () => true);
+  modal.dispatchEvent(new Event('ionModalWillPresent', { bubbles: true }));
+  expect(modalPresentation(modal)?.frame).toEqual({ x: 0, y: 40, width: innerWidth, height: innerHeight - 40 });
+  const snapshots: NativeUISnapshot[] = [];
+  const capture = vi.fn(async (_args: { action: string }) => ({}));
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: NativeUISnapshot) => {
+      snapshots.push(snapshot);
+      if (snapshots.length === 1) {
+        height += delta;
+        source.style.height = `${height}px`;
+        await Promise.resolve();
+      }
+      return { revision: snapshot.revision };
+    },
+    coveredSnapshot: capture,
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  try {
+    const runtime = await createRuntime(document, plugin, { ...options, source: 'auto', coveredSnapshots: true });
+    handles.push(runtime);
+    await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+    expect(snapshots).toHaveLength(delta < 0.001 ? 1 : 2);
+    expect(snapshots.at(-1)?.controls[0].height).toBe(delta < 0.001 ? 44 : 45);
+    // Native may already be visible, but its screen pixels are still moving.
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(capture.mock.calls.some(([args]) => args.action === 'prepare')).toBe(false);
+    wrapper.getAnimations = () => [];
+    wrapper.getBoundingClientRect = () => DOMRect.fromRect({ y: 40, width: innerWidth, height: innerHeight - 40 });
+    modal.dispatchEvent(new Event('ionModalDidPresent', { bubbles: true }));
+    await vi.waitFor(() => expect(capture.mock.calls.some(([args]) => args.action === 'prepare')).toBe(true));
+  } finally {
+    stopModals();
+  }
+});

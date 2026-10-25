@@ -531,6 +531,16 @@ export const createVerticalBarsWebProjection = (
       const instant = (event as CustomEvent<{ instant: boolean }>).detail?.instant ?? true;
       incomingInstant = undefined;
       if ([...backProjections, ...toolbarProjections].some(({ source }) => isCovered(source))) {
+        // Conceal existing Web surfaces immediately; leave discovery and geometry
+        // to the scheduled update so acquisition does not create new controls.
+        const retained = [
+          ...backProjections,
+          ...toolbarProjections.filter(({ actions }) => actions.length > 1),
+          ...toolbarProjections.flatMap(({ actions }) => actions),
+        ];
+        for (const { source, projection } of retained)
+          for (const attribute of ['data-native-ui-vertical-bars', 'data-native-ui-vertical-bars-member'])
+            projection.toggleAttribute(attribute, source.hasAttribute(attribute));
         void schedule();
         return;
       }

@@ -50,8 +50,10 @@ export const readModalAnimation = (content: HTMLElement): { animation: ModalAnim
   const matrix = new DOMMatrixReadOnly(win.getComputedStyle(content).transform);
   if (matrix.a !== 1 || matrix.d !== 1 || matrix.b !== 0 || matrix.c !== 0 || matrix.m41 !== 0) return;
   const rect = content.getBoundingClientRect();
-  const y = Math.max(0, rect.top - matrix.m42 + to);
-  const height = Math.min(rect.height, win.innerHeight - y);
+  const scale = win.devicePixelRatio || 1;
+  const pixel = (value: number) => Math.round(value * scale) / scale;
+  const y = Math.max(0, pixel(rect.top - matrix.m42 + to));
+  const height = Math.min(pixel(rect.height), win.innerHeight - y);
   if (height <= 0) return;
   return {
     animation: {
