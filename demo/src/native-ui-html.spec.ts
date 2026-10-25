@@ -831,3 +831,75 @@ test.each([0.00001525878906, 1])('modal entry accepts round-off but resynchroniz
     stopModals();
   }
 });
+
+test.each([0, 0.25, 0.5])('sheet breakpoint %s keeps dismissal on the acknowledged Native restoration path', async (breakpoint) => {
+  const { source, options } = mount();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  vi.spyOn(window, 'matchMedia').mockReturnValue({
+    matches: true,
+    addEventListener() {},
+    removeEventListener() {},
+  } as unknown as MediaQueryList);
+  const decode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
+  Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
+  onTestFinished(() => {
+    if (decode) Object.defineProperty(HTMLImageElement.prototype, 'decode', decode);
+    else delete (HTMLImageElement.prototype as Partial<HTMLImageElement>).decode;
+  });
+  let latest: NativeUISnapshot;
+  const updates: NativeUISnapshot[] = [];
+  const capture = vi.fn(async (args: { action: string; ids?: string[] }) =>
+    args.action === 'prepare'
+      ? {
+          token: 'ready-image',
+          parts: args.ids!.map((id) => ({ ids: [id], url: 'file:///snapshot.png', x: 0, y: 0, width: 80, height: 44 })),
+        }
+      : { shown: true },
+  );
+  const plugin = {
+    addListener: async () => ({ remove: async () => {} }),
+    update: async (snapshot: NativeUISnapshot) => {
+      latest = snapshot;
+      updates.push(snapshot);
+      return { revision: snapshot.revision };
+    },
+    coveredSnapshot: capture,
+    clear: async () => {},
+  } as unknown as NativeUIPlugin;
+  const runtime = await createRuntime(document, plugin, { ...options, source: 'auto', coveredSnapshots: true });
+  handles.push(runtime);
+
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot')).toBe(true));
+  const modal = document.createElement('ion-modal');
+  Object.assign(modal, { initialBreakpoint: 0.5, backdropBreakpoint: 0.25, presented: true });
+  document.body.append(modal);
+  modal.dispatchEvent(new CustomEvent('ionModalWillPresent', { bubbles: true }));
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true));
+  await vi.waitFor(() => expect(updates.some((snapshot) => snapshot.coveredSnapshotToken === 'ready-image')).toBe(true));
+  capture.mockClear();
+  modal.dispatchEvent(new CustomEvent('ionBreakpointDidChange', { bubbles: true, detail: { breakpoint } }));
+  if (breakpoint === 0.25) {
+    // A still-open, interactive sheet must release its frozen background.
+    expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+    expect(capture.mock.calls.some(([args]) => args.action === 'release')).toBe(true);
+  } else {
+    expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+    expect(capture.mock.calls.some(([args]) => args.action === 'release')).toBe(false);
+    Object.assign(modal, { presented: false });
+    modal.dispatchEvent(new CustomEvent('ionModalDidDismiss', { bubbles: true, detail: { role: 'gesture' } }));
+    // Native has not acknowledged the restoration yet.
+    expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+    modal.remove();
+    await vi.waitFor(() => expect(capture.mock.calls.some(([args]) => args.action === 'restored')).toBe(true));
+    expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+    expect(latest!.controls).toHaveLength(1);
+  }
+});

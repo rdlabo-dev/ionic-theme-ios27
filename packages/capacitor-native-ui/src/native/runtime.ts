@@ -1165,7 +1165,8 @@ export const createRuntime = async (
   on(doc, 'ionBreakpointDidChange', (event) => {
     const modal = event.target as HTMLIonModalElement;
     const breakpoint = (event as CustomEvent<{ breakpoint?: number }>).detail?.breakpoint;
-    if (breakpoint !== undefined && breakpoint <= (modal.backdropBreakpoint ?? 0)) snapshots?.invalidate();
+    // Zero dismisses the sheet. Keep its image until DidDismiss restores Native.
+    if (breakpoint !== undefined && breakpoint > 0 && breakpoint <= (modal.backdropBreakpoint ?? 0)) snapshots?.invalidate();
   });
   on(doc, 'ionModalWillDismiss', () => {
     // The departing surface carries its prepared pixels until DidDismiss.

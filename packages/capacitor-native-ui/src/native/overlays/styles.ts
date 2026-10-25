@@ -39,17 +39,21 @@ export const relayStyles = (
   surface.textContent = 'html,body{background:transparent!important}';
   const observers: MutationObserver[] = [];
   const mirror = (node: Element, target: HTMLElement, flatten = false) => {
+    let attributes = '';
     const update = () => {
+      const next = JSON.stringify(Array.from(node.attributes, ({ name, value }) => [name, value]));
+      if (next === attributes) return false;
+      attributes = next;
       for (const attribute of Array.from(target.attributes)) if (!node.hasAttribute(attribute.name)) target.removeAttribute(attribute.name);
       for (const attribute of Array.from(node.attributes)) target.setAttribute(attribute.name, attribute.value);
       // The popover content must not inherit the source page's rail layout.
       if (target.localName === 'ion-app') target.classList.remove('ios-theme-vertical-bars');
       if (flatten) target.style.setProperty('display', 'contents', 'important');
+      return true;
     };
     update();
     const observer = new MutationObserver(() => {
-      update();
-      changed?.();
+      if (update()) changed?.();
     });
     observer.observe(node, { attributes: true });
     observers.push(observer);
@@ -77,7 +81,17 @@ export const relayStyles = (
       });
     }),
   ).then(() => undefined);
-  const observer = new MutationObserver(() => {
+  const localStyle = (node: Node) => node instanceof Element && node.matches('style[data-overlay-relay-local]');
+  const observer = new MutationObserver((records) => {
+    // Source-only projection pixels never affect the relayed content. Their
+    // preparation must not dismiss a popover which still owns its native anchor.
+    const local = (record: MutationRecord) => {
+      const target = record.target instanceof Element ? record.target : record.target.parentElement;
+      if (target?.closest('style[data-overlay-relay-local]')) return true;
+      const nodes = [...record.addedNodes, ...record.removedNodes];
+      return record.type === 'childList' && nodes.length > 0 && nodes.every(localStyle);
+    };
+    if (records.every(local)) return;
     sync();
     changed?.();
   });

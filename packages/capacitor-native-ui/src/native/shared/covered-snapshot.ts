@@ -327,6 +327,7 @@ export const createCoveredSnapshots = async (
     // permanent CSS, which survives cache replacement and image retirement.
     sheet ??= doc.createElement('style');
     sheet.setAttribute(imageMarker, '');
+    sheet.setAttribute('data-overlay-relay-local', '');
     const rules: string[] = [];
 
     const targets = image.targets.map((source, index) => {
