@@ -4,7 +4,13 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <script src="native-ui-kit.js"></script>
   </head>
-  <body style="margin: 0; background: repeating-linear-gradient(90deg, rgb(40, 80, 120) 0px 20px, rgb(180, 160, 60) 20px 40px)">
+  <body
+    style="
+      margin: 0;
+      min-height: 100vh;
+      background: repeating-linear-gradient(90deg, rgb(40, 80, 120) 0px 20px, rgb(180, 160, 60) 20px 40px);
+    "
+  >
     <div id="source" style="position: absolute; left: 20px; top: 100px; width: 160px; height: 64px"></div>
     <script>
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

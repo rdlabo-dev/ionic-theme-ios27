@@ -74,7 +74,15 @@ class KitConsumerTest {
                 java.io.File(directory,"actual.png").outputStream().use{worst.compress(Bitmap.CompressFormat.PNG,100,it)}
                 android.util.Log.e("KitConsumerTest","$difference artifacts=$directory")
             }
+            // A uniform/blank Web background could make an incorrect capture look stable.
+            // Check both known stripes underneath the 50% translucent Compose surface.
+            val scale=activity.bridge.webView.width/jsWidth
+            val stripePixels=listOf(baseline.getPixel(0,0) to 0xffc85f46.toInt(), baseline.getPixel((20*scale).toInt(),0) to 0xff823764.toInt())
+            val backgroundMatches=stripePixels.all { (actual,expected) ->
+                listOf(0,8,16).all { shift -> kotlin.math.abs(((actual shr shift) and 255)-((expected shr shift) and 255))<=2 }
+            }
             samples.forEach{it.recycle()}
+            assertTrue("Expected composited Web background stripes",backgroundMatches)
             android.util.Log.i("KitConsumerTest","Capacitor/Compose handoff: ${samples.size} frames, max channel delta $delta")
             assertTrue("Color changed: $delta",delta<=2)
             awaitJS("teardown()")

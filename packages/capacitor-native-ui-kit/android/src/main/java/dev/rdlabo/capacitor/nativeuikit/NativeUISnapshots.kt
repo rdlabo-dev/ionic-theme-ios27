@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.ImageView
+import android.webkit.WebView
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -59,7 +60,13 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
             if (count < 3) { main.postDelayed({ sample(current, count) }, 16); return }
             capture(window, reference, viewportWidth, current, stamp) { pending = false; complete(it) }
         }
-        sample(emptyMap(), 0)
+        // Stable native bounds do not imply that the Web background has painted.
+        // Prepare the Web draw before measuring/capturing the composited window.
+        if (reference is WebView) {
+            NativeUIWebReadiness.prepare(reference, { !closed && generation == stamp && !touching }) { ready ->
+                if (ready) sample(emptyMap(), 0) else fail()
+            }
+        } else sample(emptyMap(), 0)
     }
     private fun capture(window: Window, reference: View, viewportWidth: Double, frames: Map<String, RectF>, stamp: Long, complete: (JSONObject) -> Unit) {
         if (Build.VERSION.SDK_INT < 26) { complete(JSONObject()); return }
