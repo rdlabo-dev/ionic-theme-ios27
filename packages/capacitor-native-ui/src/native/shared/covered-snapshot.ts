@@ -10,6 +10,8 @@ export const createCoveredSnapshots = async (
   listen: NativeUIPlugin['addListener'],
   callbacks: { wake: () => void; blocked: () => boolean; modal?: () => HTMLIonModalElement | undefined; revision?: () => number },
 ) => {
+  let layer: HTMLElement | undefined;
+  let selectedLayer: HTMLElement | undefined;
   const projection = await createWebProjection(
     doc,
     {
@@ -23,6 +25,7 @@ export const createCoveredSnapshots = async (
       blocked: () => callbacks.blocked(),
       revision: callbacks.revision ? () => callbacks.revision!() : undefined,
       transient: !!callbacks.modal,
+      layer: () => selectedLayer,
       eligible: (source) =>
         callbacks.modal
           ? !!callbacks.modal() && source.element.closest('ion-modal') === callbacks.modal() && source.control.placement === 'vertical-bars'
@@ -40,9 +43,8 @@ export const createCoveredSnapshots = async (
       current: (sources) => !callbacks.modal || sources.every((source) => source.closest('ion-modal') === callbacks.modal!()),
     },
   );
-  let layer: HTMLElement | undefined;
   const begin = projection.begin;
-  projection.begin = (surface?: HTMLElement) => {
+  const beginOnSurface = (surface?: HTMLElement) => {
     if (surface && !surface.isConnected) return;
     if (surface && !projection.token) {
       layer ??= doc.createElement('div');
@@ -53,7 +55,8 @@ export const createCoveredSnapshots = async (
       layer.style.cssText = 'position:absolute;inset:0;overflow:visible;pointer-events:none;z-index:1001';
       if (layer.parentElement !== surface) surface.append(layer);
     }
-    begin(surface ? layer : undefined);
+    selectedLayer = surface ? layer : undefined;
+    begin();
   };
   const destroy = projection.destroy;
   projection.destroy = async () => {
@@ -61,6 +64,6 @@ export const createCoveredSnapshots = async (
     layer?.remove();
     layer = undefined;
   };
-  return projection;
+  return Object.assign(projection, { begin: beginOnSurface });
 };
 export type CoveredSnapshots = Awaited<ReturnType<typeof createCoveredSnapshots>>;

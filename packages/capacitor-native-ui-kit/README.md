@@ -66,11 +66,18 @@ Run `npx cap sync ios` and rebuild. Keep the direct kit version aligned with the
 
 Create one `createWebProjectionScope(namespace)` per plugin instance and share it among that instance's page/overlay managers. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
 
-Supply the projection host as an `HTMLElement` reference through the required `target(source, placement)` callback. The example below uses the source component itself. For a separate display proxy, return that element instead, or `undefined` when unavailable. Your plugin places the host in the appropriate page or overlay and controls its positioning, stacking order and clipping; the kit does not locate it by a class or ID, infer a z-index, or fall back to `document.body`.
+Supply projection DOM when creating the manager. In this example, `presentingPage` is a positioned page owned by your plugin. Create a dedicated image host inside it, set its stacking order relative to your UI, and pass the element as `layer`. `target(source, placement)` identifies each component's display DOM; the example uses the source itself. No class or ID connects these elements to the kit.
 
 ```ts
 import { createWebProjectionScope, createWebProjection } from '@rdlabo/capacitor-native-ui-kit';
 import { Capacitor } from '@capacitor/core';
+
+const host = document.createElement('div');
+host.inert = true;
+host.setAttribute('aria-hidden', 'true');
+host.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+// Set the stacking order for your page, then attach its image host.
+presentingPage.append(host);
 
 const scope = createWebProjectionScope('my-plugin');
 const projection = await createWebProjection(
@@ -85,32 +92,24 @@ const projection = await createWebProjection(
     wake: () => schedulePluginUpdate(),
     blocked: () => overlayIsActive(),
     revision: () => lastSentRevision,
-    // Use the existing component as its own projection host.
+    layer: host,
     target: (source) => source,
   },
 );
 ```
 
-`plugin`, `schedulePluginUpdate`, `overlayIsActive` and `lastSentRevision` above belong to the consuming plugin, not the kit.
+`presentingPage`, `plugin`, `schedulePluginUpdate`, `overlayIsActive` and `lastSentRevision` above belong to the consuming plugin, not the kit.
 
 1. After an accepted native update, call `projection.consider(revision, sources)`. Each `WebProjectionSource` contains the DOM element, native ID and current viewport frame. Preparation and image decoding happen off the presentation path.
 2. Call `projection.changed()` for visual changes. Completed pre-interaction pixels remain available while replacement pixels are prepared. For scrolling, pass the owner to `projection.changed(scrollElement)` to invalidate its old geometry. Layout updates go through `consider`; call `invalidate()` for other known geometry or viewport invalidation.
-3. Before a Web overlay covers the controls, call `projection.begin()`. For a shared layer moving with a page, pass your dedicated projection host to `begin(projectionLayer)`. No capture or image decode starts here. If no valid image exists, `token` remains undefined: use the plugin's normal fallback.
+3. Before a Web overlay covers the controls, call `projection.begin()`. No capture or image decode starts here. If no valid image exists, `token` remains undefined: use the plugin's normal fallback.
 4. Use `scope.owns(source)` to exclude image-owned controls from ordinary native projection. Use `scope.isVisible(source)` to keep return pixels while the native replacement is being acknowledged.
 5. After the overlay closes, call `projection.end()`, send the normal native update, then call `projection.updated(snapshotToken, acceptedIDs, revision)`. Only a newer ACK covering all captured IDs retires the Web image.
 6. Call `projection.destroy()` on surface teardown. It releases only its tokens and listener. The plugin owns the final native reset, so destroying one surface cannot invalidate another plugin or overlay.
 
-For card/modal transforms that need one shared image layer, create a dedicated host in the relevant page and pass **that host**, not the page itself, to `projection.begin(host)`:
+The kit inserts noninteractive images into `layer` and converts viewport coordinates into that host's local coordinates, so images follow its page's transforms and clipping. It does not assign a z-index, remove or restyle your host. After `await projection.destroy()`, remove your host with `host.remove()`.
 
-```ts
-const host = document.createElement('div');
-host.inert = true;
-host.setAttribute('aria-hidden', 'true');
-presentingPage.append(host);
-projection.begin(host);
-```
-
-Style this host through your plugin's normal styling mechanism; a CSS class is optional and is not used to connect it to the kit. Set its positioning, stacking order, clipping and pointer behavior to match your UI. For example, use an absolute host anchored to a positioned page; choose its z-index relative to that page's other layers. The kit inserts noninteractive image content into the host and converts viewport coordinates into its local coordinates. It never assigns a z-index to that content. It removes its own image content on retirement, but **does not remove or restyle your host**. Remove the host in your renderer's teardown after destroying the projection manager.
+Omit `layer` to project each image on its `target` instead. Return a separate display proxy from `target` when needed. If the shared host changes with navigation, configure `layer: () => currentHost` at initialization; it is resolved once per `begin()` and remains fixed for that presentation. Returning `undefined` selects individual targets.
 
 A disconnected supplied host or an unresolved per-source target prevents projection. Continue your renderer's normal Web fallback instead of moving the projection into another layer. Web projection is the intentional transfer of the native appearance to the Web layer; snapshot capture is its implementation, and ordinary Web fallback is the renderer's failure path.
 

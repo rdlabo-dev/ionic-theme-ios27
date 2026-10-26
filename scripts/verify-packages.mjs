@@ -143,7 +143,13 @@ try {
       const scope = createWebProjectionScope('consumer');
       // @ts-expect-error A renderer must explicitly provide the projection DOM resolver.
       createWebProjection(document, transport, scope, { wake() {}, blocked: () => false });
-      createWebProjection(document, transport, scope, { wake() {}, blocked: () => false, target: source => source });
+      const host = document.createElement('div');
+      const projection = await createWebProjection(document, transport, scope, {
+        wake() {}, blocked: () => false, target: source => source, layer: host,
+      });
+      projection.begin();
+      // @ts-expect-error Projection DOM is configured at initialization, not on begin.
+      projection.begin(host);
       // @ts-expect-error A cover requires a prepared token.
       transport.send({ action: 'cover' });
       // @ts-expect-error Preparation requires the accepted revision and viewport.

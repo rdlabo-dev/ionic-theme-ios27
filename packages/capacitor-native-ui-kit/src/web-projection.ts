@@ -12,6 +12,8 @@ export interface WebProjectionOptions {
   eligible?(source: Candidate): boolean;
   /** Caller-owned projection DOM in the intended stacking context. Undefined means unavailable. */
   target(source: HTMLElement, placement?: string): HTMLElement | undefined;
+  /** Optional shared image host, supplied at initialization. Omit to use individual targets. */
+  layer?: HTMLElement | (() => HTMLElement | undefined);
   /** Reject a cached image when its owning surface has changed. */
   current?(sources: HTMLElement[]): boolean;
   /** Temporary movement handoff: rebase return pixels to the current display DOM. */
@@ -526,7 +528,8 @@ export const createWebProjection = async (
   };
   const targetsChanged = () => render();
   win.addEventListener(targetsChangedEvent, targetsChanged);
-  const begin = (projectionLayer?: HTMLElement) => {
+  const begin = () => {
+    const projectionLayer = typeof callbacks.layer === 'function' ? callbacks.layer() : callbacks.layer;
     retireRestoration();
     if (stopped || active || (projectionLayer && !projectionLayer.isConnected)) return;
     const image = cached;

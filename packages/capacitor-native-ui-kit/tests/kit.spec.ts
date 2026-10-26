@@ -8,7 +8,7 @@ const boot = async (page: Page) => {
   );
   await page.addScriptTag({ content: bundle });
 };
-const prepare = async (page: Page, fail = false, shadow = false, proxy = false) => {
+const prepare = async (page: Page, fail = false, shadow = false, proxy = false, shared = false) => {
   await boot(page);
   if (shadow)
     await page.evaluate(() => {
@@ -18,7 +18,7 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false) 
       (window as any).sourceRoot = host.shadowRoot;
     });
   await page.evaluate(
-    async ({ fail, proxy }) => {
+    async ({ fail, proxy, shared }) => {
       const w = window as any,
         source = (w.sourceRoot ?? document).querySelector('#source') as HTMLElement,
         owner = (w.sourceRoot ?? document).querySelector('#scroll') as HTMLElement;
@@ -33,6 +33,12 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false) 
         target.id = 'proxy';
         target.textContent = 'Web proxy';
         document.body.append(target);
+      }
+      if (shared) {
+        const host = document.createElement('div');
+        host.id = 'projection-host';
+        host.style.cssText = 'position:absolute;inset:0;z-index:7;pointer-events:none';
+        document.querySelector('#surface')!.append(host);
       }
       w.scope = w.kit.createWebProjectionScope('test');
       w.source = {
@@ -93,13 +99,14 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false) 
           wake() {},
           blocked: () => false,
           revision: () => w.revision,
+          layer: shared ? document.getElementById('projection-host')! : () => w.projectionLayer,
           target: (source: HTMLElement) =>
             w.targetUnavailable ? undefined : proxy ? document.getElementById('proxy')! : (w.projectionTarget ?? source),
         },
       );
       w.manager.consider(1, [w.source]);
     },
-    { fail, proxy },
+    { fail, proxy, shared },
   );
   if (!fail) await expect(page.locator(proxy ? '#proxy' : '#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
 };
@@ -128,7 +135,8 @@ for (const related of [true, false])
         owner = document.querySelector('#scroll') as HTMLElement;
       if (related) owner.scrollTop = 50;
       w.manager.changed(related ? owner : document.querySelector('#other'));
-      w.manager.begin(document.querySelector('#surface'));
+      w.projectionLayer = document.querySelector('#surface');
+      w.manager.begin();
       return document.querySelectorAll('[data-native-ui-snapshot-layer]').length;
     }, related);
     expect(layers).toBe(related ? 0 : 1);
@@ -315,7 +323,8 @@ for (const surface of [false, true])
     await page.evaluate((surface) => {
       const w = window as any;
       w.holdCover = true;
-      w.manager.begin(surface ? document.querySelector('#surface') : undefined);
+      w.projectionLayer = surface ? document.querySelector('#surface') : undefined;
+      w.manager.begin();
       window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
     }, surface);
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
@@ -369,18 +378,14 @@ test('cover without a positive acknowledgement restores Web ownership', async ({
   expect(await page.evaluate(() => (window as any).manager.token)).toBeUndefined();
 });
 
-test('caller-owned projection layer preserves stacking and survives teardown', async ({ page }) => {
-  await prepare(page);
+test('initialization-owned projection layer preserves stacking and survives teardown', async ({ page }) => {
+  await prepare(page, false, false, false, true);
   await page.evaluate(() => {
-    const host = document.createElement('div');
-    host.id = 'projection-host';
-    host.style.cssText = 'position:absolute;inset:0;z-index:7;pointer-events:none';
-    document.querySelector('#surface')!.append(host);
     const overlay = document.createElement('div');
     overlay.id = 'overlay';
     overlay.style.cssText = 'position:absolute;inset:0;z-index:8';
     document.querySelector('#surface')!.append(overlay);
-    (window as any).manager.begin(host);
+    (window as any).manager.begin();
   });
   await expect(page.locator('#projection-host img')).toBeVisible();
   expect(
@@ -409,8 +414,10 @@ test('missing target or disconnected layer cannot select another projection laye
   expect(
     await page.evaluate(() => {
       const w = window as any;
-      w.manager.begin(document.createElement('div'));
+      w.projectionLayer = document.createElement('div');
+      w.manager.begin();
       const detached = w.manager.token;
+      w.projectionLayer = undefined;
       w.targetUnavailable = true;
       w.manager.begin();
       return {
@@ -447,7 +454,8 @@ test('an explicit target can also host the shared projection layer', async ({ pa
     document.querySelector('#surface')!.append(host);
     w.projectionTarget = host;
     window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
-    w.manager.begin(host);
+    w.projectionLayer = host;
+    w.manager.begin();
   });
   await expect(page.locator('#shared-projection-host img')).toBeVisible();
   await page.evaluate(() => (window as any).manager.destroy());
