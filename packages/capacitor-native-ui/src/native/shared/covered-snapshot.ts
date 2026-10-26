@@ -118,13 +118,21 @@ export const createCoveredSnapshots = async (
     cleanup('release', item.data.token, afterPaint);
   };
   const select = (candidates: Candidate[]) =>
-    candidates.filter((candidate) =>
-      callbacks.modal
+    candidates.filter((candidate) => {
+      // Native scroll bindings retain offscreen controls. They have no visible
+      // pixels to capture and must not prevent the other controls being prepared.
+      if (candidate.control.scroll) {
+        const rect = candidate.element.getBoundingClientRect();
+        const clip = candidate.control.scroll.clip;
+        if (rect.right <= clip.x || rect.bottom <= clip.y || rect.left >= clip.x + clip.width || rect.top >= clip.y + clip.height)
+          return false;
+      }
+      return callbacks.modal
         ? !!callbacks.modal() &&
-          candidate.element.closest('ion-modal') === callbacks.modal() &&
-          candidate.control.placement === 'vertical-bars'
-        : !candidate.element.closest('ion-modal'),
-    );
+            candidate.element.closest('ion-modal') === callbacks.modal() &&
+            candidate.control.placement === 'vertical-bars'
+        : !candidate.element.closest('ion-modal');
+    });
   const prepare = async () => {
     timer = 0;
     if (
@@ -260,7 +268,16 @@ export const createCoveredSnapshots = async (
     latest = { revision, candidates };
     if (cached?.revision !== revision || preparedVisualRevision !== visualRevision) schedule();
   };
-  const changed = () => {
+  const changed = (scrollOwner?: EventTarget) => {
+    // A pre-interaction state image is reusable; an image from another scroll
+    // position/clip is not. Invalidate only the surface containing that owner.
+    if (
+      !active &&
+      cached &&
+      scrollOwner &&
+      latest?.candidates.some((candidate) => candidate.scrollElement === scrollOwner && cached!.sources.includes(candidate.element))
+    )
+      invalidate();
     if (active) {
       updateOffsets();
       followBorderAnimation();

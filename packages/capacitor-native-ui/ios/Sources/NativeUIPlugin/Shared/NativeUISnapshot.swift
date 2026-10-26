@@ -103,9 +103,11 @@ struct NativeUIControl: Decodable, Equatable {
     let tabBarAnchor: NativeUITabBar.Anchor?
     let search: NativeUISearch?
     let extensionContent: NativeUIExtensionContent?
+    let scroll: NativeUIScrollPlacement?
 
     private enum CodingKeys: String, CodingKey {
         case id, kind, placement, toolbarSlot, transitionId, items, dark, rtl, tabBarAnchor, tabTint, search
+        case scroll
         case extensionContent = "extension"
     }
 
@@ -123,15 +125,17 @@ struct NativeUIControl: Decodable, Equatable {
         tabTint = try values.decodeIfPresent(String.self, forKey: .tabTint)
         tabBarAnchor = try values.decodeIfPresent(NativeUITabBar.Anchor.self, forKey: .tabBarAnchor)
         search = try values.decodeIfPresent(NativeUISearch.self, forKey: .search)
+        scroll = try values.decodeIfPresent(NativeUIScrollPlacement.self, forKey: .scroll)
         extensionContent = try values.decodeIfPresent(NativeUIExtensionContent.self, forKey: .extensionContent)
     }
 
     var isValid: Bool {
         if kind == .extension {
             return !id.isEmpty && frame.isValid && items.isEmpty && placement == nil && toolbarSlot == nil &&
-                search == nil && tabBarAnchor == nil && extensionContent?.isValid == true
+                search == nil && tabBarAnchor == nil && extensionContent?.isValid == true &&
+                (scroll.map { $0.isValid && extensionContent?.tabBarId == nil } ?? true)
         }
-        return extensionContent == nil && NativeUIComponents.supported.contains(kind) && !id.isEmpty && frame.isValid && !items.isEmpty && items.count <= 30 &&
+        return scroll == nil && extensionContent == nil && NativeUIComponents.supported.contains(kind) && !id.isEmpty && frame.isValid && !items.isEmpty && items.count <= 30 &&
         (!NativeUIButton.kinds.contains(kind) || items.count == 1) &&
         (toolbarSlot == nil || (placement == .verticalBars && [.button, .buttons, .menuButton].contains(kind))) &&
         Set(items.map(\.id)).count == items.count && items.allSatisfy(\.isValid) &&

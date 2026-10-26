@@ -110,6 +110,31 @@ export const createRuntime = async (
   const verticalNavigation = createVerticalNavigation();
   let verticalGesture: { pending: boolean; scopes: HTMLElement[]; sources: Set<HTMLElement> } | undefined;
   let acknowledged: Candidate[] = [];
+  let nativeScrollOwners = new Set<HTMLElement>();
+  const scrollMotion = new WeakMap<HTMLElement, { version: number; moving: boolean }>();
+  let acknowledgedViewportWidth = 0;
+  // Match the native tracker's reusable binding geometry. Source frames/props
+  // may change during motion; a new viewport/content mapping must be acquired.
+  const reusesScroll = (candidate: Candidate) => {
+    const next = candidate.control.scroll;
+    if (!candidate.scrollElement || !next || acknowledgedViewportWidth !== win.innerWidth) return false;
+    return acknowledged.some((previous) => {
+      const current = previous.control.scroll;
+      return (
+        previous.scrollElement === candidate.scrollElement &&
+        current?.id === next.id &&
+        current.contentWidth === next.contentWidth &&
+        current.contentHeight === next.contentHeight &&
+        (['viewport', 'clip'] as const).every((key) =>
+          (['x', 'y', 'width', 'height'] as const).every((axis) => current[key][axis] === next[key][axis]),
+        )
+      );
+    });
+  };
+  const scrollControl = (candidate: Candidate) =>
+    candidate.control.scroll
+      ? { ...candidate.control, scroll: { ...candidate.control.scroll, reuse: reusesScroll(candidate) } }
+      : candidate.control;
   const pages = new Set<HTMLElement>();
   const tabActivationPages = new Map<HTMLElement, number>();
   const verticalBarsPages = createVerticalBarsPageState();
@@ -264,7 +289,14 @@ export const createRuntime = async (
         diagnose(`${extension.name}: ${unavailable}`, element);
         return;
       }
-      const candidate = readExtension(element, extensions, id, (reason) => diagnose(`${extension.name}: ${reason}`, element));
+      const candidate = readExtension(
+        element,
+        extensions,
+        id,
+        (reason) => diagnose(`${extension.name}: ${reason}`, element),
+        options.nativeScroll,
+      );
+      if (candidate?.scrollElement && scrollMotion.get(candidate.scrollElement)?.moving && !reusesScroll(candidate)) return undefined; // New bindings are acquired at rest; established bindings keep following.
       return candidate;
     }
     if (options.source === 'extensions') return;
@@ -444,9 +476,49 @@ export const createRuntime = async (
     return navigation.retain(result);
   };
   const read = (): Candidate[] => tabWidths.measure(readSources);
-  const scrollChanged = () => {
-    imageSurfaces().forEach((surface) => surface.changed());
+  const scrollChanged = (event: Event) => {
+    const target = event.composedPath()[0];
+    if (options.nativeScroll && target instanceof HTMLElement)
+      scrollMotion.set(target, { version: (scrollMotion.get(target)?.version ?? 0) + 1, moving: true });
+    imageSurfaces().forEach((surface) => surface.changed(target));
+    // Only an acknowledged native binding can own motion. Other sources in the
+    // same container still need the regular reader (including rejected sources).
+    if (
+      target instanceof HTMLElement &&
+      nativeScrollOwners.has(target) &&
+      !dirty &&
+      !imageSurfaces().some((surface) => surface.restoring) &&
+      !overlayOpen()
+    )
+      return;
     schedule();
+  };
+  const scrollSettled = (event: Event) => {
+    if (!options.nativeScroll) return;
+    const owner = event.composedPath()[0];
+    if (owner instanceof HTMLElement) {
+      const motion = scrollMotion.get(owner);
+      if (motion) motion.moving = false;
+    }
+    let found = false;
+    for (const extension of extensions) {
+      if (!extension.scrollElement) continue;
+      for (const element of Array.from(scope.querySelectorAll<HTMLElement>(extension.selector))) {
+        try {
+          if (extension.scrollElement(element) !== owner) continue;
+        } catch {
+          continue; // A reader failure keeps the existing Web fallback.
+        }
+        rejected.delete(element);
+        found = true;
+      }
+    }
+    // One settled reconciliation retries temporary binding refusals and notices
+    // replaced WebKit scrollers. Reuse normal update/ACK/fallback ownership.
+    if (found) {
+      lastSnapshot = '';
+      schedule();
+    }
   };
   const observe = () => {
     const wanted = new Set<Element | ShadowRoot>();
@@ -473,7 +545,11 @@ export const createRuntime = async (
     if (wanted.size === observed.size && Array.from(wanted).every((element) => observed.has(element))) return;
     observer.disconnect();
     resize.disconnect();
-    for (const element of observed) if (element instanceof ShadowRoot) element.removeEventListener('scroll', scrollChanged, true);
+    for (const element of observed)
+      if (element instanceof ShadowRoot) {
+        element.removeEventListener('scroll', scrollChanged, true);
+        element.removeEventListener('scrollend', scrollSettled, true);
+      }
     observed.clear();
     observer.observe(doc.documentElement, observation);
     for (const element of wanted) {
@@ -481,6 +557,7 @@ export const createRuntime = async (
       if (element instanceof ShadowRoot) {
         observer.observe(element, observation);
         on(element, 'scroll', scrollChanged);
+        on(element, 'scrollend', scrollSettled);
       } else resize.observe(element);
     }
   };
@@ -603,7 +680,6 @@ export const createRuntime = async (
             candidate.actions.delete(configuration.trigger.id);
             candidate.actions.delete(configuration.closeId);
           }
-          const retainedIds = new Set(retained.map((candidate) => candidate.control.id));
           const retainedSources = new Set(retained.flatMap(candidateSources));
           for (const element of sources.keys()) if (!retainedSources.has(element)) restore(element, true);
           const retirement: NativeUISnapshot = {
@@ -612,13 +688,7 @@ export const createRuntime = async (
             transitionDuration: 0,
             toolbarTransition: undefined,
             verticalBarNavigation: undefined,
-            controls: renderedSnapshot.controls
-              .filter((control) => retainedIds.has(control.id))
-              .map((control) =>
-                retiredSearches.has(control.id)
-                  ? { ...control, search: { ...control.search!, available: false, active: false, focused: false } }
-                  : control,
-              ),
+            controls: retained.map(scrollControl),
           };
           updatingRevision = retirement.revision;
           updates++;
@@ -626,8 +696,14 @@ export const createRuntime = async (
           if (stopped || !result) return;
           renderedSnapshot = retirement;
           acceptedRevision = result.revision;
-          acknowledged = retained;
-          actions = new Map(retained.flatMap((candidate) => Array.from(candidate.actions)));
+          acknowledged = retained.filter((candidate) => !result.rejectedControls?.includes(candidate.control.id));
+          for (const candidate of retained) {
+            if (acknowledged.includes(candidate)) continue;
+            candidateSources(candidate).forEach((source) => restore(source, true));
+            if (candidate.scrollElement) nativeScrollOwners.delete(candidate.scrollElement);
+            dirty = true;
+          }
+          actions = new Map(acknowledged.flatMap((candidate) => Array.from(candidate.actions)));
           lastSnapshot = '';
           const received = pendingActivations;
           pendingActivations = [];
@@ -781,8 +857,16 @@ export const createRuntime = async (
         search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
         return;
       }
+      const acquiringScroll = new Map(
+        candidates.flatMap((candidate) =>
+          candidate.scrollElement && !reusesScroll(candidate)
+            ? [[candidate.scrollElement, scrollMotion.get(candidate.scrollElement)?.version ?? 0] as const]
+            : [],
+        ),
+      );
       const snapshot: NativeUISnapshot = {
         ...data,
+        controls: candidates.map(scrollControl),
         revision: ++revision,
         transitionDuration: crossfade.duration(
           handoffInstant || committingNavigation || preparingNavigation || imageSurfaces().some((surface) => surface.restoring),
@@ -793,6 +877,23 @@ export const createRuntime = async (
       updates++;
       updatingRevision = snapshot.revision;
       const result = await updateNative(snapshot);
+      // A provisional binding measured before motion is not an acknowledged
+      // coordinate mapping. Keep Web and acquire it again after settling.
+      const unconfirmedScroll = new Set(
+        candidates.flatMap((candidate) => {
+          const owner = candidate.scrollElement;
+          const sample = candidate.control.scroll;
+          return owner &&
+            sample &&
+            acquiringScroll.has(owner) &&
+            (acquiringScroll.get(owner) !== (scrollMotion.get(owner)?.version ?? 0) ||
+              owner.scrollLeft !== sample.offsetX ||
+              owner.scrollTop !== sample.offsetY)
+            ? [owner]
+            : [];
+        }),
+      );
+      if (unconfirmedScroll.size) dirty = true;
       if (stopped || !result || (retentions.size && !manualSuspensions.size)) return;
       if (transition && navigation.current === transition && result.toolbarTransition === transition.id) {
         transition.native = true;
@@ -821,7 +922,12 @@ export const createRuntime = async (
             'native-rejected: the native renderer rejected this source; check decoded props, placement, and device support.',
             candidate.element,
           );
-          rejected.set(candidate.element, rejectionSignatures.get(candidate.element)!);
+          // An established WebKit scroller may be replaced when Web projection
+          // styles change. Drop its ACK and reacquire once through the same path;
+          // a failed fresh acquisition is cached normally to stop repeated retries.
+          if (!snapshot.controls.find((control) => control.id === candidate.control.id)?.scroll?.reuse)
+            rejected.set(candidate.element, rejectionSignatures.get(candidate.element)!);
+          else candidateSources(candidate).forEach((source) => restore(source, true));
           setRejected(candidate.element, true);
           dirty = true;
         }
@@ -830,7 +936,12 @@ export const createRuntime = async (
       const currentCandidates = dirty ? read() : candidates;
       const current = dirty ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)])) : signatures;
       const currentSources = new Set([...currentCandidates.flatMap(candidateSources), ...(verticalGesture?.sources ?? [])]);
-      const accepted = candidates.filter((candidate) => current.get(candidate.element) === signatures.get(candidate.element));
+      const accepted = candidates.filter(
+        (candidate) =>
+          !result.rejectedControls?.includes(candidate.control.id) &&
+          current.get(candidate.element) === signatures.get(candidate.element) &&
+          (!candidate.scrollElement || !unconfirmedScroll.has(candidate.scrollElement)),
+      );
       accepted.forEach((candidate) => setRejected(candidate.element, false));
       const acceptedVerticalBarsOwners = new Set(
         accepted.filter((candidate) => candidate.control.placement === 'vertical-bars').map((candidate) => candidate.element),
@@ -899,7 +1010,29 @@ export const createRuntime = async (
       // keep that snapshot available if navigation starts before the next update.
       acknowledged = candidates.filter(
         (candidate) =>
-          !result.rejectedControls?.includes(candidate.control.id) && candidateSources(candidate).some((source) => sources.has(source)),
+          !result.rejectedControls?.includes(candidate.control.id) &&
+          (!candidate.scrollElement || !unconfirmedScroll.has(candidate.scrollElement)) &&
+          candidateSources(candidate).some((source) => sources.has(source)),
+      );
+      acknowledgedViewportWidth = snapshot.viewportWidth;
+      const discovered = Array.from(scope.querySelectorAll<HTMLElement>(discovery));
+      nativeScrollOwners = new Set(
+        acknowledged
+          .flatMap((candidate) => (candidate.scrollElement ? [candidate.scrollElement] : []))
+          .filter((owner) =>
+            discovered.every(
+              (element) =>
+                !Array.from(extensionAncestors(element)).includes(owner) ||
+                extensions.some((extension) => extension.placement === 'tab-accessory' && element.matches(extension.selector)) ||
+                acknowledged.some(
+                  (candidate) =>
+                    candidate.element === element &&
+                    (candidate.scrollElement === owner ||
+                      candidate.control.extension?.tabBarId ||
+                      candidate.control.placement === 'vertical-bars'),
+                ),
+            ),
+          ),
       );
       if (snapshot.modalAnimation && !invalidated && !result.rejectedControls?.length && !result.rejectedSearches?.length)
         playingModalAnimation = snapshot.modalAnimation.id;
@@ -1250,6 +1383,7 @@ export const createRuntime = async (
   on(win, 'keyboardWillShow', () => search.keyboard(true));
   on(win, 'keyboardWillHide', () => search.keyboard(false));
   on(win, 'scroll', scrollChanged);
+  on(win, 'scrollend', scrollSettled);
   on(win.matchMedia('(prefers-color-scheme: dark)'), 'change');
   on(win, 'nativeUIRefresh', (event) => {
     if (snapshots && (event as CustomEvent<{ modalMotion?: boolean }>).detail?.modalMotion) return;

@@ -3,6 +3,7 @@ import { frame, isDark, isVerticalBarsSource, text, visible } from './dom';
 import { iconSource, type createIconRenderer } from './icons';
 
 export interface Candidate {
+  scrollElement?: HTMLElement;
   assets?: { signature: string; render(renderer: ReturnType<typeof createIconRenderer>): Promise<void> };
   buttonProjection?: 'system' | 'source';
   buttonDefaultFill?: 'solid' | null;

@@ -146,7 +146,7 @@ struct NativeUIExtensionContent: Decodable, Equatable {
 /// Normal UIViewController containment keeps SwiftUI appearance and teardown intact.
 @MainActor final class NativeUIExtensionController {
     let controller: UIHostingController<AnyView>
-    var view: UIView { controller.view }
+    let view = UIView()
 
     init(content: AnyView, owner: UIViewController) {
         controller = UIHostingController(rootView: content)
@@ -155,14 +155,24 @@ struct NativeUIExtensionContent: Decodable, Equatable {
         owner.addChild(controller)
         // Capacitor can use WKWebView as its controller's root view. A sibling
         // shell surface is outside that controller's containment hierarchy.
-        owner.view.addSubview(controller.view)
+        view.addSubview(controller.view)
+        owner.view.addSubview(view)
         controller.didMove(toParent: owner)
     }
 
     func update(_ content: AnyView) { controller.rootView = content }
+    func place(_ frame: CGRect, clip: CGRect? = nil) {
+        view.clipsToBounds = clip != nil
+        let visible = clip.map { frame.intersection($0) } ?? frame
+        view.isHidden = visible.isNull || visible.isEmpty
+        guard !view.isHidden else { return }
+        if view.frame != visible { view.frame = visible }
+        let local = CGRect(x: frame.minX - visible.minX, y: frame.minY - visible.minY, width: frame.width, height: frame.height)
+        if controller.view.frame != local { controller.view.frame = local }
+    }
     func detach(duration: TimeInterval) {
         controller.willMove(toParent: nil)
-        NativeUICrossfade.retire(controller.view, duration: duration)
+        NativeUICrossfade.retire(view, duration: duration)
         controller.removeFromParent()
     }
 }

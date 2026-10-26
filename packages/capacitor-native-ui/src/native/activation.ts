@@ -369,7 +369,13 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
         const native = await createRuntime(
           document,
           plugin,
-          { ...options, extensions, unavailableExtensions, coveredSnapshots: capabilities.coveredSnapshots === true },
+          {
+            ...options,
+            extensions,
+            unavailableExtensions,
+            coveredSnapshots: capabilities.coveredSnapshots === true,
+            nativeScroll: capabilities.nativeScroll === true,
+          },
           nativeVerticalBars,
           runtimeStopped,
           connection,

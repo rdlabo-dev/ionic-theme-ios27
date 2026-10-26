@@ -1,3 +1,4 @@
+import { readScrollPlacement } from './shared/scroll-placement';
 import { fitsClip } from './shared/clipping';
 export { projectionAncestors as extensionAncestors } from './shared/clipping';
 import type { Candidate, Identify } from './shared/candidate';
@@ -23,6 +24,11 @@ export interface NativeUIExtension {
   readonly selector: string;
   /** Defaults to the source element's frame. Unsupported hosts keep the Web source visible. */
   readonly placement?: 'element' | 'tab-accessory';
+  /** Experimental iOS native scroll tracking. Return the owning overflow element (Ionic: getScrollElement()).
+   * One untransformed scroll container is supported. Unsupported bindings keep the Web source.
+   * Return null while the container is not ready. Omit to retain JS placement updates.
+   */
+  readonly scrollElement?: (element: HTMLElement) => HTMLElement | null;
   /** Return null to keep this instance on the Web. Read current source state without side effects. Notify property-only changes with shell.markForCheck(). */
   readonly read: (
     element: HTMLElement,
@@ -80,6 +86,7 @@ export const readExtension = (
   extensions: readonly NativeUIExtension[],
   id: Identify,
   diagnose: (reason: string) => void = () => {},
+  nativeScroll = false,
 ): Candidate | undefined => {
   const skip = (reason: string): undefined => {
     diagnose(reason);
@@ -87,12 +94,25 @@ export const readExtension = (
   };
   const matches = extensions.filter((extension) => element.matches(extension.selector));
   if (matches.length !== 1) return skip('overlapping-selectors: exactly one extension must own this source.');
-  if (!visible(element)) return skip('source-hidden: the source must be visible and inside the viewport.');
+  const extension = matches[0];
+  let scrollElement: HTMLElement | null | undefined;
+  if (extension.scrollElement) {
+    if (!nativeScroll || extension.placement === 'tab-accessory') return skip('unsupported-scroll: native scroll tracking is unavailable.');
+    try {
+      scrollElement = extension.scrollElement(element);
+    } catch {
+      return skip('scroll-reader-error: cannot resolve scroll owner.');
+    }
+    if (!scrollElement) return skip('missing-scroll-owner: the scroll element is not ready.');
+  }
+  const scroll = scrollElement ? readScrollPlacement(element, scrollElement, id) : undefined;
+  if (scrollElement && !scroll) return skip('unsupported-scroll: use one untransformed overflow container.');
+  if (!visible(element, !!scroll || extension.placement === 'tab-accessory'))
+    return skip('source-hidden: the source must be visible and inside the viewport.');
   if (element.closest('ion-modal, ion-popover, ion-menu'))
     return skip('unsupported-overlay: extension sources inside Web overlays stay on the Web.');
   if (element.contains(element.ownerDocument.activeElement)) return skip('source-focused: keep the focused Web source until focus leaves.');
-  const extension = matches[0];
-  if (extension.placement !== 'tab-accessory' && !fitsClip(element))
+  if (!scroll && extension.placement !== 'tab-accessory' && !fitsClip(element))
     return skip('source-clipped: the source must fit its clipping ancestors without transformed ancestors.');
   try {
     const images: { value: NativeUIImage; source: string }[] = [];
@@ -125,7 +145,7 @@ export const readExtension = (
       if (!name || (target && !element.contains(target))) return skip('invalid-actions: use named targets inside the source element.');
       if (
         !target ||
-        !visible(target) ||
+        !visible(target, !!scroll || extension.placement === 'tab-accessory') ||
         (target as HTMLElement & { disabled?: boolean }).disabled ||
         target.matches(':disabled, [disabled]') ||
         target.closest('[aria-disabled="true"]') ||
@@ -148,6 +168,7 @@ export const readExtension = (
     const control = {
       id: id(element),
       kind: 'extension' as const,
+      scroll,
       ...frame(element.getBoundingClientRect()),
       items: [],
       dark: isDark(style),
@@ -156,6 +177,7 @@ export const readExtension = (
     };
     return {
       element,
+      scrollElement: scrollElement ?? undefined,
       actions,
       icons: [],
       control,

@@ -70,6 +70,7 @@ export interface NativeUIRuntimeOptions extends NativeUIOptions {
   nativeState?: { edge?: 'left' | 'right' };
   /** @internal Negotiated native support; absent on older binaries. */
   coveredSnapshots?: boolean;
+  nativeScroll?: boolean;
   unavailableExtensions?: ReadonlyMap<string, string>;
   rail?: { host: HTMLElement; edge: 'left' | 'right' };
 }
@@ -186,11 +187,26 @@ export type NativeUIControlKind =
   | 'segment'
   | 'floating-action-button';
 
+/** @internal Layout sample for one native-owned overflow scroll container. */
+export interface NativeUIScrollPlacement {
+  id: string;
+  /** @internal Only reuse a mapping whose update was accepted by Web. */
+  reuse?: boolean;
+  offsetX: number;
+  offsetY: number;
+  viewport: Frame;
+  clip: Frame;
+  contentWidth: number;
+  contentHeight: number;
+  frame: Frame;
+}
+
 export interface NativeUIControl extends Frame {
   id: string;
   /** Stable toolbar group identity, independent of the source control ID. */
   transitionId?: string;
   kind: NativeUIControlKind | 'extension';
+  scroll?: NativeUIScrollPlacement;
   extension?: { name: string; props: string; actions: Record<string, string>; tabBarId?: string };
   /** Lets the native host own adaptive placement instead of mirroring the DOM frame. */
   placement?: 'vertical-bars';
@@ -285,6 +301,7 @@ export interface NativeUIPlugin {
     modalAnimation?: boolean;
     connectionState?: boolean;
     coveredSnapshots?: boolean;
+    nativeScroll?: boolean;
   }>;
   coveredSnapshot?(options: {
     action: 'prepare' | 'cover' | 'painted' | 'restore' | 'restored' | 'release' | 'reset';

@@ -33,6 +33,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     private var searchControllers: [String: NativeUISearchControlling] = [:]
     private var extensionControllers: [String: NativeUIExtensionController] = [:]
     private var extensionSessions: [String: UUID] = [:]
+    private var scrollTrackers: [String: NativeUIScrollTracker] = [:]
     private var extensionNodes: [String: NativeUIControl] = [:]
     private let extensionActions = NativeUIExtensionActions()
     private var fingerprints: [String: NativeUIControl] = [:]
@@ -239,7 +240,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                         effect.isHidden = true
                         self.restoreTopEdge = { [weak effect] in effect?.isHidden = hidden }
                     }
-                    call.resolve(["supported": true, "extensions": NativeUI.names, "modalAnimation": true, "connectionState": true, "coveredSnapshots": true])
+                    call.resolve(["supported": true, "extensions": NativeUI.names, "modalAnimation": true, "connectionState": true, "coveredSnapshots": true, "nativeScroll": true])
                 }
                 else { call.resolve(["supported": false]) }
             }
@@ -429,6 +430,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     }
 
     private func removeControls(duration: TimeInterval = 0) {
+        scrollTrackers.removeAll()
         snapshotControls = []
         toolbarTransition?.restore()
         toolbarTransition = nil
@@ -546,6 +548,29 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 self.removeControl(id, duration: duration)
             }
             var rejectedControls: [String] = []
+            // Rebind only on a layout snapshot, never on native scroll ticks.
+            let previousTrackers = self.scrollTrackers
+            self.scrollTrackers.removeAll()
+            for (id, nodes) in Dictionary(grouping: snapshots.filter { $0.scroll != nil }, by: { $0.scroll!.id }) {
+                if nodes.contains(where: { $0.scroll?.reuse == true }) {
+                    if let tracker = previousTrackers[id], tracker.replace(nodes, webView: webView, scale: scale) {
+                        self.scrollTrackers[id] = tracker
+                    } else {
+                        // Web acknowledged the old mapping, not a replacement
+                        // WebKit scroller. Reacquire through the ordinary ACK path.
+                        rejectedControls.append(contentsOf: nodes.map(\.id))
+                    }
+                    continue
+                }
+                if let tracker = NativeUIScrollTracker(webView: webView, nodes: nodes, scale: scale, render: { [weak self, weak webView] id, frame, clip in
+                    guard let self, let webView, !self.coveredSnapshots.hidesNativeControls, !self.keyboardVisible,
+                          self.extensionNodes[id]?.scroll != nil, let controller = self.extensionControllers[id], let parent = controller.view.superview else { return }
+                    controller.place(webView.convert(frame, to: parent), clip: clip.isNull ? .null : webView.convert(clip, to: parent))
+                }) { self.scrollTrackers[id] = tracker }
+                else {
+                    rejectedControls.append(contentsOf: nodes.map(\.id))
+                }
+            }
             var fabs: [(NativeUIFab, NativeUIControl)] = []
             var searches: [(NativeUISearchControlling, NativeUIControl, CGRect, CGRect, UIView?, Bool)] = []
             var rejectedSearches: [String] = []
@@ -647,7 +672,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                             previous.center = previousCenter!
                             previous.layoutIfNeeded()
                         } else { self.removeControl(id) }
-                        rejectedControls.append(id)
+                        if !rejectedControls.contains(id) { rejectedControls.append(id) }
                     }
                     // Only native search owns its keyboard; other controls return to Web.
                     if self.keyboardVisible && self.searchControllers[id]?.ownsKeyboard != true {
@@ -657,6 +682,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     let bounds = webView.convert(CGRect(x: local.minX * scale, y: local.minY * scale,
                                                        width: local.width * scale, height: local.height * scale), to: parent)
                     if node.kind == .extension {
+                        if rejectedControls.contains(id) { reject(); continue }
                         guard let owner = self.bridge?.viewController, let content = try? self.extensionContent(node, viewportWidth: width, scale: scale) else {
                             self.extensionNodes.removeValue(forKey: id)
                             self.extensionSessions.removeValue(forKey: id)
@@ -673,8 +699,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                             self.controls[id] = controller.view
                         }
                         self.extensionNodes[id] = node
-                        self.controls[id]?.frame = parent.convert(bounds, to: owner.view)
-                        self.controls[id]?.isHidden = false
+                        self.extensionControllers[id]?.place(parent.convert(bounds, to: owner.view))
                         self.controls[id]?.overrideUserInterfaceStyle = node.dark ? .dark : .light
                         continue
                     }
@@ -774,6 +799,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     controller.surface.isHidden = self.keyboardVisible && !controller.ownsKeyboard
                 }
             }
+            self.scrollTrackers.values.forEach { $0.update() }
             for (id, control) in self.controls where !existing.contains(id) && self.searchControllers[id] == nil {
                 NativeUICrossfade.enter(control, duration: duration)
             }

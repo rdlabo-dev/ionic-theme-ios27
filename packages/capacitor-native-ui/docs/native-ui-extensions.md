@@ -76,6 +76,31 @@ The shell observes DOM changes and sends the new props to the native content. St
 | Action targets | The source itself or its descendants. Missing, hidden and disabled targets cannot be activated.                |
 | Action count   | Up to 30 per source.                                                                                           |
 
+### Native scroll tracking on iOS (experimental)
+
+For an element inside a single overflow scroller, supply `scrollElement`. The Web side measures layout; iOS observes the matching `UIScrollView` and updates only native position and clipping during scrolling. Sources in the same container share one observer. The binding calibrates DOM/native coordinate origins while the scroller is at rest, then retains that mapping across content updates. Partially visible controls remain native, and fully clipped controls cannot receive input.
+
+```ts
+const scrollElement = await ionContent.getScrollElement();
+const counter = defineNativeUI({
+  name: 'app.counter',
+  selector: '[data-counter]',
+  scrollElement: () => scrollElement,
+  read(element) {
+    return {
+      props: { count: Number(element.getAttribute('data-count') ?? 0) },
+      actions: { increment: element.querySelector<HTMLButtonElement>('button') },
+    };
+  },
+});
+```
+
+With plain HTML, return the element with `overflow: auto` or `scroll`. Return `null` until it is ready, then call `shell.markForCheck()` if readiness did not change the DOM. Keep source dimensions and content-layout changes observable; use `markForCheck()` for changes the shell cannot observe.
+
+This uses WebKit's internal overflow-view hierarchy without private class names. A binding must match exactly one native scroller; missing or ambiguous matches keep the interactive Web source. Nested scrolling, rounded or shaped clipping, CSS transforms/zoom, sticky/fixed descendants, document scrolling, older native binaries and Android are not supported by this opt-in. Omit `scrollElement` to keep the existing JS-based placement path. Other unbound projection sources inside the same scroller still require ordinary layout synchronization. Each `scrollend` performs one reconciliation through the normal update/acknowledgement path, including retries after a temporary binding refusal.
+
+`NativeUIContext.sourceFrame` is the latest layout sample, not a per-scroll notification. Native tracking does not rebuild SwiftUI content for scroll offsets. Fixed tab accessories do not use this binding. Web Modal transforms remain on their existing handoff path; noninteractive covered content can use prepared images, while interactive scrolling content stays native.
+
 ## 2a. Register a SwiftUI View on iOS
 
 Run `npx cap sync ios` after installing the plugin, then add a Swift file to the application's Xcode target. Import `NativeUIPlugin`, the module supplied by `@rdlabo/capacitor-native-ui`. Keep your existing SPM or CocoaPods integration.

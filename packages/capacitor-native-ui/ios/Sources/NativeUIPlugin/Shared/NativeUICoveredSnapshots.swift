@@ -145,6 +145,8 @@ final class NativeUICoveredSnapshots {
         return true
     }
 
+    var hidesNativeControls: Bool { hiddenControls != nil }
+
     func hide(_ views: [UIView], for token: String) {
         generation += 1
         restoreControls()
