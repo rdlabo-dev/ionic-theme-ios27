@@ -3,6 +3,12 @@ import WebKit
 @testable import CapacitorNativeUIEngine
 
 final class NativeUIProjectionTests: XCTestCase {
+    @MainActor func testMissingWebViewThrowsDuringInitialization() {
+        XCTAssertThrowsError(try NativeUIProjection(
+            webView: nil, plugin: "Fixture", fallbackSelector: "#slot", view: { nil }
+        ))
+    }
+
     @MainActor func testNativeInitializationFallbackEventsReloadAndTeardown() async throws {
         let configuration = WKWebViewConfiguration()
         let content = ProjectionFixture()

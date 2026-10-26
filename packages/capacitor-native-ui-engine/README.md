@@ -53,13 +53,9 @@ Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS 
 
      public override func load() {
          // Existing code creates and attaches nativeView here.
-+        guard let webView = bridge?.webView else {
-+            return
-+        }
-+
 +        do {
 +            projection = try NativeUIProjection(
-+                webView: webView,
++                webView: bridge?.webView,
 +                plugin: jsName,
 +                fallbackSelector: "#native-ui-fallback",
 +                receiveListeners: .init(
@@ -92,6 +88,8 @@ Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS 
 +    }
  }
 ```
+
+Pass `bridge?.webView` directly. If the WebView is unavailable, the Engine throws an initialization error into the same `catch`; a separate guard or force unwrap is unnecessary.
 
 If the view is created later in an existing `initialize` / `show` method, put the registration there after view creation instead of in `load()`. Retain one registration for that renderer's lifetime; do not create another on every update. When replacing a renderer, destroy its old registration before registering the replacement.
 

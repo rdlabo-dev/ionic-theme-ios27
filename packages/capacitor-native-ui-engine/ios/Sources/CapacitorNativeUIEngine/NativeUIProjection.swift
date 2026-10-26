@@ -43,10 +43,11 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
     private var anchors: [String: [String: Anchor]] = [:]
     private var captured: [String: [String: UIView]] = [:]
 
-    public init(webView: WKWebView, plugin: String, fallbackSelector: String,
+    public init(webView: WKWebView?, plugin: String, fallbackSelector: String,
                 receiveListeners: ReceiveListeners = .init(),
                 allowedOrigins: Set<String> = ["capacitor://localhost", "https://localhost", "http://localhost"],
                 canCapture: @escaping () -> Bool = { true }, view: @escaping () -> UIView?) throws {
+        guard let webView else { throw ProjectionError.missingWebView }
         self.webView = webView; self.views = { view().map { ["view": $0] } ?? [:] }; self.origins = allowedOrigins; self.canCapture = canCapture
         super.init()
         precondition(Thread.isMainThread)
@@ -63,7 +64,7 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
         webView.configuration.userContentController.addUserScript(script)
         webView.evaluateJavaScript(source, completionHandler: nil)
     }
-    private enum ProjectionError: Error { case invalidConfiguration, missingRuntime }
+    private enum ProjectionError: Error { case missingWebView, invalidConfiguration, missingRuntime }
     private static func runtime() throws -> String {
         #if SWIFT_PACKAGE
         let bundle = Bundle.module
