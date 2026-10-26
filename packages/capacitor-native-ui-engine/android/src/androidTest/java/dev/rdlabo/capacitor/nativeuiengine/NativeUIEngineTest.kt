@@ -271,10 +271,14 @@ class NativeUIEngineTest {
  @Test fun nativeInitializationOwnsImagesEventsAndTeardown() = nativeInitialization(NativeUIProjection.CaptureMode.COMPOSITED)
  @Test fun opaqueViewUsesPreparedWebPixelsWithoutNativeCopies() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW)
  @Test fun lateOpaqueCoverCannotHideAfterResume() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, true)
- private fun nativeInitialization(mode: NativeUIProjection.CaptureMode, delayCover:Boolean = false) {
+ @Test fun invalidatedOpaqueImageAppliesPendingPlacementBeforeRelease() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, releaseWhileActive = true)
+ private fun nativeInitialization(mode: NativeUIProjection.CaptureMode, delayCover:Boolean = false, releaseWhileActive:Boolean = false) {
   val activity=activity(); lateinit var registration:NativeUIProjection; lateinit var native:View
   val loaded=CountDownLatch(1)
   val pendingDraws=mutableListOf<()->Unit>()
+  var revealCount=0
+  var pendingPlacement=false
+  var pendingNativeY=0f
   fun js(expression:String):String {
    val done=CountDownLatch(1);var result=""
    main{activity.web.evaluateJavascript(expression){result=it;done.countDown()}}
@@ -309,7 +313,15 @@ class NativeUIEngineTest {
      receiveListeners=NativeUIProjection.ReceiveListeners(
       update=listOf("updated"),
       projection=NativeUIProjection.ReceiveListeners.Projection(native=listOf("shown"),web=listOf("moving"),none=listOf("hidden"))),
-     captureMode=mode,view={native})
+     captureMode=mode,beforeNativeReveal={
+      assertFalse(registration.isProjecting)
+      if(pendingPlacement) {
+       assertEquals(View.INVISIBLE,native.visibility)
+       pendingPlacement=false
+       native.y=pendingNativeY
+       revealCount++
+      }
+     },view={native})
     if(delayCover) registration.awaitWebDraw = { _, current, done -> pendingDraws.add { done(current()) } }
     activity.web.loadDataWithBaseURL("https://localhost", """
      <meta name='viewport' content='width=device-width,initial-scale=1'><script>
@@ -337,8 +349,16 @@ class NativeUIEngineTest {
     js("testEvents.moving({})")
     if(mode==NativeUIProjection.CaptureMode.VIEW) waitNative(View.INVISIBLE)
     else waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
-    main{assertEquals(View.INVISIBLE,native.visibility)}
+    val placementCssWidth=js("innerWidth").toFloat()
+    main{assertEquals(View.INVISIBLE,native.visibility);assertEquals(mode==NativeUIProjection.CaptureMode.VIEW,registration.isProjecting);pendingPlacement=mode==NativeUIProjection.CaptureMode.VIEW;pendingNativeY=(120+iteration*20)*activity.web.width/placementCssWidth}
     js("document.querySelector('#slot').style.top='${120+iteration*20}px'")
+    if(releaseWhileActive) {
+     js("window.dispatchEvent(new Event('resize'))")
+     val deadline=System.currentTimeMillis()+5000;var flushed=false
+     while(!flushed && System.currentTimeMillis()<deadline) {main{flushed=revealCount==iteration+1};Thread.sleep(20)}
+     assertTrue("Active image release must apply pending placement",flushed)
+     main{assertFalse(registration.isProjecting)}
+    }
     js("testEvents.shown({})")
     if(mode==NativeUIProjection.CaptureMode.VIEW) waitNative(View.VISIBLE)
     else waitFor("!document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
@@ -361,7 +381,7 @@ class NativeUIEngineTest {
    main{registration.hide {hiddenResult=it;hidden.countDown()}}
    assertTrue(hidden.await(6,TimeUnit.SECONDS));assertTrue(hiddenResult)
    waitFor("document.querySelector('#slot').getAttributeNames().some(n=>n.startsWith('data-native-ui-session-')&&document.querySelector('#slot').getAttribute(n)==='none')")
-   main{assertEquals(View.INVISIBLE,native.visibility);registration.close()}
+   main{assertEquals(View.INVISIBLE,native.visibility);assertFalse(registration.isProjecting);assertEquals(if(mode==NativeUIProjection.CaptureMode.VIEW)2 else 0,revealCount);registration.close()}
    waitFor("Object.keys(testEvents).length===0")
   } finally {main{activity.finish()}}
  }

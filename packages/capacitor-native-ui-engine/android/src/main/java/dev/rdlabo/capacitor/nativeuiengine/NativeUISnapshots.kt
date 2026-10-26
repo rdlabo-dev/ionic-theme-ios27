@@ -41,6 +41,7 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     private var closed = false
     var coveringToken: String? = null; private set
     val hidesNativeViews get() = hidden != null
+    internal fun hidesNativeViews(token: String): Boolean { onMain(); return hidden?.first == token }
     @get:androidx.annotation.ChecksSdkIntAtLeast(api = 26)
     val supported get() = Build.VERSION.SDK_INT >= 26
     private fun onMain() = check(Looper.myLooper() == Looper.getMainLooper())

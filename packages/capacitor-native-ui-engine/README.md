@@ -232,6 +232,16 @@ for WebView visual readiness and a draw before retirement. If the 500 ms entry
 deadline expires, the native View is restored before the copy is removed, and a late
 paint acknowledgment is rejected.
 
+Android VIEW consumers can read `isProjecting` on the UI thread after a successful
+cover to defer same-size native placement work. Keep only the latest accepted placement;
+continue validating sequence/generation, and process hide, resize and teardown immediately.
+Supply `beforeNativeReveal` to apply that pending placement synchronously before normal
+restoration, failure recovery, or active-image release reveals native pixels. The engine
+clears `isProjecting` before invoking the callback, so applying placement must not defer
+again. The callback may run without pending work and must be idempotent. Clear consumer
+pending work on hide/destroy and validate the loaded View identity before applying it.
+The callback does not replace content/size invalidation or JavaScript geometry tracking.
+
 On Android, consumers whose asynchronous hide method promises that all pixels have
 disappeared must call `projection.hide { completed -> ... }` and resolve only when
 `completed` is true. Native handoff copies disappear immediately; completion waits
