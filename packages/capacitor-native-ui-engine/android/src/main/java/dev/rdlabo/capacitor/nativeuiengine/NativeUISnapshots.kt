@@ -50,7 +50,10 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     fun interaction(active: Boolean) { onMain(); touching = active; generation++ }
 
     /** frames() returns current native bounds in reference-view physical pixels. */
-    fun prepare(window: Window, reference: View, viewportWidth: Double, frames: () -> Map<String, RectF>, sourceViews: (() -> Map<String, View>)? = null, contentRevision: Long = 0, complete: (JSONObject) -> Unit) {
+    fun prepare(window: Window, reference: View, viewportWidth: Double, frames: () -> Map<String, RectF>, complete: (JSONObject) -> Unit) =
+        prepare(window, reference, viewportWidth, frames, null, 0, complete)
+
+    fun prepare(window: Window, reference: View, viewportWidth: Double, frames: () -> Map<String, RectF>, sourceViews: (() -> Map<String, View>)?, contentRevision: Long = 0, complete: (JSONObject) -> Unit) {
         onMain()
         if (!supported || closed || pending || touching || viewportWidth <= 0 || !viewportWidth.isFinite() || reference.width <= 0) { complete(JSONObject()); return }
         pending = true
@@ -155,7 +158,11 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     private fun valid(token: String, window: Window, reference: View): Capture? = captures[token]?.takeIf {
         window.decorView.width == it.width && window.decorView.height == it.height && origin(reference) == it.origin && reference.width == it.referenceWidth && reference.height == it.referenceHeight
     }
-    fun cover(token: String, window: Window, reference: View, views: List<View>, transient: Boolean = false, clips: Map<String, RectF>? = null, frames: Map<String, RectF>? = null): Boolean {
+    // Keep the published JVM descriptors, including Kotlin's default-argument bridges.
+    fun cover(token: String, window: Window, reference: View, views: List<View>, transient: Boolean = false): Boolean =
+        cover(token, window, reference, views, transient, null)
+
+    fun cover(token: String, window: Window, reference: View, views: List<View>, transient: Boolean = false, clips: Map<String, RectF>?, frames: Map<String, RectF>? = null): Boolean {
         onMain()
         // Composite pixels cover both the live translucent view and its Web replacement.
         // Install the entry copy before changing native visibility in the same UI turn.
@@ -183,7 +190,10 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     }
     fun restoreViews() { onMain(); hidden?.second?.forEach { (view, visibility) -> view.visibility = visibility }; hidden = null }
     fun identifiers(token: String): Set<String> = captures[token]?.parts?.map { it.id }?.toSet() ?: emptySet()
-    fun restore(token: String, window: Window, reference: View, frames: Map<String, RectF>? = null, entry: Boolean = false, clips: Map<String, RectF>? = null): Boolean {
+    fun restore(token: String, window: Window, reference: View, frames: Map<String, RectF>? = null, entry: Boolean = false): Boolean =
+        restore(token, window, reference, frames, entry, null)
+
+    fun restore(token: String, window: Window, reference: View, frames: Map<String, RectF>? = null, entry: Boolean = false, clips: Map<String, RectF>?): Boolean {
         onMain(); val capture = valid(token, window, reference) ?: return false
         if (frames != null && capture.parts.any { part ->
             val frame = frames[part.id]
