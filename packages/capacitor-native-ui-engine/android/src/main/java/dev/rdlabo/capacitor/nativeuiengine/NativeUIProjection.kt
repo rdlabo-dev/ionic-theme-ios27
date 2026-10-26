@@ -19,14 +19,27 @@ class NativeUIProjection(
     private val webView: WebView,
     plugin: String,
     projectionSelector: String,
-    receiveListeners: ReceiveListeners = ReceiveListeners(),
+    private val receiveListeners: ReceiveListeners = ReceiveListeners(),
     allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost"),
-    failedFallback: FailedFallback = FailedFallback.WEB,
+    failedFallback: FailedFallback,
     private val captureMode: CaptureMode = CaptureMode.COMPOSITED,
     private val canCapture: () -> Boolean = { true },
     private val beforeNativeReveal: () -> Unit = {},
     view: () -> View?
 ) : AutoCloseable {
+    /** Preserve the original source and JVM constructor contracts for existing plugin binaries. */
+    constructor(
+        window: Window,
+        webView: WebView,
+        plugin: String,
+        projectionSelector: String,
+        receiveListeners: ReceiveListeners = ReceiveListeners(),
+        allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost"),
+        canCapture: () -> Boolean = { true },
+        view: () -> View?
+    ) : this(window, webView, plugin, projectionSelector, receiveListeners, allowedOrigins,
+        FailedFallback.WEB, CaptureMode.COMPOSITED, canCapture, {}, view)
+
     /** True only after an opaque VIEW handoff hid native pixels. Main-thread access only. */
     var isProjecting: Boolean = false
         private set
@@ -82,6 +95,19 @@ class NativeUIProjection(
             origins[webView] = allowedOrigins.toSet()
         }
     }
+    @Volatile private var notificationDestination: String? = null
+    /** Observe an existing notification; retain state without replaying or emitting events. */
+    fun receive(eventName: String, data: JSONObject? = null) {
+        if (!receiveListeners.match.all { (key, expected) ->
+            val actual = data?.opt(key)
+            if (actual is Number && expected is Number) actual.toDouble() == expected.toDouble()
+            else actual == expected
+        }) return
+        val routes = receiveListeners.projection
+        val matches = listOf("native" to routes.native, "web" to routes.web, "none" to routes.none)
+            .filter { eventName in it.second }
+        if (matches.size == 1) notificationDestination = matches.single().first
+    }
     private val sourceView = view
     private fun views() = sourceView()?.let { mapOf("view" to it) } ?: emptyMap()
     private val id = "nativeUI" + UUID.randomUUID().toString().replace("-", "")
@@ -101,6 +127,7 @@ class NativeUIProjection(
     private var closed = false
     private var documentID: String? = null
     private val script: ScriptHandler
+    private val stopInteraction: () -> Unit
     init {
         check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
         require(projectionSelector.isNotBlank())
@@ -126,6 +153,11 @@ class NativeUIProjection(
             snapshots.close()
             throw error
         }
+        stopInteraction = NativeUIWindowInteraction.observe(window) { active ->
+            snapshots.interaction(active)
+            reply(null, JSONObject().put("active", active))
+        }
+
     }
     private fun frame(view: View): RectF {
         val a = IntArray(2); val b = IntArray(2)
@@ -161,8 +193,8 @@ class NativeUIProjection(
         val complete: (JSONObject) -> Unit = { value -> if (!closed && documentID == page) reply(key, value) }
         when (request.optString("action")) {
             "connect" -> {
-                if (!connected) { destination = if (views().values.any { it.visibility == View.VISIBLE }) "native" else "none"; connected = true }
-                complete(JSONObject().put("destination", destination))
+                if (!connected) { destination = (if (views().values.any { it.visibility == View.VISIBLE }) "native" else "none"); connected = true }
+                complete(JSONObject().put("destination", notificationDestination ?: destination))
             }
             "destination" -> {
                 request.optString("destination").takeIf { it in listOf("native", "web", "none") }?.let { destination = it; connected = true }
@@ -316,7 +348,7 @@ class NativeUIProjection(
         check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
         coverGeneration++
         isProjecting = false
-        suspended = true; visible = false; destination = "none"
+        suspended = true; visible = false; destination = "none"; notificationDestination = "none"; connected = true
         snapshots.dismiss(); webReadyTokens.clear()
         views().values.filter { it.visibility == View.VISIBLE }.forEach { hiddenByProjection.add(it); it.visibility = View.INVISIBLE }
         var done = false
@@ -328,7 +360,8 @@ class NativeUIProjection(
     }
     /** Permit subsequent native presentation after a completed hide. */
     fun show() {
-        suspended = false; destination = "native"; connected = true
+        check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
+        suspended = false; destination = "native"; notificationDestination = "native"; connected = true
         webView.evaluateJavascript("globalThis.CapacitorNativeUIEngineRuntime?.show('$id')", null)
     }
     override fun close() {
@@ -336,6 +369,7 @@ class NativeUIProjection(
         closed = true
         isProjecting = false
         coverGeneration++
+        stopInteraction()
         webView.evaluateJavascript("globalThis.CapacitorNativeUIEngineRuntime?.stop('$id')", null)
         script.remove()
         registrations[webView]?.remove(id)

@@ -55,7 +55,7 @@ const boot = async (
                 w.rejectTrack = reject;
               });
             if (request.action === 'track' && w.failTrack) throw new Error('Tracking reply unavailable');
-            if (request.action === 'prepare' && (unavailable || w.unavailable)) return {};
+            if (request.action === 'prepare' && (unavailable || w.unavailable || w.noCapture)) return {};
             if (request.action === 'cover' && w.failCover) return { shown: false };
             if (request.action === 'prepare')
               return { token: 'pixels', parts: [{ ids: ['view'], url: 'file:///pixels.png', x: 8, y: 8, width: 120, height: 40 }] };
@@ -533,4 +533,55 @@ test('full-view pixels remain host-local when native position lags DOM during fi
   });
   await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
   expect(await page.evaluate(() => getComputedStyle(document.querySelector('#slot')!, '::before').top)).toBe('0px');
+});
+
+for (const confirmation of ['notification', 'show'] as const) {
+  test(`scroll without capture waits for placement confirmation through ${confirmation}`, async ({ page }) => {
+    await boot(page, false);
+    await page.evaluate(() => {
+      (window as any).noCapture = true;
+      document.body.innerHTML =
+        '<div id="scroller" style="height:100px;overflow:auto"><div style="height:400px;padding-top:60px"><div id="slot" style="width:120px;height:40px">Fallback</div></div></div>';
+    });
+    await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'native');
+    await page.evaluate(() => {
+      (window as any).calls = [];
+      document.querySelector('#scroller')!.scrollTop = 30;
+    });
+    await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-session-surface');
+    // Wait beyond scroll settling and force another reconciliation through an appearance event.
+    await page.waitForTimeout(200);
+    await page.evaluate(() => (window as any).events.updated({ slot: 1 }));
+    await page.waitForTimeout(100);
+    expect(await page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'visibility' && c.visible))).toBe(false);
+    await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-session-surface');
+    await page.evaluate((confirmation) => {
+      const w = window as any;
+      if (confirmation === 'notification') w.events.shown({ slot: 1 });
+      else {
+        w.session.hide();
+        w.session.show();
+      }
+    }, confirmation);
+    await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'native');
+  });
+}
+
+test('scroll with a prepared image still restores through the native placement acknowledgement', async ({ page }) => {
+  await boot(page, false);
+  await page.evaluate(() => {
+    document.body.innerHTML =
+      '<div id="scroller" style="height:100px;overflow:auto"><div style="height:400px;padding-top:60px"><div id="slot" style="width:120px;height:40px">Fallback</div></div></div>';
+  });
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.evaluate(() => {
+    (window as any).calls = [];
+    document.querySelector('#scroller')!.scrollTop = 30;
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'restore'))).toBe(true);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'native');
+  await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  const calls = await page.evaluate(() => (window as any).calls);
+  expect(calls.find((c: any) => c.action === 'restore').parts[0].y).toBe(-22);
+  expect(calls.some((c: any) => c.action === 'resume')).toBe(true);
 });

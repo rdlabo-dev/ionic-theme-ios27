@@ -32,6 +32,15 @@ class NativeUIEngineTest {
   assertTrue("Web fixture did not finish loading",ready)
   return activity
  }
+ @Test fun originalProjectionConstructorBinaryContractsRemainAvailable() {
+  val parameters=arrayOf(
+   android.view.Window::class.java, android.webkit.WebView::class.java,
+   String::class.java, String::class.java, NativeUIProjection.ReceiveListeners::class.java,
+   Set::class.java, kotlin.jvm.functions.Function0::class.java, kotlin.jvm.functions.Function0::class.java)
+  NativeUIProjection::class.java.getConstructor(*parameters)
+  NativeUIProjection::class.java.getConstructor(*parameters, Int::class.javaPrimitiveType,
+   Class.forName("kotlin.jvm.internal.DefaultConstructorMarker"))
+ }
  @Test fun placementChangesPositionWithoutResettingDimensionsAndClipsInput() {
   val activity=activity()
   try {main {
@@ -268,11 +277,51 @@ class NativeUIEngineTest {
    assertTrue(stale.await(5,TimeUnit.SECONDS));assertFalse(staleAccepted)
   } finally {main{activity.finish()}}
  }
+ @Test fun windowInteractionSharesObserversAndPreservesCallbackOwnership() {
+  val activity=activity()
+  try {main {
+   val window=activity.window
+   val original=window.callback
+   var dispatched=0
+   val previous=object:android.view.Window.Callback by original {
+    override fun dispatchTouchEvent(event:android.view.MotionEvent):Boolean {dispatched++;return true}
+   }
+   window.callback=previous
+   val first=mutableListOf<Boolean>();val second=mutableListOf<Boolean>()
+   val stopFirst=NativeUIWindowInteraction.observe(window){first.add(it)}
+   val observer=window.callback
+   val stopSecond=NativeUIWindowInteraction.observe(window){second.add(it)}
+   assertSame(observer,window.callback)
+   fun touch(action:Int) {
+    val now=android.os.SystemClock.uptimeMillis()
+    val event=android.view.MotionEvent.obtain(now,now,action,1f,1f,0)
+    assertTrue(window.callback.dispatchTouchEvent(event));event.recycle()
+   }
+   touch(android.view.MotionEvent.ACTION_DOWN)
+   stopFirst()
+   touch(android.view.MotionEvent.ACTION_CANCEL)
+   assertEquals(listOf(false,true),first)
+   assertEquals(listOf(false,true,false),second)
+   touch(android.view.MotionEvent.ACTION_DOWN)
+   window.callback.onWindowFocusChanged(false)
+   assertEquals(listOf(false,true,false,true,false),second)
+   val outer=object:android.view.Window.Callback by window.callback {}
+   window.callback=outer
+   stopSecond()
+   assertSame(outer,window.callback)
+   touch(android.view.MotionEvent.ACTION_UP)
+   assertEquals(4,dispatched)
+   assertEquals(listOf(false,true,false,true,false),second)
+   window.callback=original
+  }} finally {main{activity.finish()}}
+ }
+
  @Test fun nativeInitializationOwnsImagesEventsAndTeardown() = nativeInitialization(NativeUIProjection.CaptureMode.COMPOSITED)
  @Test fun opaqueViewUsesPreparedWebPixelsWithoutNativeCopies() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW)
  @Test fun lateOpaqueCoverCannotHideAfterResume() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, true)
  @Test fun invalidatedOpaqueImageAppliesPendingPlacementBeforeRelease() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, releaseWhileActive = true)
  private fun nativeInitialization(mode: NativeUIProjection.CaptureMode, delayCover:Boolean = false, releaseWhileActive:Boolean = false) {
+
   val activity=activity(); lateinit var registration:NativeUIProjection; lateinit var native:View
   val loaded=CountDownLatch(1)
   val pendingDraws=mutableListOf<()->Unit>()
@@ -313,7 +362,7 @@ class NativeUIEngineTest {
      receiveListeners=NativeUIProjection.ReceiveListeners(
       update=listOf("updated"),
       projection=NativeUIProjection.ReceiveListeners.Projection(native=listOf("shown"),web=listOf("moving"),none=listOf("hidden"))),
-     captureMode=mode,beforeNativeReveal={
+     failedFallback=NativeUIProjection.FailedFallback.WEB,captureMode=mode,beforeNativeReveal={
       assertFalse(registration.isProjecting)
       if(pendingPlacement) {
        assertEquals(View.INVISIBLE,native.visibility)
@@ -323,6 +372,9 @@ class NativeUIEngineTest {
       }
      },view={native})
     if(delayCover) registration.awaitWebDraw = { _, current, done -> pendingDraws.add { done(current()) } }
+    registration.receive("hidden")
+    registration.receive("moving")
+
     activity.web.loadDataWithBaseURL("https://localhost", """
      <meta name='viewport' content='width=device-width,initial-scale=1'><script>
      window.testEvents={};window.Capacitor={
@@ -332,7 +384,30 @@ class NativeUIEngineTest {
     """.trimIndent(),"text/html","utf-8",null)
    }
    assertTrue("Fixture navigation did not complete",loaded.await(10,TimeUnit.SECONDS))
+   waitFor("typeof testEvents?.shown==='function'")
+   waitFor("document.querySelector('#slot')!==null")
+   val hiddenDeadline=System.currentTimeMillis()+3000
+   while(System.currentTimeMillis()<hiddenDeadline) { var hidden=false; main{hidden=native.visibility==View.INVISIBLE};if(hidden)break;Thread.sleep(20) }
+   main{assertEquals(View.INVISIBLE,native.visibility)}
+   js("testEvents.shown({})")
    waitFor("document.querySelector('#slot')?.hasAttribute('data-native-ui-snapshot')===true")
+   if(!delayCover) {
+   val before=js("getComputedStyle(document.querySelector('#slot'),'::before').backgroundImage")
+   fun touch(action:Int) { main {
+    native.isClickable=true
+    val location=IntArray(2);native.getLocationInWindow(location)
+    val now=android.os.SystemClock.uptimeMillis()
+    val event=android.view.MotionEvent.obtain(now,now,action,(location[0]+5).toFloat(),(location[1]+5).toFloat(),0)
+    activity.window.callback.dispatchTouchEvent(event);event.recycle()
+   } }
+   touch(android.view.MotionEvent.ACTION_DOWN)
+   main{native.setBackgroundColor(Color.GREEN)}
+   js("testEvents.updated({})")
+   Thread.sleep(500)
+   assertEquals(before,js("getComputedStyle(document.querySelector('#slot'),'::before').backgroundImage"))
+   touch(android.view.MotionEvent.ACTION_CANCEL)
+   waitFor("getComputedStyle(document.querySelector('#slot'),'::before').backgroundImage!==$before")
+   }
    if(delayCover) {
     js("testEvents.moving({})")
     val deadline=System.currentTimeMillis()+10000;var waiting=false
@@ -344,6 +419,7 @@ class NativeUIEngineTest {
     Thread.sleep(100)
     main{assertEquals(View.VISIBLE,native.visibility)}
    }
+
    repeat(2) { iteration ->
     waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot')")
     js("testEvents.moving({})")
@@ -410,7 +486,7 @@ class NativeUIEngineTest {
     second=NativeUIProjection(activity.window,activity.web,"Fixture","#second",
      receiveListeners=NativeUIProjection.ReceiveListeners(projection=NativeUIProjection.ReceiveListeners.Projection(none=listOf("hidden"))),
      failedFallback=NativeUIProjection.FailedFallback.NATIVE,canCapture={false},view={native})
-    second.hide();second.show()
+    second.receive("hidden");second.hide();second.show()
    }
    waitCount(2)
    val visibleDeadline=System.currentTimeMillis()+10000;var visible=false

@@ -776,3 +776,26 @@ test('hidden notification invalidates delayed cover and updates cannot resurrect
   await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot');
   expect(await page.evaluate(() => (window as any).removedEvents.sort())).toEqual(['hidden', 'setColors', 'shown', 'transitionStarted']);
 });
+
+test('renderer visibility excludes Engine hiding without changing authored visibility or projection ownership', async ({ page }) => {
+  await prepare(page);
+  await page.evaluate(() => {
+    const source = document.querySelector('#source') as HTMLElement;
+    source.setAttribute('data-native-ui-session-fixture', 'native');
+    const style = document.createElement('style');
+    style.textContent = '[data-native-ui-session-fixture] { visibility:hidden!important }';
+    document.head.append(style);
+  });
+  const read = () =>
+    page.evaluate(() => {
+      const source = document.querySelector('#source') as HTMLElement;
+      const before = source.outerHTML;
+      const visibility = (window as any).engine.getUnprojectedVisibility(source);
+      return { visibility, unchanged: before === source.outerHTML, projected: getComputedStyle(source).visibility };
+    });
+  expect(await read()).toEqual({ visibility: 'visible', unchanged: true, projected: 'hidden' });
+  await page.evaluate(() => (document.querySelector<HTMLElement>('#scroll')!.style.visibility = 'hidden'));
+  expect(await read()).toEqual({ visibility: 'hidden', unchanged: true, projected: 'hidden' });
+  await page.evaluate(() => (document.querySelector<HTMLElement>('#source')!.style.visibility = 'visible'));
+  expect(await read()).toEqual({ visibility: 'visible', unchanged: true, projected: 'hidden' });
+});

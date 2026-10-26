@@ -60,6 +60,7 @@ export const startNativeSession = async (
   const effectiveDestination = (): ProjectionDestination =>
     requestedDestination === 'native' && target && overlays.isCovered(target) ? 'web' : requestedDestination;
   let automaticMotion = false;
+  let placementPending = false;
   let nativeScroll = false;
   let scrollOwner: HTMLElement | undefined;
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
@@ -82,7 +83,7 @@ export const startNativeSession = async (
   };
   const setVisibility = () => {
     if (!target) return;
-    if (destination === 'web') target.removeAttribute(marker);
+    if (destination === 'web' || (destination === 'native' && placementPending)) target.removeAttribute(marker);
     else target.setAttribute(marker, destination);
   };
   const sources = () => {
@@ -131,6 +132,7 @@ export const startNativeSession = async (
       .send({ action: 'resume' })
       .then(() => {
         if (stopped || version !== generation || current !== manager) return;
+        placementPending = false;
         current.updated(undefined, [sourceID], ++revision);
         setVisibility();
         schedule();
@@ -159,6 +161,7 @@ export const startNativeSession = async (
       manager = undefined;
       if (stopped) return;
       target = found;
+      placementPending = false;
       sizeObserver.disconnect();
       if (target) sizeObserver.observe(target);
     }
@@ -174,7 +177,7 @@ export const startNativeSession = async (
       try {
         const created = await createWebProjection(createWebProjectionScope(target, config.id), bridge, {
           wake,
-          blocked: () => destination !== 'native' || automaticMotion,
+          blocked: () => destination !== 'native' || automaticMotion || (placementPending && !manager?.token),
           revision: () => revision,
           captureRevision: config.captureMode === 'view' ? () => contentRevision : undefined,
           transient: true,
@@ -190,6 +193,11 @@ export const startNativeSession = async (
       }
     }
     if (stopped) return;
+    if (destination === 'native' && placementPending) {
+      await bridge.send({ action: 'visibility', visible: false });
+      setVisibility();
+      return;
+    }
     if (destination === 'native') {
       const version = generation;
       await bridge.send({ action: 'visibility', visible: true });
@@ -258,6 +266,7 @@ export const startNativeSession = async (
     if (!automaticMotion) {
       automaticMotion = true;
       manager?.begin();
+      placementPending = config.failedFallback !== 'native';
       if (manager?.token) target.removeAttribute(marker);
       else applyFailedFallback();
     } else if (config.captureMode === 'view') manager?.moved();
@@ -374,6 +383,7 @@ export const startNativeSession = async (
       (next, updated) => {
         if (stopped) return;
         if (next) {
+          if (next === 'native') placementPending = false;
           requestedDestination = next;
           void bridge.send({ action: 'destination', destination: next }).catch(() => {});
           applyDestination(effectiveDestination(), true);
@@ -394,6 +404,7 @@ export const startNativeSession = async (
     return {
       destroy,
       show: () => {
+        placementPending = false;
         requestedDestination = 'native';
         applyDestination(effectiveDestination(), true);
       },

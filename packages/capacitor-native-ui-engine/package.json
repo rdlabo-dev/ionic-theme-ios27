@@ -46,5 +46,6 @@
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0 <9"
-  }
+  },
+  "types": "./dist/index.d.ts"
 }
