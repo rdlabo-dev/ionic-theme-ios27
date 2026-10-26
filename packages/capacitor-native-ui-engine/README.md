@@ -30,7 +30,9 @@ The integration has three responsibilities:
 
 ### iOS: add the registration to your `CAPPlugin` class
 
-In `ios/Sources/NamePlugin/NamePlugin.swift`, retain the registration as a property and initialize it in `load()`, **after your existing renderer creates and attaches its view**. In this diff, `nativeView` is the `UIView` your plugin already owns; its existing rendering code is represented by comments.
+In `ios/Sources/NamePlugin/NamePlugin.swift`, retain the registration as a property and initialize it in `load()`, **after your existing renderer creates and attaches its view**.
+
+In this diff, `nativeView` is the `UIView` your plugin already owns; its existing rendering code is represented by comments.
 
 Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS plugin calls and event subscriptions. Do not repeat the plugin name in the Engine configuration.
 
@@ -51,15 +53,27 @@ Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS 
 
      public override func load() {
          // Existing code creates and attaches nativeView here.
-+        guard let webView = bridge?.webView else { return }
++        guard let webView = bridge?.webView else {
++            return
++        }
++
 +        do {
 +            projection = try NativeUIProjection(
-+                webView: webView, plugin: jsName,
-+                fallbackSelector: "#native-ui-fallback", ids: ["view"],
++                webView: webView,
++                plugin: jsName,
++                fallbackSelector: "#native-ui-fallback",
++                ids: ["view"],
 +                update: ["appearanceChanged"],
-+                projection: ["native": ["shown"], "web": ["transitionStarted"], "none": ["hidden"]],
++                projection: [
++                    "native": ["shown"],
++                    "web": ["transitionStarted"],
++                    "none": ["hidden"]
++                ],
 +                views: { [weak self] in
-+                    guard let view = self?.nativeView else { return [:] }
++                    guard let view = self?.nativeView else {
++                        return [:]
++                    }
++
 +                    return ["view": view]
 +                }
 +            )
@@ -107,11 +121,22 @@ Make the corresponding changes in `android/src/main/java/<your-package>/NamePlug
          // Existing code creates and attaches nativeView here.
 +        projection = runCatching {
 +            NativeUIProjection(
-+                activity.window, bridge.webView, pluginHandle.id,
-+                fallbackSelector = "#native-ui-fallback", ids = listOf("view"),
++                window = activity.window,
++                webView = bridge.webView,
++                plugin = pluginHandle.id,
++                fallbackSelector = "#native-ui-fallback",
++                ids = listOf("view"),
 +                update = listOf("appearanceChanged"),
-+                projection = mapOf("native" to listOf("shown"), "web" to listOf("transitionStarted"), "none" to listOf("hidden")),
-+                views = { nativeView?.let { mapOf("view" to it) } ?: emptyMap() }
++                projection = mapOf(
++                    "native" to listOf("shown"),
++                    "web" to listOf("transitionStarted"),
++                    "none" to listOf("hidden")
++                ),
++                views = {
++                    nativeView?.let { view ->
++                        mapOf("view" to view)
++                    } ?: emptyMap()
++                }
 +            )
 +        }.onFailure {
 +            Log.e(javaClass.simpleName, "Native UI projection unavailable", it)
@@ -135,7 +160,9 @@ Make the corresponding changes in `android/src/main/java/<your-package>/NamePlug
  }
 ```
 
-Both diffs add a private property, native registration, an update notification and teardown. They add no Engine methods to `pluginMethods`, no public JS wrapper, and no application-side Engine initializer. Keep your plugin's existing `registerPlugin()` export. Use the same event names in the registration and `notifyListeners`; if the plugin already emits a suitable event (such as `tabSelected`), list that event instead of emitting it twice.
+Both diffs add a private property, native registration, an update notification and teardown. They add no Engine methods to `pluginMethods`, no public JS wrapper, and no application-side Engine initializer.
+
+Keep your plugin's existing `registerPlugin()` export. Use the same event names in the registration and `notifyListeners`; if the plugin already emits a suitable event (such as `tabSelected`), list that event instead of emitting it twice.
 
 ### Which events to emit
 
@@ -150,7 +177,9 @@ The names in the examples are conventions you choose, not reserved Engine method
 
 Emit `transitionStarted` before the DOM starts moving, `shown` when native projection is requested again, and `hidden` after the plugin's own hide operation. Native capture, URL conversion, image preparation, draw acknowledgement, image retirement and listener cleanup stay inside the engine. The engine never invokes the plugin's `show`, `hide`, selection or ad-loading methods. End the registration with `projection.destroy()` on iOS or `projection.close()` on Android when the renderer is destroyed. Retain the registration for its full lifetime and call native APIs on the UI thread.
 
-`fallbackSelector` is required and must resolve to **one existing container**, including one retrieved by the plugin's own `querySelector`. The engine does not create a DOM or choose its size, placement, layer or z-index. Keep the container's normal layout and any interactive Web controls; an empty zero-size placeholder is not a usable fallback. It is a fixed scope, not a discovery root. A missing DOM waits without showing native content; replacing it creates a new binding and retires old images. The engine preserves the container's children, listeners and values. Several native IDs can share one container and capture transaction. Views not listed in `ids` are never controlled.
+`fallbackSelector` is required and must resolve to **one existing container**, including one retrieved by the plugin's own `querySelector`. The engine does not create a DOM or choose its size, placement, layer or z-index. Keep the container's normal layout and any interactive Web controls; an empty zero-size placeholder is not a usable fallback. It is a fixed scope, not a discovery root.
+
+A missing DOM waits without showing native content; replacing it creates a new binding and retires old images. The engine preserves the container's children, listeners and values. Several native IDs can share one container and capture transaction. Views not listed in `ids` are never controlled.
 
 For independently moving AdMob slots, retain one registration per loaded native view/surface, use a slot-specific selector and filter the plugin's notifications with `match: ["slotKey": slotKey, "loadId": loadId]` / `match = mapOf("slotKey" to slotKey, "loadId" to loadId)`. Dispose the registration when a loaded ad is replaced, even if its host view is reused. Keep SDK loading, impression and click handling in the ad plugin. Supply `canCapture` with its existing capture eligibility checks (for example, test-ad / opaque-background / no-video restrictions); the engine does not grant permission to snapshot an SDK view.
 
