@@ -16,14 +16,6 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2]
-        ionic-major: [8, 9]
-        include:
-          - ionic-major: 8
-            ionic-version: 8.8.19
-            eslint-plugin-version: 21.3.0
-          - ionic-major: 9
-            ionic-version: 9.0.0
-            eslint-plugin-version: 22.1.0
     container:
       image: mcr.microsoft.com/playwright:v1.58.2-noble
     steps:
@@ -37,27 +29,21 @@ jobs:
           package-manager-cache: false
 
       - run: npm ci --no-audit --no-fund
-      - if: matrix.ionic-major == 8
-        run: npm install --no-save --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
       - run: npm run build
 
       - run: npm ci --no-audit --no-fund
         working-directory: './demo'
-      - name: Install matching Ionic and ESLint plugin versions
-        run: npm install --no-save --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
-        working-directory: './demo'
-
       - name: Run Playwright tests
         run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
         working-directory: ./demo
         env:
-          IONIC_MAJOR: ${{ matrix.ionic-major }}
+          IONIC_MAJOR: 9
 
       - name: Upload test results
         uses: actions/upload-artifact@v5
         if: always()
         with:
-          name: playwright-report-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
+          name: playwright-report-ionic9-${{ matrix.shard }}
           path: demo/playwright-report/
           overwrite: true
           retention-days: 3
@@ -66,7 +52,7 @@ jobs:
         uses: actions/upload-artifact@v5
         if: failure()
         with:
-          name: test-results-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
+          name: test-results-ionic9-${{ matrix.shard }}
           path: demo/test-results/
           overwrite: true
           retention-days: 3

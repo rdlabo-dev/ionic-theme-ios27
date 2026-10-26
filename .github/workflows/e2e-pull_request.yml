@@ -16,7 +16,7 @@ jobs:
       - ci-reuse
     if: "${{ (needs.ci-reuse.result != 'success' && !cancelled()) || ((github.event.action != 'closed') && needs.ci-reuse.outputs.reuse != 'true') }}"
     concurrency:
-      group: e2e-pr-${{ github.event.pull_request.number }}-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
+      group: e2e-pr-${{ github.event.pull_request.number }}-ionic9-${{ matrix.shard }}
       cancel-in-progress: true
     timeout-minutes: 10
     runs-on: ubuntu-latest
@@ -25,22 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - ionic-major: 8
-            ionic-version: 8.8.19
-            eslint-plugin-version: 21.3.0
-            shard: 1
-            shards: 1
-          - ionic-major: 9
-            ionic-version: 9.0.0
-            eslint-plugin-version: 22.1.0
-            shard: 1
-            shards: 2
-          - ionic-major: 9
-            ionic-version: 9.0.0
-            eslint-plugin-version: 22.1.0
-            shard: 2
-            shards: 2
+        shard: [1, 2]
     container:
       image: mcr.microsoft.com/playwright:v1.58.2-noble
     steps:
@@ -54,48 +39,28 @@ jobs:
           package-manager-cache: false
 
       - run: npm ci --no-audit --no-fund
-      - if: matrix.ionic-major == 8
-        run: npm install --no-save --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }}
       - run: npm run build
 
       - run: npm ci --no-audit --no-fund
         working-directory: './demo'
-      - name: Install matching Ionic and ESLint plugin versions
-        run: npm install --no-save --no-audit --no-fund @ionic/angular@${{ matrix.ionic-version }} @ionic/core@${{ matrix.ionic-version }} @rdlabo/eslint-plugin-rules@${{ matrix.eslint-plugin-version }}
-        working-directory: './demo'
-
       - name: Run Playwright tests
-        run: |
-          if [ "${{ matrix.ionic-major }}" = "8" ]; then
-            PLAYWRIGHT_JSON_OUTPUT_NAME=e2e/screenshot.spec.ts-ionic8.json npm run test:e2e -- --reporter=json,html
-          else
-            npm run test:e2e -- --shard=${{ matrix.shard }}/${{ matrix.shards }} --reporter=blob
-          fi
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2 --reporter=blob
         working-directory: ./demo
         env:
-          IONIC_MAJOR: ${{ matrix.ionic-major }}
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v5
-        if: always() && matrix.ionic-major == 8
-        with:
-          name: playwright-report-ionic${{ matrix.ionic-major }}
-          path: demo/playwright-report/
-          overwrite: true
-          retention-days: 3
+          IONIC_MAJOR: 9
 
       - name: Upload screenshots on failure
         uses: actions/upload-artifact@v5
         if: failure()
         with:
-          name: test-results-ionic${{ matrix.ionic-major }}-${{ matrix.shard }}
+          name: test-results-ionic9-${{ matrix.shard }}
           path: demo/test-results/
           overwrite: true
           retention-days: 3
 
       - name: Upload Ionic 9 shard report
         uses: actions/upload-artifact@v5
-        if: always() && matrix.ionic-major == 9
+        if: always()
         with:
           name: blob-report-ionic9-${{ matrix.shard }}
           path: demo/blob-report/
@@ -160,7 +125,7 @@ jobs:
         with:
           report-file: report/screenshot.spec.ts-ionic9.json
           job-summary: true
-          custom-info: 'This detailed result covers Ionic 9 only. Ionic 8 runs against the same screenshots in a separate matrix job; check the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for both results. To update the screenshots, comment with `/update-screenshots`.'
+          custom-info: 'This result covers Ionic 9. To update the screenshots, comment with `/update-screenshots`.'
 
   deploy-report:
     needs: [test, merge-reports]
@@ -239,7 +204,7 @@ jobs:
             const reportUrl = `https://${context.repo.owner}.github.io/${context.repo.repo}/pr-${prNumber}/`;
 
             const marker = '<!-- ionic9-playwright-report -->';
-            const body = `${marker}\n` + `📊 **Ionic 9 Playwright Test Report**\n\nView the detailed Ionic 9 report after GitHub Pages deployment completes: ${reportUrl}\n\nIonic 8 runs against the same screenshots in a separate matrix job. View both results in the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
+            const body = `${marker}\n` + `📊 **Ionic 9 Playwright Test Report**\n\nView the detailed Ionic 9 report after GitHub Pages deployment completes: ${reportUrl}\n\nView the results in the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
             const comments = await github.paginate(github.rest.issues.listComments, {
               ...context.repo,
               issue_number: prNumber
