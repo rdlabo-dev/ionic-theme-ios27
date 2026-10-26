@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+  </head>
+  <body style="margin: 0; background: repeating-linear-gradient(90deg, rgb(40, 80, 120) 0px 20px, rgb(180, 160, 60) 20px 40px)">
+    <script>
+      const send = (method, options = {}) => Capacitor.nativePromise('NativeUI', method, options);
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      let revision = 0;
+      const node = {
+        id: 'fixture',
+        kind: 'extension',
+        x: 20,
+        y: 100,
+        width: 160,
+        height: 64,
+        extension: { name: 'kit.fixture', props: '{}', actions: {} },
+      };
+      const update = (controls, token) =>
+        send('update', { revision: ++revision, viewportWidth: innerWidth, controls, coveredSnapshotToken: token });
+      window.prepare = async () => {
+        const capabilities = await send('configure');
+        if (!capabilities.coveredSnapshots) throw Error('Snapshot capability missing');
+        await update([node]);
+        await wait(200);
+        window.snapshot = await send('coveredSnapshot', { action: 'prepare', revision, viewportWidth: innerWidth, ids: ['fixture'] });
+        if (!snapshot?.token) throw Error('No prepared image');
+        const part = snapshot.parts[0];
+        window.proxy = document.createElement('img');
+        proxy.src = Capacitor.convertFileSrc(part.url);
+        proxy.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;left:${part.x}px;top:${part.y}px;width:${part.width}px;height:${part.height}px`;
+        document.body.append(proxy);
+        await proxy.decode();
+      };
+      window.roundTrip = async () => {
+        const token = snapshot.token;
+        const cover = await send('coveredSnapshot', { action: 'cover', token });
+        if (!cover.shown) throw Error('Cover rejected');
+        proxy.style.visibility = 'visible';
+        await send('coveredSnapshot', { action: 'painted', token });
+        await update([], token);
+        await wait(120);
+        await send('coveredSnapshot', { action: 'restore', token, viewportWidth: innerWidth, parts: snapshot.parts });
+        await update([node]);
+        proxy.style.visibility = 'hidden';
+        await send('coveredSnapshot', { action: 'restored', token });
+        await wait(120);
+      };
+    </script>
+  </body>
+</html>

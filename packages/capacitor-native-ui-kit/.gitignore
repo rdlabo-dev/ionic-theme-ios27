@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.build/
+.swiftpm/
+playwright-report/
+test-results/
+*.tgz
+.DS_Store
+android/.gradle/
+android/build/
+android/local.properties
+android/.kotlin/

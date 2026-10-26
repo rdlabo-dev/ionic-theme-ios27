@@ -309,6 +309,7 @@ export const enableNativeUI = (options: NativeUIRuntimeOptions = {}, overlayFact
             {
               ...options,
               source: 'extensions',
+              coveredSnapshots: capabilities.coveredSnapshots === true,
               extensions,
               unavailableExtensions,
             },

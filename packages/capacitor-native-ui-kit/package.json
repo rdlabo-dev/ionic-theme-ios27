@@ -1,0 +1,43 @@
+{
+  "name": "@rdlabo/capacitor-native-ui-kit",
+  "version": "2.0.3",
+  "description": "Native UI infrastructure for Capacitor plugin authors: placement, scroll tracking, and snapshot handoff.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rdlabo-dev/ionic-theme-ios27.git",
+    "directory": "packages/capacitor-native-ui-kit"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "ios/Sources",
+    "Package.swift",
+    "CapacitorNativeUIKit.podspec",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "lint": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"*.json\" \"*.md\"",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"*.json\" \"*.md\"",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.9.3",
+    "prettier": "^3.6.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

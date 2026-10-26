@@ -41,6 +41,17 @@ android {
     lintOptions {
         abortOnError = false
     }
+    // Acceptance app/assets must never enter a consuming application's debug build.
+    if (project.hasProperty('nativeUIKitIntegrationTest')) {
+        sourceSets {
+            debug {
+                java.srcDirs += 'fixtures/debug/java'
+                assets.srcDirs += 'fixtures/debug/assets'
+                manifest.srcFile 'fixtures/debug/AndroidManifest.xml'
+            }
+            androidTest.java.srcDirs += 'fixtures/androidTest/java'
+        }
+    }
     buildFeatures { compose true }
     kotlinOptions { jvmTarget = '21' }
     compileOptions {
@@ -52,9 +63,13 @@ android {
 repositories {
     google()
     mavenCentral()
+    // Explicit local verification override; installed consumers resolve Maven normally.
+    if (project.hasProperty('nativeUIKitRepository')) maven { url = uri(project.property('nativeUIKitRepository')) }
 }
 
 dependencies {
+    def kitVersion = new groovy.json.JsonSlurper().parse(file('../package.json')).dependencies['@rdlabo/capacitor-native-ui-kit']
+    implementation "dev.rdlabo.capacitor:native-ui-kit:$kitVersion"
     api platform("androidx.compose:compose-bom:2025.10.00")
     api "androidx.compose.ui:ui"
     api "androidx.compose.foundation:foundation"

@@ -1,3 +1,4 @@
+import { createScrollBindings } from '@rdlabo/capacitor-native-ui-kit';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
 import { snapshotMutation, snapshotOwns, snapshotVisible, coveredSourcesChanged } from './shared/covered-source';
@@ -111,26 +112,8 @@ export const createRuntime = async (
   let verticalGesture: { pending: boolean; scopes: HTMLElement[]; sources: Set<HTMLElement> } | undefined;
   let acknowledged: Candidate[] = [];
   let nativeScrollOwners = new Set<HTMLElement>();
-  const scrollMotion = new WeakMap<HTMLElement, { version: number; moving: boolean }>();
-  let acknowledgedViewportWidth = 0;
-  // Match the native tracker's reusable binding geometry. Source frames/props
-  // may change during motion; a new viewport/content mapping must be acquired.
-  const reusesScroll = (candidate: Candidate) => {
-    const next = candidate.control.scroll;
-    if (!candidate.scrollElement || !next || acknowledgedViewportWidth !== win.innerWidth) return false;
-    return acknowledged.some((previous) => {
-      const current = previous.control.scroll;
-      return (
-        previous.scrollElement === candidate.scrollElement &&
-        current?.id === next.id &&
-        current.contentWidth === next.contentWidth &&
-        current.contentHeight === next.contentHeight &&
-        (['viewport', 'clip'] as const).every((key) =>
-          (['x', 'y', 'width', 'height'] as const).every((axis) => current[key][axis] === next[key][axis]),
-        )
-      );
-    });
-  };
+  const scrollBindings = createScrollBindings();
+  const reusesScroll = (candidate: Candidate) => scrollBindings.reuse(candidate, win.innerWidth);
   const scrollControl = (candidate: Candidate) =>
     candidate.control.scroll
       ? { ...candidate.control, scroll: { ...candidate.control.scroll, reuse: reusesScroll(candidate) } }
@@ -205,16 +188,7 @@ export const createRuntime = async (
   };
   const style = doc.createElement('style');
   const hidden = `:is([${marker}]:not([${fadeMarker}]), [${navigationMarker}])`;
-  const snapshotConcealed = ':is([data-native-ui-snapshot-source], [data-native-ui-snapshot-prepared])';
   style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
-    ${snapshotConcealed}, ${snapshotConcealed} *, ${snapshotConcealed}::before, ${snapshotConcealed}::after, ${snapshotConcealed}::part(native) { visibility: hidden !important; }
-    [data-native-ui-snapshot][data-native-ui-snapshot]::before {
-      all: initial !important; content: "" !important; display: block !important; position: absolute !important;
-      visibility: visible !important; opacity: 0 !important; will-change: opacity !important;
-      pointer-events: none !important; image-rendering: pixelated !important; z-index: 1001 !important;
-    }
-    [data-native-ui-snapshot-visible] { opacity: 1 !important; overflow: visible !important; }
-    [data-native-ui-snapshot-visible][data-native-ui-snapshot][data-native-ui-snapshot]::before { opacity: 1 !important; }
     /* Hide the entire clone layer, including its shadow parts, until handoff. */
     .ion-cloned-element:is([${verticalBarsMarker}], [${verticalBarsMemberMarker}]):not([${fadeMarker}]):not([data-native-ui-snapshot-visible]),
     .ion-cloned-element:is([data-native-ui-snapshot-source], [data-native-ui-snapshot-prepared]):not([data-native-ui-snapshot-visible]) { opacity: 0 !important; content-visibility: hidden !important; }
@@ -296,7 +270,7 @@ export const createRuntime = async (
         (reason) => diagnose(`${extension.name}: ${reason}`, element),
         options.nativeScroll,
       );
-      if (candidate?.scrollElement && scrollMotion.get(candidate.scrollElement)?.moving && !reusesScroll(candidate)) return undefined; // New bindings are acquired at rest; established bindings keep following.
+      if (candidate && !scrollBindings.eligible(candidate, win.innerWidth)) return undefined; // New bindings are acquired at rest; established bindings keep following.
       return candidate;
     }
     if (options.source === 'extensions') return;
@@ -478,8 +452,7 @@ export const createRuntime = async (
   const read = (): Candidate[] => tabWidths.measure(readSources);
   const scrollChanged = (event: Event) => {
     const target = event.composedPath()[0];
-    if (options.nativeScroll && target instanceof HTMLElement)
-      scrollMotion.set(target, { version: (scrollMotion.get(target)?.version ?? 0) + 1, moving: true });
+    if (options.nativeScroll && target instanceof HTMLElement) scrollBindings.changed(target);
     imageSurfaces().forEach((surface) => surface.changed(target));
     // Only an acknowledged native binding can own motion. Other sources in the
     // same container still need the regular reader (including rejected sources).
@@ -497,8 +470,7 @@ export const createRuntime = async (
     if (!options.nativeScroll) return;
     const owner = event.composedPath()[0];
     if (owner instanceof HTMLElement) {
-      const motion = scrollMotion.get(owner);
-      if (motion) motion.moving = false;
+      scrollBindings.settled(owner);
     }
     let found = false;
     for (const extension of extensions) {
@@ -697,6 +669,7 @@ export const createRuntime = async (
           renderedSnapshot = retirement;
           acceptedRevision = result.revision;
           acknowledged = retained.filter((candidate) => !result.rejectedControls?.includes(candidate.control.id));
+          scrollBindings.acknowledge(acknowledged, retirement.viewportWidth);
           for (const candidate of retained) {
             if (acknowledged.includes(candidate)) continue;
             candidateSources(candidate).forEach((source) => restore(source, true));
@@ -857,13 +830,7 @@ export const createRuntime = async (
         search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
         return;
       }
-      const acquiringScroll = new Map(
-        candidates.flatMap((candidate) =>
-          candidate.scrollElement && !reusesScroll(candidate)
-            ? [[candidate.scrollElement, scrollMotion.get(candidate.scrollElement)?.version ?? 0] as const]
-            : [],
-        ),
-      );
+      const acquiringScroll = scrollBindings.acquiring(candidates, win.innerWidth);
       const snapshot: NativeUISnapshot = {
         ...data,
         controls: candidates.map(scrollControl),
@@ -879,20 +846,7 @@ export const createRuntime = async (
       const result = await updateNative(snapshot);
       // A provisional binding measured before motion is not an acknowledged
       // coordinate mapping. Keep Web and acquire it again after settling.
-      const unconfirmedScroll = new Set(
-        candidates.flatMap((candidate) => {
-          const owner = candidate.scrollElement;
-          const sample = candidate.control.scroll;
-          return owner &&
-            sample &&
-            acquiringScroll.has(owner) &&
-            (acquiringScroll.get(owner) !== (scrollMotion.get(owner)?.version ?? 0) ||
-              owner.scrollLeft !== sample.offsetX ||
-              owner.scrollTop !== sample.offsetY)
-            ? [owner]
-            : [];
-        }),
-      );
+      const unconfirmedScroll = scrollBindings.unconfirmed(candidates, acquiringScroll);
       if (unconfirmedScroll.size) dirty = true;
       if (stopped || !result || (retentions.size && !manualSuspensions.size)) return;
       if (transition && navigation.current === transition && result.toolbarTransition === transition.id) {
@@ -1014,7 +968,7 @@ export const createRuntime = async (
           (!candidate.scrollElement || !unconfirmedScroll.has(candidate.scrollElement)) &&
           candidateSources(candidate).some((source) => sources.has(source)),
       );
-      acknowledgedViewportWidth = snapshot.viewportWidth;
+      scrollBindings.acknowledge(acknowledged, snapshot.viewportWidth);
       const discovered = Array.from(scope.querySelectorAll<HTMLElement>(discovery));
       nativeScrollOwners = new Set(
         acknowledged
@@ -1460,6 +1414,7 @@ export const createRuntime = async (
         pendingActivations = [];
         navigation.clear();
         acknowledged = [];
+        scrollBindings.acknowledge([], 0);
         verticalGesture = undefined;
         search.destroy();
         crossfade.destroy();

@@ -3,10 +3,12 @@ import type { NativeUIHandle, NativeUISnapshot } from '../../packages/capacitor-
 
 const bridge = vi.hoisted(() => ({
   available: true,
-  configure: vi.fn(async () => ({ supported: true, extensions: ['app.counter'] })),
+  coveredSnapshots: false,
+  configure: vi.fn(async () => ({ supported: true, coveredSnapshots: bridge.coveredSnapshots, extensions: ['app.counter'] })),
   addListener: vi.fn(async () => ({ remove: async () => {} })),
   update: vi.fn(async (snapshot: NativeUISnapshot) => ({ revision: snapshot.revision, rejectedControls: [] as string[] })),
   clear: vi.fn(async () => {}),
+  coveredSnapshot: vi.fn(async () => ({})),
 }));
 vi.mock('@capacitor/core', () => ({
   Capacitor: { getPlatform: () => 'android', isPluginAvailable: () => bridge.available },
@@ -30,6 +32,7 @@ const prepare = (element: HTMLElement) => {
 };
 beforeEach(() => {
   bridge.available = true;
+  bridge.coveredSnapshots = false;
   vi.clearAllMocks();
   bridge.update.mockImplementation(async (snapshot) => ({ revision: snapshot.revision, rejectedControls: [] }));
   document.body.innerHTML =
@@ -239,4 +242,15 @@ test.each(['bridge', 'pagehide', 'bridge then pagehide'])('shell restarts after 
   expect(bridge.configure).toHaveBeenCalledTimes(2);
   await previous.destroy();
   expect(shell.getStatus().state).toBe('native');
+});
+
+test.each([true, false])('Android enables image handoff only when native supports it (%s)', async (supported) => {
+  bridge.coveredSnapshots = supported;
+  shell = await enableNativeUI({
+    ...options(),
+    extensions: [{ name: 'app.counter', selector: '[data-counter]', read: () => ({ props: {} }) }],
+  });
+  await vi.waitFor(() => expect(root.querySelector('[data-counter]')!.hasAttribute('data-native-ui-projected')).toBe(true));
+  const events = bridge.addListener.mock.calls.map((args) => (args as unknown[])[0]);
+  expect(events.includes('snapshotInteraction')).toBe(supported);
 });

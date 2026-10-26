@@ -63,6 +63,9 @@ jobs:
       - name: Create and boot simulator
         run: sh "$RUNNER_TEMP/ci-simulator.sh" "${{ matrix.device }}" "${{ matrix.runtime }}" ${{ matrix.kana }}
 
+      - name: Pin the native library to the checked-out source
+        run: node scripts/set-kit-revision.mjs "$GITHUB_SHA"
+
       - name: Run ${{ matrix.suite }} suite
         run: sh ${{ matrix.script }} "$SIM_UDID" ${{ matrix.scenario }}
         env:

@@ -1,0 +1,141 @@
+# Capacitor Native UI Kit
+
+`@rdlabo/capacitor-native-ui-kit` is infrastructure **for Capacitor plugin authors**. It is a library dependency, not an application-facing Capacitor plugin: it registers no bridge, renders no controls, and requires no Ionic or Angular runtime.
+
+The kit associates DOM layout with native views, tracks scrolling, prepares native images before interaction, and manages image handoff and native restoration. The consuming plugin supplies its renderer, existing ordered transport, and presentation policy.
+
+The native libraries support iOS (`UIKit` / `WKWebView`) and Android (`View` / `WebView`). TypeScript geometry and image presentation are framework-independent. APIs are experimental during extraction. Android placement requires API 24+, and composited snapshots require API 26+.
+
+## Ownership
+
+| Kit                                                                   | Consuming plugin                                                         |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| DOM geometry, clipping and native scroll binding                      | Creating native buttons, SDK views, or SwiftUI content                   |
+| Binding acquisition, reuse validation and stale acquisition detection | Sending updates and applying acknowledgements on its existing bridge     |
+| Prepared image cache, decoding, display and retirement                | Choosing which surface is covered or moving                              |
+| Native capture, clipped view and temporary return images              | Measuring the actual native view and reporting renderer state changes    |
+| Image invalidation, token cleanup and scroll observer teardown        | Restoring interactive Web content or hiding a slot when projection fails |
+
+A DOM slot does not necessarily contain a Web replacement: a UI plugin can restore a button, while an ad plugin may hide its slot. Image handoff is explicit and noninteractive. The kit never forwards clicks through an image or replaces SDK click/impression handling.
+
+## Install inside a plugin
+
+```sh
+npm install @rdlabo/capacitor-native-ui-kit
+```
+
+The npm archive contains TypeScript declarations, ESM, a Swift package and a podspec. Native dependencies must also be declared by the consuming plugin; an npm dependency alone does not link Swift code.
+
+The primary native distribution is Swift Package Manager. Depend on the repository-root library from your plugin:
+
+```swift
+.package(url: "https://github.com/rdlabo-dev/ionic-theme-ios27.git", revision: "<released Git tag or immutable commit>")
+// In the plugin target's dependencies:
+.product(name: "CapacitorNativeUIKit", package: "ionic-theme-ios27")
+```
+
+`import CapacitorNativeUIKit` requires neither Capacitor registration nor an npm install of Swift sources. The npm companion supplies DOM measurement and Web image handoff; it is not the native dependency resolver. The current monorepo uses `ios27-v…` release tags, so pin a Git revision/tag rather than assuming unprefixed SwiftPM semantic version tags exist.
+
+Within a source checkout, the first consumer uses the sibling Swift package for development. Installed Native UI plugins resolve Git: versioned releases pin their release tag, and beta artifacts pin the source commit. This avoids relying on npm hoisting or the location of `node_modules` to find Swift sources.
+
+For CocoaPods, the plugin declares `s.dependency 'CapacitorNativeUIKit', '<matching version>'`; the kit podspec must be distributed through a spec repository, or the integrating Podfile must provide its local path. Merely installing npm does not register this library as a Capacitor plugin. SwiftPM is the primary supported distribution route.
+
+## Image handoff
+
+Create one `createSnapshotScope(namespace)` per plugin instance and share it among that instance's page/overlay managers. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
+
+```ts
+import { createSnapshotScope, createSnapshotHandoff } from '@rdlabo/capacitor-native-ui-kit';
+import { Capacitor } from '@capacitor/core';
+
+const scope = createSnapshotScope('my-plugin');
+const images = await createSnapshotHandoff(
+  document,
+  {
+    send: (request) => plugin.snapshot(request),
+    listen: (listener) => plugin.addListener('snapshotInteraction', listener),
+    resolveURL: (url) => Capacitor.convertFileSrc(url),
+  },
+  scope,
+  {
+    wake: () => schedulePluginUpdate(),
+    blocked: () => overlayIsActive(),
+    revision: () => lastSentRevision,
+  },
+);
+```
+
+`plugin`, `schedulePluginUpdate`, `overlayIsActive` and `lastSentRevision` above belong to the consuming plugin, not the kit.
+
+1. After an accepted native update, call `images.consider(revision, sources)`. Each `SnapshotSource` contains the DOM element, native ID and current viewport frame. Preparation and image decoding happen off the presentation path.
+2. Call `images.changed()` for visual changes. Completed pre-interaction pixels remain available while replacement pixels are prepared. For scrolling, pass the owner to `images.changed(scrollElement)` to invalidate its old geometry. Layout updates go through `consider`; call `invalidate()` for other known geometry or viewport invalidation.
+3. Before a Web overlay covers the controls, call `images.begin()`. To move the image with an animated DOM surface, pass that surface to `begin(surface)`. No capture or image decode starts here. If no valid image exists, `token` remains undefined: use the plugin's normal fallback.
+4. Use `scope.snapshotOwns(source)` to exclude image-owned controls from ordinary native projection. Use `scope.snapshotVisible(source)` to keep return pixels while the native replacement is being acknowledged.
+5. After the overlay closes, call `images.end()`, send the normal native update, then call `images.updated(snapshotToken, acceptedIDs, revision)`. Only a newer ACK covering all captured IDs retires the Web image.
+6. Call `images.destroy()` on surface teardown. It releases only its tokens and listener. The plugin owns the final native reset, so destroying one surface cannot invalidate another plugin or overlay.
+
+Optional `eligible(source)`, `target(source, capturedPlacement)` and `current(sources)` callbacks keep framework-specific surface selection and display proxies outside the kit. `transient: true` supports a moving surface whose return image must be rebased. Arbitrary CSS transforms are not supported by native scroll tracking; such movement can use this image path.
+
+The image transport accepts `SnapshotRequest` and returns prepared token/parts or `{ shown: false }`. Parts use local `file:` URLs and CSS-pixel viewport coordinates. Requests use the plugin's existing ordered bridge:
+
+| Action     | Native responsibility                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prepare`  | Validate the current revision and IDs, then `NativeUICoveredSnapshots.prepare` using actual rendered frames.                                            |
+| `cover`    | Validate the token and complete native surface ownership; create the entry copy and hide the associated native views. Return `shown: false` on failure. |
+| `painted`  | Retire only that token's entry copy.                                                                                                                    |
+| `restore`  | Rebase the prepared return copy to supplied frames. Never capture here.                                                                                 |
+| `restored` | Retire only that token's return copy after the native update ACK and Web paint boundary.                                                                |
+| `release`  | Release the named token, files and associated temporary views.                                                                                          |
+| `reset`    | Owner teardown only; release all native capture resources.                                                                                              |
+
+Use `NativeUICoveredSnapshots.observe` to notify the JS listener when interaction starts/ends. Captures use composited pixels so blur/refraction is preserved; they include the background under the clipped native component. Cache validity therefore includes layout and the plugin's visual-change notifications. The kit does not capture continuously or guarantee every possible renderer can be captured.
+
+## Native scroll tracking
+
+`readScrollPlacement(element, owner, identify)` measures one untransformed overflow owner. `createScrollBindings()` validates reuse and detects movement while acquisition is awaiting ACK. Keep `reuse` out of layout-deduplication signatures; it describes acknowledgement state, not layout.
+
+On iOS, `NativeUIScrollBindings.replace` groups sources by owner and binds only an unambiguous matching `UIScrollView`. `update()` applies positions and clipping without rebuilding content. `NativeUIClippedView` preserves full content dimensions while restricting visible pixels and hit testing.
+
+An established binding rejected by native loses ownership and may be freshly acquired through the **same** update/ACK path. A failed fresh acquisition stays on the fallback until a relevant layout/scroll-end event. Never add an immediate retry loop or replay user actions. A frame/props change does not recalibrate an established coordinate origin.
+
+This uses WKWebView's internal overflow hierarchy without private class names. Missing/ambiguous views, nested scrolling, document scrolling, unsupported transforms, shaped clipping, or a moving unconfirmed owner cannot be bound. Do not claim support solely because a `UIScrollView` exists. A native view may intercept gestures that begin inside it; routing those gestures and SDK accessibility behavior remain renderer-specific.
+
+## Development
+
+From the monorepo root:
+
+```sh
+npm ci
+npm run build --workspace @rdlabo/capacitor-native-ui-kit
+npm exec --workspace @rdlabo/capacitor-native-ui-kit -- playwright install chromium
+npm test --workspace @rdlabo/capacitor-native-ui-kit
+xcodebuild -scheme CapacitorNativeUIKit -destination 'platform=iOS Simulator,id=<booted simulator UUID>' test
+```
+
+The kit follows the monorepo release version. Publish order is the native Maven artifact → npm kit → native UI plugin → theme. npm releases verify that the matching POM and AAR exist on Maven Central before publication. No publication is performed by build or test commands. Tests cover plain DOM, fractional/RTL geometry, stale ACKs, image ownership and native WKWebView scroll tracking; consumer tests remain responsible for Ionic/SDK integration.
+
+## Android library
+
+Android uses a Gradle Android library, distributed as an AAR through Maven rather than Capacitor plugin registration. The publication coordinates are `dev.rdlabo.capacitor:native-ui-kit:<version>`. They are not yet published to a remote Maven repository; do not add an unresolved dependency to an application. Build and verify the local Maven publication with:
+
+```sh
+packages/capacitor-native-ui-kit/android/gradlew -p packages/capacitor-native-ui-kit/android testDebugUnitTest assembleRelease connectedDebugAndroidTest publishReleasePublicationToVerificationRepository
+```
+
+`NativeUIClippedView` applies position and clipping without resetting unchanged dimensions. Send rAF-coalesced measurements from `readPlacement` through the existing bridge. The optional `NativeUIPlacementChannel` uses AndroidX WebMessageListener for coordinates only, exact trusted origins, and the same `PlacementSession` sequence guard as the ordinary bridge. Close the channel on teardown. Android does not claim WKWebView-style native overflow binding.
+
+`NativeUISnapshots` prepares composited PixelCopy images and local PNG files, then covers/restores from that cache. Encoding runs off the UI thread; only one preparation runs per owner. Notify it of visual changes and interaction, and release tokens on teardown. All view/lifecycle calls run on the UI thread. The plugin retains revision, eligibility and fallback policy.
+
+After Web image insertion and decode, `NativeUIWebReadiness.prepare` checks readiness for a subsequent WebView draw. Its `current` predicate must validate the owning session, source generation and image revision. This is preparation work, not a wait inserted when scrolling or an overlay starts. Neither bridge acknowledgement nor this callback proves physical display presentation.
+
+[AdMob PR #487](https://github.com/capacitor-community/admob/pull/487) demonstrates a persistent image underlay for opaque test ads. That policy is not enabled globally: translucent UI would be composited twice, and video/SDK interactions require renderer-specific decisions. Never synthesize clicks through an image. The Native UI consumer uses the kit on both iOS and Android. Android acceptance tests exercise the real Capacitor bridge and translucent Compose content. Other SDK consumers still require their own integration and acceptance testing.
+
+### Translucent Android surfaces
+
+Capture the composited window pixels, including the background, instead of drawing the translucent view onto an empty bitmap. Keep the prepared Web image decoded but hidden. At handoff, `cover(token, window, reference, views)` installs a temporary opaque image copy before hiding those native views in the same UI turn. Reveal the Web image, confirm Web drawing readiness, then retire the entry copy. The overlay starts immediately; image encoding is never on this path.
+
+For return, install the prepared return copy with `restore`, restore the native views underneath it, hide the Web image, and retire the return copy after Web drawing readiness. This avoids compositing live translucent native pixels over their own snapshot. Validate the token and current surface generation at every asynchronous callback. The temporary copy is noninteractive and bounded; teardown releases both copies and cached resources.
+
+This preserves the captured background, not a continuously changing scene behind the image. Background changes must invalidate the cache through the same visual-change notifications as content updates. Video and unsupported capture surfaces retain the consumer's fallback policy.
+
+The Native UI Android plugin declares the kit as a Maven dependency. For local verification, `-PnativeUIKitRepository=<absolute path to kit/android/build/maven>` adds the generated repository; no relative npm source path is used as the native dependency. With JDK 21 and Android SDK 36 installed, run `sh scripts/verify-native-ui-kit-android.sh <emulator serial>` to test the library and its real Capacitor/Compose consumer. Omit the serial for build/unit/lint checks. The acceptance activity and Web assets are enabled only by `-PnativeUIKitIntegrationTest` and cannot enter ordinary consumer builds.

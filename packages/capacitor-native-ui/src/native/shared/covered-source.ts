@@ -1,8 +1,8 @@
-export const coveredSourcesChanged = 'nativeUICoveredSourcesChange';
-export const imageMarker = 'data-native-ui-snapshot';
-export const owners = new Set<HTMLElement>();
+import { createSnapshotScope } from '@rdlabo/capacitor-native-ui-kit';
+export const snapshotScope = createSnapshotScope('native-ui');
+export const { coveredSourcesChanged, imageMarker, owners, visibleOwners, preparedOwners, snapshotTargets, snapshotTargetsChanged } =
+  snapshotScope;
 // Keep the rendered image steady while Native is being recreated underneath it.
-export const visibleOwners = new Set<HTMLElement>();
 export const snapshotVisible = (element: HTMLElement) =>
   Array.from(visibleOwners).some((owner) => owner === element || owner.contains(element));
 export const snapshotOwns = (element: HTMLElement) => Array.from(owners).some((owner) => owner === element || owner.contains(element));
@@ -23,8 +23,3 @@ export const snapshotMutation = (record: MutationRecord) => {
   const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
   return image(record.target) || (record.type === 'childList' && nodes.length > 0 && nodes.every(image));
 };
-
-export const snapshotTargets = new WeakMap<HTMLElement, HTMLElement>();
-export const snapshotTargetsChanged = 'nativeUISnapshotTargetsChange';
-
-export const preparedOwners = new Set<HTMLElement>();

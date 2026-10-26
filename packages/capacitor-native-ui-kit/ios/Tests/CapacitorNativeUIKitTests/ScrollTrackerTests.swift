@@ -1,10 +1,9 @@
 import XCTest
 import WebKit
-import SwiftUI
-@testable import NativeUIPlugin
+@testable import CapacitorNativeUIKit
 
 final class NativeUIScrollTrackerTests: XCTestCase {
-    private func node(_ id: String = "counter", y: Double = 400) throws -> NativeUIControl {
+    private func node(_ id: String = "counter", y: Double = 400) throws -> NativeUIScrollNode {
         let value: [String: Any] = ["id": id, "kind": "extension", "x": 10, "y": y + 80, "width": 240, "height": 60,
             "items": [], "dark": false, "rtl": false,
             "extension": ["name": "counter", "props": "{}", "actions": ["increment": "button"]],
@@ -12,7 +11,7 @@ final class NativeUIScrollTrackerTests: XCTestCase {
                        "clip": ["x": 0, "y": 100, "width": 320, "height": 480],
                        "contentWidth": 320, "contentHeight": 1200,
                        "frame": ["x": 10, "y": y, "width": 240, "height": 60]]]
-        return try JSONDecoder().decode(NativeUIControl.self, from: JSONSerialization.data(withJSONObject: value))
+        return try JSONDecoder().decode(NativeUIScrollNode.self, from: JSONSerialization.data(withJSONObject: value))
     }
 
     @MainActor func testSharedScrollClippingAndTeardown() throws {
@@ -26,8 +25,8 @@ final class NativeUIScrollTrackerTests: XCTestCase {
         let scroll = TrackingScrollView(frame: CGRect(x: 0, y: 80, width: 320, height: 500))
         scroll.contentSize = CGSize(width: 320, height: 1200)
         web.addSubview(scroll)
-        let controller = NativeUIExtensionController(content: AnyView(Text("Count")), owner: owner)
-        defer { controller.detach(duration: 0) }
+        let controller = NativeUIClippedView(content: UIView())
+        owner.view.addSubview(controller)
         var updates = 0
         var frames: [String: CGRect] = [:]
         var tracker: NativeUIScrollTracker? = try XCTUnwrap(NativeUIScrollTracker(webView: web,
@@ -41,9 +40,9 @@ final class NativeUIScrollTrackerTests: XCTestCase {
         scroll.contentOffset.y = 420
         XCTAssertEqual(frames["counter"], CGRect(x: 10, y: 60, width: 240, height: 60))
         XCTAssertEqual(frames["second"], CGRect(x: 10, y: 260, width: 240, height: 60))
-        XCTAssertEqual(controller.view.frame, CGRect(x: 10, y: 100, width: 240, height: 20))
-        XCTAssertEqual(controller.controller.view.frame, CGRect(x: 0, y: -40, width: 240, height: 60))
-        XCTAssertNil(controller.view.hitTest(CGPoint(x: 5, y: -1), with: nil))
+        XCTAssertEqual(controller.frame, CGRect(x: 10, y: 100, width: 240, height: 20))
+        XCTAssertEqual(controller.content.frame, CGRect(x: 0, y: -40, width: 240, height: 60))
+        XCTAssertNil(controller.hitTest(CGPoint(x: 5, y: -1), with: nil))
         scroll.moving = true
         XCTAssertTrue(try XCTUnwrap(tracker).replace([node(), node("second", y: 600)], webView: web, scale: 1))
         tracker?.update()
@@ -56,9 +55,9 @@ final class NativeUIScrollTrackerTests: XCTestCase {
         tracker?.update()
         XCTAssertEqual(frames["counter"]?.minY, 50, "A delayed sample must not permanently shift native placement")
         scroll.contentOffset.y = 800
-        XCTAssertTrue(controller.view.isHidden)
+        XCTAssertTrue(controller.isHidden)
         scroll.contentOffset.y = 0
-        XCTAssertFalse(controller.view.isHidden)
+        XCTAssertFalse(controller.isHidden)
         tracker = nil
         let previous = updates
         scroll.contentOffset.y = 100
@@ -134,7 +133,7 @@ final class NativeUIScrollTrackerTests: XCTestCase {
                 try await Task.sleep(nanoseconds: 50_000_000)
             }
             let data = try JSONSerialization.data(withJSONObject: XCTUnwrap(value as? [String: Any]))
-            let node = try JSONDecoder().decode(NativeUIControl.self, from: data)
+            let node = try JSONDecoder().decode(NativeUIScrollNode.self, from: data)
             var actual: CGRect?
             var tracker: NativeUIScrollTracker?
             for _ in 0..<40 {
@@ -144,7 +143,7 @@ final class NativeUIScrollTrackerTests: XCTestCase {
             }
             let bound = try XCTUnwrap(tracker)
             bound.update()
-            XCTAssertEqual(try XCTUnwrap(actual).minX, node.frame.x, accuracy: 0.1, direction)
+            XCTAssertEqual(try XCTUnwrap(actual).minX, node.scroll!.frame.x + node.scroll!.viewport.x - node.scroll!.offsetX, accuracy: 0.1, direction)
             _ = try await web.evaluateJavaScript("document.getElementById('scroll').scrollLeft = \(direction == "rtl" ? -150 : 150)")
             try await Task.sleep(nanoseconds: 200_000_000)
             let expected = try await web.evaluateJavaScript("document.getElementById('source').getBoundingClientRect().x") as! Double

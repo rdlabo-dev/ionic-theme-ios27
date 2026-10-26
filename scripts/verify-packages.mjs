@@ -13,13 +13,14 @@ const sourceFiles = [
   'demo/package-lock.json',
   'packages/theme-ios27/package.json',
   'packages/capacitor-native-ui/package.json',
+  'packages/capacitor-native-ui-kit/package.json',
 ];
 const originals = sourceFiles.map((file) => readFileSync(file, 'utf8'));
 try {
   const packed = Object.values(JSON.parse(
     execFileSync('npm', ['pack', '--workspaces', '--ignore-scripts', '--json', '--pack-destination', dir], { encoding: 'utf8' }),
   ));
-  assert.equal(packed.length, 2);
+  assert.equal(packed.length, 3);
   sourceFiles.forEach((file, index) => assert.equal(readFileSync(file, 'utf8'), originals[index], `${file} changed while packing`));
   const nativeName = '@rdlabo/capacitor-native-ui';
   const manifests = new Map();
@@ -92,6 +93,12 @@ try {
 
       assert(!manifest.dependencies?.['@rdlabo/ionic-theme-ios27'], 'Native UI must not depend on the theme');
       assert(!files.has('dist/native-integration/transition.js'), 'Ionic transition adapter belongs to the theme');
+    } else if (manifest.name === '@rdlabo/capacitor-native-ui-kit') {
+      assert.equal(manifest.capacitor, undefined, 'Kit is a library, never a registered plugin');
+      assert(files.has('Package.swift'));
+      assert(files.has('CapacitorNativeUIKit.podspec'));
+      assert(files.has('ios/Sources/CapacitorNativeUIKit/CoveredSnapshots.swift'));
+      assert.equal(Object.keys(manifest.dependencies ?? {}).length, 0, 'Kit must not depend on a renderer');
     } else {
       assert.equal(manifest.name, '@rdlabo/ionic-theme-ios27');
       assert.equal(manifest.capacitor, undefined, 'Only the native package registers a Capacitor plugin');
@@ -110,6 +117,7 @@ try {
       assert(existsSync(join(dir, 'consumer.css')));
     }
   }
+  assert.equal(manifests.get(nativeName).dependencies['@rdlabo/capacitor-native-ui-kit'], manifests.get('@rdlabo/capacitor-native-ui-kit').version);
   assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').dependencies[nativeName], manifests.get(nativeName).version);
   // Verify the core entry with neither Ionic nor the Ionic utilities installed.
   assert.equal(manifests.get(nativeName).peerDependenciesMeta['@ionic/core'].optional, true);
@@ -148,7 +156,7 @@ try {
     enableNativeUI({ verticalBars: { enabled: 'auto' } });
   `);
   execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], {cwd: dir, stdio: 'inherit'});
-  // Only external dependencies come from the workspace; both packages resolve from archives.
+  // Only external dependencies come from the workspace; all packages resolve from archives.
   for (const name of ['@ionic', '@stencil', '@rdlabo/ionic-theme-utils', 'ionicons', 'typescript']) {
     symlinkSync(resolve('node_modules', name), join(dir, 'node_modules', name), 'dir');
   }
@@ -202,7 +210,7 @@ try {
     withNativeUITransition(iosTransitionAnimation);
   `);
   execFileSync(process.execPath, [resolve('node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'esnext', '--moduleResolution', 'bundler', '--target', 'es2022', '--lib', 'es2022,dom', consumer], { cwd: dir, stdio: 'inherit' });
-  console.log('Both package archives, public exports, plugin ownership, dependency direction and standalone Sass verified.');
+  console.log('All three package archives, public exports, plugin ownership, dependency direction and standalone Sass verified.');
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }

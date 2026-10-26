@@ -1,6 +1,6 @@
 import XCTest
 import UIKit
-@testable import NativeUIPlugin
+@testable import CapacitorNativeUIKit
 
 final class NativeUICoveredSnapshotsTests: XCTestCase {
     @MainActor func testCancelledHandoffRestoresOnlyItsOwnVisibilityChanges() {

@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.library' version '8.13.0'
+    id 'org.jetbrains.kotlin.android' version '2.2.20'
+    id 'maven-publish'
+}
+
+group = 'dev.rdlabo.capacitor'
+version = new groovy.json.JsonSlurper().parse(file('../package.json')).version
+android {
+    namespace 'dev.rdlabo.capacitor.nativeuikit'
+    compileSdk 36
+    defaultConfig {
+        minSdk 24
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    kotlinOptions { jvmTarget = '17' }
+    publishing { singleVariant('release') { withSourcesJar() } }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.14.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+                artifactId = 'native-ui-kit'
+                pom {
+                    name = 'Capacitor Native UI Kit'
+                    description = 'Native UI placement and image handoff for Capacitor plugin authors.'
+                    url = 'https://github.com/rdlabo-dev/ionic-theme-ios27'
+                    licenses { license { name = 'MIT'; url = 'https://opensource.org/licenses/MIT' } }
+                    scm { url = 'https://github.com/rdlabo-dev/ionic-theme-ios27' }
+                }
+            }
+        }
+        repositories { maven { name = 'verification'; url = layout.buildDirectory.dir('maven') } }
+    }
+}
