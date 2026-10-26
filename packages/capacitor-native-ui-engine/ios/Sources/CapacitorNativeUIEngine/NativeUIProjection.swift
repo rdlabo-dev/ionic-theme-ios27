@@ -25,7 +25,7 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
     }
     private weak var webView: WKWebView?
     private let views: () -> [String: UIView]
-    private let snapshots = NativeUICoveredSnapshots()
+    private let snapshots: NativeUICoveredSnapshots
     private let scrolling = NativeUIScrollBindings()
     private var masks: [String: CAShapeLayer] = [:]
     private let id = "nativeUI" + UUID().uuidString.replacingOccurrences(of: "-", with: "")
@@ -43,10 +43,20 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
     private var anchors: [String: [String: Anchor]] = [:]
     private var captured: [String: [String: UIView]] = [:]
 
-    public init(webView: WKWebView?, plugin: String, projectionSelector: String,
+    public convenience init(webView: WKWebView?, plugin: String, projectionSelector: String,
                 receiveListeners: ReceiveListeners = .init(),
                 allowedOrigins: Set<String> = ["capacitor://localhost", "https://localhost", "http://localhost"],
                 canCapture: @escaping () -> Bool = { true }, view: @escaping () -> UIView?) throws {
+        try self.init(webView: webView, plugin: plugin, projectionSelector: projectionSelector,
+                      receiveListeners: receiveListeners, allowedOrigins: allowedOrigins,
+                      canCapture: canCapture, snapshots: NativeUICoveredSnapshots(), view: view)
+    }
+    init(webView: WKWebView?, plugin: String, projectionSelector: String,
+         receiveListeners: ReceiveListeners = .init(),
+         allowedOrigins: Set<String> = ["capacitor://localhost", "https://localhost", "http://localhost"],
+         canCapture: @escaping () -> Bool = { true }, snapshots: NativeUICoveredSnapshots,
+         view: @escaping () -> UIView?) throws {
+        self.snapshots = snapshots
         guard let webView else { throw ProjectionError.missingWebView }
         self.webView = webView; self.views = { view().map { ["view": $0] } ?? [:] }; self.origins = allowedOrigins; self.canCapture = canCapture
         super.init()
@@ -149,8 +159,8 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
                     let scale = webView.bounds.width / width
                     var entries: [String: Anchor] = [:]
                     for part in parts {
-                        guard let ids = part["ids"] as? [String], let x = part["x"] as? Double, let y = part["y"] as? Double,
-                              let w = part["width"] as? Double, let h = part["height"] as? Double else { continue }
+                        guard let ids = part["ids"] as? [String], let x = part["x"] as? CGFloat, let y = part["y"] as? CGFloat,
+                              let w = part["width"] as? CGFloat, let h = part["height"] as? CGFloat else { continue }
                         let image = CGRect(x: x*scale, y: y*scale, width: w*scale, height: h*scale)
                         for id in ids { if let view = selected[id] { entries[id] = Anchor(native: view.convert(view.bounds, to: webView), image: image) } }
                     }

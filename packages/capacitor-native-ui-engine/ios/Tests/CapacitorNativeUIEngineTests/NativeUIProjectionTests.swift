@@ -67,6 +67,42 @@ final class NativeUIProjectionTests: XCTestCase {
         try await wait(web, "Object.keys(testEvents).length === 0")
         XCTAssertEqual(configuration.userContentController.userScripts.count, 1, "Keep the host's scripts")
     }
+    @MainActor func testPreparedImageReturnsToNativeAfterWebProjection() async throws {
+        let configuration = WKWebViewConfiguration()
+        configuration.setURLSchemeHandler(ProjectionFixture(), forURLScheme: "capacitor")
+        configuration.userContentController.addUserScript(WKUserScript(source: """
+          window.testEvents = {};
+          window.Capacitor = {
+            addListener: (plugin, name, listener) => { testEvents[name] = listener; return { remove: async () => { delete testEvents[name]; } }; },
+            convertFileSrc: url => 'capacitor://localhost/_capacitor_file_' + url.replace('file://', '')
+          };
+        """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        let window = SnapshotTestWindow(frame: UIScreen.main.bounds)
+        let owner = UIViewController(); window.rootViewController = owner; window.makeKeyAndVisible()
+        let web = WKWebView(frame: window.bounds, configuration: configuration)
+        owner.view.addSubview(web)
+        let button = UIButton(frame: CGRect(x: 20, y: 100, width: 100, height: 40))
+        button.backgroundColor = .red; button.setTitle("Native", for: .normal)
+        owner.view.addSubview(button)
+        let registration = try NativeUIProjection(webView: web, plugin: "Fixture", projectionSelector: "#slot",
+            receiveListeners: .init(projection: .init(native: ["shown"], web: ["moving"])),
+            // A hostless XCTest process has no compositor surface. Keep the capture,
+            // file transport and handoff real, replacing only the screen replica.
+            snapshots: NativeUICoveredSnapshots(snapshotView: { $0 }), view: { button })
+        defer { registration.destroy(); window.isHidden = true }
+        web.load(URLRequest(url: URL(string: "capacitor://localhost/fixture")!))
+        for _ in 0..<3 {
+            try await wait(web, "document.querySelector('#slot')?.hasAttribute('data-native-ui-snapshot') === true", timeout: 30)
+            XCTAssertFalse(button.isHidden)
+            _ = try await web.evaluateJavaScript("testEvents.moving({})")
+            try await wait(web, "document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
+            XCTAssertTrue(button.isHidden)
+            _ = try await web.evaluateJavaScript("testEvents.shown({})")
+            try await wait(web, "document.querySelector('#slot').getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='native') && !document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
+            XCTAssertFalse(button.isHidden, "Prepared image handoff must restore the live view")
+            XCTAssertEqual(button.frame, CGRect(x: 20, y: 100, width: 100, height: 40))
+        }
+    }
     @MainActor private func wait(_ web: WKWebView, _ expression: String, timeout: TimeInterval = 8) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
