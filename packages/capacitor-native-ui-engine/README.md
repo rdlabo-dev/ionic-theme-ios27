@@ -28,39 +28,125 @@ The integration has three responsibilities:
 2. The plugin registers its native views and notification names once on each platform.
 3. The plugin emits notifications after its updates and releases the registration at teardown.
 
-For a single Tab Bar surface:
+### iOS: add the registration to your `CAPPlugin` class
 
-```swift
-import CapacitorNativeUIEngine
+In `ios/Sources/NamePlugin/NamePlugin.swift`, retain the registration as a property and initialize it in `load()`, **after your existing renderer creates and attaches its view**. In this diff, `nativeView` is the `UIView` your plugin already owns; its existing rendering code is represented by comments.
 
-projection = try NativeUIProjection(
-    webView: bridge.webView!, plugin: "TabBar", fallbackSelector: "#tab-bar-fallback", ids: ["bar"],
-    update: ["tabSelected", "setColors", "setTabs"],
-    projection: ["native": ["shown"], "web": ["transitionStarted"], "none": ["hidden"]],
-    views: { [weak self] in self?.tabBarView.map { ["bar": $0] } ?? [:] }
-)
+Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS plugin calls and event subscriptions. Do not repeat the plugin name in the Engine configuration.
+
+```diff
+ import Capacitor
+ import UIKit
++import CapacitorNativeUIEngine
+
+ @objc(NamePlugin)
+ public class NamePlugin: CAPPlugin, CAPBridgedPlugin {
+     public let identifier = "NamePlugin"
+     public let jsName = "Name"
+     public let pluginMethods: [CAPPluginMethod] = [
+         CAPPluginMethod(name: "setColors", returnType: CAPPluginReturnPromise)
+     ]
+     private var nativeView: UIView?
++    private var projection: NativeUIProjection?
+
+     public override func load() {
+         // Existing code creates and attaches nativeView here.
++        guard let webView = bridge?.webView else { return }
++        do {
++            projection = try NativeUIProjection(
++                webView: webView, plugin: jsName,
++                fallbackSelector: "#native-ui-fallback", ids: ["view"],
++                update: ["appearanceChanged"],
++                projection: ["native": ["shown"], "web": ["transitionStarted"], "none": ["hidden"]],
++                views: { [weak self] in
++                    guard let view = self?.nativeView else { return [:] }
++                    return ["view": view]
++                }
++            )
++        } catch {
++            CAPLog.print("Native UI projection unavailable: \(error)")
++        }
+     }
+
+     @objc func setColors(_ call: CAPPluginCall) {
+         DispatchQueue.main.async {
+             // Existing code applies the requested colors to nativeView.
++            self.notifyListeners("appearanceChanged", data: [:])
+             call.resolve()
+         }
+     }
++
++    deinit {
++        projection?.destroy()
++    }
+ }
 ```
 
-```kotlin
-import dev.rdlabo.capacitor.nativeuiengine.NativeUIProjection
+If the view is created later in an existing `initialize` / `show` method, put the registration there after view creation instead of in `load()`. Retain one registration for that renderer's lifetime; do not create another on every update. When replacing a renderer, destroy its old registration before registering the replacement.
 
-projection = NativeUIProjection(
-    activity.window, bridge.webView, "TabBar", "#tab-bar-fallback", listOf("bar"),
-    update = listOf("tabSelected", "setColors", "setTabs"),
-    projection = mapOf("native" to listOf("shown"), "web" to listOf("transitionStarted"), "none" to listOf("hidden")),
-    views = { tabBarView?.let { mapOf("bar" to it) } ?: emptyMap() }
-)
+### Android: add the registration to your `Plugin` class
+
+Make the corresponding changes in `android/src/main/java/<your-package>/NamePlugin.kt`. **`pluginHandle.id`** is Capacitor's registered plugin name, derived from `@CapacitorPlugin`; no second name string is needed.
+
+```diff
+ import android.view.View
+ import com.getcapacitor.Plugin
+ import com.getcapacitor.PluginCall
+ import com.getcapacitor.PluginMethod
+ import com.getcapacitor.annotation.CapacitorPlugin
++import android.util.Log
++import com.getcapacitor.JSObject
++import dev.rdlabo.capacitor.nativeuiengine.NativeUIProjection
+
+ @CapacitorPlugin(name = "Name")
+ class NamePlugin : Plugin() {
+     private var nativeView: View? = null
++    private var projection: NativeUIProjection? = null
+
+     override fun load() {
+         // Existing code creates and attaches nativeView here.
++        projection = runCatching {
++            NativeUIProjection(
++                activity.window, bridge.webView, pluginHandle.id,
++                fallbackSelector = "#native-ui-fallback", ids = listOf("view"),
++                update = listOf("appearanceChanged"),
++                projection = mapOf("native" to listOf("shown"), "web" to listOf("transitionStarted"), "none" to listOf("hidden")),
++                views = { nativeView?.let { mapOf("view" to it) } ?: emptyMap() }
++            )
++        }.onFailure {
++            Log.e(javaClass.simpleName, "Native UI projection unavailable", it)
++        }.getOrNull()
+     }
+
+     @PluginMethod
+     fun setColors(call: PluginCall) {
+         activity.runOnUiThread {
+             // Existing code applies the requested colors to nativeView.
++            notifyListeners("appearanceChanged", JSObject())
+             call.resolve()
+         }
+     }
++
++    override fun handleOnDestroy() {
++        projection?.close()
++        projection = null
++        super.handleOnDestroy()
++    }
+ }
 ```
 
-Here `setColors` is an **event emitted after a successful update**, not a method the engine calls. Reuse existing events such as `tabSelected`; where no notification exists, add it after the native operation succeeds:
+Both diffs add a private property, native registration, an update notification and teardown. They add no Engine methods to `pluginMethods`, no public JS wrapper, and no application-side Engine initializer. Keep your plugin's existing `registerPlugin()` export. Use the same event names in the registration and `notifyListeners`; if the plugin already emits a suitable event (such as `tabSelected`), list that event instead of emitting it twice.
 
-```swift
-notifyListeners("setColors", data: [:])
-```
+### Which events to emit
 
-```kotlin
-notifyListeners("setColors", JSObject())
-```
+| Notification                            | Where to emit it in the existing plugin                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------- |
+| `appearanceChanged` (an `update` event) | After a successful native appearance update, such as `setColors`                      |
+| `transitionStarted` (`web`)             | Before the fallback DOM starts moving or a Web layer covers the native view           |
+| `shown` (`native`)                      | After the plugin's existing show operation, or when returning from the Web projection |
+| `hidden` (`none`)                       | After the plugin's existing hide operation                                            |
+
+The names in the examples are conventions you choose, not reserved Engine methods. An `update` event refreshes the prepared image without changing the requested destination. It does not call `setColors` again.
 
 Emit `transitionStarted` before the DOM starts moving, `shown` when native projection is requested again, and `hidden` after the plugin's own hide operation. Native capture, URL conversion, image preparation, draw acknowledgement, image retirement and listener cleanup stay inside the engine. The engine never invokes the plugin's `show`, `hide`, selection or ad-loading methods. End the registration with `projection.destroy()` on iOS or `projection.close()` on Android when the renderer is destroyed. Retain the registration for its full lifetime and call native APIs on the UI thread.
 
