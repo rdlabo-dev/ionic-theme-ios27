@@ -73,8 +73,8 @@ jobs:
           else
             VERSION="${BASE_VERSION}-candidate.sha${HEAD_SHA:0:12}"
           fi
-          node scripts/set-kit-revision.mjs "$HEAD_SHA"
-          npm pkg set "dependencies.@rdlabo/capacitor-native-ui-kit=$VERSION" --workspace packages/capacitor-native-ui
+          node scripts/set-engine-revision.mjs "$HEAD_SHA"
+          npm pkg set "dependencies.@rdlabo/capacitor-native-ui-engine=$VERSION" --workspace packages/capacitor-native-ui
           npm pkg set "dependencies.@rdlabo/capacitor-native-ui=$VERSION" --workspace packages/theme-ios27
           npm version "$VERSION" --workspaces --no-git-tag-version --ignore-scripts --allow-same-version
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"

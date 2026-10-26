@@ -1,4 +1,4 @@
-import CapacitorNativeUIKit
+import CapacitorNativeUIEngine
 import Capacitor
 import UIKit
 import SwiftUI

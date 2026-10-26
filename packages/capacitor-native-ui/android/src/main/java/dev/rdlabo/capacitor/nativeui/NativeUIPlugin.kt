@@ -1,9 +1,9 @@
 package dev.rdlabo.capacitor.nativeui
 
 import android.graphics.RectF
-import dev.rdlabo.capacitor.nativeuikit.NativeUIClippedView
-import dev.rdlabo.capacitor.nativeuikit.NativeUISnapshots
-import dev.rdlabo.capacitor.nativeuikit.NativeUIWebReadiness
+import dev.rdlabo.capacitor.nativeuiengine.NativeUIClippedView
+import dev.rdlabo.capacitor.nativeuiengine.NativeUISnapshots
+import dev.rdlabo.capacitor.nativeuiengine.NativeUIWebReadiness
 import java.io.File
 import android.os.Handler
 import android.os.Looper

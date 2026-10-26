@@ -1,2 +1,2 @@
-import CapacitorNativeUIKit
-typealias NativeUIScrollPlacement = CapacitorNativeUIKit.NativeUIScrollPlacement
+import CapacitorNativeUIEngine
+typealias NativeUIScrollPlacement = CapacitorNativeUIEngine.NativeUIScrollPlacement

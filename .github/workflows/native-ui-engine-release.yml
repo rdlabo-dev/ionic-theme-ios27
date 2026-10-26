@@ -1,0 +1,95 @@
+name: Native UI Engine Maven Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Publish this package.json version to Maven Central (immutable)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-ui-engine-maven-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Require the tested main commit and explicit version
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        with:
+          script: |
+            const { readFileSync } = await import('node:fs');
+            const pkg = JSON.parse(readFileSync('packages/capacitor-native-ui-engine/package.json', 'utf8'));
+            if (pkg.version !== process.env.RELEASE_VERSION || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) throw new Error('Version must match the engine package.json');
+            const { data: main } = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
+            if (main.commit.sha !== context.sha) throw new Error('Run from the current main commit');
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              ...context.repo, workflow_id: 'native-ui-engine.yml', head_sha: context.sha,
+              event: 'push', branch: 'main', per_page: 100,
+            });
+            const latest = runs.sort((a, b) => b.run_number - a.run_number)[0];
+            if (!latest || latest.status !== 'completed' || latest.conclusion !== 'success') {
+              throw new Error('This exact main commit must pass Native UI Engine CI first');
+            }
+      - name: Refuse an existing coordinate
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          code=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "https://repo.maven.apache.org/maven2/io/github/rdlabo/native-ui-engine/$RELEASE_VERSION/native-ui-engine-$RELEASE_VERSION.pom")
+          test "$code" = 404 || { echo "Central returned HTTP $code; refusing publication"; exit 1; }
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: node --test scripts/native-ui-engine-release/publish.test.mjs
+      - name: Build the signed bundle
+        env:
+          MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: packages/capacitor-native-ui-engine/android/gradlew -p packages/capacitor-native-ui-engine/android --no-daemon -PsignRelease clean centralBundle --console=plain
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: android-central-bundle
+          path: packages/capacitor-native-ui-engine/android/build/distributions/*.zip
+          if-no-files-found: error
+      - name: Verify the staged Maven consumer before publication
+        run: packages/capacitor-native-ui-engine/android/gradlew -p packages/capacitor-native-ui/android -PnativeUIEngineRepository="$GITHUB_WORKSPACE/packages/capacitor-native-ui-engine/android/build/maven" :assembleRelease --console=plain
+      - name: Upload, validate and publish
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+        run: node scripts/native-ui-engine-release/publish.mjs
+      - name: Wait for Maven Central distribution
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          for attempt in $(seq 1 40); do
+            echo "Checking Maven distribution ($attempt/40)"
+            code=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "https://repo.maven.apache.org/maven2/io/github/rdlabo/native-ui-engine/$RELEASE_VERSION/native-ui-engine-$RELEASE_VERSION.pom")
+            if [ "$code" = 200 ]; then exit 0; fi
+            if [ "$code" != 404 ]; then echo "Central returned HTTP $code"; exit 1; fi
+            sleep 15
+          done
+          echo 'Publication completed but distribution is still pending; do not re-upload.'
+          exit 1
+      - name: Verify Maven Central consumer
+        run: packages/capacitor-native-ui-engine/android/gradlew -p packages/capacitor-native-ui/android --refresh-dependencies :assembleRelease --console=plain

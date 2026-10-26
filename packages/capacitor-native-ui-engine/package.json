@@ -1,0 +1,43 @@
+{
+  "name": "@rdlabo/capacitor-native-ui-engine",
+  "version": "2.0.3",
+  "description": "Native UI placement, scroll tracking, and Web projection for Capacitor plugin maintainers.",
+  "type": "module",
+  "license": "Zlib",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rdlabo-dev/ionic-theme-ios27.git",
+    "directory": "packages/capacitor-native-ui-engine"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "ios/Sources",
+    "CapacitorNativeUIEngine.podspec",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "playwright test",
+    "lint": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"*.json\" \"*.md\"",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"*.json\" \"*.md\"",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.9.3",
+    "prettier": "^3.6.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

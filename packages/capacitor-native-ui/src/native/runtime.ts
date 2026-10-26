@@ -1,4 +1,4 @@
-import { createScrollBindings } from '@rdlabo/capacitor-native-ui-kit';
+import { createScrollBindings } from '@rdlabo/capacitor-native-ui-engine';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
 import { getProjectionState } from './shared/covered-source';

@@ -771,7 +771,7 @@ test('border offset correction continues until the delayed native restore acknow
   expect(styles).not.toHaveBeenCalled();
 });
 
-test('kit base stylesheet insertion and removal are not source visual changes', () => {
+test('engine base stylesheet insertion and removal are not source visual changes', () => {
   const observer = new MutationObserver(() => {});
   observer.observe(document.head, { childList: true });
   const style = document.createElement('style');

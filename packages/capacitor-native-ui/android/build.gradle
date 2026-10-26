@@ -42,11 +42,11 @@ android {
         abortOnError = false
     }
     // Acceptance app/assets must never enter a consuming application's debug build.
-    if (project.hasProperty('nativeUIKitIntegrationTest')) {
+    if (project.hasProperty('nativeUIEngineIntegrationTest')) {
         sourceSets {
             debug {
                 java.srcDirs += 'fixtures/debug/java'
-                assets.srcDirs += ['fixtures/debug/assets', layout.buildDirectory.dir('generated/kit-fixture-assets').get().asFile]
+                assets.srcDirs += ['fixtures/debug/assets', layout.buildDirectory.dir('generated/engine-fixture-assets').get().asFile]
                 manifest.srcFile 'fixtures/debug/AndroidManifest.xml'
             }
             androidTest.java.srcDirs += 'fixtures/androidTest/java'
@@ -64,12 +64,12 @@ repositories {
     google()
     mavenCentral()
     // Explicit local verification override; installed consumers resolve Maven normally.
-    if (project.hasProperty('nativeUIKitRepository')) maven { url = uri(project.property('nativeUIKitRepository')) }
+    if (project.hasProperty('nativeUIEngineRepository')) maven { url = uri(project.property('nativeUIEngineRepository')) }
 }
 
 dependencies {
-    def kitVersion = new groovy.json.JsonSlurper().parse(file('../package.json')).dependencies['@rdlabo/capacitor-native-ui-kit']
-    implementation "io.github.rdlabo:native-ui-kit:$kitVersion"
+    def engineVersion = new groovy.json.JsonSlurper().parse(file('../package.json')).dependencies['@rdlabo/capacitor-native-ui-engine']
+    implementation "io.github.rdlabo:native-ui-engine:$engineVersion"
     api platform("androidx.compose:compose-bom:2025.10.00")
     api "androidx.compose.ui:ui"
     api "androidx.compose.foundation:foundation"
@@ -83,15 +83,15 @@ dependencies {
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
 }
 
-if (project.hasProperty('nativeUIKitIntegrationTest')) {
-    def kitSource = file('../../capacitor-native-ui-kit/src')
-    def fixtureBundle = layout.buildDirectory.file('generated/kit-fixture-assets/public/native-ui-kit.js')
-    def bundleFixture = tasks.register('bundleNativeUIKitFixture', Exec) {
-        inputs.dir kitSource
+if (project.hasProperty('nativeUIEngineIntegrationTest')) {
+    def engineSource = file('../../capacitor-native-ui-engine/src')
+    def fixtureBundle = layout.buildDirectory.file('generated/engine-fixture-assets/public/native-ui-engine.js')
+    def bundleFixture = tasks.register('bundleNativeUIEngineFixture', Exec) {
+        inputs.dir engineSource
         outputs.file fixtureBundle
         commandLine file('../../../node_modules/.bin/esbuild').absolutePath,
-            new File(kitSource, 'index.ts').absolutePath, '--bundle', '--format=iife',
-            '--global-name=NativeUIKit', "--outfile=${fixtureBundle.get().asFile.absolutePath}"
+            new File(engineSource, 'index.ts').absolutePath, '--bundle', '--format=iife',
+            '--global-name=NativeUIEngine', "--outfile=${fixtureBundle.get().asFile.absolutePath}"
     }
     tasks.matching { it.name == 'preDebugBuild' }.configureEach { dependsOn bundleFixture }
 }

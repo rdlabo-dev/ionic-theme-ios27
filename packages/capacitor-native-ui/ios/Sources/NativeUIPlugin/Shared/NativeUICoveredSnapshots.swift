@@ -1,6 +1,6 @@
 import SwiftUI
-import CapacitorNativeUIKit
-typealias NativeUICoveredSnapshots = CapacitorNativeUIKit.NativeUICoveredSnapshots
+import CapacitorNativeUIEngine
+typealias NativeUICoveredSnapshots = CapacitorNativeUIEngine.NativeUICoveredSnapshots
 
 /// A public, non-interactive layout anchor for content hosted inside the system tab accessory.
 struct NativeUICoveredSnapshotAnchor: UIViewRepresentable {

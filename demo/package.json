@@ -71,7 +71,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.61.1",
     "vitest": "^4.0.0",
-    "@rdlabo/capacitor-native-ui-kit": "file:../packages/capacitor-native-ui-kit"
+    "@rdlabo/capacitor-native-ui-engine": "file:../packages/capacitor-native-ui-engine"
   },
   "description": "An Ionic project"
 }

@@ -1,0 +1,69 @@
+name: Native UI Engine
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @rdlabo/capacitor-native-ui-engine
+      - run: npm exec --workspace @rdlabo/capacitor-native-ui-engine -- playwright install --with-deps chromium
+      - run: npm test --workspace @rdlabo/capacitor-native-ui-engine
+  swift:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: bash scripts/verify-engine-spm.sh
+      - name: Verify npm-distributed CocoaPods library
+        run: |
+          CAPACITOR_IOS_VERSION=$(node -p "require('./demo/package.json').dependencies['@capacitor/ios']")
+          npm install --prefix "$RUNNER_TEMP/engine-pods-deps" --ignore-scripts --no-package-lock "@capacitor/ios@$CAPACITOR_IOS_VERSION"
+          bash scripts/verify-engine-pods.sh "$RUNNER_TEMP/engine-pods-deps/node_modules/@capacitor/ios"
+      - name: Test on an available iPhone simulator
+        run: |
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for devices in json.load(sys.stdin)["devices"].values() for d in devices if d["name"].startswith("iPhone")))')
+          xcodebuild -scheme CapacitorNativeUIEngine -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO test
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node --test scripts/native-ui-engine-release/publish.test.mjs
+      - run: python3 scripts/native-ui-engine-release/verify.py
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify Android library and real Capacitor consumer
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          script: sh scripts/verify-native-ui-engine-android.sh emulator-5554
+      - uses: actions/upload-artifact@v5
+        with:
+          name: native-ui-engine-maven
+          path: packages/capacitor-native-ui-engine/android/build/maven
+          if-no-files-found: error

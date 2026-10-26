@@ -13,7 +13,7 @@ const sourceFiles = [
   'demo/package-lock.json',
   'packages/theme-ios27/package.json',
   'packages/capacitor-native-ui/package.json',
-  'packages/capacitor-native-ui-kit/package.json',
+  'packages/capacitor-native-ui-engine/package.json',
 ];
 const originals = sourceFiles.map((file) => readFileSync(file, 'utf8'));
 try {
@@ -93,16 +93,16 @@ try {
 
       assert(!manifest.dependencies?.['@rdlabo/ionic-theme-ios27'], 'Native UI must not depend on the theme');
       assert(!files.has('dist/native-integration/transition.js'), 'Ionic transition adapter belongs to the theme');
-    } else if (manifest.name === '@rdlabo/capacitor-native-ui-kit') {
-      assert.equal(manifest.capacitor, undefined, 'Kit is a library, never a registered plugin');
+    } else if (manifest.name === '@rdlabo/capacitor-native-ui-engine') {
+      assert.equal(manifest.capacitor, undefined, 'Engine is a library, never a registered plugin');
       assert(!files.has('Package.swift'), 'Native SwiftPM dependencies resolve from Git, not npm');
-      assert(files.has('CapacitorNativeUIKit.podspec'));
+      assert(files.has('CapacitorNativeUIEngine.podspec'));
       assert.equal(manifest.license, 'Zlib');
       assert(files.has('NOTICE'));
       assert.match(readFileSync(join(packageRoot, 'LICENSE'), 'utf8'), /origin of this software must not be misrepresented/);
       assert.match(readFileSync(join(packageRoot, 'NOTICE'), 'utf8'), /MIT License/);
-      assert(files.has('ios/Sources/CapacitorNativeUIKit/CoveredSnapshots.swift'));
-      assert.equal(Object.keys(manifest.dependencies ?? {}).length, 0, 'Kit must not depend on a renderer');
+      assert(files.has('ios/Sources/CapacitorNativeUIEngine/CoveredSnapshots.swift'));
+      assert.equal(Object.keys(manifest.dependencies ?? {}).length, 0, 'Engine must not depend on a renderer');
     } else {
       assert.equal(manifest.name, '@rdlabo/ionic-theme-ios27');
       assert.equal(manifest.capacitor, undefined, 'Only the native package registers a Capacitor plugin');
@@ -121,7 +121,7 @@ try {
       assert(existsSync(join(dir, 'consumer.css')));
     }
   }
-  assert.equal(manifests.get(nativeName).dependencies['@rdlabo/capacitor-native-ui-kit'], manifests.get('@rdlabo/capacitor-native-ui-kit').version);
+  assert.equal(manifests.get(nativeName).dependencies['@rdlabo/capacitor-native-ui-engine'], manifests.get('@rdlabo/capacitor-native-ui-engine').version);
   assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').dependencies[nativeName], manifests.get(nativeName).version);
   // Verify the core entry with neither Ionic nor the Ionic utilities installed.
   assert.equal(manifests.get(nativeName).peerDependenciesMeta['@ionic/core'].optional, true);
@@ -138,7 +138,7 @@ try {
   const consumer = join(dir, 'consumer.ts');
   writeFileSync(consumer, `
     import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
-    import { createWebProjection, createWebProjectionScope, type WebProjectionTransport } from '@rdlabo/capacitor-native-ui-kit';
+    import { createWebProjection, createWebProjectionScope, type WebProjectionTransport } from '@rdlabo/capacitor-native-ui-engine';
     async function projectionContract(transport: WebProjectionTransport) {
       // @ts-expect-error A scope must explicitly declare its source DOM boundary.
       createWebProjectionScope('consumer');

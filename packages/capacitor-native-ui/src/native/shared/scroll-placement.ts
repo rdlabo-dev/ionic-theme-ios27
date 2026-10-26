@@ -1,1 +1,1 @@
-export { readScrollPlacement } from '@rdlabo/capacitor-native-ui-kit';
+export { readScrollPlacement } from '@rdlabo/capacitor-native-ui-engine';

@@ -8,5 +8,5 @@ demo/test-results
 packages/capacitor-native-ui/android/build/
 packages/capacitor-native-ui/android/.gradle/
 
-packages/capacitor-native-ui-kit/android/build/
-packages/capacitor-native-ui-kit/android/.gradle/
+packages/capacitor-native-ui-engine/android/build/
+packages/capacitor-native-ui-engine/android/.gradle/

@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <script src="native-ui-kit.js"></script>
+    <script src="native-ui-engine.js"></script>
   </head>
   <body
     style="
@@ -22,7 +22,7 @@
         }
       };
       const source = document.getElementById('source');
-      const scope = NativeUIKit.createWebProjectionScope(source, 'acceptance');
+      const scope = NativeUIEngine.createWebProjectionScope(source, 'acceptance');
       const node = {
         id: 'fixture',
         kind: 'extension',
@@ -30,7 +30,7 @@
         y: 100,
         width: 160,
         height: 64,
-        extension: { name: 'kit.fixture', props: '{}', actions: {} },
+        extension: { name: 'engine.fixture', props: '{}', actions: {} },
       };
       let revision = 0;
       let delay = 0;
@@ -90,7 +90,7 @@
       window.prepare = async () => {
         const capabilities = await send('configure');
         if (!capabilities.coveredSnapshots) throw Error('Snapshot capability missing');
-        manager = await NativeUIKit.createWebProjection(
+        manager = await NativeUIEngine.createWebProjection(
           scope,
           {
             send: async (request) => {

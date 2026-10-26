@@ -4,7 +4,7 @@ import {
   createWebProjectionScope,
   type WebProjectionScope,
   type WebProjectionSource,
-} from '@rdlabo/capacitor-native-ui-kit';
+} from '@rdlabo/capacitor-native-ui-engine';
 import type { NativeUIPlugin } from '../definitions';
 import { getProjectionState } from './covered-source';
 

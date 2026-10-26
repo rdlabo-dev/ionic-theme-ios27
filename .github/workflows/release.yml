@@ -9,7 +9,7 @@ on:
   workflow_run:
     workflows:
       - Lint
-      - Native UI Kit
+      - Native UI Engine
       - E2E Screenshot Tests
       - Package Candidate
     types: [completed]
@@ -110,17 +110,17 @@ jobs:
         env:
           VERSION: ${{ steps.tag_version.outputs.version }}
         run: |
-          node scripts/set-kit-revision.mjs "ios27-v$VERSION"
-          npm pkg set "dependencies.@rdlabo/capacitor-native-ui-kit=$VERSION" --workspace packages/capacitor-native-ui
+          node scripts/set-engine-revision.mjs "ios27-v$VERSION"
+          npm pkg set "dependencies.@rdlabo/capacitor-native-ui-engine=$VERSION" --workspace packages/capacitor-native-ui
           npm pkg set "dependencies.@rdlabo/capacitor-native-ui=$VERSION" --workspace packages/theme-ios27
           npm version "$VERSION" --workspaces --no-git-tag-version --ignore-scripts --allow-same-version
           node --input-type=module <<'JS'
           import { readFileSync, writeFileSync } from 'node:fs';
           const lock = JSON.parse(readFileSync('demo/package-lock.json', 'utf8'));
-          for (const path of ['packages/capacitor-native-ui-kit', 'packages/capacitor-native-ui', 'packages/theme-ios27']) {
+          for (const path of ['packages/capacitor-native-ui-engine', 'packages/capacitor-native-ui', 'packages/theme-ios27']) {
             lock.packages[`../${path}`].version = process.env.VERSION;
           }
-          lock.packages['../packages/capacitor-native-ui'].dependencies['@rdlabo/capacitor-native-ui-kit'] = process.env.VERSION;
+          lock.packages['../packages/capacitor-native-ui'].dependencies['@rdlabo/capacitor-native-ui-engine'] = process.env.VERSION;
           lock.packages['../packages/theme-ios27'].dependencies['@rdlabo/capacitor-native-ui'] = process.env.VERSION;
           writeFileSync('demo/package-lock.json', JSON.stringify(lock, null, 2) + '\n');
           JS
@@ -132,10 +132,10 @@ jobs:
           node --input-type=module <<'JS'
           import assert from 'node:assert/strict';
           import { readFileSync } from 'node:fs';
-          const paths = ['package.json', 'packages/capacitor-native-ui-kit/package.json', 'packages/capacitor-native-ui/package.json', 'packages/theme-ios27/package.json'];
+          const paths = ['package.json', 'packages/capacitor-native-ui-engine/package.json', 'packages/capacitor-native-ui/package.json', 'packages/theme-ios27/package.json'];
           const packages = paths.map(path => JSON.parse(readFileSync(path, 'utf8')));
           for (const pkg of packages) assert.equal(pkg.version, process.env.TAG_VERSION, `${pkg.name}: release version mismatch`);
-          assert.equal(packages[2].dependencies[packages[1].name], process.env.TAG_VERSION, 'Kit workspace dependency mismatch');
+          assert.equal(packages[2].dependencies[packages[1].name], process.env.TAG_VERSION, 'Engine workspace dependency mismatch');
           assert.equal(packages[3].dependencies[packages[2].name], process.env.TAG_VERSION, 'Native workspace dependency mismatch');
           JS
 
@@ -145,7 +145,7 @@ jobs:
       - name: Verify native Maven dependency is published
         env:
           VERSION: ${{ steps.tag_version.outputs.version }}
-        run: sh scripts/verify-kit-maven.sh "$VERSION"
+        run: sh scripts/verify-engine-maven.sh "$VERSION"
 
       - name: Commit workspace versions
         env:
@@ -180,11 +180,11 @@ jobs:
           const tag = version.includes('-') ? 'next' : 'latest';
           const root = JSON.parse(readFileSync('package.json', 'utf8'));
           assert.equal(root.version, version, 'Root version mismatch');
-          assert.deepEqual(root.workspaces, ['packages/capacitor-native-ui-kit', 'packages/capacitor-native-ui', 'packages/theme-ios27']);
+          assert.deepEqual(root.workspaces, ['packages/capacitor-native-ui-engine', 'packages/capacitor-native-ui', 'packages/theme-ios27']);
           for (const workspace of root.workspaces) {
             const pkg = JSON.parse(readFileSync(`${workspace}/package.json`, 'utf8'));
             assert.equal(pkg.version, version, 'Workspace version mismatch');
-            if (workspace === 'packages/capacitor-native-ui') assert.equal(pkg.dependencies['@rdlabo/capacitor-native-ui-kit'], version, 'Kit dependency version mismatch');
+            if (workspace === 'packages/capacitor-native-ui') assert.equal(pkg.dependencies['@rdlabo/capacitor-native-ui-engine'], version, 'Engine dependency version mismatch');
             if (workspace === 'packages/theme-ios27') assert.equal(pkg.dependencies['@rdlabo/capacitor-native-ui'], version, 'Native dependency version mismatch');
           }
           for (const workspace of root.workspaces) {
@@ -230,7 +230,7 @@ jobs:
             const isComment = context.eventName === 'issue_comment';
             const protectedWorkflows = [
               '.github/workflows/lint.yml',
-              '.github/workflows/native-ui-kit.yml',
+              '.github/workflows/native-ui-engine.yml',
               '.github/workflows/e2e-pull_request.yml',
               '.github/workflows/e2e-main.yml',
               '.github/workflows/package-candidate.yml',
@@ -428,7 +428,7 @@ jobs:
               ]);
             }
 
-            if (targetBranch === 'main') required.set('Native UI Kit', '.github/workflows/native-ui-kit.yml');
+            if (targetBranch === 'main') required.set('Native UI Engine', '.github/workflows/native-ui-engine.yml');
             const runs = await getRequiredRuns(headSha, event, required, prNumber, targetBranch);
             const incomplete = [...required.keys()].filter((name) => {
               const run = runs.get(name);
@@ -628,13 +628,13 @@ jobs:
           import { readFileSync, readdirSync } from 'node:fs';
           import { createHash } from 'node:crypto';
           import { execFileSync, spawnSync } from 'node:child_process';
-          const kit = '@rdlabo/capacitor-native-ui-kit';
+          const engine = '@rdlabo/capacitor-native-ui-engine';
           const native = '@rdlabo/capacitor-native-ui';
           const theme = '@rdlabo/ionic-theme-ios27';
           const { EXPECTED_NAME, EXPECTED_VERSION, DIST_TAG, RUNNER_TEMP } = process.env;
           assert([theme, '@rdlabo/ionic-theme-ios26'].includes(EXPECTED_NAME), 'Unexpected package identity');
           assert.equal(DIST_TAG, 'beta', 'Unexpected dist-tag');
-          const names = EXPECTED_NAME === theme ? [kit, native, theme] : [EXPECTED_NAME];
+          const names = EXPECTED_NAME === theme ? [engine, native, theme] : [EXPECTED_NAME];
           const directory = `${RUNNER_TEMP}/npm-candidate`;
           const files = readdirSync(directory).filter(file => file.endsWith('.tgz'));
           assert.equal(files.length, names.length, 'Unexpected number of package archives');
@@ -646,14 +646,14 @@ jobs:
             assert(names.includes(pkg.name), 'Unexpected package identity');
             assert.equal(pkg.version, EXPECTED_VERSION, 'Artifact version mismatch');
             assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
-            if (pkg.name === native) assert.equal(pkg.dependencies?.[kit], EXPECTED_VERSION, 'Kit dependency version mismatch');
+            if (pkg.name === native) assert.equal(pkg.dependencies?.[engine], EXPECTED_VERSION, 'Engine dependency version mismatch');
             if (pkg.name === theme) assert.equal(pkg.dependencies?.[native], EXPECTED_VERSION, 'Native dependency version mismatch');
             assert(!archives.has(pkg.name), 'Duplicate package identity');
             archives.set(pkg.name, archive);
           }
           if (EXPECTED_NAME === theme) {
             assert.match(EXPECTED_VERSION, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
-            const base = `https://repo.maven.apache.org/maven2/io/github/rdlabo/native-ui-kit/${EXPECTED_VERSION}/native-ui-kit-${EXPECTED_VERSION}`;
+            const base = `https://repo.maven.apache.org/maven2/io/github/rdlabo/native-ui-engine/${EXPECTED_VERSION}/native-ui-engine-${EXPECTED_VERSION}`;
             for (const extension of ['pom', 'aar']) execFileSync('curl', ['--fail', '--silent', '--show-error', '--head', '--max-time', '30', `${base}.${extension}`]);
           }
           const pending = [];

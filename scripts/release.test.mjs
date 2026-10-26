@@ -8,7 +8,7 @@ import { test } from 'node:test';
 
 // Execute the actual workflow publish steps against a fake registry; never publish to npm.
 const workflow = readFileSync(new URL('../.github/workflows/release.yml', import.meta.url), 'utf8');
-const kit = '@rdlabo/capacitor-native-ui-kit';
+const engine = '@rdlabo/capacitor-native-ui-engine';
 const native = '@rdlabo/capacitor-native-ui';
 const theme = '@rdlabo/ionic-theme-ios27';
 
@@ -17,13 +17,13 @@ function runBetaRelease(t, { existing = {}, dependencyMismatch = false, kitDepen
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const version = '1.2.2-beta.pr298.sha0123456789ab';
   const folder = join(directory, 'npm-candidate');
-  const names = legacy ? ['@rdlabo/ionic-theme-ios26'] : [kit, native, theme];
+  const names = legacy ? ['@rdlabo/ionic-theme-ios26'] : [engine, native, theme];
   mkdirSync(folder);
   mkdirSync(join(directory, 'package'));
   const registry = {};
   for (const name of names) {
     const manifest = { name, version };
-    if (name === native) manifest.dependencies = { [kit]: kitDependencyMismatch ? '1.2.1' : version };
+    if (name === native) manifest.dependencies = { [engine]: kitDependencyMismatch ? '1.2.1' : version };
     if (name === theme) manifest.dependencies = { [native]: dependencyMismatch ? '1.2.1' : version };
     writeFileSync(join(directory, 'package/package.json'), JSON.stringify(manifest));
     const archive = join(folder, `${name.replace('@', '').replace('/', '-')}-${version}.tgz`);
@@ -64,11 +64,11 @@ if (args[0] === 'view') {
   return { result, calls, published: calls.filter(call => call[0] === 'publish') };
 }
 
-test(`beta: checks all versions before publishing kit, native, then theme`, t => {
+test(`beta: checks all versions before publishing engine, native, then theme`, t => {
   const { result, calls, published } = runBetaRelease(t);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(calls.map(call => call[0]), ['view', 'view', 'view', 'publish', 'publish', 'publish']);
-  assert.match(published[0][1], /rdlabo-capacitor-native-ui-kit-/);
+  assert.match(published[0][1], /rdlabo-capacitor-native-ui-engine-/);
   assert.match(published[1][1], /rdlabo-capacitor-native-ui-/);
   assert.match(published[2][1], /rdlabo-ionic-theme-ios27-/);
   for (const call of published) {
@@ -79,13 +79,13 @@ test(`beta: checks all versions before publishing kit, native, then theme`, t =>
 });
 test(`beta: retry completes the theme after a partial release`, t => {
   assert.notEqual(runBetaRelease(t, { failTheme: true }).result.status, 0);
-  const { result, published } = runBetaRelease(t, { existing: { [kit]: 'matching', [native]: 'matching' } });
+  const { result, published } = runBetaRelease(t, { existing: { [engine]: 'matching', [native]: 'matching' } });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(published.length, 1);
   assert.match(published[0][1], /rdlabo-ionic-theme-ios27-/);
 });
 test(`beta: complete release is idempotent`, t => {
-  const { result, published } = runBetaRelease(t, { existing: { [kit]: 'matching', [native]: 'matching', [theme]: 'matching' } });
+  const { result, published } = runBetaRelease(t, { existing: { [engine]: 'matching', [native]: 'matching', [theme]: 'matching' } });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(published.length, 0);
 });
@@ -113,7 +113,7 @@ for (const version of ['2.0.0', '2.0.0-0']) {
   test(`versioned release: publishes workspaces in dependency order (${version})`, t => {
     const { result, published } = runWorkspaceRelease(t, version);
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(published.map(call => call[call.indexOf('--workspace') + 1]), ['packages/capacitor-native-ui-kit', 'packages/capacitor-native-ui', 'packages/theme-ios27']);
+    assert.deepEqual(published.map(call => call[call.indexOf('--workspace') + 1]), ['packages/capacitor-native-ui-engine', 'packages/capacitor-native-ui', 'packages/theme-ios27']);
     for (const call of published) {
       assert(call.includes('--provenance'));
       assert(!call.includes('--ignore-scripts'), 'Capacitor prepublishOnly must run');
@@ -131,13 +131,13 @@ test('versioned release: dependency mismatch prevents either publication', t => 
 function runWorkspaceRelease(t, version, mismatch = false) {
   const directory = mkdtempSync(join(tmpdir(), 'workspace-release-test-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const workspaces = ['packages/capacitor-native-ui-kit', 'packages/capacitor-native-ui', 'packages/theme-ios27'];
+  const workspaces = ['packages/capacitor-native-ui-engine', 'packages/capacitor-native-ui', 'packages/theme-ios27'];
   writeFileSync(join(directory, 'package.json'), JSON.stringify({ version, workspaces }));
   for (const [index, workspace] of workspaces.entries()) {
     mkdirSync(join(directory, workspace), { recursive: true });
     writeFileSync(join(directory, workspace, 'package.json'), JSON.stringify({
-      name: [kit, native, theme][index], version,
-      ...(index > 0 ? { dependencies: { [[kit, native][index - 1]]: mismatch ? '1.2.1' : version } } : {}),
+      name: [engine, native, theme][index], version,
+      ...(index > 0 ? { dependencies: { [[engine, native][index - 1]]: mismatch ? '1.2.1' : version } } : {}),
     }));
   }
   const log = join(directory, 'calls.jsonl');
@@ -153,7 +153,7 @@ require('node:fs').appendFileSync(process.env.CALL_LOG, JSON.stringify(process.a
   return { result, published };
 }
 
-test('beta: mismatched kit dependency prevents all publication', t => {
+test('beta: mismatched engine dependency prevents all publication', t => {
   const { result, published } = runBetaRelease(t, { kitDependencyMismatch: true });
   assert.notEqual(result.status, 0);
   assert.equal(published.length, 0);

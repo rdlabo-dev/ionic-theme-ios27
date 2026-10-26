@@ -1,9 +1,9 @@
 // swift-tools-version: 5.9
 import PackageDescription
 let package = Package(
- name: "CapacitorNativeUIKit", platforms: [.iOS(.v15)],
- products: [.library(name: "CapacitorNativeUIKit", targets: ["CapacitorNativeUIKit"])],
+ name: "CapacitorNativeUIEngine", platforms: [.iOS(.v15)],
+ products: [.library(name: "CapacitorNativeUIEngine", targets: ["CapacitorNativeUIEngine"])],
  targets: [
-  .target(name: "CapacitorNativeUIKit", path: "packages/capacitor-native-ui-kit/ios/Sources/CapacitorNativeUIKit"),
-  .testTarget(name: "CapacitorNativeUIKitTests", dependencies: ["CapacitorNativeUIKit"], path: "packages/capacitor-native-ui-kit/ios/Tests/CapacitorNativeUIKitTests")
+  .target(name: "CapacitorNativeUIEngine", path: "packages/capacitor-native-ui-engine/ios/Sources/CapacitorNativeUIEngine"),
+  .testTarget(name: "CapacitorNativeUIEngineTests", dependencies: ["CapacitorNativeUIEngine"], path: "packages/capacitor-native-ui-engine/ios/Tests/CapacitorNativeUIEngineTests")
  ])

@@ -1,4 +1,4 @@
-import type { WebProjectionBatch } from '@rdlabo/capacitor-native-ui-kit';
+import type { WebProjectionBatch } from '@rdlabo/capacitor-native-ui-engine';
 
 /** Ionic's cross-surface ownership and source/proxy mapping, not a projection DOM scope. */
 const states = new WeakMap<Document, NativeUIProjectionState>();
