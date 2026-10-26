@@ -22,9 +22,12 @@ class NativeUIProjection(
     receiveListeners: ReceiveListeners = ReceiveListeners(),
     allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost"),
     failedFallback: FailedFallback = FailedFallback.WEB,
+    private val captureMode: CaptureMode = CaptureMode.COMPOSITED,
     private val canCapture: () -> Boolean = { true },
     view: () -> View?
 ) : AutoCloseable {
+    /** VIEW is for opaque software-renderable views; SurfaceView/video requires COMPOSITED. */
+    enum class CaptureMode { COMPOSITED, VIEW }
     enum class FailedFallback(val value: String) { WEB("web"), NATIVE("native") }
 
     data class ReceiveListeners(
@@ -76,11 +79,15 @@ class NativeUIProjection(
     private val snapshots = NativeUISnapshots(File(webView.context.cacheDir, "native-ui-engine/$id"))
     private data class Anchor(val native: RectF, val image: RectF)
     private val anchors = mutableMapOf<String, Map<String, Anchor>>()
+    private val webReadyTokens = mutableSetOf<String>()
     private val captured = mutableMapOf<String, Map<String, View>>()
     private var destination = "native"
     private var connected = false
     private var restoreAccepted = true
     private val hiddenByProjection = mutableSetOf<View>()
+    private var coverGeneration = 0L
+    internal var awaitWebDraw: (WebView, () -> Boolean, (Boolean) -> Unit) -> Unit = NativeUIWebReadiness::draw
+    private var suspended = false
     private var visible = true
     private var closed = false
     private var documentID: String? = null
@@ -91,7 +98,7 @@ class NativeUIProjection(
         require(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) { "WebView document-start messaging is required" }
         val config = JSONObject().put("id", id).put("plugin", plugin).put("projectionSelector", projectionSelector)
-            .put("receiveListeners", receiveListeners.configuration()).put("failedFallback", failedFallback.value)
+            .put("receiveListeners", receiveListeners.configuration()).put("failedFallback", failedFallback.value).put("captureMode", if (captureMode == CaptureMode.VIEW) "view" else "composited")
         val runtime = webView.context.assets.open("native-ui-engine.js").bufferedReader().use { it.readText() }
         val source = "if (!globalThis.CapacitorNativeUIEngineRuntime) { $runtime } CapacitorNativeUIEngineRuntime.start($config).catch(console.error);"
         install(webView, allowedOrigins)
@@ -116,11 +123,30 @@ class NativeUIProjection(
         view.getLocationInWindow(a); webView.getLocationInWindow(b)
         return RectF((a[0]-b[0]).toFloat(), (a[1]-b[1]).toFloat(), (a[0]-b[0]+view.width).toFloat(), (a[1]-b[1]+view.height).toFloat())
     }
+    private fun clips(selected: Map<String, View>): Map<String, RectF>? {
+        if (captureMode != CaptureMode.VIEW) return null
+        return selected.mapValues { (_, view) ->
+            val clip = frame(view)
+            var parent = view.parent
+            while (parent is android.view.ViewGroup) {
+                if (parent.clipChildren) {
+                    val bounds = frame(parent)
+                    if (parent.clipToPadding) {
+                        bounds.left += parent.paddingLeft; bounds.top += parent.paddingTop
+                        bounds.right -= parent.paddingRight; bounds.bottom -= parent.paddingBottom
+                    }
+                    if (!clip.intersect(bounds)) clip.setEmpty()
+                }
+                parent = parent.parent
+            }
+            clip
+        }
+    }
     private fun receive(message: JSONObject) {
         val key = message.optString("key")
         if (!key.startsWith("$id:")) return
         val page = key.split(":").getOrNull(1)
-        if (documentID != page) { snapshots.reset(); captured.clear(); anchors.clear(); documentID = page }
+        if (documentID != page) { coverGeneration++; snapshots.reset(); webReadyTokens.clear(); captured.clear(); anchors.clear(); documentID = page }
         val request = message.optJSONObject("request") ?: return
         val token = request.optString("token")
         val complete: (JSONObject) -> Unit = { value -> if (!closed && documentID == page) reply(key, value) }
@@ -142,7 +168,7 @@ class NativeUIProjection(
                     val current = views()
                     if (!visible || !canCapture() || selected.any { (id, view) -> current[id] !== view || !view.isShown || view.isLayoutRequested }) emptyMap()
                     else selected.mapValues { frame(it.value) }
-                }) { result ->
+                }, sourceViews = if (captureMode == CaptureMode.VIEW) ({ selected }) else null, contentRevision = request.optLong("revision")) { result ->
                     result.optString("token").takeIf { it.isNotEmpty() }?.let { token ->
                         captured[token] = selected
                         val scale = (webView.width/request.optDouble("viewportWidth")).toFloat()
@@ -156,18 +182,40 @@ class NativeUIProjection(
                             for (i in 0 until ids.length()) { val id = ids.getString(i); selected[id]?.let { entries[id] = Anchor(frame(it),image) } }
                         }
                         anchors[token] = entries
+                        if (captureMode == CaptureMode.VIEW) snapshots.discardViewBitmaps(token)
                     }
                     complete(result)
                 }
             }
+            "prepared" -> {
+                awaitWebDraw(webView, { !closed && !suspended && visible && captured.containsKey(token) }) { ready ->
+                    if (ready) webReadyTokens.add(token)
+                    complete(JSONObject())
+                }
+            }
             "cover" -> {
+                val generation = ++coverGeneration
                 val selected = captured[token] ?: emptyMap(); val current = views()
                 val valid = visible && canCapture() && selected.isNotEmpty() && selected.all { (id, view) -> current[id] === view }
                 restoreAccepted = true
-                complete(JSONObject().put("shown", valid && snapshots.cover(token, window, webView, selected.values.distinct(), true)))
+                if (captureMode == CaptureMode.VIEW && valid) {
+                    fun coverView() = snapshots.coverView(token, window, webView, selected.values.distinct())
+                    if (token in webReadyTokens) complete(JSONObject().put("shown", coverView()))
+                    else {
+                        val current = { !closed && generation == coverGeneration && !suspended && visible &&
+                            captured[token] == selected && selected.all { (id, view) -> views()[id] === view } && canCapture() }
+                        awaitWebDraw(webView, current) { ready ->
+                            val accepted = ready && current()
+                            if (accepted) webReadyTokens.add(token)
+                            complete(JSONObject().put("shown", accepted && coverView()))
+                        }
+                    }
+                } else complete(JSONObject().put("shown", valid && snapshots.cover(token, window, webView, selected.values.distinct(), true, clips(selected))))
             }
             "restore" -> {
+                coverGeneration++
                 restoreAccepted = false
+                if (suspended) { complete(JSONObject().put("shown", false)); return }
                 val parts = request.optJSONArray("parts") ?: JSONArray()
                 val width = request.optDouble("viewportWidth")
                 if (!width.isFinite() || width <= 0 || parts.length() == 0) { complete(JSONObject().put("shown", false)); return }
@@ -198,11 +246,12 @@ class NativeUIProjection(
                     view.translationX += anchor.native.left+target.left-anchor.image.left-old.left
                     view.translationY += anchor.native.top+target.top-anchor.image.top-old.top
                 }
-                restoreAccepted = snapshots.restore(token, window, webView, frames)
+                restoreAccepted = captureMode == CaptureMode.VIEW || snapshots.restore(token, window, webView, frames, clips = clips(current.filterKeys { it in frames }))
                 complete(JSONObject().put("shown", restoreAccepted))
             }
             "resume" -> {
-                if (!restoreAccepted) { reply(key, JSONObject(), "Native UI geometry changed"); return }
+                coverGeneration++
+                if (!restoreAccepted || suspended) { reply(key, JSONObject(), "Native UI geometry changed or hidden"); return }
                 snapshots.restoreViews(); snapshots.finishCovering()
                 val root = window.decorView
                 val observer = root.viewTreeObserver
@@ -215,7 +264,7 @@ class NativeUIProjection(
                         complete(JSONObject())
                     }
                 }
-                listener = ViewTreeObserver.OnDrawListener { root.post(finish) }
+                listener = ViewTreeObserver.OnDrawListener { root.postOnAnimation { root.post(finish) } }
                 observer.addOnDrawListener(listener)
                 root.invalidate()
                 // A detached window must not report successful drawing.
@@ -226,8 +275,9 @@ class NativeUIProjection(
                 } }, 250)
             }
             "visibility" -> {
-                visible = request.optBoolean("visible")
-                snapshots.restoreViews()
+                coverGeneration++
+                visible = request.optBoolean("visible") && !suspended
+                if (visible) snapshots.restoreViews() else snapshots.dismiss()
                 if (visible) {
                     hiddenByProjection.forEach { if (it.visibility == View.INVISIBLE) it.visibility = View.VISIBLE }
                     hiddenByProjection.clear()
@@ -236,10 +286,12 @@ class NativeUIProjection(
                 }
                 complete(JSONObject())
             }
-            "painted" -> { snapshots.retireCopy(token); complete(JSONObject()) }
+            "painted" -> if (captureMode == CaptureMode.VIEW) complete(JSONObject()) else snapshots.retireCopyAfterWebDraw(token, webView) { ready ->
+                if (ready) complete(JSONObject()) else reply(key, JSONObject(), "Web image did not draw")
+            }
             "restored" -> { snapshots.retireCopy(token, false); complete(JSONObject()) }
-            "release" -> { snapshots.release(token); captured.remove(token); anchors.remove(token); complete(JSONObject()) }
-            "reset" -> { snapshots.reset(); captured.clear(); anchors.clear(); complete(JSONObject()) }
+            "release" -> { snapshots.release(token); webReadyTokens.remove(token); captured.remove(token); anchors.remove(token); complete(JSONObject()) }
+            "reset" -> { coverGeneration++; snapshots.reset(); webReadyTokens.clear(); captured.clear(); anchors.clear(); complete(JSONObject()) }
             else -> complete(JSONObject())
         }
     }
@@ -248,13 +300,33 @@ class NativeUIProjection(
         val args = JSONArray().put(id).put(key ?: JSONObject.NULL).put(value).put(error ?: JSONObject.NULL)
         webView.evaluateJavascript("globalThis.CapacitorNativeUIEngineRuntime?.receive(...$args)", null)
     }
+    /** Hide pixels immediately; completion confirms the Web proxy has also been retired. */
+    fun hide(complete: (Boolean) -> Unit = {}) {
+        check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
+        coverGeneration++
+        suspended = true; visible = false; destination = "none"
+        snapshots.dismiss(); webReadyTokens.clear()
+        views().values.filter { it.visibility == View.VISIBLE }.forEach { hiddenByProjection.add(it); it.visibility = View.INVISIBLE }
+        var done = false
+        val timeout = Runnable { if (!done) { done = true; complete(false) } }
+        webView.postDelayed(timeout, 5000)
+        webView.evaluateJavascript("globalThis.CapacitorNativeUIEngineRuntime?.hide('$id') === true") { result ->
+            if (!done) { done = true; webView.removeCallbacks(timeout); complete(result == "true") }
+        }
+    }
+    /** Permit subsequent native presentation after a completed hide. */
+    fun show() {
+        suspended = false; destination = "native"; connected = true
+        webView.evaluateJavascript("globalThis.CapacitorNativeUIEngineRuntime?.show('$id')", null)
+    }
     override fun close() {
         if (closed) return
         closed = true
+        coverGeneration++
         webView.evaluateJavascript("globalThis.CapacitorNativeUIEngineRuntime?.stop('$id')", null)
         script.remove()
         registrations[webView]?.remove(id)
-        snapshots.close(); captured.clear(); anchors.clear()
+        snapshots.close(); webReadyTokens.clear(); captured.clear(); anchors.clear()
         if (destination != "none") hiddenByProjection.forEach { if (it.visibility == View.INVISIBLE) it.visibility = View.VISIBLE }
         hiddenByProjection.clear()
     }

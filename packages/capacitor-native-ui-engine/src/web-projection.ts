@@ -18,12 +18,16 @@ export interface WebProjectionOptions {
   wake(): void;
   blocked(): boolean;
   revision?(): number;
+  /** Content version for native pixel reuse; layout revision remains independent. */
+  captureRevision?(): number;
   /** Select this surface's sources, e.g. the underlying page or the active overlay. */
   eligible?(source: Candidate): boolean;
   /** Reject a cached image when its owning surface has changed. */
   current?(sources: HTMLElement[]): boolean;
   /** Temporary movement handoff: rebase return pixels to the current display DOM. */
   transient?: boolean;
+  /** Opaque full-view pixels map to the host border box and may paint beneath native. */
+  opaqueUnderlay?: boolean;
 }
 
 interface Prepared {
@@ -39,8 +43,20 @@ interface Prepared {
   layout: string;
 }
 
-const layout = (candidates: Candidate[]) =>
-  JSON.stringify(candidates.map(({ control: c }) => [c.id, c.kind, c.placement, c.x, c.y, c.width, c.height, c.dark, c.rtl]));
+const layout = (candidates: Candidate[], positionIndependent = false) =>
+  JSON.stringify(
+    candidates.map(({ control: c }) => [
+      c.id,
+      c.kind,
+      c.placement,
+      positionIndependent ? 0 : c.x,
+      positionIndependent ? 0 : c.y,
+      c.width,
+      c.height,
+      c.dark,
+      c.rtl,
+    ]),
+  );
 
 // Native frames are viewport pixels; absolute children use the target's local
 // padding box. Keep the conversion independent of theme dimensions.
@@ -99,7 +115,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
     JSON.stringify(
       candidates.map((candidate) => {
         if (!scopeIDs.has(candidate.scope)) scopeIDs.set(candidate.scope, ++scopeSerial);
-        return [scopeIDs.get(candidate.scope), layout([candidate])];
+        return [scopeIDs.get(candidate.scope), layout([candidate], !!callbacks.opaqueUnderlay)];
       }),
     );
   const sheets = new Map<Document | ShadowRoot, { base: HTMLStyleElement; image: HTMLStyleElement }>();
@@ -199,7 +215,12 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
     const images: HTMLImageElement[] = [];
     try {
       let expired = false;
-      const capture = call({ action: 'prepare', revision, viewportWidth: win.innerWidth, ids: selected.map((item) => item.control.id) });
+      const capture = call({
+        action: 'prepare',
+        revision: callbacks.captureRevision?.() ?? revision,
+        viewportWidth: win.innerWidth,
+        ids: selected.map((item) => item.control.id),
+      });
       void capture
         .then((late) => {
           if (expired && late.token) void call({ action: 'release', token: late.token }).catch(() => {});
@@ -278,6 +299,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
         preparedSources.add(source);
       });
       render();
+      if (callbacks.opaqueUnderlay) void call({ action: 'prepared', token: result.token }).catch(() => {});
       win.dispatchEvent(new Event(sourcesChangedEvent));
       preparedVisualRevision = visual;
       adopted = true;
@@ -510,7 +532,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
         target.setAttribute('data-native-ui-snapshot-prepared', '');
         preparedTargets.add(target);
       }
-      target.toggleAttribute('data-native-ui-snapshot-visible', !!active);
+      target.toggleAttribute('data-native-ui-snapshot-visible', !!active || !!callbacks.opaqueUnderlay);
       if (active) target.setAttribute('data-native-ui-snapshot-source', '');
       const indices = targets.flatMap((owner, index) => (owner === target ? [index] : []));
       const style = win.getComputedStyle(target);
@@ -518,9 +540,10 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
         const space = coordinateSpace(target, win, style);
         indices.forEach((index) => {
           const part = image.data.parts[index];
+          if (callbacks.opaqueUnderlay && image.frames[index]) return;
           image.frames[index] = {
-            x: (part.x - space.x) / space.scaleX,
-            y: (part.y - space.y) / space.scaleY,
+            x: callbacks.opaqueUnderlay ? 0 : (part.x - space.x) / space.scaleX,
+            y: callbacks.opaqueUnderlay ? 0 : (part.y - space.y) / space.scaleY,
             width: part.width / space.scaleX,
             height: part.height / space.scaleY,
           };
@@ -585,7 +608,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
     const currentPresentation = ++presentation;
     const isCurrent = () => presentation === currentPresentation;
     handoffPending = true;
-    presented = false;
+    presented = !!callbacks.opaqueUnderlay;
     active = image;
     // Reuse decoded pixels; no capture, bridge acknowledgement or animation wait.
     generation++;
@@ -670,8 +693,10 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
         parts.some((part, index) =>
           ['x', 'y', 'width', 'height'].some((key) => part[key as keyof Frame] !== image.data.parts[index][key as keyof Frame]),
         )
-      )
-        cached = undefined;
+      ) {
+        if (callbacks.opaqueUnderlay) image.data = { ...image.data, parts };
+        else cached = undefined;
+      }
       // Both requests use the same ordered bridge. Reprojection need not await this optional copy.
       void call({ action: 'restore', token: image.data.token, viewportWidth: win.innerWidth, parts }).catch(() => {});
     }
@@ -743,6 +768,10 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
     },
     consider,
     changed,
+    moved: () => {
+      updateOffsets();
+      followBorderAnimation();
+    },
     get token() {
       return ending ? undefined : active?.data.token;
     },
@@ -851,6 +880,7 @@ export const createWebProjectionBatch = async (
         });
     },
     changed: (owner) => engine?.changed(owner),
+    moved: () => engine?.moved(),
     begin: () => engine?.begin(),
     end: () => engine?.end(),
     updated: (token, ids, revision) => engine?.updated(token, ids, revision),

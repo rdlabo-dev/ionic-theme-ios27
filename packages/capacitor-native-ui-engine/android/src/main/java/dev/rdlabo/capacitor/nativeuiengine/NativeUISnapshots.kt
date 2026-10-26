@@ -1,5 +1,6 @@
 package dev.rdlabo.capacitor.nativeuiengine
 
+import android.graphics.Canvas
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.graphics.RectF
@@ -29,6 +30,9 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     private val main = Handler(Looper.getMainLooper())
     private val encoder = Executors.newSingleThreadExecutor()
     private val captures = mutableMapOf<String, Capture>()
+    private data class ViewCache(val revision: Long, val views: Map<String, View>, val parts: List<Part>)
+    private var viewCache: ViewCache? = null
+    private val expiredEntries = mutableSetOf<String>()
     private var copy: Copy? = null
     private var hidden: Pair<String, List<Pair<View, Int>>>? = null
     private var generation = 0L
@@ -45,7 +49,7 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     fun interaction(active: Boolean) { onMain(); touching = active; generation++ }
 
     /** frames() returns current native bounds in reference-view physical pixels. */
-    fun prepare(window: Window, reference: View, viewportWidth: Double, frames: () -> Map<String, RectF>, complete: (JSONObject) -> Unit) {
+    fun prepare(window: Window, reference: View, viewportWidth: Double, frames: () -> Map<String, RectF>, sourceViews: (() -> Map<String, View>)? = null, contentRevision: Long = 0, complete: (JSONObject) -> Unit) {
         onMain()
         if (!supported || closed || pending || touching || viewportWidth <= 0 || !viewportWidth.isFinite() || reference.width <= 0) { complete(JSONObject()); return }
         pending = true
@@ -58,7 +62,7 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
             if (current.isEmpty() || current.any { it.key.isEmpty() || !it.value.valid() }) { fail(); return }
             val count = if (current == previous) stable + 1 else 0
             if (count < 3) { main.postDelayed({ sample(current, count) }, 16); return }
-            capture(window, reference, viewportWidth, current, stamp) { pending = false; complete(it) }
+            capture(window, reference, viewportWidth, current, stamp, sourceViews?.invoke(), contentRevision) { pending = false; complete(it) }
         }
         // Stable native bounds do not imply that the Web background has painted.
         // Prepare the Web draw before measuring/capturing the composited window.
@@ -68,15 +72,32 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
             }
         } else sample(emptyMap(), 0)
     }
-    private fun capture(window: Window, reference: View, viewportWidth: Double, frames: Map<String, RectF>, stamp: Long, complete: (JSONObject) -> Unit) {
+    private fun capture(window: Window, reference: View, viewportWidth: Double, frames: Map<String, RectF>, stamp: Long, sourceViews: Map<String, View>?, contentRevision: Long, complete: (JSONObject) -> Unit) {
         if (Build.VERSION.SDK_INT < 26) { complete(JSONObject()); return }
         val root = window.decorView
         val location = origin(reference)
         val ratio = viewportWidth / reference.width
         val width = root.width; val height = root.height
         val referenceWidth = reference.width; val referenceHeight = reference.height
+        fun deliver(parts: List<Part>) {
+            val token = UUID.randomUUID().toString()
+            captures[token] = Capture(width, height, location, referenceWidth, referenceHeight, parts)
+            complete(JSONObject().put("token", token).put("parts", JSONArray(parts.map { part ->
+                JSONObject().put("ids", JSONArray(listOf(part.id))).put("url", Uri.fromFile(part.file).toString())
+                    .put("x", part.frame.left * ratio).put("y", part.frame.top * ratio)
+                    .put("width", part.frame.width() * ratio).put("height", part.frame.height() * ratio)
+            })))
+        }
+        val cached = viewCache
+        if (sourceViews != null && cached != null && cached.revision == contentRevision && cached.views == sourceViews &&
+            cached.parts.all { part -> frames[part.id]?.let { it.width() == part.frame.width() && it.height() == part.frame.height() } == true }) {
+            deliver(cached.parts.map { it.copy(frame = RectF(frames.getValue(it.id))) })
+            return
+        }
         val regions = frames.mapValues { (_, frame) ->
-            Rect(floor(frame.left + location[0] - 12.0).toInt().coerceAtLeast(0), floor(frame.top + location[1] - 12.0).toInt().coerceAtLeast(0),
+            if (sourceViews != null) Rect(floor(frame.left + location[0].toDouble()).toInt(), floor(frame.top + location[1].toDouble()).toInt(),
+                ceil(frame.right + location[0].toDouble()).toInt(), ceil(frame.bottom + location[1].toDouble()).toInt())
+            else Rect(floor(frame.left + location[0] - 12.0).toInt().coerceAtLeast(0), floor(frame.top + location[1] - 12.0).toInt().coerceAtLeast(0),
                 ceil(frame.right + location[0] + 12.0).toInt().coerceAtMost(width), ceil(frame.bottom + location[1] + 12.0).toInt().coerceAtMost(height))
         }
         if (regions.any { it.value.isEmpty }) { complete(JSONObject()); return }
@@ -84,8 +105,8 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
         if (union.width().toLong() * union.height() > 8_000_000 || regions.values.sumOf { it.width().toLong() * it.height() } > 8_000_000) { complete(JSONObject()); return }
         val pixels = try { Bitmap.createBitmap(union.width(), union.height(), Bitmap.Config.ARGB_8888) } catch (_: RuntimeException) { complete(JSONObject()); return }
         try {
-            PixelCopy.request(window, union, pixels, { result ->
-                if (result != PixelCopy.SUCCESS || closed || generation != stamp || touching) { pixels.recycle(); complete(JSONObject()); return@request }
+            val acceptPixels: (Int) -> Unit = accept@ { result ->
+                if (result != PixelCopy.SUCCESS || closed || generation != stamp || touching) { pixels.recycle(); complete(JSONObject()); return@accept }
                 val token = UUID.randomUUID().toString()
                 encoder.execute {
                     val parts = mutableListOf<Part>()
@@ -107,26 +128,51 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
                         }
                         // A full-bounds crop may share pixels; keep that bitmap until token release.
                         if (parts.none { it.bitmap === pixels }) pixels.recycle()
-                        captures[token] = Capture(width, height, location, referenceWidth, referenceHeight, parts)
-                        complete(JSONObject().put("token", token).put("parts", JSONArray(parts.map { part ->
-                            JSONObject().put("ids", JSONArray(listOf(part.id))).put("url", Uri.fromFile(part.file).toString())
-                                .put("x", part.frame.left * ratio).put("y", part.frame.top * ratio)
-                                .put("width", part.frame.width() * ratio).put("height", part.frame.height() * ratio)
-                        })))
+                        val previous = viewCache
+                        if (sourceViews != null) viewCache = ViewCache(contentRevision, sourceViews.toMap(), parts)
+                        previous?.parts?.forEach(::releasePixelsIfUnused)
+                        deliver(parts)
                     }
                 }
-            }, main)
+            }
+            if (sourceViews == null) PixelCopy.request(window, union, pixels, acceptPixels, main)
+            else {
+                check(sourceViews.keys == frames.keys)
+                val canvas = Canvas(pixels)
+                for ((id, view) in sourceViews) {
+                    val rect = regions.getValue(id)
+                    val save = canvas.save()
+                    canvas.translate((rect.left-union.left).toFloat(), (rect.top-union.top).toFloat())
+                    canvas.clipRect(0,0,view.width,view.height)
+                    view.draw(canvas)
+                    canvas.restoreToCount(save)
+                }
+                acceptPixels(PixelCopy.SUCCESS)
+            }
         } catch (_: RuntimeException) { pixels.recycle(); complete(JSONObject()) }
     }
     private fun valid(token: String, window: Window, reference: View): Capture? = captures[token]?.takeIf {
         window.decorView.width == it.width && window.decorView.height == it.height && origin(reference) == it.origin && reference.width == it.referenceWidth && reference.height == it.referenceHeight
     }
-    fun cover(token: String, window: Window, reference: View, views: List<View>, transient: Boolean = false): Boolean {
+    fun cover(token: String, window: Window, reference: View, views: List<View>, transient: Boolean = false, clips: Map<String, RectF>? = null, frames: Map<String, RectF>? = null): Boolean {
         onMain()
         // Composite pixels cover both the live translucent view and its Web replacement.
         // Install the entry copy before changing native visibility in the same UI turn.
-        if (!restore(token, window, reference, entry = true)) return false
+        expiredEntries.remove(token)
+        if (!restore(token, window, reference, frames = frames, entry = true, clips = clips)) return false
         if (!transient) coveringToken = token
+        hide(token, views)
+        return true
+    }
+    /** Opaque pixels already painted in Web need no composited native overlay. */
+    internal fun discardViewBitmaps(token: String) {
+        onMain()
+        check(copy == null) { "Composited handoff pixels are still in use" }
+        captures[token]?.parts?.forEach { if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+    }
+    fun coverView(token: String, window: Window, reference: View, views: List<View>): Boolean {
+        onMain()
+        if (valid(token, window, reference) == null) return false
         hide(token, views)
         return true
     }
@@ -136,7 +182,7 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     }
     fun restoreViews() { onMain(); hidden?.second?.forEach { (view, visibility) -> view.visibility = visibility }; hidden = null }
     fun identifiers(token: String): Set<String> = captures[token]?.parts?.map { it.id }?.toSet() ?: emptySet()
-    fun restore(token: String, window: Window, reference: View, frames: Map<String, RectF>? = null, entry: Boolean = false): Boolean {
+    fun restore(token: String, window: Window, reference: View, frames: Map<String, RectF>? = null, entry: Boolean = false, clips: Map<String, RectF>? = null): Boolean {
         onMain(); val capture = valid(token, window, reference) ?: return false
         if (frames != null && capture.parts.any { part ->
             val frame = frames[part.id]
@@ -156,21 +202,61 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
                 view.setImageBitmap(part.bitmap); view.scaleType = ImageView.ScaleType.FIT_XY
                 view.isClickable = false; view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 view.layout(floor(frame.left.toDouble()).toInt(), floor(frame.top.toDouble()).toInt(), ceil(frame.right.toDouble()).toInt(), ceil(frame.bottom.toDouble()).toInt())
+                clips?.get(part.id)?.let { clip ->
+                    val clipInRoot = RectF(clip)
+                    clipInRoot.offset((sourceLocation[0]-rootLocation[0]).toFloat(), (sourceLocation[1]-rootLocation[1]).toFloat())
+                    view.clipBounds = Rect(ceil(clipInRoot.left-frame.left.toDouble()).toInt().coerceAtLeast(0),
+                        ceil(clipInRoot.top-frame.top.toDouble()).toInt().coerceAtLeast(0),
+                        floor(clipInRoot.right-frame.left.toDouble()).toInt().coerceAtMost(view.width),
+                        floor(clipInRoot.bottom-frame.top.toDouble()).toInt().coerceAtMost(view.height))
+                }
                 root.overlay.add(view)
             }
         }
         val current = Copy(token, entry, root, views); copy = current
-        main.postDelayed({ if (copy === current) clearCopy() }, 500)
+        main.postDelayed({ if (copy === current) {
+            if (current.entry) { expiredEntries.add(token); restoreViews() }
+            clearCopy()
+        } }, 500)
         return true
+    }
+    fun retireCopyAfterWebDraw(token: String, webView: WebView, complete: (Boolean) -> Unit) {
+        onMain()
+        if (token in expiredEntries) { complete(false); return }
+        val expected = copy
+        if (expected == null || expected.token != token || !expected.entry) { complete(true); return }
+        NativeUIWebReadiness.prepare(webView, { !closed && copy === expected }) { ready ->
+            if (!ready) { complete(token !in expiredEntries && copy !== expected); return@prepare }
+            val observer = webView.viewTreeObserver
+            var done = false
+            lateinit var listener: android.view.ViewTreeObserver.OnDrawListener
+            fun finish(success: Boolean) {
+                if (done) return
+                done = true
+                if (observer.isAlive) observer.removeOnDrawListener(listener)
+                if (success && copy === expected) retireCopy(token)
+                complete(token !in expiredEntries && (success || copy !== expected))
+            }
+            listener = android.view.ViewTreeObserver.OnDrawListener { webView.post { finish(true) } }
+            observer.addOnDrawListener(listener)
+            webView.invalidate()
+            webView.postDelayed({ finish(false) }, 250)
+        }
     }
     fun retireCopy(token: String, entry: Boolean = true) { onMain(); if (copy?.token == token && copy?.entry == entry) clearCopy() }
     private fun clearCopy() { copy?.let { current -> current.views.forEach { current.root.overlay.remove(it) } }; copy = null }
+    fun dismiss() { onMain(); generation++; clearCopy(); restoreViews(); coveringToken = null }
     fun finishCovering() { onMain(); coveringToken = null }
+    private fun releasePixelsIfUnused(part: Part) {
+        if (viewCache?.parts?.any { it.bitmap === part.bitmap } == true || captures.values.any { capture -> capture.parts.any { it.bitmap === part.bitmap } }) return
+        part.file.delete(); if (!part.bitmap.isRecycled) part.bitmap.recycle()
+    }
     fun release(token: String) {
+        expiredEntries.remove(token)
         onMain(); if (hidden?.first == token) restoreViews(); if (coveringToken == token) coveringToken = null
         if (copy?.token == token) clearCopy()
-        captures.remove(token)?.parts?.forEach { it.file.delete(); if (!it.bitmap.isRecycled) it.bitmap.recycle() }
+        captures.remove(token)?.parts?.forEach(::releasePixelsIfUnused)
     }
-    fun reset() { onMain(); generation++; touching = false; restoreViews(); captures.keys.toList().forEach(::release) }
-    override fun close() { onMain(); closed = true; reset(); encoder.shutdown() }
+    fun reset() { onMain(); generation++; touching = false; val previous = viewCache; viewCache = null; restoreViews(); captures.keys.toList().forEach(::release); previous?.parts?.forEach(::releasePixelsIfUnused) }
+    override fun close() { onMain(); closed = true; val previous = viewCache; viewCache = null; reset(); previous?.parts?.forEach(::releasePixelsIfUnused); encoder.shutdown() }
 }

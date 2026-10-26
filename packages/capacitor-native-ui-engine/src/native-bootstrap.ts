@@ -1,7 +1,7 @@
 import { startNativeSession, type NativeSessionConfiguration } from './native-session.js';
 import type { ListenerHandle } from './types.js';
 
-const sessions = new Map<string, { destroy(): Promise<void> }>();
+const sessions = new Map<string, { destroy(): Promise<void>; hide(): void; show(): void }>();
 const pending = new Map<string, { resolve(value: any): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }>();
 const interactions = new Map<string, (event: { active: boolean }) => void>();
 const documentID = Array.from(crypto.getRandomValues(new Uint32Array(4)), (part) => part.toString(16)).join('-');
@@ -43,6 +43,13 @@ export const receive = (id: string, key: string | null, value: any, error?: stri
   if (error) item.reject(new Error(error));
   else item.resolve(value);
 };
+export const show = (id: string) => {
+  sessions.get(id)?.show();
+};
+export const hide = (id: string) => {
+  sessions.get(id)?.hide();
+  return true;
+};
 export const stop = async (id: string) => {
   const session = sessions.get(id);
   sessions.delete(id);
@@ -60,7 +67,16 @@ export const start = async (config: NativeSessionConfiguration) => {
   // Reserve before asynchronous initialization, including duplicate Native init callbacks.
   let actual: Awaited<ReturnType<typeof startNativeSession>> | undefined;
   let cancelled = false;
+  let pendingDestination: 'none' | 'native' | undefined;
   const reservation = {
+    show: () => {
+      pendingDestination = 'native';
+      actual?.show();
+    },
+    hide: () => {
+      pendingDestination = 'none';
+      actual?.hide();
+    },
     destroy: async () => {
       cancelled = true;
       await actual?.destroy();
@@ -82,6 +98,8 @@ export const start = async (config: NativeSessionConfiguration) => {
         };
       },
     });
+    if (pendingDestination === 'none') actual.hide();
+    else if (pendingDestination === 'native') actual.show();
     if (cancelled) await actual.destroy();
   } catch (error) {
     if (sessions.get(config.id) === reservation) sessions.delete(config.id);

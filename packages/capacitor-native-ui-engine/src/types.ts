@@ -38,7 +38,7 @@ export type WebProjectionRequest =
   | { action: 'prepare'; revision: number; viewportWidth: number; ids: string[] }
   | { action: 'cover'; token: string; transient?: boolean }
   | { action: 'restore'; token: string; viewportWidth: number; parts: (Frame & { ids: string[] })[] }
-  | { action: 'painted' | 'restored' | 'release'; token: string }
+  | { action: 'prepared' | 'painted' | 'restored' | 'release'; token: string }
   | { action: 'reset' };
 /** Empty prepare results mean capture is unavailable; a partial capture is never valid. */
 export type WebProjectionResult<Request extends WebProjectionRequest> = Request extends { action: 'prepare' }

@@ -13,6 +13,7 @@ const boot = async (
   projectionSelector = '#slot',
   failedFallback: 'web' | 'native' = 'web',
   unavailable = false,
+  captureMode: 'view' | 'composited' = 'composited',
 ) => {
   await page.setContent(present ? '<div id="slot" style="width:120px;height:40px"><button>Fallback</button></div>' : '<main></main>');
   await page.evaluate(() => {
@@ -22,7 +23,7 @@ const boot = async (
   });
   await page.addScriptTag({ content: bundle });
   await page.evaluate(
-    async ({ projectionSelector, failedFallback, unavailable }) => {
+    async ({ projectionSelector, failedFallback, unavailable, captureMode }) => {
       const w = window as any;
       w.calls = [];
       w.events = {};
@@ -35,6 +36,7 @@ const boot = async (
           plugin: 'Example',
           projectionSelector,
           failedFallback,
+          captureMode,
           receiveListeners: {
             update: ['updated'],
             projection: { native: ['shown'], web: ['moving'], none: ['hidden'] },
@@ -76,7 +78,7 @@ const boot = async (
         },
       );
     },
-    { projectionSelector, failedFallback, unavailable },
+    { projectionSelector, failedFallback, unavailable, captureMode },
   );
 };
 
@@ -474,4 +476,61 @@ test('late reconciliation failure after destroy cannot restore native visibility
   });
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => (window as any).calls.filter((r: any) => r.action === 'visibility'))).toEqual([]);
+});
+
+test('native-confirmed hide removes Web pixels synchronously without another bridge round trip', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.evaluate(() => (window as any).events.moving({ slot: 1 }));
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  const hidden = await page.evaluate(() => {
+    const w = window as any;
+    w.holdHide = true;
+    w.session.hide();
+    const slot = document.querySelector('#slot')!;
+    return {
+      image: slot.hasAttribute('data-native-ui-snapshot-visible'),
+      destination: slot.getAttribute('data-native-ui-session-surface'),
+    };
+  });
+  expect(hidden).toEqual({ image: false, destination: 'none' });
+});
+
+test('opaque view mode prepaints its image beneath native before scrolling', async ({ page }) => {
+  await boot(page, true, '#slot', 'native', false, 'view');
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  expect(await page.evaluate(() => (window as any).calls.some((call: any) => call.action === 'cover'))).toBe(false);
+  await page.evaluate(() => (window as any).session.hide());
+  await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+});
+
+test('opaque movement retains decoded pixels and local coordinates until content changes', async ({ page }) => {
+  await boot(page, true, '#slot', 'native', false, 'view');
+  await page.evaluate(() => {
+    document.body.style.height = '3000px';
+  });
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.waitForTimeout(200);
+  const preparations = await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length);
+  for (let i = 1; i <= 3; i++) {
+    await page.evaluate((y) => scrollTo(0, y), i * 10);
+    await expect.poll(() => page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'resume').length)).toBe(i);
+    await page.waitForTimeout(150);
+    expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length)).toBe(preparations);
+    await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector('#slot')!, '::before').top)).toBe('0px');
+  }
+  await page.evaluate(() => (window as any).events.updated({ slot: 1 }));
+  await expect
+    .poll(() => page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length))
+    .toBeGreaterThan(preparations);
+});
+
+test('full-view pixels remain host-local when native position lags DOM during first preparation', async ({ page }) => {
+  await boot(page, true, '#slot', 'native', false, 'view');
+  await page.evaluate(() => {
+    document.body.style.marginTop = '150px';
+  });
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('#slot')!, '::before').top)).toBe('0px');
 });

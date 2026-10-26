@@ -51,6 +51,88 @@ class NativeUIEngineTest {
    assertEquals(View.INVISIBLE,container.visibility)
   }} finally {main{activity.finish()}}
  }
+ @Test fun unsupportedCaptureKeepsNativeViewOnApi23() {
+  org.junit.Assume.assumeTrue(android.os.Build.VERSION.SDK_INT < 26)
+  val context=instrumentation.targetContext
+  val activity=instrumentation.startActivitySync(Intent(context,EngineTestActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as EngineTestActivity
+  try { main {
+   val native=View(activity);native.setBackgroundColor(Color.RED)
+   activity.root.addView(native,FrameLayout.LayoutParams(100,40))
+   val snapshots=NativeUISnapshots(File(activity.cacheDir,"unsupported"))
+   assertFalse(snapshots.supported)
+   var completed=false
+   snapshots.prepare(activity.window,activity.web,400.0,{mapOf("view" to RectF(0f,0f,100f,40f))}) {
+    assertFalse(it.has("token"));completed=true
+   }
+   assertTrue(completed);assertEquals(View.VISIBLE,native.visibility)
+   snapshots.close()
+  } } finally {main{activity.finish()}}
+ }
+ @Test fun viewPixelsExcludeOccludingContentAndPadding() {
+  val activity=activity();lateinit var snapshots:NativeUISnapshots;lateinit var native:View
+  try {
+   main {
+    val parent=FrameLayout(activity);parent.clipChildren=true
+    activity.root.addView(parent,FrameLayout.LayoutParams(160,32).apply{leftMargin=20;topMargin=120})
+    native=View(activity);native.setBackgroundColor(Color.RED)
+    parent.addView(native,FrameLayout.LayoutParams(160,64).apply{topMargin=-32})
+    snapshots=NativeUISnapshots(File(activity.cacheDir,"view-${System.nanoTime()}"))
+   }
+   instrumentation.waitForIdleSync()
+   val ready=CountDownLatch(1);var result=JSONObject()
+   main{snapshots.prepare(activity.window,activity.web,activity.web.width.toDouble(),
+    {mapOf("ad" to RectF(20f,88f,180f,152f))},sourceViews={mapOf("ad" to native)}){result=it;ready.countDown()}}
+   assertTrue(ready.await(10,TimeUnit.SECONDS));assertTrue(result.has("token"))
+   val part=result.getJSONArray("parts").getJSONObject(0)
+   assertEquals(160,part.getInt("width"));assertEquals(64,part.getInt("height"))
+   val image=BitmapFactory.decodeFile(File(java.net.URI(part.getString("url"))).path)
+   for (y in 0 until image.height) for (x in 0 until image.width) assertEquals(Color.RED,image.getPixel(x,y))
+   image.recycle()
+   val original=File(java.net.URI(part.getString("url")))
+   fun prepareAgain(revision:Long):JSONObject {
+    val done=CountDownLatch(1);var value=JSONObject()
+    main{snapshots.prepare(activity.window,activity.web,activity.web.width.toDouble(),
+     {mapOf("ad" to RectF(20f,188f,180f,252f))},sourceViews={mapOf("ad" to native)},contentRevision=revision){value=it;done.countDown()}}
+    assertTrue(done.await(10,TimeUnit.SECONDS));return value
+   }
+   main{snapshots.release(result.getString("token"))}
+   val moved=prepareAgain(0)
+   assertEquals(part.getString("url"),moved.getJSONArray("parts").getJSONObject(0).getString("url"))
+   assertEquals(188,moved.getJSONArray("parts").getJSONObject(0).getInt("y"))
+   main{snapshots.release(moved.getString("token"))}
+   val changed=prepareAgain(1)
+   assertNotEquals(part.getString("url"),changed.getJSONArray("parts").getJSONObject(0).getString("url"))
+   assertFalse(original.exists())
+   val changedFile=File(java.net.URI(changed.getJSONArray("parts").getJSONObject(0).getString("url")))
+   main{snapshots.reset()}
+   assertFalse(changedFile.exists())
+   val newDocument=prepareAgain(1)
+   assertNotEquals(changedFile.toURI().toString(),newDocument.getJSONArray("parts").getJSONObject(0).getString("url"))
+   main{snapshots.close()}
+  } finally {main{activity.finish()}}
+ }
+ @Test fun expiredEntryCopyRestoresNativeAndRejectsLatePaint() {
+  val activity=activity();lateinit var snapshots:NativeUISnapshots;lateinit var native:View
+  try {
+   main {
+    native=View(activity);native.setBackgroundColor(Color.RED)
+    activity.root.addView(native,FrameLayout.LayoutParams(100,40))
+    snapshots=NativeUISnapshots(File(activity.cacheDir,"expiry-${System.nanoTime()}"))
+   }
+   val ready=CountDownLatch(1);var token=""
+   main{snapshots.prepare(activity.window,activity.web,activity.web.width.toDouble(),
+    {mapOf("view" to RectF(0f,0f,100f,40f))},sourceViews={mapOf("view" to native)}){token=it.optString("token");ready.countDown()}}
+   assertTrue(ready.await(10,TimeUnit.SECONDS));assertTrue(token.isNotEmpty())
+   main{assertTrue(snapshots.cover(token,activity.window,activity.web,listOf(native),transient=true));assertEquals(View.INVISIBLE,native.visibility)}
+   Thread.sleep(650)
+   main{
+    assertEquals(View.VISIBLE,native.visibility)
+    var completed=false
+    snapshots.retireCopyAfterWebDraw(token,activity.web){assertFalse(it);completed=true}
+    assertTrue(completed);snapshots.close()
+   }
+  } finally {main{activity.finish()}}
+ }
  @Test fun compositedPixelsArePreparedThenCoveredAndRestoredWithoutRecapture() {
   val activity=activity();lateinit var snapshots:NativeUISnapshots;lateinit var native:View
   try {
@@ -186,9 +268,13 @@ class NativeUIEngineTest {
    assertTrue(stale.await(5,TimeUnit.SECONDS));assertFalse(staleAccepted)
   } finally {main{activity.finish()}}
  }
- @Test fun nativeInitializationOwnsImagesEventsAndTeardown() {
+ @Test fun nativeInitializationOwnsImagesEventsAndTeardown() = nativeInitialization(NativeUIProjection.CaptureMode.COMPOSITED)
+ @Test fun opaqueViewUsesPreparedWebPixelsWithoutNativeCopies() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW)
+ @Test fun lateOpaqueCoverCannotHideAfterResume() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, true)
+ private fun nativeInitialization(mode: NativeUIProjection.CaptureMode, delayCover:Boolean = false) {
   val activity=activity(); lateinit var registration:NativeUIProjection; lateinit var native:View
   val loaded=CountDownLatch(1)
+  val pendingDraws=mutableListOf<()->Unit>()
   fun js(expression:String):String {
    val done=CountDownLatch(1);var result=""
    main{activity.web.evaluateJavascript(expression){result=it;done.countDown()}}
@@ -198,6 +284,11 @@ class NativeUIEngineTest {
    val deadline=System.currentTimeMillis()+10000
    while(System.currentTimeMillis()<deadline) { if(js(expression)=="true") return; Thread.sleep(20) }
    fail("Timed out: $expression")
+  }
+  fun waitNative(visibility:Int) {
+   val deadline=System.currentTimeMillis()+10000;var matched=false
+   while(!matched && System.currentTimeMillis()<deadline) {main{matched=native.visibility==visibility};Thread.sleep(20)}
+   assertTrue("Native visibility did not change",matched)
   }
   try {
    main {
@@ -218,7 +309,8 @@ class NativeUIEngineTest {
      receiveListeners=NativeUIProjection.ReceiveListeners(
       update=listOf("updated"),
       projection=NativeUIProjection.ReceiveListeners.Projection(native=listOf("shown"),web=listOf("moving"),none=listOf("hidden"))),
-     view={native})
+     captureMode=mode,view={native})
+    if(delayCover) registration.awaitWebDraw = { _, current, done -> pendingDraws.add { done(current()) } }
     activity.web.loadDataWithBaseURL("https://localhost", """
      <meta name='viewport' content='width=device-width,initial-scale=1'><script>
      window.testEvents={};window.Capacitor={
@@ -229,21 +321,45 @@ class NativeUIEngineTest {
    }
    assertTrue("Fixture navigation did not complete",loaded.await(10,TimeUnit.SECONDS))
    waitFor("document.querySelector('#slot')?.hasAttribute('data-native-ui-snapshot')===true")
+   if(delayCover) {
+    js("testEvents.moving({})")
+    val deadline=System.currentTimeMillis()+10000;var waiting=false
+    while(!waiting && System.currentTimeMillis()<deadline) {main{waiting=pendingDraws.size>=2};Thread.sleep(20)}
+    assertTrue("Cover did not wait for Web draw",waiting)
+    js("testEvents.shown({})")
+    waitFor("document.querySelector('#slot').getAttributeNames().some(n=>n.startsWith('data-native-ui-session-')&&document.querySelector('#slot').getAttribute(n)==='native')")
+    main{pendingDraws.toList().forEach{it()};pendingDraws.clear();registration.awaitWebDraw=NativeUIWebReadiness::draw}
+    Thread.sleep(100)
+    main{assertEquals(View.VISIBLE,native.visibility)}
+   }
    repeat(2) { iteration ->
     waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot')")
     js("testEvents.moving({})")
-    waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
+    if(mode==NativeUIProjection.CaptureMode.VIEW) waitNative(View.INVISIBLE)
+    else waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
     main{assertEquals(View.INVISIBLE,native.visibility)}
     js("document.querySelector('#slot').style.top='${120+iteration*20}px'")
     js("testEvents.shown({})")
-    waitFor("!document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
+    if(mode==NativeUIProjection.CaptureMode.VIEW) waitNative(View.VISIBLE)
+    else waitFor("!document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
     val cssWidth=js("innerWidth").toFloat()
     main{
      assertEquals(View.VISIBLE,native.visibility)
-     assertEquals((20+iteration*20)*activity.web.width/cssWidth,native.translationY,0.01f)
+     if(mode==NativeUIProjection.CaptureMode.COMPOSITED) assertEquals((20+iteration*20)*activity.web.width/cssWidth,native.translationY,0.01f)
+     else {
+      val location=IntArray(2);val origin=IntArray(2);native.getLocationInWindow(location);activity.web.getLocationInWindow(origin)
+      assertEquals((120+iteration*20)*activity.web.width/cssWidth,(location[1]-origin[1]).toFloat(),1f)
+     }
     }
    }
-   js("testEvents.hidden({})")
+   waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot')")
+   js("testEvents.moving({})")
+   if(mode==NativeUIProjection.CaptureMode.VIEW) waitNative(View.INVISIBLE)
+   else waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
+   main{assertEquals(View.INVISIBLE,native.visibility)}
+   val hidden=CountDownLatch(1);var hiddenResult=false
+   main{registration.hide {hiddenResult=it;hidden.countDown()}}
+   assertTrue(hidden.await(6,TimeUnit.SECONDS));assertTrue(hiddenResult)
    waitFor("document.querySelector('#slot').getAttributeNames().some(n=>n.startsWith('data-native-ui-session-')&&document.querySelector('#slot').getAttribute(n)==='none')")
    main{assertEquals(View.INVISIBLE,native.visibility);registration.close()}
    waitFor("Object.keys(testEvents).length===0")
@@ -274,8 +390,12 @@ class NativeUIEngineTest {
     second=NativeUIProjection(activity.window,activity.web,"Fixture","#second",
      receiveListeners=NativeUIProjection.ReceiveListeners(projection=NativeUIProjection.ReceiveListeners.Projection(none=listOf("hidden"))),
      failedFallback=NativeUIProjection.FailedFallback.NATIVE,canCapture={false},view={native})
+    second.hide();second.show()
    }
    waitCount(2)
+   val visibleDeadline=System.currentTimeMillis()+10000;var visible=false
+   while(!visible && System.currentTimeMillis()<visibleDeadline) {main{visible=native.visibility==View.VISIBLE};Thread.sleep(20)}
+   assertTrue("Early hide/show must preserve native presentation intent",visible)
    main{first.close()};waitCount(1)
    val deadline=System.currentTimeMillis()+10000
    while(js("typeof testEvents.hidden")!="\"function\"" && System.currentTimeMillis()<deadline) Thread.sleep(20)

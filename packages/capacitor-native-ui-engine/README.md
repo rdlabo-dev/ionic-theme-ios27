@@ -202,6 +202,43 @@ must continue positioning that view; this option does not create native scroll
 tracking on Android. Explicit `web`, `none`, and overlay coverage take precedence:
 this option never raises a native view above an intentionally covering Web layer.
 
+For opaque, software-renderable Android SDK views, use
+`captureMode = NativeUIProjection.CaptureMode.VIEW`. This draws only the View's
+pixels with no surrounding padding, so clipping a partially visible ad cannot bake
+in a toolbar or adjacent content. Video, SurfaceView, translucent views, and content
+requiring Window composition must keep the default `COMPOSITED` mode. The consumer
+must provide a matching, clipped DOM host for the full opaque View; arbitrary native
+outline masks, transforms, and custom clipping are not reproduced.
+
+VIEW pixels are cached by native View identity, dimensions, and content revision.
+Ordinary scrolling retains the decoded Web image and updates placement without
+capture, PNG encoding, or image decode. The image covers the host border box at
+local origin (0, 0), independently of native placement acknowledgment latency.
+Opaque images remain painted beneath the live native View between scrolls.
+Before hiding that View, the engine waits for WebView visual readiness and a draw;
+VIEW creates no native entry or return image copies. Return acknowledgment waits
+across the native draw and the following animation frame. A generation check prevents
+a delayed cover callback from hiding content after restoration or suspension.
+
+The native Bitmap is recycled after PNG encoding in VIEW mode; the PNG and decoded
+Web image remain cached. Plugin update notifications advance the content revision:
+notify an update whenever content changes without replacing the View. Replacing the
+registration, WebView navigation, reset, or close retires the cache. Encoding stays
+off the UI thread; View drawing and cache ownership stay on it, with the existing
+8-million-pixel cap.
+
+COMPOSITED retains native handoff copies for translucent content. Entry copies wait
+for WebView visual readiness and a draw before retirement. If the 500 ms entry
+deadline expires, the native View is restored before the copy is removed, and a late
+paint acknowledgment is rejected.
+
+On Android, consumers whose asynchronous hide method promises that all pixels have
+disappeared must call `projection.hide { completed -> ... }` and resolve only when
+`completed` is true. Native handoff copies disappear immediately; completion waits
+for synchronous Web-proxy retirement. A timeout reports failure, not success.
+Call `projection.show()` when presenting again, in addition to normal plugin events;
+this also preserves presentation intent if event subscription is still starting.
+
 Scroll observation follows composed-tree ancestors, including assigned slots.
 Non-composed scroll events inside an Ionic shadow tree are observed at their source;
 applications do not add an extra listener or dispatch synthetic document events.

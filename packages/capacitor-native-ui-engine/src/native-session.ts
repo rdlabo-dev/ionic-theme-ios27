@@ -13,6 +13,7 @@ export interface NativeSessionConfiguration {
   projectionSelector: string;
   /** Recovery while native is requested. Explicit web/none destinations take precedence. */
   failedFallback?: 'web' | 'native';
+  captureMode?: 'composited' | 'view';
   receiveListeners?: {
     update?: string[];
     projection?: Partial<Record<ProjectionDestination, string[]>>;
@@ -65,6 +66,7 @@ export const startNativeSession = async (
   let manager: WebProjection | undefined;
   let target: HTMLElement | undefined;
   let revision = 0;
+  let contentRevision = 0;
   let generation = 0;
   let restoring = false;
   let initializing = false;
@@ -174,7 +176,9 @@ export const startNativeSession = async (
           wake,
           blocked: () => destination !== 'native' || automaticMotion,
           revision: () => revision,
+          captureRevision: config.captureMode === 'view' ? () => contentRevision : undefined,
           transient: true,
+          opaqueUnderlay: config.captureMode === 'view',
         });
         if (stopped || version !== generation) {
           await created.destroy();
@@ -202,7 +206,7 @@ export const startNativeSession = async (
       const tracking = await bridge.send({ action: 'track', viewportWidth: innerWidth, ...(scroll ? { scroll } : {}) });
       if (stopped || version !== generation) return;
       nativeScroll = tracking?.tracked === true;
-      manager.consider(++revision, sources());
+      manager.consider(config.captureMode === 'view' ? contentRevision : ++revision, sources());
     } else {
       await bridge.send({ action: 'visibility', visible: false });
       setVisibility();
@@ -256,7 +260,8 @@ export const startNativeSession = async (
       manager?.begin();
       if (manager?.token) target.removeAttribute(marker);
       else applyFailedFallback();
-    } else manager?.changed();
+    } else if (config.captureMode === 'view') manager?.moved();
+    else manager?.changed();
     clearTimeout(scrollTimer);
     scrollTimer = setTimeout(() => {
       automaticMotion = false;
@@ -374,6 +379,7 @@ export const startNativeSession = async (
           applyDestination(effectiveDestination(), true);
         }
         if (updated) {
+          contentRevision++;
           manager?.changed();
           if (destination === 'native') schedule();
         }
@@ -385,7 +391,21 @@ export const startNativeSession = async (
     destination = effectiveDestination();
     ready = true;
     schedule();
-    return { destroy };
+    return {
+      destroy,
+      show: () => {
+        requestedDestination = 'native';
+        applyDestination(effectiveDestination(), true);
+      },
+      hide: () => {
+        requestedDestination = destination = 'none';
+        generation++;
+        automaticMotion = false;
+        clearTimeout(scrollTimer);
+        manager?.invalidate();
+        setVisibility();
+      },
+    };
   } catch (error) {
     await destroy();
     throw error;

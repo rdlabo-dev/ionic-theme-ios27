@@ -12,7 +12,7 @@ class EngineTestActivity : Activity() {
   root=FrameLayout(this);root.setBackgroundColor(Color.WHITE)
   web=WebView(this);web.settings.javaScriptEnabled=true
   root.addView(web,FrameLayout.LayoutParams(-1,-1));setContentView(root)
-  NativeUIProjection.install(web)
+  if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) NativeUIProjection.install(web)
   web.loadDataWithBaseURL("https://localhost", "<body style='margin:0'><div style='height:1800px'>Web content</div></body>","text/html","utf-8",null)
  }
  override fun onDestroy() { root.removeView(web);web.destroy();super.onDestroy() }
