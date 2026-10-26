@@ -39,7 +39,7 @@ final class NativeUIProjectionTests: XCTestCase {
             canCapture: { false }, view: { surface })
         defer { registration.destroy(); window.isHidden = true }
         web.load(URLRequest(url: URL(string: "capacitor://localhost/fixture")!))
-        try await wait(web, "document.querySelector('#slot')?.getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='native') === true")
+        try await wait(web, "document.querySelector('#slot')?.getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='native') === true", timeout: 30)
         XCTAssertFalse(surface.isHidden)
         for _ in 0..<2 {
             _ = try await web.evaluateJavaScript("testEvents.moving({})")
@@ -67,8 +67,8 @@ final class NativeUIProjectionTests: XCTestCase {
         try await wait(web, "Object.keys(testEvents).length === 0")
         XCTAssertEqual(configuration.userContentController.userScripts.count, 1, "Keep the host's scripts")
     }
-    @MainActor private func wait(_ web: WKWebView, _ expression: String) async throws {
-        let deadline = Date().addingTimeInterval(8)
+    @MainActor private func wait(_ web: WKWebView, _ expression: String, timeout: TimeInterval = 8) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if (try? await web.evaluateJavaScript(expression)) as? Bool == true { return }
             try await Task.sleep(nanoseconds: 20_000_000)

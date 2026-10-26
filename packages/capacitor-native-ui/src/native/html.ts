@@ -59,7 +59,8 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
   const owned = new Map<HTMLElement, { clone: HTMLButtonElement; aria: string | null; signature: string }>();
   const style = doc.createElement('style');
   style.textContent = `[data-native-ui-web-source] { visibility: hidden !important; pointer-events: none !important; }
-    [data-native-ui-proxy][data-native-ui-snapshot-prepared] { position: absolute !important; }`;
+    [data-native-ui-proxy][data-native-ui-snapshot-prepared] { position: absolute !important; }
+    [data-native-ui-proxy][data-native-ui-snapshot-prepared]:not([data-native-ui-snapshot-visible]) { visibility:hidden!important; }`;
   doc.head.append(style);
   let frame = 0;
   let stopped = false;
@@ -97,8 +98,13 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
         // An accepted native surface owns its source and descendants. Rejected sources
         // lose the marker and can return to the Web rail on the next render.
         if (!htmlRailSource(source) || host.contains(source)) continue;
-        const covered = projectionState.isVisible(source);
-        const prepared = projectionState.preparedOwners.includes(source);
+        const covered =
+          projectionState.isVisible(source) ||
+          (projectionState.owns(source) && !!owned.get(source)?.clone.hasAttribute(projectionState.imageMarker));
+        // Keep a fixed fallback host available before the first native capture.
+        const prepared =
+          (source.hasAttribute(marker) && source.hasAttribute('data-native-ui-vertical-bars')) ||
+          projectionState.preparedOwners.includes(source);
         if ((suspended && !covered) || (!covered && !prepared && (source.closest(`[${marker}]`) || projectionState.owns(source)))) continue;
         // Keep the prepared target stable through coverage and native restoration.
         // Reading a changed/disabled source here must not replace its pre-touch image.

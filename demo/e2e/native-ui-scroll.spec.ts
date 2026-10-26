@@ -351,7 +351,7 @@ for (const related of [true, false]) {
       w.manager.changed(related ? owner : document.querySelector('#other'));
       w.manager.begin(document.querySelector('#surface'));
       return {
-        layers: document.querySelectorAll('[data-native-ui-snapshot-layer]').length,
+        layers: w.manager.owners.length,
         captures: w.calls.filter((c: any) => c.action === 'prepare').length,
       };
     }, related);
