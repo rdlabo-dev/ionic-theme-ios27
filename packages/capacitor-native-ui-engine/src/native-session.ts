@@ -67,6 +67,10 @@ export const startNativeSession = async (
   const marker = `data-native-ui-session-${config.id.replace(/[^a-zA-Z0-9-]/g, '')}`;
   style.textContent = `[${marker}="native"], [${marker}="native"] *, [${marker}="none"], [${marker}="none"] * {visibility:hidden!important}`;
   document.documentElement.append(style);
+  const findTarget = () => {
+    const matches = document.querySelectorAll(config.projectionSelector);
+    return matches.length === 1 && matches[0] instanceof HTMLElement ? matches[0] : undefined;
+  };
   const setVisibility = () => {
     if (!target) return;
     if (destination === 'web') target.removeAttribute(marker);
@@ -122,8 +126,7 @@ export const startNativeSession = async (
       wake();
       return;
     }
-    const candidates = document.querySelectorAll(config.projectionSelector);
-    const found = candidates.length === 1 && candidates[0] instanceof HTMLElement ? candidates[0] : undefined;
+    const found = findTarget();
     if (found !== target) {
       generation++;
       target?.removeAttribute(marker);
@@ -192,9 +195,16 @@ export const startNativeSession = async (
           await reconcile();
         }
       } catch {
-        target?.removeAttribute(marker);
+        const version = generation;
+        // A partial native update must not leave live content above the Web fallback.
+        await bridge.send({ action: 'visibility', visible: false }).catch(() => {});
+        if (!stopped && version === generation) {
+          if (destination === 'none') setVisibility();
+          else target?.removeAttribute(marker);
+        }
       } finally {
         reconciling = false;
+        if (scheduled) schedule();
       }
     });
   };
@@ -227,10 +237,9 @@ export const startNativeSession = async (
   document.addEventListener('scroll', onScroll, true);
   const observer = new MutationObserver(() => {
     // Do not react to Engine's own image styles or ordinary content updates.
-    const matches = document.querySelectorAll(config.projectionSelector);
-    if (!target?.isConnected || matches.length !== 1 || matches[0] !== target) schedule();
+    if (findTarget() !== target) schedule();
   });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  observer.observe(document.documentElement, { childList: true, attributes: true, subtree: true });
   let events: ListenerHandle | undefined;
   const destroy = async () => {
     if (stopped) return;

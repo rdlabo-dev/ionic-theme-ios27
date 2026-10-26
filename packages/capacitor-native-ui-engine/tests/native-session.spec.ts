@@ -7,7 +7,7 @@ const bundle = buildSync({
   globalName: 'sessionEngine',
   write: false,
 }).outputFiles[0].text;
-const boot = async (page: import('@playwright/test').Page, present = true) => {
+const boot = async (page: import('@playwright/test').Page, present = true, projectionSelector = '#slot') => {
   await page.setContent(present ? '<div id="slot" style="width:120px;height:40px"><button>Fallback</button></div>' : '<main></main>');
   await page.evaluate(() => {
     (window as any).Capacitor = {
@@ -15,17 +15,18 @@ const boot = async (page: import('@playwright/test').Page, present = true) => {
     };
   });
   await page.addScriptTag({ content: bundle });
-  await page.evaluate(async () => {
+  await page.evaluate(async (projectionSelector) => {
     const w = window as any;
     w.calls = [];
     w.events = {};
     w.removed = [];
     w.pendingResume = [];
+    w.pendingHide = [];
     w.session = await w.sessionEngine.startNativeSession(
       {
         id: 'surface',
         plugin: 'Example',
-        projectionSelector: '#slot',
+        projectionSelector,
         receiveListeners: {
           update: ['updated'],
           projection: { native: ['shown'], web: ['moving'], none: ['hidden'] },
@@ -35,6 +36,11 @@ const boot = async (page: import('@playwright/test').Page, present = true) => {
       {
         send: async (request: any) => {
           w.calls.push(request);
+          if (request.action === 'visibility' && !request.visible && w.holdHide) {
+            w.holdHide = false;
+            return new Promise((resolve) => w.pendingHide.push(resolve));
+          }
+          if (request.action === 'track' && w.failTrack) throw new Error('Tracking reply unavailable');
           if (request.action === 'prepare')
             return { token: 'pixels', parts: [{ ids: ['view'], url: 'file:///pixels.png', x: 8, y: 8, width: 120, height: 40 }] };
           if (request.action === 'resume' && w.holdResume) return new Promise((resolve) => w.pendingResume.push(resolve));
@@ -54,7 +60,7 @@ const boot = async (page: import('@playwright/test').Page, present = true) => {
         },
       },
     );
-  });
+  }, projectionSelector);
 };
 
 test('native startup waits for a corresponding DOM and owns subscription teardown', async ({ page }) => {
@@ -157,3 +163,76 @@ test('automatic scroll restoration cannot override explicit none', async ({ page
   await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-snapshot-visible');
   expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'resume').length)).toBe(0);
 });
+
+test('a custom element host binds and unbinds when its selector attributes change', async ({ page }) => {
+  await boot(page, false, 'native-ad[placement="home"]');
+  await expect.poll(() => page.evaluate(() => (window as any).calls.at(-1))).toEqual({ action: 'visibility', visible: false });
+  const waitingCalls = await page.evaluate(() => (window as any).calls.length);
+  await page.evaluate(() => {
+    const slot = document.createElement('native-ad');
+    slot.style.cssText = 'display:block;width:120px;height:40px';
+    slot.attachShadow({ mode: 'open' }).innerHTML = '<button>Ad fallback</button>';
+    document.body.append(slot);
+  });
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  expect(await page.evaluate(() => (window as any).calls.length)).toBe(waitingCalls);
+  await page.evaluate(() => document.querySelector('native-ad')!.setAttribute('placement', 'home'));
+  await expect(page.locator('native-ad')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await expect(page.locator('native-ad button')).toBeHidden();
+  const prepared = await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length);
+  await page.evaluate(() => (window as any).events.moving({ slot: 1 }));
+  await expect(page.locator('native-ad')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await expect(page.locator('native-ad button')).toBeHidden();
+  expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length)).toBe(prepared);
+  await page.evaluate(() => document.querySelector('native-ad')!.setAttribute('placement', 'other'));
+  await expect(page.locator('native-ad')).not.toHaveAttribute('data-native-ui-snapshot');
+  await expect(page.locator('native-ad button')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as any).calls.at(-1))).toEqual({ action: 'visibility', visible: false });
+});
+
+test('a failed native reconciliation hides native content before exposing the fallback and can retry', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.failTrack = true;
+    w.calls = [];
+    w.events.updated({ slot: 1 });
+  });
+  await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-session-surface');
+  await expect.poll(() => page.evaluate(() => (window as any).calls.at(-1))).toEqual({ action: 'visibility', visible: false });
+  await expect(page.locator('#slot button')).toBeVisible();
+  await page.evaluate(() => {
+    const w = window as any;
+    w.failTrack = false;
+    w.events.updated({ slot: 1 });
+  });
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'native');
+  await expect(page.locator('#slot button')).toBeHidden();
+});
+
+for (const destination of ['shown', 'hidden']) {
+  test(`a ${destination} event during failure cleanup is not lost or overwritten`, async ({ page }) => {
+    await boot(page);
+    await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+    await page.evaluate(() => {
+      const w = window as any;
+      w.failTrack = true;
+      w.holdHide = true;
+      w.events.updated({ slot: 1 });
+    });
+    await expect.poll(() => page.evaluate(() => (window as any).pendingHide.length)).toBe(1);
+    await page.evaluate((destination) => {
+      const w = window as any;
+      w.failTrack = false;
+      w.events[destination]({ slot: 1 });
+    }, destination);
+    if (destination === 'hidden') await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'none');
+    await page.evaluate(() => (window as any).pendingHide.shift()({}));
+    if (destination === 'shown') {
+      await expect.poll(() => page.evaluate(() => (window as any).calls.at(-1)?.action)).toBe('track');
+    }
+    await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', destination === 'shown' ? 'native' : 'none');
+    await expect(page.locator('#slot button')).toBeHidden();
+  });
+}
