@@ -53,8 +53,7 @@ test('injected runtime retains the existing Capacitor object and disposes a pend
       id: 'channel',
       plugin: 'Fixture',
       fallbackSelector: '#slot',
-      ids: ['button'],
-      update: ['updated'],
+      receiveListeners: { update: ['updated'] },
     }).catch(() => {});
   });
   await expect.poll(() => page.evaluate(() => (window as any).messages.length)).toBe(1);

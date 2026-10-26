@@ -26,16 +26,17 @@ const boot = async (page: import('@playwright/test').Page, present = true) => {
         id: 'surface',
         plugin: 'Example',
         fallbackSelector: '#slot',
-        ids: ['button'],
-        update: ['updated'],
-        projection: { native: ['shown'], web: ['moving'], none: ['hidden'] },
-        match: { slot: 1 },
+        receiveListeners: {
+          update: ['updated'],
+          projection: { native: ['shown'], web: ['moving'], none: ['hidden'] },
+          match: { slot: 1 },
+        },
       },
       {
         send: async (request: any) => {
           w.calls.push(request);
           if (request.action === 'prepare')
-            return { token: 'pixels', parts: [{ ids: ['button'], url: 'file:///pixels.png', x: 8, y: 8, width: 120, height: 40 }] };
+            return { token: 'pixels', parts: [{ ids: ['view'], url: 'file:///pixels.png', x: 8, y: 8, width: 120, height: 40 }] };
           if (request.action === 'resume' && w.holdResume) return new Promise((resolve) => w.pendingResume.push(resolve));
           if (request.action === 'cover' || request.action === 'restore') return { shown: true };
           return {};

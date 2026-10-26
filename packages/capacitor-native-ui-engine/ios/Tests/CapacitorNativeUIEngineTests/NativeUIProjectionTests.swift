@@ -21,38 +21,42 @@ final class NativeUIProjectionTests: XCTestCase {
         owner.view.addSubview(web)
         let button = UIButton(frame: CGRect(x: 20, y: 100, width: 100, height: 40))
         button.backgroundColor = .red; button.setTitle("Native", for: .normal)
-        owner.view.addSubview(button)
+        let surface = UIView(frame: CGRect(x: 20, y: 100, width: 100, height: 100))
+        button.frame.origin = .zero
+        surface.addSubview(button)
+        owner.view.addSubview(surface)
         let hidden = UIView(frame: CGRect(x: 20, y: 160, width: 100, height: 40)); hidden.isHidden = true
-        owner.view.addSubview(hidden)
-        let registration = try NativeUIProjection(webView: web, plugin: "Fixture", fallbackSelector: "#slot", ids: ["button", "hidden"],
-            update: ["updated"], projection: ["web": ["moving"], "native": ["shown"], "none": ["hidden"]],
-            canCapture: { false }, views: { ["button": button, "hidden": hidden] })
+        hidden.frame.origin = CGPoint(x: 0, y: 60)
+        surface.addSubview(hidden)
+        let registration = try NativeUIProjection(webView: web, plugin: "Fixture", fallbackSelector: "#slot",
+            receiveListeners: .init(update: ["updated"], projection: .init(native: ["shown"], web: ["moving"], none: ["hidden"])),
+            canCapture: { false }, view: { surface })
         defer { registration.destroy(); window.isHidden = true }
         web.load(URLRequest(url: URL(string: "capacitor://localhost/fixture")!))
         try await wait(web, "document.querySelector('#slot')?.getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='native') === true")
-        XCTAssertFalse(button.isHidden)
+        XCTAssertFalse(surface.isHidden)
         for _ in 0..<2 {
             _ = try await web.evaluateJavaScript("testEvents.moving({})")
             try await wait(web, "!document.querySelector('#slot').getAttributeNames().some(n => n.startsWith('data-native-ui-session-'))")
             // Capture is unavailable (for example, an SDK video view). Verify normal Web fallback.
-            for _ in 0..<100 where !button.isHidden { try await Task.sleep(nanoseconds: 20_000_000) }
-            XCTAssertTrue(button.isHidden)
+            for _ in 0..<100 where !surface.isHidden { try await Task.sleep(nanoseconds: 20_000_000) }
+            XCTAssertTrue(surface.isHidden)
             _ = try await web.evaluateJavaScript("testEvents.shown({})")
             try await wait(web, "document.querySelector('#slot').getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='native')")
-            XCTAssertFalse(button.isHidden)
+            XCTAssertFalse(surface.isHidden)
             XCTAssertTrue(hidden.isHidden, "Do not unhide a renderer-owned hidden view")
         }
         _ = try await web.evaluateJavaScript("testEvents.hidden({})")
         try await wait(web, "document.querySelector('#slot').getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='none')")
-        XCTAssertTrue(button.isHidden)
+        XCTAssertTrue(surface.isHidden)
         let previousDocument = try await web.evaluateJavaScript("testDocument") as! String
         web.reload()
         try await wait(web, "typeof testDocument === 'string' && testDocument !== '\(previousDocument)'")
         try await wait(web, "document.querySelector('#slot')?.getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='none') === true")
-        XCTAssertTrue(button.isHidden, "Reload must preserve none")
+        XCTAssertTrue(surface.isHidden, "Reload must preserve none")
         _ = try await web.evaluateJavaScript("testEvents.shown({})")
         try await wait(web, "document.querySelector('#slot')?.getAttributeNames().some(n => n.startsWith('data-native-ui-session-') && document.querySelector('#slot').getAttribute(n)==='native') === true")
-        XCTAssertFalse(button.isHidden)
+        XCTAssertFalse(surface.isHidden)
         registration.destroy()
         try await wait(web, "Object.keys(testEvents).length === 0")
         XCTAssertEqual(configuration.userContentController.userScripts.count, 1, "Keep the host's scripts")

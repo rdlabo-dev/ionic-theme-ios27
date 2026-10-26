@@ -212,8 +212,11 @@ class NativeUIEngineTest {
       return runCatching {android.webkit.WebResourceResponse("image/png",null,file.inputStream())}.getOrNull()
      }
     }
-    registration=NativeUIProjection(activity.window,activity.web,"Fixture","#slot",listOf("button"),
-     update=listOf("updated"),projection=mapOf("web" to listOf("moving"),"native" to listOf("shown"),"none" to listOf("hidden")),views={mapOf("button" to native)})
+    registration=NativeUIProjection(activity.window,activity.web,"Fixture","#slot",
+     receiveListeners=NativeUIProjection.ReceiveListeners(
+      update=listOf("updated"),
+      projection=NativeUIProjection.ReceiveListeners.Projection(native=listOf("shown"),web=listOf("moving"),none=listOf("hidden"))),
+     view={native})
     activity.web.loadDataWithBaseURL("https://localhost", """
      <meta name='viewport' content='width=device-width,initial-scale=1'><script>
      window.testEvents={};window.Capacitor={

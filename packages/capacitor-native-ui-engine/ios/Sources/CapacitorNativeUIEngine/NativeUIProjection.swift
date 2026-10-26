@@ -1,9 +1,28 @@
 import UIKit
 import WebKit
 
-/// One fixed DOM fallback and its native views. The plugin retains this registration.
+/// One fixed DOM fallback and its native view. The plugin retains this registration.
 /// Existing notifyListeners events drive projection; no public plugin method is intercepted.
 public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
+    public struct ReceiveListeners {
+        public struct Projection {
+            public let native: [String]
+            public let web: [String]
+            public let none: [String]
+            public init(native: [String] = [], web: [String] = [], none: [String] = []) {
+                self.native = native; self.web = web; self.none = none
+            }
+        }
+        public let update: [String]
+        public let projection: Projection
+        public let match: [String: Any]
+        public init(update: [String] = [], projection: Projection = .init(), match: [String: Any] = [:]) {
+            self.update = update; self.projection = projection; self.match = match
+        }
+        fileprivate var configuration: [String: Any] {
+            ["update": update, "projection": ["native": projection.native, "web": projection.web, "none": projection.none], "match": match]
+        }
+    }
     private weak var webView: WKWebView?
     private let views: () -> [String: UIView]
     private let snapshots = NativeUICoveredSnapshots()
@@ -24,17 +43,16 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
     private var anchors: [String: [String: Anchor]] = [:]
     private var captured: [String: [String: UIView]] = [:]
 
-    public init(webView: WKWebView, plugin: String, fallbackSelector: String, ids: [String],
-                update: [String] = [], projection: [String: [String]] = [:], match: [String: Any] = [:],
+    public init(webView: WKWebView, plugin: String, fallbackSelector: String,
+                receiveListeners: ReceiveListeners = .init(),
                 allowedOrigins: Set<String> = ["capacitor://localhost", "https://localhost", "http://localhost"],
-                canCapture: @escaping () -> Bool = { true }, views: @escaping () -> [String: UIView]) throws {
-        self.webView = webView; self.views = { views().filter { ids.contains($0.key) } }; self.origins = allowedOrigins; self.canCapture = canCapture
+                canCapture: @escaping () -> Bool = { true }, view: @escaping () -> UIView?) throws {
+        self.webView = webView; self.views = { view().map { ["view": $0] } ?? [:] }; self.origins = allowedOrigins; self.canCapture = canCapture
         super.init()
         precondition(Thread.isMainThread)
-        guard !fallbackSelector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !ids.isEmpty, Set(ids).count == ids.count else { throw ProjectionError.invalidConfiguration }
-        let config: [String: Any] = ["id": id, "plugin": plugin, "fallbackSelector": fallbackSelector, "ids": ids,
-                                     "update": update, "projection": projection, "match": match]
+        guard !fallbackSelector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ProjectionError.invalidConfiguration }
+        let config: [String: Any] = ["id": id, "plugin": plugin, "fallbackSelector": fallbackSelector,
+                                     "receiveListeners": receiveListeners.configuration]
         let json = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
         let allowed = String(data: try JSONSerialization.data(withJSONObject: Array(allowedOrigins)), encoding: .utf8)!
         let runtime = try Self.runtime()

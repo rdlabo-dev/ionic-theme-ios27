@@ -62,19 +62,16 @@ Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS 
 +                webView: webView,
 +                plugin: jsName,
 +                fallbackSelector: "#native-ui-fallback",
-+                ids: ["view"],
-+                update: ["appearanceChanged"],
-+                projection: [
-+                    "native": ["shown"],
-+                    "web": ["transitionStarted"],
-+                    "none": ["hidden"]
-+                ],
-+                views: { [weak self] in
-+                    guard let view = self?.nativeView else {
-+                        return [:]
-+                    }
-+
-+                    return ["view": view]
++                receiveListeners: .init(
++                    update: ["appearanceChanged"],
++                    projection: .init(
++                        native: ["shown"],
++                        web: ["transitionStarted"],
++                        none: ["hidden"]
++                    )
++                ),
++                view: { [weak self] in
++                    self?.nativeView
 +                }
 +            )
 +        } catch {
@@ -111,6 +108,7 @@ Make the corresponding changes in `android/src/main/java/<your-package>/NamePlug
 +import android.util.Log
 +import com.getcapacitor.JSObject
 +import dev.rdlabo.capacitor.nativeuiengine.NativeUIProjection
++import dev.rdlabo.capacitor.nativeuiengine.NativeUIProjection.ReceiveListeners
 
  @CapacitorPlugin(name = "Name")
  class NamePlugin : Plugin() {
@@ -125,18 +123,15 @@ Make the corresponding changes in `android/src/main/java/<your-package>/NamePlug
 +                webView = bridge.webView,
 +                plugin = pluginHandle.id,
 +                fallbackSelector = "#native-ui-fallback",
-+                ids = listOf("view"),
-+                update = listOf("appearanceChanged"),
-+                projection = mapOf(
-+                    "native" to listOf("shown"),
-+                    "web" to listOf("transitionStarted"),
-+                    "none" to listOf("hidden")
++                receiveListeners = ReceiveListeners(
++                    update = listOf("appearanceChanged"),
++                    projection = ReceiveListeners.Projection(
++                        native = listOf("shown"),
++                        web = listOf("transitionStarted"),
++                        none = listOf("hidden")
++                    )
 +                ),
-+                views = {
-+                    nativeView?.let { view ->
-+                        mapOf("view" to view)
-+                    } ?: emptyMap()
-+                }
++                view = { nativeView }
 +            )
 +        }.onFailure {
 +            Log.e(javaClass.simpleName, "Native UI projection unavailable", it)
@@ -166,6 +161,8 @@ Keep your plugin's existing `registerPlugin()` export. Use the same event names 
 
 ### Which events to emit
 
+All incoming event declarations belong to `receiveListeners`. Its `update` list refreshes the image, its `projection` lists select the destination, and its optional `match` filters notifications for the owning surface.
+
 | Notification                            | Where to emit it in the existing plugin                                               |
 | --------------------------------------- | ------------------------------------------------------------------------------------- |
 | `appearanceChanged` (an `update` event) | After a successful native appearance update, such as `setColors`                      |
@@ -179,9 +176,9 @@ Emit `transitionStarted` before the DOM starts moving, `shown` when native proje
 
 `fallbackSelector` is required and must resolve to **one existing container**, including one retrieved by the plugin's own `querySelector`. The engine does not create a DOM or choose its size, placement, layer or z-index. Keep the container's normal layout and any interactive Web controls; an empty zero-size placeholder is not a usable fallback. It is a fixed scope, not a discovery root.
 
-A missing DOM waits without showing native content; replacing it creates a new binding and retires old images. The engine preserves the container's children, listeners and values. Several native IDs can share one container and capture transaction. Views not listed in `ids` are never controlled.
+A missing DOM waits without showing native content; replacing it creates a new binding and retires old images. The engine preserves the container's children, listeners and values. Pass the native view itself through `view`; a group of controls can use their common native container. The engine manages the internal identifier, so no ID list or view dictionary is required. Independent surfaces use separate registrations.
 
-For independently moving AdMob slots, retain one registration per loaded native view/surface, use a slot-specific selector and filter the plugin's notifications with `match: ["slotKey": slotKey, "loadId": loadId]` / `match = mapOf("slotKey" to slotKey, "loadId" to loadId)`. Dispose the registration when a loaded ad is replaced, even if its host view is reused. Keep SDK loading, impression and click handling in the ad plugin. Supply `canCapture` with its existing capture eligibility checks (for example, test-ad / opaque-background / no-video restrictions); the engine does not grant permission to snapshot an SDK view.
+For independently moving AdMob slots, retain one registration per loaded native view/surface, use a slot-specific selector and filter the plugin's notifications through `receiveListeners.match` (`match: ["slotKey": slotKey, "loadId": loadId]` / `match = mapOf("slotKey" to slotKey, "loadId" to loadId)`). Dispose the registration when a loaded ad is replaced, even if its host view is reused. Keep SDK loading, impression and click handling in the ad plugin. Supply `canCapture` with its existing capture eligibility checks (for example, test-ad / opaque-background / no-video restrictions); the engine does not grant permission to snapshot an SDK view.
 
 Scrolling is internal: iOS uses a uniquely matched native scroll binding when available; otherwise, including Android, scrolling temporarily uses the prepared image and restores native content after motion settles. Automatic scroll handling never overrides explicit `web` or `none`. Unsupported capture or geometry keeps the normal DOM fallback; it does not wait for a new capture on the transition path. The latest explicit destination survives WebView reload, and old-document replies cannot complete a new document's requests.
 

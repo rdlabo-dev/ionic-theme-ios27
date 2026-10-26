@@ -19,17 +19,31 @@ class NativeUIProjection(
     private val webView: WebView,
     plugin: String,
     fallbackSelector: String,
-    ids: List<String>,
-    update: List<String> = emptyList(),
-    projection: Map<String, List<String>> = emptyMap(),
-    match: Map<String, Any> = emptyMap(),
+    receiveListeners: ReceiveListeners = ReceiveListeners(),
     allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost"),
     private val canCapture: () -> Boolean = { true },
-    views: () -> Map<String, View>
+    view: () -> View?
 ) : AutoCloseable {
-    private val sourceViews = views
-    private val identifiers = ids.toSet()
-    private fun views() = sourceViews().filterKeys { it in identifiers }
+    data class ReceiveListeners(
+        val update: List<String> = emptyList(),
+        val projection: Projection = Projection(),
+        val match: Map<String, Any> = emptyMap()
+    ) {
+        data class Projection(
+            val native: List<String> = emptyList(),
+            val web: List<String> = emptyList(),
+            val none: List<String> = emptyList()
+        )
+        internal fun configuration() = JSONObject()
+            .put("update", JSONArray(update))
+            .put("projection", JSONObject()
+                .put("native", JSONArray(projection.native))
+                .put("web", JSONArray(projection.web))
+                .put("none", JSONArray(projection.none)))
+            .put("match", JSONObject(match))
+    }
+    private val sourceView = view
+    private fun views() = sourceView()?.let { mapOf("view" to it) } ?: emptyMap()
     private val id = "nativeUI" + UUID.randomUUID().toString().replace("-", "")
     private val snapshots = NativeUISnapshots(File(webView.context.cacheDir, "native-ui-engine/$id"))
     private data class Anchor(val native: RectF, val image: RectF)
@@ -45,11 +59,11 @@ class NativeUIProjection(
     private val script: ScriptHandler
     init {
         check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
-        require(fallbackSelector.isNotBlank() && ids.isNotEmpty() && ids.distinct().size == ids.size)
+        require(fallbackSelector.isNotBlank())
         require(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) { "WebView document-start messaging is required" }
-        val config = JSONObject().put("id", id).put("plugin", plugin).put("fallbackSelector", fallbackSelector).put("ids", JSONArray(ids))
-            .put("update", JSONArray(update)).put("projection", JSONObject(projection)).put("match", JSONObject(match))
+        val config = JSONObject().put("id", id).put("plugin", plugin).put("fallbackSelector", fallbackSelector)
+            .put("receiveListeners", receiveListeners.configuration())
         val runtime = webView.context.assets.open("native-ui-engine.js").bufferedReader().use { it.readText() }
         val source = "if (!globalThis.CapacitorNativeUIEngineRuntime) { $runtime } CapacitorNativeUIEngineRuntime.start($config).catch(console.error);"
         WebViewCompat.addWebMessageListener(webView, id, allowedOrigins) { _, message, _, mainFrame, _ ->

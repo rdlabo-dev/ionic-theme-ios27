@@ -10,10 +10,11 @@ export interface NativeSessionConfiguration {
   id: string;
   plugin: string;
   fallbackSelector: string;
-  ids: string[];
-  update?: string[];
-  projection?: Partial<Record<ProjectionDestination, string[]>>;
-  match?: Record<string, string | number | boolean>;
+  receiveListeners?: {
+    update?: string[];
+    projection?: Partial<Record<ProjectionDestination, string[]>>;
+    match?: Record<string, string | number | boolean>;
+  };
 }
 export interface NativeSessionBridge {
   send(
@@ -45,6 +46,8 @@ export const startNativeSession = async (
     },
   },
 ) => {
+  const sourceID = 'view';
+  const listeners = config.receiveListeners;
   let stopped = false;
   let ready = false;
   let destination: ProjectionDestination = 'native';
@@ -74,11 +77,13 @@ export const startNativeSession = async (
     const r = target.getBoundingClientRect();
     const frame: Frame = { x: r.x, y: r.y, width: r.width, height: r.height };
     const scroll = scrollOwner && readScrollPlacement(target, scrollOwner, () => config.id);
-    return config.ids.map((id) => ({
-      element: target!,
-      scrollElement: scrollOwner,
-      control: { id, ...frame, ...(scroll ? { scroll } : {}) },
-    }));
+    return [
+      {
+        element: target!,
+        scrollElement: scrollOwner,
+        control: { id: sourceID, ...frame, ...(scroll ? { scroll } : {}) },
+      },
+    ];
   };
   const wake = () => {
     if (stopped) return;
@@ -96,7 +101,7 @@ export const startNativeSession = async (
       .send({ action: 'resume' })
       .then(() => {
         if (stopped || version !== generation || current !== manager) return;
-        current.updated(undefined, config.ids, ++revision);
+        current.updated(undefined, [sourceID], ++revision);
         setVisibility();
         schedule();
       })
@@ -245,11 +250,11 @@ export const startNativeSession = async (
     events = await bindProjectionEvents(
       {
         addListener: (name, listener) => plugin.addListener(name, listener),
-        update: config.update,
-        projection: config.projection,
+        update: listeners?.update,
+        projection: listeners?.projection,
         accepts: (event) =>
-          !config.match ||
-          Object.entries(config.match).every(
+          !listeners?.match ||
+          Object.entries(listeners?.match).every(
             ([key, value]) => typeof event === 'object' && event !== null && (event as Record<string, unknown>)[key] === value,
           ),
       },
