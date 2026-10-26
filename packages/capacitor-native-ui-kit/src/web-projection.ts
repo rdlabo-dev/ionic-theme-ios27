@@ -1,5 +1,11 @@
-import type { WebProjectionSource as Candidate, PreparedWebProjection as CoveredSnapshot, Frame, WebProjectionTransport } from './types.js';
-import { projectionState, type WebProjectionScope } from './web-projection-scope.js';
+import type {
+  WebProjectionSource,
+  ScopedWebProjectionSource as Candidate,
+  PreparedWebProjection as CoveredSnapshot,
+  Frame,
+  WebProjectionTransport,
+} from './types.js';
+import type { WebProjectionScope } from './web-projection-scope.js';
 import { bounded, boundedListener } from './bridge.js';
 import { projectionAncestors } from './geometry.js';
 import { snapshotStyles } from './snapshot-styles.js';
@@ -10,10 +16,6 @@ export interface WebProjectionOptions {
   revision?(): number;
   /** Select this surface's sources, e.g. the underlying page or the active overlay. */
   eligible?(source: Candidate): boolean;
-  /** Caller-owned projection DOM in the intended stacking context. Undefined means unavailable. */
-  target(source: HTMLElement, placement?: string): HTMLElement | undefined;
-  /** Optional shared image host, supplied at initialization. Omit to use individual targets. */
-  layer?: HTMLElement | (() => HTMLElement | undefined);
   /** Reject a cached image when its owning surface has changed. */
   current?(sources: HTMLElement[]): boolean;
   /** Temporary movement handoff: rebase return pixels to the current display DOM. */
@@ -23,10 +25,10 @@ export interface WebProjectionOptions {
 interface Prepared {
   data: CoveredSnapshot;
   images: HTMLImageElement[];
-  layer: HTMLElement;
   sources: HTMLElement[];
   targets: HTMLElement[];
-  placements: (string | undefined)[];
+  scopes: WebProjectionScope[];
+  parents: (Node | null)[];
   frames: Frame[];
   viewport: string;
   revision: number;
@@ -73,20 +75,28 @@ const coordinateSpace = (target: HTMLElement, win: Window, style = win.getComput
 };
 
 /** Images are prepared after accepted native updates, never on the overlay's critical path. */
-export const createWebProjection = async (
-  scope: WebProjectionScope,
-  transport: WebProjectionTransport,
-  callbacks: WebProjectionOptions,
-) => {
-  const doc = scope.document;
+const createProjectionEngine = async (scope: WebProjectionScope, transport: WebProjectionTransport, callbacks: WebProjectionOptions) => {
+  const doc = scope.element.ownerDocument;
   const win = doc.defaultView!;
   // Native tokens are local to a transport; never use them as global CSS identities.
   const imageIdentity = Array.from(win.crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16)).join('-');
-  const validSource = (source: HTMLElement) => source.isConnected && scope.contains(source);
+  const validSource = (source: HTMLElement) => source.isConnected && source.ownerDocument === doc;
   const validTarget = (target: HTMLElement | undefined): target is HTMLElement => !!target?.isConnected && target.ownerDocument === doc;
   const call = transport.send.bind(transport);
-  const { imageMarker, sourcesChangedEvent, targetsChangedEvent } = scope;
-  const { owners, visibleOwners, preparedOwners } = projectionState(scope);
+  const imageMarker = 'data-native-ui-snapshot';
+  const sourcesChangedEvent = `${scope.namespace}:sources-change`;
+  const owners = new Set<HTMLElement>(),
+    visibleOwners = new Set<HTMLElement>(),
+    preparedOwners = new Set<HTMLElement>();
+  const scopeIDs = new WeakMap<WebProjectionScope, number>();
+  let scopeSerial = 0;
+  const signature = (candidates: Candidate[]) =>
+    JSON.stringify(
+      candidates.map((candidate) => {
+        if (!scopeIDs.has(candidate.scope)) scopeIDs.set(candidate.scope, ++scopeSerial);
+        return [scopeIDs.get(candidate.scope), layout([candidate])];
+      }),
+    );
   const sheets = new Map<Document | ShadowRoot, { base: HTMLStyleElement; image: HTMLStyleElement }>();
   const rootFor = (element: HTMLElement) => {
     const root = element.getRootNode();
@@ -107,7 +117,6 @@ export const createWebProjection = async (
     return pair.image;
   };
   const viewport = () => `${win.innerWidth}:${win.innerHeight}:${win.devicePixelRatio}`;
-  let surfaceLayer: HTMLElement | undefined;
   let handoffPending = false;
   let presented = false;
   let paintFrame = 0;
@@ -142,7 +151,6 @@ export const createWebProjection = async (
   };
   const dispose = (item: Prepared | undefined, afterPaint = false) => {
     if (!item || item === cached || item === active) return;
-    item.layer.remove();
     item.images.forEach((image) => {
       image.src = '';
     });
@@ -150,7 +158,7 @@ export const createWebProjection = async (
   };
   const select = (candidates: Candidate[]) =>
     candidates.filter((candidate) => {
-      if (![candidate.element, ...(candidate.sources ?? [])].every(validSource)) return false;
+      if (!validTarget(candidate.scope.element) || ![candidate.element, ...(candidate.sources ?? [])].every(validSource)) return false;
       // Native scroll bindings retain offscreen controls. They have no visible
       // pixels to capture and must not prevent the other controls being prepared.
       if (candidate.control.scroll) {
@@ -211,6 +219,13 @@ export const createWebProjection = async (
       )
         return;
       if (new Set(result.parts.flatMap((part) => part.ids)).size !== ids.size) return;
+      // One crop may cover a button group, but must have one fixed fallback destination.
+      if (
+        result.parts.some(
+          (part) => new Set(part.ids.map((id) => selected.find((candidate) => candidate.control.id === id)!.scope)).size !== 1,
+        )
+      )
+        return;
       await bounded(
         Promise.all(
           result.parts.map(async (part) => {
@@ -230,34 +245,25 @@ export const createWebProjection = async (
         generation !== stamp ||
         viewport() !== size ||
         latest?.revision !== revision ||
-        selected.some((candidate) => ![candidate.element, ...(candidate.sources ?? [])].every(validSource))
+        selected.some(
+          (candidate) => !validTarget(candidate.scope.element) || ![candidate.element, ...(candidate.sources ?? [])].every(validSource),
+        )
       )
         return;
       const previous = cached;
-      // Keep a decoded image-only layer ready for overlays which animate their
-      // presenting surface. Never move the actual source controls into that page.
-      const layer = doc.createElement('div');
-      layer.setAttribute('data-native-ui-snapshot-layer', '');
-      layer.setAttribute('aria-hidden', 'true');
-      layer.inert = true;
-      layer.style.cssText =
-        'all:initial;position:absolute;width:0;height:0;overflow:visible;pointer-events:none;visibility:visible!important';
-      images.forEach((image, index) => {
-        const part = result!.parts![index];
-        image.style.cssText = `all:initial;position:absolute;display:block;max-width:none;left:${part.x}px;top:${part.y}px;width:${part.width}px;height:${part.height}px;pointer-events:none;visibility:visible!important;`;
-        layer.append(image);
-      });
       cached = {
         data: result as CoveredSnapshot,
         images,
-        layer,
         sources: Array.from(new Set(selected.flatMap((item) => [item.element, ...(item.sources ?? [])]))),
         targets: result.parts.map((part) => selected.find((candidate) => part.ids.includes(candidate.control.id))!.element),
-        placements: result.parts.map((part) => selected.find((candidate) => part.ids.includes(candidate.control.id))!.control.placement),
+        scopes: result.parts.map((part) => selected.find((candidate) => part.ids.includes(candidate.control.id))!.scope),
+        parents: result.parts.map(
+          (part) => selected.find((candidate) => part.ids.includes(candidate.control.id))!.scope.element.parentNode,
+        ),
         frames: [],
         viewport: size,
         revision,
-        layout: layout(selected),
+        layout: signature(selected),
       };
       clearPrepared();
       cached.sources.forEach((source) => {
@@ -287,11 +293,26 @@ export const createWebProjection = async (
     win.clearTimeout(timer);
     if (!stopped && !active && !touching && !callbacks.blocked()) timer = win.setTimeout(() => void prepare(), 50);
   };
+  let consideredLayout: string | undefined;
   const consider = (revision: number, candidates: Candidate[]) => {
+    if (
+      candidates.some(
+        (candidate) =>
+          candidate.scope.element.ownerDocument !== doc ||
+          [candidate.element, ...(candidate.sources ?? [])].some((element) => element.ownerDocument !== doc),
+      )
+    )
+      throw new TypeError('All projection sources and fallback scopes must share one Document');
     // Overlay retirement is not a new source layout. Preserve the pre-overlay
     // image until the presentation path has chosen whether to use it.
     if (callbacks.blocked()) return;
-    if (!active && cached && cached.layout !== layout(select(candidates))) invalidate();
+    if (!active && cached && cached.layout !== signature(select(candidates))) invalidate();
+    const nextLayout = signature(candidates);
+    if (consideredLayout !== nextLayout) {
+      consideredLayout = nextLayout;
+      visualRevision++;
+      generation++;
+    }
     if (latest?.revision !== revision) generation++;
     latest = { revision, candidates };
     if (cached?.revision !== revision || preparedVisualRevision !== visualRevision) schedule();
@@ -340,8 +361,6 @@ export const createWebProjection = async (
     paintFrame = 0;
     handoffPending = false;
     presented = false;
-    surfaceLayer?.remove();
-    surfaceLayer = undefined;
     clearPrepared();
     active?.sources.forEach((source) => {
       owners.delete(source);
@@ -396,13 +415,7 @@ export const createWebProjection = async (
     if (ending) finishRestoration();
     pendingCleanup.forEach((run) => run());
   };
-  // Preparation, display and restoration must resolve the same captured placement.
-  // An element-placement image never belongs to a previous rail proxy.
-  const targetsFor = (image: Prepared) =>
-    image.targets.map((source, index) => {
-      const target = callbacks.target(source, image.placements[index]);
-      return validTarget(target) ? target : undefined;
-    });
+  const targetsFor = (image: Prepared) => image.scopes.map((scope) => (validTarget(scope.element) ? scope.element : undefined));
   const rendered = new Set<HTMLElement>();
   const preparedKeys = new Map<HTMLElement, string>();
   const offsets = new Map<HTMLElement, { x: number; y: number; style: CSSStyleDeclaration }>();
@@ -418,7 +431,7 @@ export const createWebProjection = async (
     }
   };
   const followBorderAnimation = () => {
-    if (offsetFrame || !active || surfaceLayer) return;
+    if (offsetFrame || !active) return;
     const movingBorder = [...offsets.keys()].some((target) =>
       target
         .getAnimations?.()
@@ -440,7 +453,7 @@ export const createWebProjection = async (
   const render = () => {
     const image = active ?? cached;
     if (!image || ending) return;
-    if (!image.sources.every(validSource) || (surfaceLayer && (!surfaceLayer.isConnected || surfaceLayer.ownerDocument !== doc))) {
+    if (!image.sources.every(validSource) || targetsFor(image).some((target) => !target)) {
       invalidate();
       return;
     }
@@ -457,7 +470,7 @@ export const createWebProjection = async (
         if (!key || !target?.isConnected) continue;
         target.setAttribute(imageMarker, key);
         target.setAttribute('data-native-ui-snapshot-source', '');
-        target.toggleAttribute('data-native-ui-snapshot-visible', presented && !surfaceLayer);
+        target.toggleAttribute('data-native-ui-snapshot-visible', presented);
         next.add(target);
       }
       for (const target of rendered) if (!next.has(target)) clearTarget(target);
@@ -489,7 +502,7 @@ export const createWebProjection = async (
         target.setAttribute('data-native-ui-snapshot-prepared', '');
         preparedTargets.add(target);
       }
-      target.toggleAttribute('data-native-ui-snapshot-visible', !!active && !surfaceLayer);
+      target.toggleAttribute('data-native-ui-snapshot-visible', !!active);
       if (active) target.setAttribute('data-native-ui-snapshot-source', '');
       const indices = targets.flatMap((owner, index) => (owner === target ? [index] : []));
       const style = win.getComputedStyle(target);
@@ -530,6 +543,7 @@ export const createWebProjection = async (
       rules.push(`[${imageMarker}="${key}"][${imageMarker}][${imageMarker}]::before { ${declaration.cssText} }`);
       positions.push({ target, x, y });
     }
+    image.parents = image.scopes.map((scope) => scope.element.parentNode);
     for (const [sheet, { rules, positions }] of groups) {
       sheet.textContent = rules.join('\n');
       positions.forEach(({ target, x, y }, index) =>
@@ -541,12 +555,9 @@ export const createWebProjection = async (
       );
     }
   };
-  const targetsChanged = () => render();
-  win.addEventListener(targetsChangedEvent, targetsChanged);
   const begin = () => {
-    const projectionLayer = typeof callbacks.layer === 'function' ? callbacks.layer() : callbacks.layer;
     retireRestoration();
-    if (stopped || active || (projectionLayer && !validTarget(projectionLayer))) return;
+    if (stopped || active) return;
     const image = cached;
     if (
       !image ||
@@ -558,8 +569,9 @@ export const createWebProjection = async (
       [...rendered].some((target) => !target.isConnected)
     )
       return;
-    // Keep the captured border-box geometry; only rebase the CSS padding-box
-    // offset after pre-interaction state changes. No capture or viewport remeasure.
+    // Reparenting is renderer-owned. Only that case needs a fresh coordinate conversion;
+    // ordinary presentation keeps the prepared layout off the critical path.
+    if (image.scopes.some((scope, index) => scope.element.parentNode !== image.parents[index])) render();
     updateOffsets();
     // A cached image may span multiple presentations; bridge replies may not.
     const currentPresentation = ++presentation;
@@ -567,18 +579,6 @@ export const createWebProjection = async (
     handoffPending = true;
     presented = false;
     active = image;
-    if (projectionLayer) {
-      // One coordinate conversion before the host starts its animation. The browser
-      // then applies the same transform, filter and clip to page and images.
-      const space = coordinateSpace(projectionLayer, win);
-      surfaceLayer = image.layer;
-      surfaceLayer.style.display = 'none';
-      surfaceLayer.style.left = `${-space.x / space.scaleX - space.left}px`;
-      surfaceLayer.style.top = `${-space.y / space.scaleY - space.top}px`;
-      surfaceLayer.style.transformOrigin = '0 0';
-      surfaceLayer.style.transform = `scale(${1 / space.scaleX}, ${1 / space.scaleY})`;
-      projectionLayer.append(surfaceLayer);
-    }
     // Reuse decoded pixels; no capture, bridge acknowledgement or animation wait.
     generation++;
     win.clearTimeout(timer);
@@ -587,7 +587,7 @@ export const createWebProjection = async (
     });
     rendered.forEach((target) => {
       target.setAttribute('data-native-ui-snapshot-source', '');
-      target.toggleAttribute('data-native-ui-snapshot-visible', presented && !surfaceLayer);
+      target.toggleAttribute('data-native-ui-snapshot-visible', presented);
     });
     // Reconciliation may continue after one frame even if the optional bridge reply
     // is delayed. The ordered native transport processes cover before that update.
@@ -610,7 +610,6 @@ export const createWebProjection = async (
         if (!ending) {
           presented = true;
           image.sources.forEach((source) => visibleOwners.add(source));
-          if (surfaceLayer) surfaceLayer.style.display = 'block';
           render();
           updateOffsets();
           followBorderAnimation();
@@ -632,7 +631,11 @@ export const createWebProjection = async (
   const end = () => {
     if (!active || stopped || ending) return;
     // A return belongs to the captured surface, never to the modal exposed beneath it.
-    if (!active.sources.every(validSource) || (callbacks.current && !callbacks.current(active.targets))) {
+    if (
+      !active.sources.every(validSource) ||
+      targetsFor(active).some((target) => !target) ||
+      (callbacks.current && !callbacks.current(active.targets))
+    ) {
       abandon(active, false);
       return;
     }
@@ -696,6 +699,15 @@ export const createWebProjection = async (
     }
   };
   return {
+    get owners(): readonly HTMLElement[] {
+      return [...owners];
+    },
+    get visibleOwners(): readonly HTMLElement[] {
+      return [...visibleOwners];
+    },
+    get preparedOwners(): readonly HTMLElement[] {
+      return [...preparedOwners];
+    },
     consider,
     changed,
     get token() {
@@ -714,10 +726,104 @@ export const createWebProjection = async (
     invalidate,
     async destroy() {
       stopped = true;
-      win.removeEventListener(targetsChangedEvent, targetsChanged);
       invalidate();
       await bounded(Promise.resolve(listener?.remove())).catch(() => {});
     },
   };
 };
-export type WebProjection = Awaited<ReturnType<typeof createWebProjection>>;
+type Engine = Awaited<ReturnType<typeof createProjectionEngine>>;
+export type WebProjection = Omit<Engine, 'consider'> & { consider(revision: number, sources: WebProjectionSource[]): void };
+export type WebProjectionBatch = Omit<Engine, 'consider'> & { consider(revision: number, sources: Candidate[]): void };
+
+/** One existing fallback DOM, with no separate document or rendering destination. */
+export const createWebProjection = async (
+  scope: WebProjectionScope,
+  transport: WebProjectionTransport,
+  options: WebProjectionOptions,
+): Promise<WebProjection> => {
+  const engine = await createProjectionEngine(scope, transport, options);
+  const consider = engine.consider;
+  return Object.assign(engine, {
+    consider: (revision: number, sources: WebProjectionSource[]) =>
+      consider(
+        revision,
+        sources.map((source) => ({ ...source, scope })),
+      ),
+  });
+};
+
+/** A single Native transaction for multiple fixed fallback DOMs. */
+export const createWebProjectionBatch = async (
+  transport: WebProjectionTransport,
+  options: WebProjectionOptions,
+): Promise<WebProjectionBatch> => {
+  let engine: Engine | undefined;
+  let initializing: Promise<void> | undefined;
+  let latest: { revision: number; sources: Candidate[] } | undefined;
+  let stopped = false;
+  let batchDocument: Document | undefined;
+  return {
+    get owners() {
+      return engine?.owners ?? [];
+    },
+    get visibleOwners() {
+      return engine?.visibleOwners ?? [];
+    },
+    get preparedOwners() {
+      return engine?.preparedOwners ?? [];
+    },
+    get token() {
+      return engine?.token;
+    },
+    get restoring() {
+      return engine?.restoring ?? false;
+    },
+    get handoffPending() {
+      return engine?.handoffPending ?? false;
+    },
+    consider(revision, sources) {
+      if (stopped) return;
+      const doc = batchDocument ?? sources[0]?.scope.element.ownerDocument;
+      if (
+        doc &&
+        sources.some(
+          (source) =>
+            source.scope.element.ownerDocument !== doc ||
+            [source.element, ...(source.sources ?? [])].some((element) => element.ownerDocument !== doc),
+        )
+      )
+        throw new TypeError('All projection sources and fallback scopes must share one Document');
+      batchDocument = doc;
+      latest = { revision, sources };
+      if (engine) {
+        engine.consider(revision, sources);
+        return;
+      }
+      if (initializing || !sources.length) return;
+      initializing = createProjectionEngine(sources[0].scope, transport, options)
+        .then(async (created) => {
+          if (stopped) {
+            await created.destroy();
+            return;
+          }
+          engine = created;
+          if (latest) engine.consider(latest.revision, latest.sources);
+        })
+        .catch(() => {
+          initializing = undefined;
+          options.wake();
+        });
+    },
+    changed: (owner) => engine?.changed(owner),
+    begin: () => engine?.begin(),
+    end: () => engine?.end(),
+    updated: (token, ids, revision) => engine?.updated(token, ids, revision),
+    retireRestoration: () => engine?.retireRestoration(),
+    invalidate: () => engine?.invalidate(),
+    async destroy() {
+      stopped = true;
+      await initializing;
+      await engine?.destroy();
+    },
+  };
+};

@@ -1,4 +1,4 @@
-import { getProjectionScope } from './shared/covered-source';
+import { getProjectionState } from './shared/covered-source';
 import { fitsClip } from './shared/clipping';
 import type { NativeUIRuntimeOptions, NativeUIRuntimeHandle } from './definitions';
 import { appendItem, createCandidate, type Candidate, type Identify } from './shared/candidate';
@@ -53,8 +53,8 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
       },
     };
   }
-  const projectionScope = getProjectionScope(doc);
-  const { isProjectionMutation, sourcesChangedEvent, targetsChangedEvent } = projectionScope;
+  const projectionState = getProjectionState(doc);
+  const { isProjectionMutation, sourcesChangedEvent, targetsChangedEvent } = projectionState;
   const win = doc.defaultView!;
   const owned = new Map<HTMLElement, { clone: HTMLButtonElement; aria: string | null; signature: string }>();
   const style = doc.createElement('style');
@@ -70,7 +70,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
     if (!state) return;
     const focused = state.clone.contains(doc.activeElement);
     state.clone.remove();
-    if (stopped && projectionScope.getTarget(source) === state.clone) projectionScope.deleteTarget(source);
+    if (stopped && projectionState.getTarget(source) === state.clone) projectionState.deleteTarget(source);
     source.removeAttribute('data-native-ui-web-source');
     if (focused && source.isConnected && !source.hasAttribute(marker)) source.focus();
     owned.delete(source);
@@ -97,9 +97,9 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
         // An accepted native surface owns its source and descendants. Rejected sources
         // lose the marker and can return to the Web rail on the next render.
         if (!htmlRailSource(source) || host.contains(source)) continue;
-        const covered = projectionScope.isVisible(source);
-        const prepared = projectionScope.preparedOwners.includes(source);
-        if ((suspended && !covered) || (!covered && !prepared && (source.closest(`[${marker}]`) || projectionScope.owns(source)))) continue;
+        const covered = projectionState.isVisible(source);
+        const prepared = projectionState.preparedOwners.includes(source);
+        if ((suspended && !covered) || (!covered && !prepared && (source.closest(`[${marker}]`) || projectionState.owns(source)))) continue;
         // Keep the prepared target stable through coverage and native restoration.
         // Reading a changed/disabled source here must not replace its pre-touch image.
         const existing = owned.get(source);
@@ -138,14 +138,14 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
               !host.isConnected ||
               current.control.items[0].disabled ||
               source.closest(`[${marker}]`) ||
-              projectionScope.owns(source)
+              projectionState.owns(source)
             )
               return;
             source.click(); // Source owns submission, custom handlers and back navigation.
             schedule();
           });
           clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);
-          projectionScope.setTarget(source, clone);
+          projectionState.setTarget(source, clone);
           host.append(clone);
         }
         state.clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);

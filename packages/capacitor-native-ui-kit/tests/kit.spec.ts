@@ -8,14 +8,7 @@ const boot = async (page: Page) => {
   );
   await page.addScriptTag({ content: bundle });
 };
-const prepare = async (
-  page: Page,
-  fail = false,
-  shadow = false,
-  proxy = false,
-  shared = false,
-  boundary: 'document' | 'surface' | 'shadow' = 'document',
-) => {
+const prepare = async (page: Page, fail = false, shadow = false, proxy = false, shared = false) => {
   await boot(page);
   if (shadow)
     await page.evaluate(() => {
@@ -25,7 +18,7 @@ const prepare = async (
       (window as any).sourceRoot = host.shadowRoot;
     });
   await page.evaluate(
-    async ({ fail, proxy, shared, boundary }) => {
+    async ({ fail, proxy, shared }) => {
       const w = window as any,
         source = (w.sourceRoot ?? document).querySelector('#source') as HTMLElement,
         owner = (w.sourceRoot ?? document).querySelector('#scroll') as HTMLElement;
@@ -48,7 +41,7 @@ const prepare = async (
         document.querySelector('#surface')!.append(host);
       }
       w.scope = w.kit.createWebProjectionScope(
-        boundary === 'surface' ? document.querySelector('#surface') : boundary === 'shadow' ? w.sourceRoot : document,
+        shared ? document.getElementById('projection-host') : proxy ? document.getElementById('proxy') : source,
         'test',
       );
       w.source = {
@@ -108,17 +101,14 @@ const prepare = async (
           wake() {},
           blocked: () => false,
           revision: () => w.revision,
-          transient: boundary === 'surface',
-          layer: shared ? document.getElementById('projection-host')! : () => w.projectionLayer,
-          target: (source: HTMLElement) =>
-            w.targetUnavailable ? undefined : proxy ? document.getElementById('proxy')! : (w.projectionTarget ?? source),
         },
       );
       w.manager.consider(1, [w.source]);
     },
-    { fail, proxy, shared, boundary },
+    { fail, proxy, shared },
   );
-  if (!fail) await expect(page.locator(proxy ? '#proxy' : '#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  if (!fail)
+    await expect(page.locator(shared ? '#projection-host' : proxy ? '#proxy' : '#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
 };
 
 test('prepared pixels appear without a new capture; only matching restore ACK retires them', async ({ page }) => {
@@ -145,9 +135,8 @@ for (const related of [true, false])
         owner = document.querySelector('#scroll') as HTMLElement;
       if (related) owner.scrollTop = 50;
       w.manager.changed(related ? owner : document.querySelector('#other'));
-      w.projectionLayer = document.querySelector('#surface');
       w.manager.begin();
-      return document.querySelectorAll('[data-native-ui-snapshot-layer]').length;
+      return w.manager.owners.length;
     }, related);
     expect(layers).toBe(related ? 0 : 1);
   });
@@ -167,7 +156,7 @@ test('cover refusal restores Web and removes snapshot ownership', async ({ page 
   });
   await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
   await expect(page.locator('button')).toBeVisible();
-  expect(await page.evaluate(() => (window as any).scope.owners.length)).toBe(0);
+  expect(await page.evaluate(() => (window as any).manager.owners.length)).toBe(0);
 });
 test('interaction keeps the completed pre-interaction image', async ({ page }) => {
   await prepare(page);
@@ -193,7 +182,7 @@ test('destruction releases only owned tokens, listeners and CSS', async ({ page 
       const w = window as any;
       return {
         removed: w.removed,
-        owners: w.scope.owners.length,
+        owners: w.manager.owners.length,
         reset: w.calls.some((c: any) => c.action === 'reset'),
         released: w.calls.some((c: any) => c.action === 'release'),
         styles: document.querySelectorAll('style[data-native-ui-snapshot]').length,
@@ -201,18 +190,22 @@ test('destruction releases only owned tokens, listeners and CSS', async ({ page 
     }),
   ).toEqual({ removed: true, owners: 0, reset: false, released: true, styles: 0 });
 });
-test('plugin scopes do not share ownership or events', async ({ page }) => {
+test('a scope fixes an existing fallback DOM and rejects a document', async ({ page }) => {
   await boot(page);
   expect(
     await page.evaluate(() => {
       const w = window as any,
-        a = w.kit.createWebProjectionScope(document, 'ads'),
-        b = w.kit.createWebProjectionScope(document, 'ui'),
-        source = document.querySelector('#source');
-      a.owners.push(source); // Mutating the returned copy cannot change ownership.
-      return [a.owns(source), a.owners.length, b.owners.length, a.sourcesChangedEvent !== b.sourcesChangedEvent];
+        fallback = document.querySelector('#source')!;
+      const scope = w.kit.createWebProjectionScope(fallback, 'test');
+      let rejected = false;
+      try {
+        w.kit.createWebProjectionScope(document, 'bad');
+      } catch {
+        rejected = true;
+      }
+      return { same: scope.element === fallback, frozen: Object.isFrozen(scope), rejected };
     }),
-  ).toEqual([false, 0, 0, true]);
+  ).toEqual({ same: true, frozen: true, rejected: true });
 });
 for (const rtl of [false, true])
   test(`fractional layout and direction remain intact (${rtl ? 'RTL' : 'LTR'})`, async ({ page }) => {
@@ -281,7 +274,7 @@ test('identical native tokens stay isolated across plugin scopes and teardown', 
     element.textContent = 'Ad slot';
     document.body.append(element);
     const r = element.getBoundingClientRect();
-    w.secondScope = w.kit.createWebProjectionScope(document, 'ads');
+    w.secondScope = w.kit.createWebProjectionScope(element, 'ads');
     w.second = await w.kit.createWebProjection(
       w.secondScope,
       {
@@ -300,7 +293,7 @@ test('identical native tokens stay isolated across plugin scopes and teardown', 
             '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="blue"/></svg>',
           ),
       },
-      { wake() {}, blocked: () => false, target: (source: HTMLElement) => source },
+      { wake() {}, blocked: () => false },
     );
     w.second.consider(1, [{ element, control: { id: 'ad', x: r.x, y: r.y, width: r.width, height: r.height } }]);
   });
@@ -331,7 +324,7 @@ test('identical native tokens stay isolated across plugin scopes and teardown', 
     await page.evaluate(() => {
       const w = window as any;
       return {
-        owners: w.secondScope.owners.length,
+        owners: w.second.owners.length,
         removed: !!w.secondRemoved,
         opacity: getComputedStyle(document.querySelector('#second')!, '::before').opacity,
       };
@@ -339,35 +332,31 @@ test('identical native tokens stay isolated across plugin scopes and teardown', 
   ).toEqual({ owners: 1, removed: false, opacity: '1' });
 });
 
-for (const surface of [false, true])
-  test(`delayed cover does not composite Web pixels over live Native (${surface})`, async ({ page }) => {
-    await prepare(page);
-    await page.evaluate((surface) => {
+for (const shared of [false, true])
+  test(`delayed cover never exposes pixels before Native is hidden (${shared})`, async ({ page }) => {
+    await prepare(page, false, false, false, shared);
+    const host = page.locator(shared ? '#projection-host' : '#source');
+    await page.evaluate(() => {
       const w = window as any;
       w.holdCover = true;
-      w.projectionLayer = surface ? document.querySelector('#surface') : undefined;
       w.manager.begin();
-      window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
-    }, surface);
+    });
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(host).not.toHaveAttribute('data-native-ui-snapshot-visible');
     expect(
       await page.evaluate(() => {
         const w = window as any;
-        const layer = document.querySelector<HTMLElement>('[data-native-ui-snapshot-layer]');
         return {
-          visible: document.querySelector('#source')!.hasAttribute('data-native-ui-snapshot-visible'),
-          layerDisplay: layer && getComputedStyle(layer).display,
           pending: w.manager.handoffPending,
-          visibleOwners: w.scope.visibleOwners.length,
-          painted: w.calls.some((call: any) => call.action === 'painted'),
+          visible: w.manager.visibleOwners.length,
+          painted: w.calls.some((c: any) => c.action === 'painted'),
         };
       }),
-    ).toEqual({ visible: false, layerDisplay: surface ? 'none' : null, pending: false, visibleOwners: 0, painted: false });
+    ).toEqual({ pending: false, visible: 0, painted: false });
     await page.evaluate(() => (window as any).coverReplies.shift()({ shown: true }));
-    if (surface) await expect(page.locator('[data-native-ui-snapshot-layer] img')).toBeVisible();
-    else await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
-    await expect.poll(() => page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'painted').length)).toBe(1);
-    expect(await page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'prepare').length)).toBe(1);
+    await expect(host).toHaveAttribute('data-native-ui-snapshot-visible', '');
+    await expect.poll(() => page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'painted').length)).toBe(1);
+    expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length)).toBe(1);
   });
 
 test('a late cover reply cannot expose a reopened cached image before its own cover succeeds', async ({ page }) => {
@@ -395,199 +384,350 @@ test('cover without a positive acknowledgement restores Web ownership', async ({
     w.manager.begin();
     w.coverReplies.shift()({});
   });
-  await expect.poll(() => page.evaluate(() => (window as any).scope.owners.length)).toBe(0);
+  await expect.poll(() => page.evaluate(() => (window as any).manager.owners.length)).toBe(0);
   await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
   expect(await page.evaluate(() => (window as any).manager.token)).toBeUndefined();
 });
 
-test('initialization-owned projection layer preserves stacking and survives teardown', async ({ page }) => {
-  await prepare(page, false, false, false, true);
-  await page.evaluate(() => {
-    const overlay = document.createElement('div');
-    overlay.id = 'overlay';
-    overlay.style.cssText = 'position:absolute;inset:0;z-index:8';
-    document.querySelector('#surface')!.append(overlay);
-    (window as any).manager.begin();
-  });
-  await expect(page.locator('#projection-host img')).toBeVisible();
-  expect(
-    await page.evaluate(() => {
-      const host = document.querySelector<HTMLElement>('#projection-host')!;
-      return {
-        top: document.elementFromPoint(20, 120)?.id,
-        zIndex: host.style.zIndex,
-        imageZ: getComputedStyle(host.querySelector('[data-native-ui-snapshot-layer]')!).zIndex,
-      };
-    }),
-  ).toEqual({ top: 'overlay', zIndex: '7', imageZ: 'auto' });
-  await page.evaluate(async () => {
-    const w = window as any;
-    w.manager.end();
-    w.manager.updated(undefined, ['counter'], 2);
-    await w.manager.destroy();
-  });
-  await expect(page.locator('#projection-host')).toHaveCount(1);
-  await expect(page.locator('#projection-host img')).toHaveCount(0);
-  await expect(page.locator('#projection-host')).toHaveCSS('z-index', '7');
-});
-
-test('missing target or disconnected layer cannot select another projection layer', async ({ page }) => {
-  await prepare(page);
-  expect(
-    await page.evaluate(() => {
-      const w = window as any;
-      w.projectionLayer = document.createElement('div');
-      w.manager.begin();
-      const detached = w.manager.token;
-      w.projectionLayer = undefined;
-      w.targetUnavailable = true;
-      w.manager.begin();
-      return {
-        detached,
-        missing: w.manager.token,
-        owns: w.scope.owns(w.source.element),
-        covers: w.calls.filter((request: any) => request.action === 'cover').length,
-      };
-    }),
-  ).toEqual({ detached: undefined, missing: undefined, owns: false, covers: 0 });
-});
-
-test('removing the active target releases ownership instead of relocating the image', async ({ page }) => {
-  await prepare(page);
-  await page.evaluate(() => (window as any).manager.begin());
-  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible');
-  await page.evaluate(() => {
-    const w = window as any;
-    w.targetUnavailable = true;
-    window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
-  });
-  await expect.poll(() => page.evaluate(() => (window as any).manager.token)).toBeUndefined();
-  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
-  await expect(page.locator('button')).toBeVisible();
-});
-
-test('an explicit target can also host the shared projection layer', async ({ page }) => {
+test('existing fallback DOM, listeners, values and application updates survive handoff', async ({ page }) => {
   await prepare(page);
   await page.evaluate(() => {
-    const w = window as any;
-    const host = document.createElement('div');
-    host.id = 'shared-projection-host';
-    host.style.cssText = 'position:absolute;inset:0;z-index:4;pointer-events:none';
-    document.querySelector('#surface')!.append(host);
-    w.projectionTarget = host;
-    window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
-    w.projectionLayer = host;
+    const w = window as any,
+      host = w.scope.element;
+    w.originalHost = host;
+    w.originalButton = host.querySelector('button');
+    w.clicks = 0;
+    w.originalButton.addEventListener('click', () => w.clicks++);
+    host.setAttribute('aria-hidden', 'false');
+    const input = document.createElement('input');
+    input.value = 'before';
+    host.append(input);
+    w.originalInput = input;
+    w.originalStyle = host.getAttribute('style');
     w.manager.begin();
   });
-  await expect(page.locator('#shared-projection-host img')).toBeVisible();
-  await page.evaluate(() => (window as any).manager.destroy());
-  await expect(page.locator('#shared-projection-host')).toHaveCount(1);
-  await expect(page.locator('#shared-projection-host')).not.toHaveAttribute('data-native-ui-snapshot-source');
-});
-
-for (const boundary of ['surface', 'shadow'] as const) {
-  test(`scope includes its composed DOM and excludes other sources (${boundary})`, async ({ page }) => {
-    await prepare(page, false, boundary === 'shadow', true, false, boundary);
-    await page.evaluate(() => {
-      const w = window as any;
-      const outside = document.querySelector('#other')!;
-      w.manager.consider(2, [w.source, { ...w.source, element: outside, control: { ...w.source.control, id: 'outside' } }]);
-    });
-    await expect.poll(() => page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length)).toBe(2);
-    expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').at(-1).ids)).toEqual(['counter']);
-    await page.evaluate(() => (window as any).manager.begin());
-    // The same-document proxy is outside the source root and must remain usable.
-    await expect(page.locator('#proxy')).toHaveAttribute('data-native-ui-snapshot-visible', '');
-    await page.evaluate(() => {
-      const w = window as any;
-      document.querySelector('#other')!.append(w.source.element);
-      window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
-    });
-    await expect.poll(() => page.evaluate(() => (window as any).scope.owners.length)).toBe(0);
-    await expect(page.locator('#proxy')).not.toHaveAttribute('data-native-ui-snapshot-visible');
-  });
-}
-
-test('group members outside the scope cannot acquire ownership', async ({ page }) => {
-  await prepare(page, false, false, false, false, 'surface');
-  await page.evaluate(() => {
-    const w = window as any;
-    w.manager.invalidate();
-    w.calls.length = 0;
-    w.manager.consider(2, [{ ...w.source, sources: [document.querySelector('#other')] }]);
-  });
-  await page.waitForTimeout(200);
-  expect(await page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'prepare'))).toBe(false);
-});
-
-for (const destination of ['target', 'layer'] as const) {
-  test(`connected ${destination} from another document cannot receive pixels`, async ({ page }) => {
-    await prepare(page);
-    await page.evaluate((destination) => {
-      const w = window as any;
-      const frame = document.createElement('iframe');
-      document.body.append(frame);
-      const foreign = frame.contentDocument!.body;
-      if (destination === 'target') {
-        w.projectionTarget = foreign;
-        window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
-      } else w.projectionLayer = foreign;
-      w.manager.begin();
-    }, destination);
-    expect(
-      await page.evaluate(() => ({
-        token: (window as any).manager.token,
-        owners: (window as any).scope.owners.length,
-        covers: (window as any).calls.filter((c: any) => c.action === 'cover').length,
-        foreign: document.querySelector('iframe')!.contentDocument!.querySelectorAll('[data-native-ui-snapshot],img').length,
-      })),
-    ).toEqual({ token: undefined, owners: 0, covers: 0, foreign: 0 });
-  });
-}
-
-test('scope rejects cross-document target registration and follows shadow hosts', async ({ page }) => {
-  await boot(page);
-  expect(
-    await page.evaluate(() => {
-      const w = window as any,
-        host = document.createElement('div');
-      document.querySelector('#surface')!.append(host);
-      const shadow = host.attachShadow({ mode: 'open' }),
-        source = document.createElement('button');
-      shadow.append(source);
-      const scope = w.kit.createWebProjectionScope(document.querySelector('#surface'), 'root');
-      const frame = document.createElement('iframe');
-      document.body.append(frame);
-      let rejected = false;
-      try {
-        scope.setTarget(source, frame.contentDocument!.body);
-      } catch {
-        rejected = true;
-      }
-      return { contained: scope.contains(source), outside: scope.contains(document.querySelector('#other')), rejected };
-    }),
-  ).toEqual({ contained: true, outside: false, rejected: true });
-});
-
-test('returning after a source leaves the scope abandons without native restore', async ({ page }) => {
-  await prepare(page, false, false, false, false, 'surface');
-  await page.evaluate(() => (window as any).manager.begin());
   await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
   await page.evaluate(() => {
     const w = window as any;
-    document.querySelector('#other')!.append(w.source.element);
-    w.manager.changed();
+    w.originalInput.value = 'updated';
+    w.originalButton.disabled = true;
     w.manager.end();
+    w.manager.updated(undefined, ['counter'], 2);
   });
+  expect(
+    await page.evaluate(() => {
+      const w = window as any,
+        host = document.querySelector('#source')!;
+      return {
+        same: host === w.originalHost,
+        button: host.querySelector('button') === w.originalButton,
+        input: host.querySelector('input') === w.originalInput,
+        value: w.originalInput.value,
+        disabled: w.originalButton.disabled,
+        inert: host.hasAttribute('inert'),
+        aria: host.getAttribute('aria-hidden'),
+        style: host.getAttribute('style') === w.originalStyle,
+      };
+    }),
+  ).toEqual({ same: true, button: true, input: true, value: 'updated', disabled: true, inert: false, aria: 'false', style: true });
+  await page.evaluate(() => {
+    (window as any).originalButton.disabled = false;
+  });
+  await page.locator('#source button').click();
+  expect(await page.evaluate(() => (window as any).clicks)).toBe(1);
+});
+
+test('fixed fallback follows its renderer-owned parent without recapturing', async ({ page }) => {
+  await prepare(page, false, false, true);
+  await page.evaluate(() => {
+    const w = window as any,
+      surface = document.querySelector<HTMLElement>('#surface')!;
+    surface.style.transform = 'translate(10px,20px)';
+    surface.append(w.scope.element);
+    w.manager.begin();
+  });
+  await expect(page.locator('#proxy')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length)).toBe(1);
+  await page.evaluate(() => (window as any).manager.destroy());
+  await expect(page.locator('#surface #proxy')).toBeVisible();
+});
+
+test('detached fallback cannot be replaced by an unrelated DOM', async ({ page }) => {
+  await prepare(page, false, false, true);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.scope.element.remove();
+    w.manager.begin();
+  });
+  expect(await page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'cover'))).toBe(false);
+});
+
+test('fallback adopted into another document is rejected on return', async ({ page }) => {
+  await prepare(page, false, false, true);
+  await page.evaluate(() => (window as any).manager.begin());
+  await expect(page.locator('#proxy')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  expect(
+    await page.evaluate(() => {
+      const w = window as any,
+        frame = document.createElement('iframe');
+      document.body.append(frame);
+      frame.contentDocument!.body.append(w.scope.element);
+      w.manager.end();
+      return {
+        owners: w.manager.owners.length,
+        restoring: w.manager.restoring,
+        visible: w.scope.element.hasAttribute('data-native-ui-snapshot-visible'),
+        restores: w.calls.filter((c: any) => c.action === 'restore').length,
+      };
+    }),
+  ).toEqual({ owners: 0, restoring: false, visible: false, restores: 0 });
+});
+
+test('batch uses one capture, listener and cover for multiple fixed fallback DOMs', async ({ page }) => {
+  await boot(page);
+  await page.evaluate(async () => {
+    const w = window as any,
+      first = document.querySelector<HTMLElement>('#source')!,
+      second = document.querySelector<HTMLElement>('#other')!;
+    second.style.cssText = 'width:120px;height:40px';
+    w.calls = [];
+    w.listeners = 0;
+    w.batch = await w.kit.createWebProjectionBatch(
+      {
+        send: async (request: any) => {
+          w.calls.push(request);
+          return request.action === 'prepare'
+            ? {
+                token: 'batch',
+                parts: request.ids.map((id: string) => ({ ids: [id], url: 'file:///pixels', x: 0, y: 0, width: 120, height: 40 })),
+              }
+            : { shown: true };
+        },
+        listen: async () => {
+          w.listeners++;
+          return { remove() {} };
+        },
+        resolveURL: () =>
+          'data:image/svg+xml,' +
+          encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="red"/></svg>',
+          ),
+      },
+      { wake() {}, blocked: () => false },
+    );
+    w.batchSources = [first, second].map((element, index) => ({
+      scope: w.kit.createWebProjectionScope(element, 'batch'),
+      element,
+      control: { id: String(index), x: 0, y: 0, width: 120, height: 40 },
+    }));
+    w.batch.consider(1, w.batchSources);
+  });
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await expect(page.locator('#other')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.evaluate(() => (window as any).batch.begin());
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await expect(page.locator('#other')).toHaveAttribute('data-native-ui-snapshot-visible', '');
   expect(
     await page.evaluate(() => {
       const w = window as any;
       return {
-        owners: w.scope.owners.length,
-        restoring: w.manager.restoring,
-        restores: w.calls.filter((c: any) => c.action === 'restore').length,
+        listeners: w.listeners,
+        captures: w.calls.filter((c: any) => c.action === 'prepare').length,
+        covers: w.calls.filter((c: any) => c.action === 'cover').length,
       };
     }),
-  ).toEqual({ owners: 0, restoring: false, restores: 0 });
-  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  ).toEqual({ listeners: 1, captures: 1, covers: 1 });
+  await page.evaluate(async () => {
+    const w = window as any;
+    w.batch.end();
+    w.batch.updated(undefined, ['0', '1'], 2);
+    await w.batch.destroy();
+  });
+  await expect(page.locator('#source button')).toBeVisible();
+  await expect(page.locator('#other')).not.toHaveAttribute('data-native-ui-snapshot');
+});
+
+test('empty batch can begin and be destroyed before a document is known', async ({ page }) => {
+  await boot(page);
+  expect(
+    await page.evaluate(async () => {
+      const w = window as any;
+      let listeners = 0;
+      const batch = await w.kit.createWebProjectionBatch(
+        {
+          send: async () => ({}),
+          listen: async () => {
+            listeners++;
+            return { remove() {} };
+          },
+          resolveURL: (url: string) => url,
+        },
+        { wake() {}, blocked: () => false },
+      );
+      batch.begin();
+      batch.end();
+      await batch.destroy();
+      return listeners;
+    }),
+  ).toBe(0);
+});
+
+test('batch rejects mixed documents and disposes a listener resolved after teardown', async ({ page }) => {
+  await boot(page);
+  expect(
+    await page.evaluate(async () => {
+      const w = window as any;
+      const source = document.querySelector<HTMLElement>('#source')!;
+      const frame = document.createElement('iframe');
+      document.body.append(frame);
+      const foreign = frame.contentDocument!.body;
+      let resolveListener!: (handle: { remove(): void }) => void;
+      let removed = 0;
+      let sends = 0;
+      const batch = await w.kit.createWebProjectionBatch(
+        {
+          send: async () => {
+            sends++;
+            return {};
+          },
+          listen: () =>
+            new Promise((resolve) => {
+              resolveListener = resolve;
+            }),
+          resolveURL: (url: string) => url,
+        },
+        { wake() {}, blocked: () => false },
+      );
+      const candidate = (element: HTMLElement) => ({
+        scope: w.kit.createWebProjectionScope(element, 'batch'),
+        element,
+        control: { id: 'a', x: 0, y: 0, width: 120, height: 40 },
+      });
+      let rejected = false;
+      try {
+        batch.consider(1, [candidate(source), candidate(foreign)]);
+      } catch {
+        rejected = true;
+      }
+      batch.consider(2, [candidate(source)]);
+      let laterRejected = false;
+      try {
+        batch.consider(3, [candidate(foreign)]);
+      } catch {
+        laterRejected = true;
+      }
+      const destroyed = batch.destroy();
+      resolveListener({
+        remove() {
+          removed++;
+        },
+      });
+      await destroyed;
+      batch.consider(4, [candidate(source)]);
+      return { rejected, laterRejected, removed, sends };
+    }),
+  ).toEqual({ rejected: true, laterRejected: true, removed: 1, sends: 0 });
+});
+
+test('replacing a fallback scope invalidates the old image even with unchanged native geometry', async ({ page }) => {
+  await prepare(page);
+  await page.evaluate(async () => {
+    const w = window as any;
+    await w.manager.destroy();
+    w.batch = await w.kit.createWebProjectionBatch(
+      {
+        send: async (request: any) => {
+          if (request.action === 'prepare')
+            return { token: 'same', parts: [{ ids: ['counter'], url: 'file:///image', ...w.source.control }] };
+          return { shown: true };
+        },
+        listen: async () => ({ remove() {} }),
+        resolveURL: () => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"/>'),
+      },
+      { wake() {}, blocked: () => false },
+    );
+    w.batch.consider(1, [{ ...w.source, scope: w.scope }]);
+  });
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.evaluate(() => {
+    const w = window as any;
+    const other = document.querySelector<HTMLElement>('#other')!;
+    other.style.cssText = 'width:120px;height:40px';
+    w.batch.consider(1, [{ ...w.source, scope: w.kit.createWebProjectionScope(other, 'test') }]);
+  });
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot');
+  await expect(page.locator('#other')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+});
+
+for (const detached of [false, true]) {
+  test(`in-flight capture cannot adopt a replaced scope (old DOM detached: ${detached})`, async ({ page }) => {
+    await boot(page);
+    await page.evaluate(async () => {
+      const w = window as any;
+      w.captures = 0;
+      w.released = [];
+      const source = document.querySelector<HTMLElement>('#source')!;
+      const old = document.createElement('div');
+      old.id = 'old-fallback';
+      old.style.cssText = 'width:120px;height:40px';
+      document.body.append(old);
+      const fallback = document.querySelector<HTMLElement>('#other')!;
+      fallback.style.cssText = old.style.cssText;
+      w.old = old;
+      w.source = { element: source, control: { id: 'counter', x: 0, y: 0, width: 120, height: 40 } };
+      w.batch = await w.kit.createWebProjectionBatch(
+        {
+          send: async (request: any) => {
+            if (request.action === 'release') w.released.push(request.token);
+            if (request.action !== 'prepare') return { shown: true };
+            const serial = ++w.captures;
+            const result = {
+              token: String(serial),
+              parts: [{ ids: ['counter'], url: 'file:///image', x: 0, y: 0, width: 120, height: 40 }],
+            };
+            if (serial === 1)
+              return new Promise((resolve) => {
+                w.finish = () => resolve(result);
+              });
+            return result;
+          },
+          listen: async () => ({ remove() {} }),
+          resolveURL: () => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"/>'),
+        },
+        { wake() {}, blocked: () => false },
+      );
+      w.batch.consider(1, [{ ...w.source, scope: w.kit.createWebProjectionScope(old, 'test') }]);
+    });
+    await expect.poll(() => page.evaluate(() => (window as any).captures)).toBe(1);
+    await page.evaluate((detached) => {
+      const w = window as any;
+      if (detached) w.old.remove();
+      w.batch.consider(1, [{ ...w.source, scope: w.kit.createWebProjectionScope(document.querySelector('#other'), 'test') }]);
+      w.finish();
+    }, detached);
+    await expect(page.locator('#other')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+    expect(
+      await page.evaluate(() => {
+        const w = window as any;
+        return { old: w.old.hasAttribute('data-native-ui-snapshot'), captures: w.captures, released: w.released };
+      }),
+    ).toEqual({ old: false, captures: 2, released: ['1'] });
+  });
+}
+
+test('replaced fallback elements are rejected before native ownership can change', async ({ page }) => {
+  await boot(page);
+  expect(
+    await page.evaluate(() => {
+      const w = window as any;
+      return ['img', 'input', 'video', 'canvas', 'select', 'textarea', 'iframe'].map((tag) => {
+        try {
+          w.kit.createWebProjectionScope(document.createElement(tag), 'test');
+          return false;
+        } catch (error) {
+          return error instanceof TypeError;
+        }
+      });
+    }),
+  ).toEqual([true, true, true, true, true, true, true]);
 });

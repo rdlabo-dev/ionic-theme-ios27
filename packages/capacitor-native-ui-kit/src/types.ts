@@ -1,3 +1,5 @@
+import type { WebProjectionScope } from './web-projection-scope.js';
+
 /** All wire coordinates are CSS pixels, relative to the Web viewport. */
 export interface Frame {
   x: number;
@@ -22,6 +24,10 @@ export interface WebProjectionSource {
   sources?: HTMLElement[];
   scrollElement?: HTMLElement;
   control: Frame & { id: string; kind?: string; placement?: string; dark?: boolean; rtl?: boolean; scroll?: ScrollPlacement };
+}
+/** Multiple fixed fallback elements sharing one Native capture/cover/restore transaction. */
+export interface ScopedWebProjectionSource extends WebProjectionSource {
+  scope: WebProjectionScope;
 }
 export interface PreparedWebProjection {
   token: string;

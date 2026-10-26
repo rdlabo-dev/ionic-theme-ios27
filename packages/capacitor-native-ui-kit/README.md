@@ -64,22 +64,15 @@ Run `npx cap sync ios` and rebuild. Keep the direct kit version aligned with the
 
 ## Web projection
 
-Create one `createWebProjectionScope(root, namespace)` per plugin instance and share it among that instance's page/overlay managers. The `root` is a `Document`, `HTMLElement` or `ShadowRoot` defining which source DOM belongs to that instance; Shadow DOM descendants are included. Use a common application root (or `document`) encompassing all pages and overlays that share the scope. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
-
-The manager obtains its Document and Window from the scope. Sources outside the scope are excluded; targets and layers must share its Document, but may sit outside the source root for rails or portals. Supply projection DOM when creating the manager. In this example, `presentingPage` is a positioned page owned by your plugin. Create a dedicated image host inside it, set its stacking order relative to your UI, and pass the element as `layer`. `target(source, placement)` identifies each component's display DOM; the example uses the source itself. No class or ID connects these elements to the kit.
+A scope binds one existing Web fallback element for its lifetime. Obtain that element from your plugin's DOM; the kit does not create a replacement host or choose a page, stacking order or z-index. A different fallback element requires a new scope. Its Document is derived from `element.ownerDocument`.
 
 ```ts
 import { createWebProjectionScope, createWebProjection } from '@rdlabo/capacitor-native-ui-kit';
 import { Capacitor } from '@capacitor/core';
 
-const host = document.createElement('div');
-host.inert = true;
-host.setAttribute('aria-hidden', 'true');
-host.style.cssText = 'position:absolute;inset:0;pointer-events:none';
-// Set the stacking order for your page, then attach its image host.
-presentingPage.append(host);
-
-const scope = createWebProjectionScope(document, 'my-plugin');
+const fallback = container.querySelector<HTMLElement>('[data-web-fallback]');
+if (!fallback) throw new Error('Web fallback is missing');
+const scope = createWebProjectionScope(fallback, 'my-plugin');
 const projection = await createWebProjection(
   scope,
   {
@@ -91,40 +84,28 @@ const projection = await createWebProjection(
     wake: () => schedulePluginUpdate(),
     blocked: () => overlayIsActive(),
     revision: () => lastSentRevision,
-    layer: host,
-    target: (source) => source,
   },
 );
 ```
 
-`presentingPage`, `plugin`, `schedulePluginUpdate`, `overlayIsActive` and `lastSentRevision` above belong to the consuming plugin, not the kit.
+The container, bridge and update callbacks above belong to the consuming plugin. No `document`, `target`, `layer`, CSS selector or layer resolver is passed to the projection manager.
 
-1. After an accepted native update, call `projection.consider(revision, sources)`. Each `WebProjectionSource` contains the DOM element, native ID and current viewport frame. Preparation and image decoding happen off the presentation path.
-2. Call `projection.changed()` for visual changes. Completed pre-interaction pixels remain available while replacement pixels are prepared. For scrolling, pass the owner to `projection.changed(scrollElement)` to invalidate its old geometry. Layout updates go through `consider`; call `invalidate()` for other known geometry or viewport invalidation.
-3. Before a Web overlay covers the controls, call `projection.begin()`. No capture or image decode starts here. If no valid image exists, `token` remains undefined: use the plugin's normal fallback.
-4. Use `scope.owns(source)` to exclude image-owned controls from ordinary native projection. Use `scope.isVisible(source)` to keep return pixels while the native replacement is being acknowledged.
-5. After the overlay closes, call `projection.end()`, send the normal native update, then call `projection.updated(snapshotToken, acceptedIDs, revision)`. Only a newer ACK covering all captured IDs retires the Web image.
-6. Call `projection.destroy()` on surface teardown. It releases only its tokens and listener. The plugin owns the final native reset, so destroying one surface cannot invalidate another plugin or overlay.
+1. After an accepted native update, call `projection.consider(revision, sources)`. Sources associate the native IDs and viewport frames with their source DOM; they need not be inside the fallback element. Images are captured and decoded in advance.
+2. Call `projection.changed()` for appearance changes, or `projection.changed(scrollElement)` to invalidate scroll geometry. Layout updates go through `consider`; use `invalidate()` for other geometry changes.
+3. Before covering Native with a Web overlay, call `projection.begin()`. It displays already prepared pixels at the fixed fallback. No new capture or decode starts here. If capture is unavailable, the plugin keeps its ordinary Web fallback.
+4. Exclude `projection.owners` from normal Native updates while the image owns those sources. `visibleOwners` keeps their return pixels while Native is being restored; `preparedOwners` identifies sources with prepared images. These arrays are read-only snapshots.
+5. Call `projection.end()`, send the normal native update, then call `projection.updated(snapshotToken, acceptedIDs, revision)`. A newer acknowledgement containing all captured IDs retires the image.
+6. Call `projection.destroy()` when disposing the surface. It releases only its own images and listener; the plugin owns final Native reset and its DOM.
 
-The kit inserts noninteractive images into `layer` and converts viewport coordinates into that host's local coordinates, so images follow its page's transforms and clipping. It does not assign a z-index, remove or restyle your host. After `await projection.destroy()`, remove your host with `host.remove()`.
+The kit uses a noninteractive, empty CSS `::before` pseudo-element for the prepared image. Supply a container that supports it, such as an existing `div`, `button` or custom element. Replaced/void elements such as `img`, `input` and `video` are rejected when creating the scope; use their existing fallback container. It does not clone, replace, remove or set `inert`/`aria-hidden` on the existing fallback or its children. Removing its temporary image styles restores the same live DOM, including application changes made during projection. Event listeners and form values are preserved. The renderer may move that same element between parents; it must not replace the scope's element or let two managers control it simultaneously.
 
-Omit `layer` to project each image on its `target` instead. Return a separate display proxy from `target` when needed. If the shared host changes with navigation, configure `layer: () => currentHost` at initialization; it is resolved once per `begin()` and remains fixed for that presentation. Returning `undefined` selects individual targets.
+### Multiple fallbacks in one Native transaction
 
-A disconnected supplied host or an unresolved per-source target prevents projection. Continue your renderer's normal Web fallback instead of moving the projection into another layer. Web projection is the intentional transfer of the native appearance to the Web layer; snapshot capture is its implementation, and ordinary Web fallback is the renderer's failure path.
+Use `createWebProjectionBatch(transport, options)` when several fallback elements must switch together. It uses the same image engine, one listener and one capture/cover/restore token. Pass `{ scope, element, control, ... }` for each entry to `batch.consider(revision, sources)`. Several native IDs may share one scope, such as a button group.
 
-### Scope and transport contract
+The batch derives its Document from the first nonempty `consider`; all subsequent scopes and sources must belong to that Document. Before this first update, `begin()` does nothing and `destroy()` is safe. A changed fallback requires a new scope. Scope identity participates in cache invalidation; an active presentation retains its captured scopes until restoration finishes.
 
-`scope.contains(element)` checks the source-DOM boundary; `owns(element)` checks temporary image ownership. Ownership belongs to the handoff managers. `scope.owners`, `scope.visibleOwners` and `scope.preparedOwners` return read-only array snapshots; mutating a returned copy cannot change the kit's state. Use `owns(element)` and `isVisible(element)` for containment checks. Do not cache the arrays across updates.
-
-A renderer that uses a separate DOM display proxy registers it with `scope.setTarget(source, target)`, reads it with `scope.getTarget(source)`, and unregisters it with `scope.deleteTarget(source)`. After completing a batch of proxy changes, dispatch `new Event(scope.targetsChangedEvent)` on the document's window. Listen for `scope.sourcesChangedEvent` to update proxy visibility. This explicit batch boundary avoids a reconciliation for every individual proxy. The handoff manager's `target` callback selects the appropriate registered proxy; ordinary elements can remain their own targets.
-
-`WebProjectionRequest` is an action-discriminated union. `prepare` requires `revision`, `viewportWidth` and `ids`; `cover` requires `token`; `restore` requires `token`, `viewportWidth` and destination `parts`; `painted`, `restored` and `release` require `token`; `reset` takes no payload. `WebProjectionResult<Request>` gives the corresponding response:
-
-- `prepare`: a complete `{ token, parts }`, or `{}` when capture is unavailable. Never return a partial capture.
-- `cover` and `restore`: `{ shown: boolean }`.
-- `painted`, `restored`, `release` and `reset`: no response data.
-
-Implement the transport through the plugin's existing ordered bridge. Reject the promise for transport failures; report unavailable capture or presentation with the result above. Responses from the native bridge are still validated at runtime. The kit does not add a bridge or retry user actions.
+`WebProjectionRequest` is an action-discriminated union. `prepare` requires `revision`, `viewportWidth` and `ids`; `cover` requires `token`; `restore` requires `token`, `viewportWidth` and destination `parts`; `painted`, `restored` and `release` require `token`; `reset` takes no payload. Empty preparation results and `{ shown: false }` mean the plugin should use its normal Web fallback. Use the plugin's existing ordered bridge; the kit does not retry user actions.
 
 ### Native handoff on both platforms
 
@@ -144,7 +125,7 @@ val shown = snapshots.cover(token, activity.window, webView, renderedViews, tran
 
 Token cleanup uses `release(token)`; owner teardown uses `reset()` (and Android `close()` when disposing its encoder). A surface manager must not reset another surface's captures. Web fallback remains the renderer's responsibility when a capture or native placement is unavailable.
 
-The required `target(source, capturedPlacement)` resolver and optional `eligible(source)` and `current(sources)` callbacks keep framework-specific surface selection and display proxies outside the kit. `transient: true` supports a moving surface whose return image must be rebased. Arbitrary CSS transforms are not supported by native scroll tracking; such movement can use this image path.
+The optional `eligible(source)` and `current(sources)` callbacks keep framework-specific surface selection outside the kit. `transient: true` supports a moving surface whose return image must be rebased. Arbitrary CSS transforms are not supported by native scroll tracking; such movement can use this image path.
 
 The image transport accepts `WebProjectionRequest` and returns prepared token/parts or `{ shown: false }`. Parts use local `file:` URLs and CSS-pixel viewport coordinates. Requests use the plugin's existing ordered bridge:
 

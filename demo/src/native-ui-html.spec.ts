@@ -1,8 +1,8 @@
 import { mockSnapshotOwnership } from './snapshot-scope-fixture';
 import { beforeEach } from 'vitest';
-import { getProjectionScope } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
-const projectionScope = getProjectionScope(document);
-const { sourcesChangedEvent } = projectionScope;
+import { getProjectionState } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+const projectionState = getProjectionState(document);
+const { sourcesChangedEvent } = projectionState;
 import { afterEach, expect, test, vi, onTestFinished } from 'vitest';
 import { createHTMLWebProjection, readHTMLControl } from '../../packages/capacitor-native-ui/src/native/html';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';
@@ -15,7 +15,7 @@ import type {
 
 let owners: Set<HTMLElement>, visibleOwners: Set<HTMLElement>, preparedOwners: Set<HTMLElement>;
 beforeEach(() => {
-  ({ owners, visibleOwners, preparedOwners } = mockSnapshotOwnership(projectionScope));
+  ({ owners, visibleOwners, preparedOwners } = mockSnapshotOwnership(projectionState));
 });
 
 const handles: NativeUIRuntimeHandle[] = [];
@@ -557,6 +557,8 @@ test('a frozen native image suppresses HTML rail proxies and stale proxy clicks 
 });
 
 test('native popover retention skips image handoff; a Web fallback reuses it without replaying activation', async () => {
+  // This integration uses the real image ownership, not the rail-only unit test fixture.
+  vi.restoreAllMocks();
   const { source, options } = mount();
   vi.stubGlobal(
     'ResizeObserver',

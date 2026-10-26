@@ -1,92 +1,13 @@
-interface SnapshotState {
-  owners: Set<HTMLElement>;
-  visibleOwners: Set<HTMLElement>;
-  preparedOwners: Set<HTMLElement>;
-}
-const states = new WeakMap<WebProjectionScope, SnapshotState>();
-/** Internal to the kit; deliberately not exported from its public entry point. */
-export const projectionState = (scope: WebProjectionScope): SnapshotState => {
-  const state = states.get(scope);
-  if (!state) throw new Error('Use createWebProjectionScope to create a Web projection scope');
-  return state;
-};
-
-/** One source-DOM boundary per plugin instance, shared by its presentation surfaces. */
-export const createWebProjectionScope = (root: Document | HTMLElement | ShadowRoot, namespace: string) => {
-  const doc = root.nodeType === 9 ? (root as Document) : root.ownerDocument!;
-  const contains = (element: HTMLElement): boolean => {
-    if (element.ownerDocument !== doc) return false;
-    // Follow slots and shadow hosts as well as ordinary DOM ancestry.
-    let node: Node | null = element;
-    while (node) {
-      if (node === root || root.contains(node)) return true;
-      node = (node as Element).assignedSlot ?? node.parentNode ?? (node.nodeType === 11 ? (node as ShadowRoot).host : null);
-    }
-    return false;
-  };
-  const sourcesChangedEvent = `${namespace}:sources-change`;
-  const imageMarker = 'data-native-ui-snapshot';
-  const owners = new Set<HTMLElement>();
-  // Keep the rendered image steady while Native is being recreated underneath it.
-  const visibleOwners = new Set<HTMLElement>();
-  const isVisible = (element: HTMLElement) => Array.from(visibleOwners).some((owner) => owner === element || owner.contains(element));
-  const owns = (element: HTMLElement) => Array.from(owners).some((owner) => owner === element || owner.contains(element));
-  const isProjectionMutation = (record: MutationRecord) => {
-    // Rendering a prepared clone does not change the source's Native appearance.
-    const target = record.target instanceof Element ? record.target : record.target.parentElement;
-    if (target?.closest('[data-native-ui-snapshot-layer]')) return true;
-    if (
-      record.type === 'attributes' &&
-      [imageMarker, 'data-native-ui-snapshot-prepared', 'data-native-ui-snapshot-source', 'data-native-ui-snapshot-visible'].includes(
-        record.attributeName ?? '',
-      )
+/** A fixed Web fallback element. A replacement element requires a new scope. */
+export const createWebProjectionScope = (element: HTMLElement, namespace: string) => {
+  if (element.nodeType !== 1 || element.namespaceURI !== 'http://www.w3.org/1999/xhtml' || !element.ownerDocument || !('style' in element))
+    throw new TypeError('A Web projection scope requires an HTMLElement fallback');
+  if (
+    element.matches(
+      'img, input, textarea, select, video, audio, canvas, iframe, embed, object, br, hr, area, base, link, meta, source, track, wbr',
     )
-      return true;
-    const image = (node: Node) =>
-      node instanceof Element &&
-      node.matches(
-        `style[${imageMarker}], style[data-native-ui-snapshot-base], [data-native-ui-snapshot-layer], [data-native-ui-snapshot-prepared]`,
-      );
-    const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
-    return image(record.target) || (record.type === 'childList' && nodes.length > 0 && nodes.every(image));
-  };
-
-  const snapshotTargets = new WeakMap<HTMLElement, HTMLElement>();
-  const targetsChangedEvent = `${namespace}:targets-change`;
-
-  const preparedOwners = new Set<HTMLElement>();
-  const scope = {
-    get root() {
-      return root;
-    },
-    get document() {
-      return doc;
-    },
-    contains,
-    sourcesChangedEvent,
-    imageMarker,
-    get owners(): readonly HTMLElement[] {
-      return [...owners];
-    },
-    get visibleOwners(): readonly HTMLElement[] {
-      return [...visibleOwners];
-    },
-    isVisible,
-    owns,
-    isProjectionMutation,
-    getTarget: (source: HTMLElement) => snapshotTargets.get(source),
-    setTarget: (source: HTMLElement, target: HTMLElement) => {
-      if (!contains(source) || target.ownerDocument !== doc)
-        throw new Error('Projection target must share the scope document and its source must belong to the scope');
-      snapshotTargets.set(source, target);
-    },
-    deleteTarget: (source: HTMLElement) => snapshotTargets.delete(source),
-    targetsChangedEvent,
-    get preparedOwners(): readonly HTMLElement[] {
-      return [...preparedOwners];
-    },
-  };
-  states.set(scope, { owners, visibleOwners, preparedOwners });
-  return scope;
+  )
+    throw new TypeError('A Web projection fallback must support ::before; use its existing container element');
+  return Object.freeze({ element, namespace });
 };
 export type WebProjectionScope = ReturnType<typeof createWebProjectionScope>;

@@ -1,7 +1,7 @@
 import { createScrollBindings } from '@rdlabo/capacitor-native-ui-kit';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
-import { getProjectionScope } from './shared/covered-source';
+import { getProjectionState } from './shared/covered-source';
 import { createCoveredSnapshots, type CoveredSnapshots } from './shared/covered-snapshot';
 import { createTabBarWidths } from './shared/tab-bar-width';
 import { createVerticalNavigation } from './shared/vertical-navigation';
@@ -77,8 +77,8 @@ export const createRuntime = async (
   onStop?: (cause: 'failure' | 'pagehide') => void,
   connection?: NativeUIConnection,
 ): Promise<NativeUIRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
-  const projectionScope = getProjectionScope(doc);
-  const { isProjectionMutation, sourcesChangedEvent } = projectionScope;
+  const projectionState = getProjectionState(doc);
+  const { isProjectionMutation, sourcesChangedEvent } = projectionState;
   const win = doc.defaultView!;
   const extensions = options.extensions ?? [];
   const diagnose = createDiagnostics(options.debug);
@@ -219,7 +219,7 @@ export const createRuntime = async (
         false,
         instant ||
           handoffInstant ||
-          projectionScope.isVisible(element) ||
+          projectionState.isVisible(element) ||
           (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')),
       );
     if (element.getAttribute('aria-hidden') === 'true') {
@@ -256,7 +256,7 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    if (projectionScope.owns(element)) return;
+    if (projectionState.owns(element)) return;
     if (snapshots && movingModal(doc) && element.closest('ion-modal') === movingModal(doc) && isVerticalBarsSource(element)) return;
     if (options.root && !options.root.contains(element)) return;
     if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
@@ -947,7 +947,7 @@ export const createRuntime = async (
           tabWidths.apply(candidate.element, width);
         const instant =
           handoffInstant ||
-          candidateSources(candidate).some(projectionScope.isVisible) ||
+          candidateSources(candidate).some(projectionState.isVisible) ||
           (committingNavigation && horizontalToolbar(candidate));
         for (const element of candidateSources(candidate)) {
           const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
@@ -1604,7 +1604,7 @@ export const createRuntime = async (
       ])
         on(doc, name, (event) => {
           const target = event.target instanceof Element ? event.target : undefined;
-          if (target?.closest('style[data-native-ui-snapshot], [data-native-ui-snapshot-layer]')) return;
+          if (target?.closest('style[data-native-ui-snapshot]')) return;
           if (target?.hasAttribute('data-native-ui-snapshot') && (event as TransitionEvent).pseudoElement) return;
           imageSurfaces().forEach((surface) => surface.changed());
         });

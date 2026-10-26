@@ -22,7 +22,7 @@
         }
       };
       const source = document.getElementById('source');
-      const scope = NativeUIKit.createWebProjectionScope(document, 'acceptance');
+      const scope = NativeUIKit.createWebProjectionScope(source, 'acceptance');
       const node = {
         id: 'fixture',
         kind: 'extension',
@@ -54,7 +54,7 @@
         return response;
       };
       const reconcile = async () => {
-        const controls = scope.owns(source) ? [] : [node];
+        const controls = manager.owners.includes(source) ? [] : [node];
         const token = manager.token;
         const next = JSON.stringify([controls.map((control) => control.id), token]);
         if (next === signature) return;
@@ -102,7 +102,7 @@
             listen: async (listener) => Capacitor.addListener('NativeUI', 'snapshotInteraction', listener),
             resolveURL: (url) => Capacitor.convertFileSrc(url),
           },
-          { wake, blocked: () => false, revision: () => revision, target: (source) => source },
+          { wake, blocked: () => false, revision: () => revision },
         );
         await reconcile();
         await until(() => source.hasAttribute('data-native-ui-snapshot'), 'Image preparation did not complete');

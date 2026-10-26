@@ -142,12 +142,12 @@ try {
     async function projectionContract(transport: WebProjectionTransport) {
       // @ts-expect-error A scope must explicitly declare its source DOM boundary.
       createWebProjectionScope('consumer');
-      const scope = createWebProjectionScope(document, 'consumer');
-      // @ts-expect-error A renderer must explicitly provide the projection DOM resolver.
-      createWebProjection(scope, transport, { wake() {}, blocked: () => false });
+      const scope = createWebProjectionScope(document.createElement('div'), 'consumer');
+      // @ts-expect-error A document is not a fallback element.
+      createWebProjectionScope(document, 'consumer');
       const host = document.createElement('div');
       const projection = await createWebProjection(scope, transport, {
-        wake() {}, blocked: () => false, target: source => source, layer: host,
+        wake() {}, blocked: () => false,
       });
       projection.begin();
       // @ts-expect-error Projection DOM is configured at initialization, not on begin.
