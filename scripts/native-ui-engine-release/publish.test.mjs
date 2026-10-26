@@ -3,32 +3,48 @@ import assert from 'node:assert/strict';
 import { publishBundle } from './publish.mjs';
 
 const id = '01234567-89ab-cdef-0123-456789abcdef';
-test('waits for publication and records the deployment before polling', async () => {
-  const events = [];
-  const states = ['VALIDATING', 'PUBLISHING', 'PUBLISHED'];
-  assert.equal(
-    await publishBundle({
-      bundle: new Uint8Array(),
-      name: 'release',
-      token: 'secret',
-      record: async () => events.push('record'),
-      wait: async () => {},
-      fetcher: async (url, options) => {
-        assert.equal(options.headers.Authorization, 'Bearer secret');
-        if (url.includes('/upload?')) {
-          assert.equal(new URL(url).searchParams.get('publishingType'), 'AUTOMATIC');
-          assert.ok(options.body.get('bundle') instanceof Blob);
-          events.push('upload');
-          return new Response(id);
-        }
-        events.push('poll');
-        return Response.json({ deploymentState: states.shift() });
-      },
-    }),
-    id,
-  );
-  assert.deepEqual(events, ['upload', 'record', 'poll', 'poll', 'poll']);
-});
+for (const accepted of ['PUBLISHING', 'PUBLISHED']) {
+  test(`completes at ${accepted} without waiting for distribution`, async () => {
+    const events = [];
+    const states = ['PENDING', 'VALIDATING', 'VALIDATING', 'VALIDATED', accepted];
+    const records = [];
+    let waits = 0;
+    assert.equal(
+      await publishBundle({
+        bundle: new Uint8Array(),
+        name: 'release',
+        token: 'secret',
+        record: async (message) => {
+          records.push(message);
+          events.push('record');
+        },
+        wait: async () => {
+          waits++;
+        },
+        fetcher: async (url, options) => {
+          assert.equal(options.headers.Authorization, 'Bearer secret');
+          if (url.includes('/upload?')) {
+            assert.equal(new URL(url).searchParams.get('publishingType'), 'AUTOMATIC');
+            assert.ok(options.body.get('bundle') instanceof Blob);
+            events.push('upload');
+            return new Response(id);
+          }
+          events.push('poll');
+          assert.ok(states.length, 'must stop polling after acceptance');
+          return Response.json({ deploymentState: states.shift() });
+        },
+      }),
+      id,
+    );
+    assert.deepEqual(events.slice(0, 3), ['upload', 'record', 'poll']);
+    assert.equal(events.filter((event) => event === 'upload').length, 1);
+    assert.equal(waits, 4);
+    assert.deepEqual(records, [
+      `Central deployment: ${id}`,
+      ...['PENDING', 'VALIDATING', 'VALIDATED', accepted].map((state) => `Central deployment ${id}: ${state}`),
+    ]);
+  });
+}
 
 test('failed validation stops without retrying upload or exposing server responses', async () => {
   let uploads = 0;
@@ -77,9 +93,9 @@ test('upload failure is not retried and polling is bounded', async () => {
       token: 'secret',
       record: async () => {},
       wait: async () => {},
-      fetcher: async () => (++calls === 1 ? new Response(id) : Response.json({ deploymentState: 'PUBLISHING' })),
+      fetcher: async () => (++calls === 1 ? new Response(id) : Response.json({ deploymentState: 'VALIDATING' })),
     }),
-    /still pending/,
+    /last state: VALIDATING/,
   );
   assert.equal(calls, 81);
 });

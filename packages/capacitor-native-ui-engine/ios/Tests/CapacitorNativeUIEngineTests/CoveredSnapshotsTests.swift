@@ -100,7 +100,7 @@ final class NativeUICoveredSnapshotsTests: XCTestCase {
 
 // Swift package tests have no hosted application scene. Supply deterministic
 // pixels here; actual UIKit capture is exercised by the simulator handoff test.
-private final class SnapshotTestWindow: UIWindow {
+final class SnapshotTestWindow: UIWindow {
     override func drawHierarchy(in rect: CGRect, afterScreenUpdates: Bool) -> Bool {
         UIColor.white.setFill()
         UIRectFill(rect)

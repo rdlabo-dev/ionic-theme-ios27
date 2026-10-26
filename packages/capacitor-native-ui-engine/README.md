@@ -2,19 +2,19 @@
 
 `@rdlabo/capacitor-native-ui-engine` is infrastructure **for Capacitor plugin maintainers**. It is a library dependency that renders no controls, registers no application-facing Capacitor plugin, and requires no Ionic or Angular runtime. Its native registration owns a scoped internal WebView channel.
 
-The engine associates DOM layout with native views, tracks scrolling, prepares native images before interaction, and manages image handoff and native restoration. The consuming plugin supplies its native views, corresponding DOM and presentation events. Existing renderers can also use the low-level APIs with their own ordered transport.
+The engine associates existing DOM and native views, tracks supported scrolling, prepares native images before interaction, and manages image handoff and native restoration. The consuming plugin creates, attaches, positions and sizes its native views, provides the corresponding DOM, and reports presentation events. Registration does not lay out a native view from the DOM or resize it when the DOM changes. Existing renderers can also use the low-level APIs with their own ordered transport.
 
 The native libraries support iOS (`UIKit` / `WKWebView`) and Android (`View` / `WebView`). TypeScript geometry and image presentation are framework-independent. APIs are experimental during extraction. Android placement requires API 23+, and composited snapshots require API 26+.
 
 ## Ownership
 
-| Engine                                                        | Consuming plugin                                                     |
-| ------------------------------------------------------------- | -------------------------------------------------------------------- |
-| DOM geometry, clipping and native scroll binding              | Creating native buttons, SDK views, or SwiftUI content               |
-| Startup, event subscriptions and native draw acknowledgements | Providing the fallback DOM at the correct layer                      |
-| Prepared image cache, decoding, display and retirement        | Reporting appearance changes and the intended projection destination |
-| Native capture and temporary return images                    | Providing native views and SDK capture eligibility                   |
-| Image invalidation, token cleanup and observer teardown       | Owning business actions and the interactive Web fallback             |
+| Engine                                                              | Consuming plugin                                                     |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| DOM measurement, image geometry and supported native scroll binding | Creating, attaching, positioning and sizing native views             |
+| Startup, event subscriptions and native draw acknowledgements       | Providing the fallback DOM at the correct layer                      |
+| Prepared image cache, decoding, display and retirement              | Reporting appearance changes and the intended projection destination |
+| Native capture and temporary return images                          | Providing native views and SDK capture eligibility                   |
+| Image invalidation, token cleanup and observer teardown             | Owning business actions and the interactive Web fallback             |
 
 A DOM slot does not necessarily contain a Web replacement: a UI plugin can restore a button, while an ad plugin may hide its slot. Image handoff is explicit and noninteractive. The engine never forwards clicks through an image or replaces SDK click/impression handling.
 
@@ -301,19 +301,44 @@ Use `covers(overlay, target)` only when a registered DOM projection needs a cust
 npm install @rdlabo/capacitor-native-ui-engine
 ```
 
-The npm archive contains TypeScript declarations, ESM, Swift sources and a podspec. Native dependencies must also be declared by the consuming plugin; an npm dependency alone does not link Swift code.
+The npm archive contains TypeScript declarations, ESM, Swift sources and a podspec. Native dependencies must also be declared by the consuming plugin; an npm dependency alone links neither the Swift library nor the Android AAR.
 
 The primary native distribution is Swift Package Manager. Depend on the repository-root library from your plugin:
 
 ```swift
-.package(url: "https://github.com/rdlabo-dev/ionic-theme-ios27.git", revision: "<released Git tag or immutable commit>")
+.package(url: "https://github.com/rdlabo-dev/ionic-theme-ios27.git", revision: "0178998db75cd906ed8cdb91868a6fc2a4fe8c72")
 // In the plugin target's dependencies:
 .product(name: "CapacitorNativeUIEngine", package: "ionic-theme-ios27")
 ```
 
+The revision above contains the initial 2.x Engine. Earlier tags, including `ios27-v2.0.3`, predate the Engine and cannot resolve this library. Once an Engine-containing release tag is available, pin that tag to match the npm/Maven version instead.
+
 `import CapacitorNativeUIEngine` requires neither Capacitor registration nor an npm install of Swift sources. The npm companion supplies DOM measurement and Web image handoff; it is not the native dependency resolver. The current monorepo uses `ios27-v…` release tags, so pin a Git revision/tag rather than assuming unprefixed SwiftPM semantic version tags exist.
 
 Within a source checkout, the first consumer uses the sibling Swift package for development. Installed Native UI plugins resolve Git: versioned releases pin their release tag, and beta artifacts pin the source commit. This avoids relying on npm hoisting or the location of `node_modules` to find Swift sources.
+
+### Android: add the Maven dependency
+
+In the consuming plugin's `android/build.gradle`, add the Engine version matching its npm dependency:
+
+```groovy
+dependencies {
+    implementation 'io.github.rdlabo:native-ui-engine:<matching-engine-version>'
+}
+```
+
+Ensure `google()` and `mavenCentral()` are present in the consuming build's dependency repositories. For a build using centralized repositories, merge them into `android/settings.gradle`:
+
+```groovy
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+```
+
+If the build uses project-level repositories instead, add them to its existing `repositories` block. Installing the npm package does not add this Gradle dependency. Use a version whose POM and AAR are available from Central; `PUBLISHING` only confirms acceptance and does not yet guarantee downloads.
 
 ### CocoaPods compatibility through npm
 
@@ -480,7 +505,7 @@ Android uses a Gradle Android library, distributed as an AAR through Maven rathe
 packages/capacitor-native-ui-engine/android/gradlew -p packages/capacitor-native-ui-engine/android testDebugUnitTest assembleRelease connectedDebugAndroidTest publishReleasePublicationToVerificationRepository
 ```
 
-`NativeUIClippedView` applies position and clipping without resetting unchanged dimensions. Low-level integrations can retain their existing coordinate measurements and ordered bridge; the native registration owns these messages for new integrations. Android does not claim WKWebView-style native overflow binding.
+`NativeUIClippedView` is a low-level helper that applies caller-supplied position and clipping without resetting unchanged dimensions. `NativeUIProjection` manages image handoff and restoration; it does not use this helper to lay out the renderer. The consuming plugin owns normal native placement and size updates. Android does not claim WKWebView-style native overflow binding.
 
 `NativeUISnapshots` prepares composited PixelCopy images and local PNG files, then covers/restores from that cache. Encoding runs off the UI thread; only one preparation runs per owner. Notify it of visual changes and interaction, and release tokens on teardown. All view/lifecycle calls run on the UI thread. The plugin retains revision, eligibility and fallback policy.
 
@@ -500,7 +525,7 @@ The Native UI Android plugin declares the engine as a Maven dependency. For loca
 
 ## Maven publication
 
-The `Native UI Engine Maven Release` workflow is manually dispatched on `main` with the exact engine package version. That commit must first pass `Native UI Engine` CI. It signs an AAR, source archive, generated Kotlin API documentation and Maven metadata, verifies the consumer against the staged repository, publishes once, and builds the consumer again from Maven Central. Existing coordinates are never overwritten; if an upload times out, inspect the recorded deployment in Central before taking further action.
+The `Native UI Engine Maven Release` workflow is manually dispatched on `main` with the exact engine package version. That commit must first pass `Native UI Engine` CI. It signs an AAR, source archive, generated Kotlin API documentation and Maven metadata, verifies the consumer against the staged repository, uploads once, and completes when Central reports `PUBLISHING` or `PUBLISHED`. The deployment ID and state changes are recorded in the run summary. `PUBLISHING` means validation passed and Central accepted publication; it does not guarantee that artifacts can already be downloaded. This workflow does not wait for distribution. The npm release still requires the matching POM and AAR to be available on Maven Central. Existing coordinates are never overwritten; if an upload times out, inspect the recorded deployment in Central before taking further action.
 
 Configure the repository's Actions secrets with `CENTRAL_USERNAME`, `CENTRAL_PASSWORD` (a Central user token), `MAVEN_SIGNING_KEY` (ASCII-armored private key) and `MAVEN_SIGNING_PASSWORD`. The signing public key must be available to Central. These are the same credential types used by cf-workers-native; GitHub secrets are scoped to their repository and must be provisioned here separately.
 

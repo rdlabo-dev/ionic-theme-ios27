@@ -73,23 +73,8 @@ jobs:
           if-no-files-found: error
       - name: Verify the staged Maven consumer before publication
         run: packages/capacitor-native-ui-engine/android/gradlew -p packages/capacitor-native-ui/android -PnativeUIEngineRepository="$GITHUB_WORKSPACE/packages/capacitor-native-ui-engine/android/build/maven" :assembleRelease --console=plain
-      - name: Upload, validate and publish
+      - name: Upload and wait for Central publishing acceptance
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
         run: node scripts/native-ui-engine-release/publish.mjs
-      - name: Wait for Maven Central distribution
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
-        run: |
-          for attempt in $(seq 1 40); do
-            echo "Checking Maven distribution ($attempt/40)"
-            code=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "https://repo.maven.apache.org/maven2/io/github/rdlabo/native-ui-engine/$RELEASE_VERSION/native-ui-engine-$RELEASE_VERSION.pom")
-            if [ "$code" = 200 ]; then exit 0; fi
-            if [ "$code" != 404 ]; then echo "Central returned HTTP $code"; exit 1; fi
-            sleep 15
-          done
-          echo 'Publication completed but distribution is still pending; do not re-upload.'
-          exit 1
-      - name: Verify Maven Central consumer
-        run: packages/capacitor-native-ui-engine/android/gradlew -p packages/capacitor-native-ui/android --refresh-dependencies :assembleRelease --console=plain

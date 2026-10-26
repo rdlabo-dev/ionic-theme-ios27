@@ -29,19 +29,11 @@ The same Library screen with Native UI off and on, captured while dragging the s
 
 [![Web and native tab bars during the same drag, with enlarged glass details](screenshots/native-ui-drag/comparison.png)](screenshots/native-ui-drag/comparison.png)
 
-## Upcoming next release: 2.0.4-0
+## Native UI in 2.x
 
-The planned `ios27-v2.0.4-0` prerelease brings prepared native images beneath blocking Web overlays and restores live native controls after dismissal. Native UI uses the shared Native UI Engine for image handoff and scroll tracking. Images are noninteractive; when no usable image is available, controls retain their existing Web fallback.
+Native UI uses the shared Native UI Engine for prepared images beneath blocking Web overlays, native restoration after dismissal, and scroll tracking. Images are noninteractive; when no usable image is available, controls retain their existing Web fallback.
 
-After publication, install the matching preview packages and rebuild your native application:
-
-```sh
-npm install @rdlabo/capacitor-native-ui@2.0.4-0 @rdlabo/ionic-theme-ios27@2.0.4-0 @erkamyaman/capacitor-foldable
-npm run build
-npx cap sync
-```
-
-The theme is optional. Follow the [Native UI setup guide](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/setup) for application initialization. Native UI enables Ionic overlay support internally; applications do not need an additional Engine initializer.
+Keep Native UI and the optional theme on matching 2.x versions. After updating, build your Web application, run `npx cap sync`, and rebuild the native application. Follow the [Native UI setup guide](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/setup) for initialization. Native UI enables Ionic overlay support internally; applications do not need an additional Engine initializer.
 
 ## Choose what your app needs
 
@@ -75,7 +67,7 @@ The theme and `@rdlabo/capacitor-native-ui` remain MIT. Only [`@rdlabo/capacitor
 
 ## Maintenance
 
-The Engine, Native UI and theme use a shared release version. Before running `npm run release`, prepare the workspace versions, inter-package dependencies and lockfiles on `main`, and publish the matching Engine Maven artifact after that commit passes Engine CI. This applies to prereleases too: `2.0.4-0` needs its own Maven artifact; `2.0.3` cannot satisfy that dependency.
+The Engine, Native UI and theme use a shared release version. Before running `npm run release`, prepare the workspace versions, inter-package dependencies and lockfiles on `main`, and publish the matching Engine Maven artifact after that commit passes Engine CI. This applies to prereleases too: each npm version needs the matching Maven artifact.
 
 Then release from a clean, up-to-date `main` with `npm run release`, selecting the same target version. Keep the root version at the previous release until this command bumps it and creates the `ios27-v…` tag. The tag workflow verifies Maven availability and publishes npm packages in order: Engine, Native UI, theme. Prereleases use the npm `next` dist-tag. See the [Engine publication instructions](packages/capacitor-native-ui-engine/README.md#maven-publication) and [workflows](.github/workflows).
 

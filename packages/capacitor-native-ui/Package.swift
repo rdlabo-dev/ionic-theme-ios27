@@ -5,7 +5,7 @@ import Foundation
 // SwiftPM is the native dependency manager. A source checkout uses the sibling
 // target; installed plugins resolve the same library from an immutable Git ref.
 let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let engineRevision = "ios27-v2.0.3" // engine-revision: set by release/candidate packaging
+let engineRevision = "0178998db75cd906ed8cdb91868a6fc2a4fe8c72" // engine-revision: set by release/candidate packaging
 let workspace = directory.deletingLastPathComponent().deletingLastPathComponent()
 let isWorkspace = FileManager.default.fileExists(atPath: workspace.appendingPathComponent("packages/capacitor-native-ui-engine/Package.swift").path)
 let engine: Package.Dependency = isWorkspace

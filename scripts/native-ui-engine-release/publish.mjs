@@ -23,15 +23,20 @@ export async function publishBundle({ bundle, name, token, fetcher = fetch, wait
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Central returned an invalid deployment ID');
   await record(`Central deployment: ${id}`);
   // Never retry an upload: a timeout may have created a deployment already.
+  let previousState;
   for (let attempt = 0; attempt < 80; attempt++) {
     const { deploymentState } = await (await request(`status?id=${id}`)).json();
-    if (deploymentState === 'PUBLISHED') return id;
-    if (!['PENDING', 'VALIDATING', 'VALIDATED', 'PUBLISHING'].includes(deploymentState)) {
+    if (!['PENDING', 'VALIDATING', 'VALIDATED', 'PUBLISHING', 'PUBLISHED'].includes(deploymentState)) {
       throw new Error(`Central deployment ${id}: ${deploymentState}; inspect the Portal for details`);
     }
+    if (deploymentState !== previousState) {
+      await record(`Central deployment ${id}: ${deploymentState}`);
+      previousState = deploymentState;
+    }
+    if (deploymentState === 'PUBLISHING' || deploymentState === 'PUBLISHED') return id;
     await wait(15_000);
   }
-  throw new Error(`Central deployment ${id} is still pending; inspect it before retrying`);
+  throw new Error(`Central deployment ${id} did not reach publishing (last state: ${previousState}); inspect it before retrying`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
