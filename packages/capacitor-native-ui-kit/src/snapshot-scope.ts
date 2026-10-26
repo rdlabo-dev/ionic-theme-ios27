@@ -1,3 +1,16 @@
+interface SnapshotState {
+  owners: Set<HTMLElement>;
+  visibleOwners: Set<HTMLElement>;
+  preparedOwners: Set<HTMLElement>;
+}
+const states = new WeakMap<SnapshotScope, SnapshotState>();
+/** Internal to the kit; deliberately not exported from its public entry point. */
+export const snapshotState = (scope: SnapshotScope): SnapshotState => {
+  const state = states.get(scope);
+  if (!state) throw new Error('Use createSnapshotScope to create a snapshot scope');
+  return state;
+};
+
 /** One scope per plugin instance; share it between that plugin's presentation surfaces. */
 export const createSnapshotScope = (namespace: string) => {
   const coveredSourcesChanged = `${namespace}:sources-change`;
@@ -31,17 +44,29 @@ export const createSnapshotScope = (namespace: string) => {
   const snapshotTargetsChanged = `${namespace}:targets-change`;
 
   const preparedOwners = new Set<HTMLElement>();
-  return {
+  const scope = {
     coveredSourcesChanged,
     imageMarker,
-    owners,
-    visibleOwners,
+    get owners(): readonly HTMLElement[] {
+      return [...owners];
+    },
+    get visibleOwners(): readonly HTMLElement[] {
+      return [...visibleOwners];
+    },
     snapshotVisible,
     snapshotOwns,
     snapshotMutation,
-    snapshotTargets,
+    getTarget: (source: HTMLElement) => snapshotTargets.get(source),
+    setTarget: (source: HTMLElement, target: HTMLElement) => {
+      snapshotTargets.set(source, target);
+    },
+    deleteTarget: (source: HTMLElement) => snapshotTargets.delete(source),
     snapshotTargetsChanged,
-    preparedOwners,
+    get preparedOwners(): readonly HTMLElement[] {
+      return [...preparedOwners];
+    },
   };
+  states.set(scope, { owners, visibleOwners, preparedOwners });
+  return scope;
 };
 export type SnapshotScope = ReturnType<typeof createSnapshotScope>;

@@ -134,6 +134,23 @@ try {
   const consumer = join(dir, 'consumer.ts');
   writeFileSync(consumer, `
     import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
+    import type { SnapshotTransport } from '@rdlabo/capacitor-native-ui-kit';
+    async function snapshotContract(transport: SnapshotTransport) {
+      // @ts-expect-error A cover requires a prepared token.
+      transport.send({ action: 'cover' });
+      // @ts-expect-error Preparation requires the accepted revision and viewport.
+      transport.send({ action: 'prepare', ids: ['button'] });
+      // @ts-expect-error Restore requires destination frames and viewport width.
+      transport.send({ action: 'restore', token: 'image' });
+      const image = await transport.send({ action: 'prepare', revision: 1, viewportWidth: 390, ids: ['button'] });
+      if (image.token) image.parts.map(part => part.url);
+      const covered = await transport.send({ action: 'cover', token: 'image' });
+      const shown: boolean = covered.shown;
+      // @ts-expect-error A cover response is not a prepared capture.
+      covered.parts;
+      // @ts-expect-error A successful prepare must include its parts.
+      const incomplete: Awaited<ReturnType<typeof transport.send<{ action: 'prepare'; revision: number; viewportWidth: number; ids: string[] }>>> = { token: 'image' };
+    }
     async function start(root: HTMLElement) {
       const shell = await enableNativeUI({ root, controls: { tabs: false }, verticalBars: { enabled: true } });
       await shell.disableVerticalControlArea();

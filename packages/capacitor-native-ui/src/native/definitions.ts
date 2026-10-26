@@ -1,3 +1,4 @@
+import type { SnapshotTransport } from '@rdlabo/capacitor-native-ui-kit';
 import type { NativeUIExtension } from './extensions';
 import type { PluginListenerHandle } from '@capacitor/core';
 
@@ -303,15 +304,7 @@ export interface NativeUIPlugin {
     coveredSnapshots?: boolean;
     nativeScroll?: boolean;
   }>;
-  coveredSnapshot?(options: {
-    action: 'prepare' | 'cover' | 'painted' | 'restore' | 'restored' | 'release' | 'reset';
-    transient?: boolean;
-    parts?: (Frame & { ids: string[] })[];
-    revision?: number;
-    viewportWidth?: number;
-    ids?: string[];
-    token?: string;
-  }): Promise<Partial<CoveredSnapshot> & { shown?: boolean }>;
+  coveredSnapshot?: SnapshotTransport['send'];
   completeExtensionAction(options: { requestId: string; accepted: boolean }): Promise<void>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   getVerticalBarsGeometry(options: {

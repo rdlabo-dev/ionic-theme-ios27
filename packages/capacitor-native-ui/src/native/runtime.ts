@@ -1,7 +1,7 @@
 import { createScrollBindings } from '@rdlabo/capacitor-native-ui-kit';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
-import { snapshotMutation, snapshotOwns, snapshotVisible, coveredSourcesChanged } from './shared/covered-source';
+import { snapshotScope, snapshotMutation, coveredSourcesChanged } from './shared/covered-source';
 import { createCoveredSnapshots, type CoveredSnapshots } from './shared/covered-snapshot';
 import { createTabBarWidths } from './shared/tab-bar-width';
 import { createVerticalNavigation } from './shared/vertical-navigation';
@@ -215,7 +215,10 @@ export const createRuntime = async (
       crossfade.play(
         element,
         false,
-        instant || handoffInstant || snapshotVisible(element) || (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')),
+        instant ||
+          handoffInstant ||
+          snapshotScope.snapshotVisible(element) ||
+          (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')),
       );
     if (element.getAttribute('aria-hidden') === 'true') {
       const previous = sources.get(element);
@@ -251,7 +254,7 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    if (snapshotOwns(element)) return;
+    if (snapshotScope.snapshotOwns(element)) return;
     if (snapshots && movingModal(doc) && element.closest('ion-modal') === movingModal(doc) && isVerticalBarsSource(element)) return;
     if (options.root && !options.root.contains(element)) return;
     if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
@@ -941,7 +944,9 @@ export const createRuntime = async (
         if (candidate.control.kind === 'tab-bar' && candidate.control.placement !== 'vertical-bars' && width !== undefined)
           tabWidths.apply(candidate.element, width);
         const instant =
-          handoffInstant || candidateSources(candidate).some(snapshotVisible) || (committingNavigation && horizontalToolbar(candidate));
+          handoffInstant ||
+          candidateSources(candidate).some(snapshotScope.snapshotVisible) ||
+          (committingNavigation && horizontalToolbar(candidate));
         for (const element of candidateSources(candidate)) {
           const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
           if (!sources.has(element)) {

@@ -66,14 +66,24 @@ class NativeUIKitTest {
    val token=result.getString("token");val part=result.getJSONArray("parts").getJSONObject(0)
    val file=File(java.net.URI(part.getString("url")));assertTrue(file.exists())
    val image=BitmapFactory.decodeFile(file.path);assertEquals(Color.RED,image.getPixel(14,14));image.recycle()
+   val foregroundReady=CountDownLatch(1);var foreground=""
+   main{snapshots.prepare(activity.window,activity.web,activity.web.width.toDouble(),{mapOf("button" to RectF(20f,120f,180f,184f))}){foreground=it.optString("token");foregroundReady.countDown()}}
+   assertTrue(foregroundReady.await(10,TimeUnit.SECONDS));assertTrue(foreground.isNotEmpty())
    main {
-    assertTrue(snapshots.cover(token,activity.window,activity.web));assertTrue(snapshots.restore(token,activity.window,activity.web,entry=true))
-    snapshots.hide(token,listOf(native));assertEquals(View.INVISIBLE,native.visibility)
+    assertFalse(snapshots.cover("missing",activity.window,activity.web,listOf(native)))
+    assertEquals(View.VISIBLE,native.visibility)
+    assertTrue(snapshots.cover(token,activity.window,activity.web,listOf(native)))
+    assertTrue(snapshots.cover(foreground,activity.window,activity.web,listOf(native),transient=true))
+    assertEquals(token,snapshots.coveringToken)
+    snapshots.release(foreground)
+    assertEquals(token,snapshots.coveringToken)
+    assertTrue(snapshots.cover(token,activity.window,activity.web,listOf(native)))
+    assertEquals(View.INVISIBLE,native.visibility)
     snapshots.retireCopy("stale");assertTrue(snapshots.hidesNativeViews)
     snapshots.retireCopy(token);snapshots.restoreViews();assertEquals(View.VISIBLE,native.visibility)
     assertFalse(snapshots.restore(token,activity.window,activity.web,mapOf("button" to RectF(20f,120f,190f,184f))))
     assertTrue(snapshots.restore(token,activity.window,activity.web,mapOf("button" to RectF(8f,108f,192f,196f))));snapshots.retireCopy(token,entry=false)
-    snapshots.release(token);assertFalse(file.exists());assertFalse(snapshots.cover(token,activity.window,activity.web))
+    snapshots.release(token);assertFalse(file.exists());assertFalse(snapshots.cover(token,activity.window,activity.web,listOf(native)))
     snapshots.interaction(true);snapshots.reset()
    }
    val recovered=CountDownLatch(1);var recoveredToken:String?=null

@@ -167,7 +167,7 @@ class NativeUIPlugin : Plugin() {
                 generation++
                 val ids = token?.let(snapshots::identifiers) ?: emptySet()
                 val views = ids.mapNotNull { entries[it]?.clip }
-                val shown = !paused && ids.isNotEmpty() && views.size == ids.size && snapshots.cover(token!!, activity.window, web, views)
+                val shown = !paused && ids.isNotEmpty() && views.size == ids.size && snapshots.cover(token!!, activity.window, web, views, call.getBoolean("transient", false) == true)
                 call.resolve(JSObject().put("shown", shown))
             }
             "painted", "restored" -> {

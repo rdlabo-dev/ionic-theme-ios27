@@ -96,6 +96,38 @@ const images = await createSnapshotHandoff(
 5. After the overlay closes, call `images.end()`, send the normal native update, then call `images.updated(snapshotToken, acceptedIDs, revision)`. Only a newer ACK covering all captured IDs retires the Web image.
 6. Call `images.destroy()` on surface teardown. It releases only its tokens and listener. The plugin owns the final native reset, so destroying one surface cannot invalidate another plugin or overlay.
 
+### Scope and transport contract
+
+Ownership belongs to the handoff managers. `scope.owners`, `scope.visibleOwners` and `scope.preparedOwners` return read-only array snapshots; mutating a returned copy cannot change the kit's state. Use `snapshotOwns(element)` and `snapshotVisible(element)` for containment checks. Do not cache the arrays across updates.
+
+A renderer that uses a separate DOM display proxy registers it with `scope.setTarget(source, target)`, reads it with `scope.getTarget(source)`, and unregisters it with `scope.deleteTarget(source)`. After completing a batch of proxy changes, dispatch `new Event(scope.snapshotTargetsChanged)` on the document's window. Listen for `scope.coveredSourcesChanged` to update proxy visibility. This explicit batch boundary avoids a reconciliation for every individual proxy. The handoff manager's `target` callback selects the appropriate registered proxy; ordinary elements can remain their own targets.
+
+`SnapshotRequest` is an action-discriminated union. `prepare` requires `revision`, `viewportWidth` and `ids`; `cover` requires `token`; `restore` requires `token`, `viewportWidth` and destination `parts`; `painted`, `restored` and `release` require `token`; `reset` takes no payload. `SnapshotResult<Request>` gives the corresponding response:
+
+- `prepare`: a complete `{ token, parts }`, or `{}` when capture is unavailable. Never return a partial capture.
+- `cover` and `restore`: `{ shown: boolean }`.
+- `painted`, `restored`, `release` and `reset`: no response data.
+
+Implement the transport through the plugin's existing ordered bridge. Reject the promise for transport failures; report unavailable capture or presentation with the result above. Responses from the native bridge are still validated at runtime. The kit does not add a bridge or retry user actions.
+
+### Native handoff on both platforms
+
+Call all view and snapshot lifecycle APIs on the main/UI thread. Native input frames use **points relative to the WebView on iOS** and **physical pixels relative to the reference view on Android**. `viewportWidth` is the Web viewport width in CSS pixels. Prepared parts sent to JavaScript are converted to CSS pixels.
+
+On both platforms, `cover` installs the prepared entry image **before hiding the supplied live views**, within the same UI turn. Its boolean result reports whether this was possible; failure leaves visibility unchanged. Supply the actual views for every captured component. Do not separately hide views or create another entry copy.
+
+```swift
+let shown = snapshots.cover(token, in: webView, views: renderedViews, transient: movingSurface)
+```
+
+```kotlin
+val shown = snapshots.cover(token, activity.window, webView, renderedViews, transient = movingSurface)
+```
+
+`transient: true` is for a moving foreground surface: it does not replace the background's `coveringToken`. Retire the entry copy with `retireCopy(token)` after Web image readiness. Before applying a normal native update, undo the kit's visibility changes with iOS `restoreControls()` / Android `restoreViews()`. For return, `restore` installs the cached return image, the plugin renders underneath it, and `retireCopy(token, entry: false)` retires it after the corresponding acknowledgement/readiness. These platform-native names remain idiomatic; the lifecycle is the same. `cover` is an entry operation, not a method to repeat on each normal update.
+
+Token cleanup uses `release(token)`; owner teardown uses `reset()` (and Android `close()` when disposing its encoder). A surface manager must not reset another surface's captures. Web fallback remains the renderer's responsibility when a capture or native placement is unavailable.
+
 Optional `eligible(source)`, `target(source, capturedPlacement)` and `current(sources)` callbacks keep framework-specific surface selection and display proxies outside the kit. `transient: true` supports a moving surface whose return image must be rebased. Arbitrary CSS transforms are not supported by native scroll tracking; such movement can use this image path.
 
 The image transport accepts `SnapshotRequest` and returns prepared token/parts or `{ shown: false }`. Parts use local `file:` URLs and CSS-pixel viewport coordinates. Requests use the plugin's existing ordered bridge:

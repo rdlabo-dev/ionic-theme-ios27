@@ -139,17 +139,18 @@ public final class NativeUICoveredSnapshots {
         }
     }
 
-    @discardableResult public func cover(_ token: String, in webView: UIView) -> Bool {
-        guard let capture = captures[token], let window = webView.window, window.bounds.size == capture.size,
-              webView.convert(webView.bounds, to: window) == capture.webFrame else { return false }
-        if coveringToken != token { generation += 1 }
-        coveringToken = token
+    /// Install prepared pixels before hiding live views, within the same main-thread turn.
+    /// A transient (moving) surface does not replace background covering ownership.
+    @discardableResult public func cover(_ token: String, in webView: UIView, views: [UIView], transient: Bool = false) -> Bool {
+        guard restore(in: webView, token: token, entry: true) else { return false }
+        if !transient { coveringToken = token }
+        hide(views, for: token)
         return true
     }
 
     public var hidesNativeControls: Bool { hiddenControls != nil }
 
-    public func hide(_ views: [UIView], for token: String) {
+    private func hide(_ views: [UIView], for token: String) {
         generation += 1
         restoreControls()
         hiddenControls = (token, views.map { view in

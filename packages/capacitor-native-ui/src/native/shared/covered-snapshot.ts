@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { createSnapshotHandoff } from '@rdlabo/capacitor-native-ui-kit';
 import type { NativeUIPlugin } from '../definitions';
-import { snapshotScope, snapshotTargets } from './covered-source';
+import { snapshotScope } from './covered-source';
 
 /** Ionic decides surface ownership; the kit owns pixels, timing and restoration. */
 export const createCoveredSnapshots = (
@@ -28,7 +28,7 @@ export const createCoveredSnapshots = (
           ? !!callbacks.modal() && source.element.closest('ion-modal') === callbacks.modal() && source.control.placement === 'vertical-bars'
           : !source.element.closest('ion-modal'),
       target: (source, placement) => {
-        const projection = snapshotTargets.get(source);
+        const projection = snapshotScope.getTarget(source);
         // Only rail images use a display proxy; element images stay on their source.
         const rail = placement === 'vertical-bars';
         return rail && (projection || source.matches('ion-button, ion-buttons, ion-back-button, ion-menu-button'))

@@ -262,7 +262,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
 
     @objc func coveredSnapshot(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
-            guard let self, let webView = self.bridge?.webView else { call.resolve([:]); return }
+            guard let self, let webView = self.bridge?.webView else { call.reject("WebView unavailable"); return }
             switch call.getString("action") {
             case "prepare":
                 guard call.getInt("revision") == self.revision, let width = call.getDouble("viewportWidth"), width > 0,
@@ -311,15 +311,13 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 let railIDs = Set(self.snapshotControls.filter { $0.placement == .verticalBars }.map(\.id))
                 // A shared rail can only retire when every one of its controls has a prepared image.
                 guard !ids.isEmpty, Set(self.snapshotControls.map(\.id)).isSuperset(of: ids),
-                      ids.isDisjoint(with: railIDs) || ids.isSuperset(of: railIDs),
-                      (call.getBool("transient") == true || self.coveredSnapshots.cover(token, in: webView)),
-                      self.coveredSnapshots.restore(in: webView, token: token, entry: true) else {
+                      ids.isDisjoint(with: railIDs) || ids.isSuperset(of: railIDs) else {
                     call.resolve(["shown": false]); return
                 }
                 var views = Array(self.controls.filter { ids.contains($0.key) }.values)
                 if !railIDs.isEmpty, ids.isSuperset(of: railIDs), let rail = self.verticalBars { views.append(rail.view) }
-                self.coveredSnapshots.hide(views, for: token)
-                call.resolve(["shown": true])
+                let shown = self.coveredSnapshots.cover(token, in: webView, views: views, transient: call.getBool("transient") == true)
+                call.resolve(["shown": shown])
             case "painted":
                 if let token = call.getString("token") { self.coveredSnapshots.retireCopy(token) }
                 call.resolve()
@@ -501,10 +499,9 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 call.reject("Invalid control snapshot"); return
             }
             self.coveredSnapshots.restoreControls()
-            if let token = snapshot.coveredSnapshotToken {
-                self.coveredSnapshots.cover(token, in: webView)
+            if snapshot.coveredSnapshotToken == nil && self.coveredSnapshots.covering {
+                _ = self.coveredSnapshots.restore(in: webView)
             }
-            else if self.coveredSnapshots.covering { _ = self.coveredSnapshots.restore(in: webView) }
             defer {
                 if snapshot.coveredSnapshotToken == nil {
                     self.coveredSnapshots.finishCovering()

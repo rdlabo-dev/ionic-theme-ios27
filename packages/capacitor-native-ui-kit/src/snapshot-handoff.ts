@@ -1,5 +1,5 @@
 import type { SnapshotSource as Candidate, PreparedSnapshot as CoveredSnapshot, Frame, SnapshotTransport } from './types.js';
-import type { SnapshotScope } from './snapshot-scope.js';
+import { snapshotState, type SnapshotScope } from './snapshot-scope.js';
 import { bounded, boundedListener } from './bridge.js';
 import { projectionAncestors } from './geometry.js';
 import { snapshotStyles } from './snapshot-styles.js';
@@ -80,7 +80,8 @@ export const createSnapshotHandoff = async (
 ) => {
   const win = doc.defaultView!;
   const call = transport.send.bind(transport);
-  const { imageMarker, owners, visibleOwners, preparedOwners, coveredSourcesChanged, snapshotTargetsChanged } = scope;
+  const { imageMarker, coveredSourcesChanged, snapshotTargetsChanged } = scope;
+  const { owners, visibleOwners, preparedOwners } = snapshotState(scope);
   const sheets = new Map<Document | ShadowRoot, { base: HTMLStyleElement; image: HTMLStyleElement }>();
   const rootFor = (element: HTMLElement) => {
     const root = element.getRootNode();
@@ -582,7 +583,7 @@ export const createSnapshotHandoff = async (
       .then((result) => {
         if (!isCurrent()) return;
         handoffPending = false;
-        if (result?.shown === false) {
+        if (result?.shown !== true) {
           abandon(image, false);
           return;
         }

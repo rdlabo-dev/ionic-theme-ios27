@@ -114,16 +114,16 @@ class NativeUISnapshots(private val directory: File) : AutoCloseable {
     private fun valid(token: String, window: Window, reference: View): Capture? = captures[token]?.takeIf {
         window.decorView.width == it.width && window.decorView.height == it.height && origin(reference) == it.origin && reference.width == it.referenceWidth && reference.height == it.referenceHeight
     }
-    fun cover(token: String, window: Window, reference: View, views: List<View> = emptyList()): Boolean {
+    fun cover(token: String, window: Window, reference: View, views: List<View>, transient: Boolean = false): Boolean {
         onMain()
         // Composite pixels cover both the live translucent view and its Web replacement.
         // Install the entry copy before changing native visibility in the same UI turn.
         if (!restore(token, window, reference, entry = true)) return false
-        coveringToken = token; generation++
-        if (views.isNotEmpty()) hide(token, views)
+        if (!transient) coveringToken = token
+        hide(token, views)
         return true
     }
-    fun hide(token: String, views: List<View>) {
+    private fun hide(token: String, views: List<View>) {
         onMain(); restoreViews(); generation++
         hidden = token to views.map { it to it.visibility }.also { saved -> saved.forEach { it.first.visibility = View.INVISIBLE } }
     }

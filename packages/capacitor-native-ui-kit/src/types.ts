@@ -27,21 +27,25 @@ export interface PreparedSnapshot {
   token: string;
   parts: (Frame & { ids: string[]; url: string })[];
 }
-export interface SnapshotRequest {
-  action: 'prepare' | 'cover' | 'painted' | 'restore' | 'restored' | 'release' | 'reset';
-  transient?: boolean;
-  parts?: (Frame & { ids: string[] })[];
-  revision?: number;
-  viewportWidth?: number;
-  ids?: string[];
-  token?: string;
-}
+/** Each action carries only the fields required by that phase of handoff. */
+export type SnapshotRequest =
+  | { action: 'prepare'; revision: number; viewportWidth: number; ids: string[] }
+  | { action: 'cover'; token: string; transient?: boolean }
+  | { action: 'restore'; token: string; viewportWidth: number; parts: (Frame & { ids: string[] })[] }
+  | { action: 'painted' | 'restored' | 'release'; token: string }
+  | { action: 'reset' };
+/** Empty prepare results mean capture is unavailable; a partial capture is never valid. */
+export type SnapshotResult<Request extends SnapshotRequest> = Request extends { action: 'prepare' }
+  ? PreparedSnapshot | { token?: never; parts?: never }
+  : Request extends { action: 'cover' | 'restore' }
+    ? { shown: boolean }
+    : void;
 export interface ListenerHandle {
   remove(): Promise<void> | void;
 }
 /** Implement with the owning plugin's existing ordered transport. No kit plugin registration. */
 export interface SnapshotTransport {
-  send(request: SnapshotRequest): Promise<Partial<PreparedSnapshot> & { shown?: boolean }>;
+  send<Request extends SnapshotRequest>(request: Request): Promise<SnapshotResult<Request>>;
   listen(listener: (event: { active: boolean }) => void): Promise<ListenerHandle>;
   resolveURL(fileURL: string): string;
 }

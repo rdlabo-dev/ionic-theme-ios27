@@ -1,16 +1,6 @@
 import { createSnapshotScope } from '@rdlabo/capacitor-native-ui-kit';
 export const snapshotScope = createSnapshotScope('native-ui');
-export const {
-  coveredSourcesChanged,
-  imageMarker,
-  owners,
-  visibleOwners,
-  preparedOwners,
-  snapshotTargets,
-  snapshotTargetsChanged,
-  snapshotVisible,
-  snapshotOwns,
-} = snapshotScope;
+export const { coveredSourcesChanged, imageMarker, snapshotTargetsChanged } = snapshotScope;
 export const snapshotMutation = (record: MutationRecord) => {
   if (snapshotScope.snapshotMutation(record)) return true;
   // Ionic clones/proxies copy presentation state without changing the source.

@@ -148,7 +148,7 @@ test('cover refusal restores Web and removes snapshot ownership', async ({ page 
   });
   await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
   await expect(page.locator('button')).toBeVisible();
-  expect(await page.evaluate(() => (window as any).scope.owners.size)).toBe(0);
+  expect(await page.evaluate(() => (window as any).scope.owners.length)).toBe(0);
 });
 test('interaction keeps the completed pre-interaction image', async ({ page }) => {
   await prepare(page);
@@ -174,7 +174,7 @@ test('destruction releases only owned tokens, listeners and CSS', async ({ page 
       const w = window as any;
       return {
         removed: w.removed,
-        owners: w.scope.owners.size,
+        owners: w.scope.owners.length,
         reset: w.calls.some((c: any) => c.action === 'reset'),
         released: w.calls.some((c: any) => c.action === 'release'),
         styles: document.querySelectorAll('style[data-native-ui-snapshot]').length,
@@ -190,10 +190,10 @@ test('plugin scopes do not share ownership or events', async ({ page }) => {
         a = w.kit.createSnapshotScope('ads'),
         b = w.kit.createSnapshotScope('ui'),
         source = document.querySelector('#source');
-      a.owners.add(source);
-      return [b.owners.size, a.coveredSourcesChanged !== b.coveredSourcesChanged];
+      a.owners.push(source); // Mutating the returned copy cannot change ownership.
+      return [a.snapshotOwns(source), a.owners.length, b.owners.length, a.coveredSourcesChanged !== b.coveredSourcesChanged];
     }),
-  ).toEqual([0, true]);
+  ).toEqual([false, 0, 0, true]);
 });
 for (const rtl of [false, true])
   test(`fractional layout and direction remain intact (${rtl ? 'RTL' : 'LTR'})`, async ({ page }) => {
@@ -300,7 +300,7 @@ test('destroying one plugin restores its proxy and leaves another plugin image a
     await page.evaluate(() => {
       const w = window as any;
       return {
-        owners: w.secondScope.owners.size,
+        owners: w.secondScope.owners.length,
         removed: !!w.secondRemoved,
         opacity: getComputedStyle(document.querySelector('#second')!, '::before').opacity,
       };
@@ -326,7 +326,7 @@ for (const surface of [false, true])
           visible: document.querySelector('#source')!.hasAttribute('data-native-ui-snapshot-visible'),
           layerDisplay: layer && getComputedStyle(layer).display,
           pending: w.manager.handoffPending,
-          visibleOwners: w.scope.visibleOwners.size,
+          visibleOwners: w.scope.visibleOwners.length,
           painted: w.calls.some((call: any) => call.action === 'painted'),
         };
       }),
@@ -353,4 +353,17 @@ test('a late cover reply cannot expose a reopened cached image before its own co
   await page.evaluate(() => (window as any).coverReplies.shift()({ shown: true }));
   await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
   expect(await page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'prepare').length)).toBe(1);
+});
+
+test('cover without a positive acknowledgement restores Web ownership', async ({ page }) => {
+  await prepare(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdCover = true;
+    w.manager.begin();
+    w.coverReplies.shift()({});
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).scope.owners.length)).toBe(0);
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  expect(await page.evaluate(() => (window as any).manager.token)).toBeUndefined();
 });

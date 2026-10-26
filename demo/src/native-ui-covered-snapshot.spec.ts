@@ -1,9 +1,4 @@
-import {
-  snapshotOwns,
-  snapshotTargets,
-  preparedOwners,
-  snapshotMutation,
-} from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+import { snapshotScope, snapshotMutation } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createCoveredSnapshots } from '../../packages/capacitor-native-ui/src/native/shared/covered-snapshot';
 import type { NativeUIPlugin } from '../../packages/capacitor-native-ui/src/native/definitions';
@@ -29,7 +24,7 @@ const fixture = async (modal?: HTMLIonModalElement) => {
     candidate.control.placement = 'vertical-bars';
     const clone = document.createElement('ion-button');
     modal.append(clone);
-    snapshotTargets.set(button, clone);
+    snapshotScope.setTarget(button, clone);
   }
   let interaction: (event: { active: boolean }) => void = () => {};
   let serial = 0;
@@ -76,7 +71,7 @@ test('pins the pre-touch image across disabled updates and restores ownership on
   await started;
   expect(f.bridge.mock.calls.filter(([args]) => args.action === 'prepare')).toHaveLength(1);
   expect(f.manager.token).toBe('image-1');
-  expect(snapshotOwns(f.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(true);
   expect(document.querySelectorAll('style[data-native-ui-snapshot]')).toHaveLength(1);
   expect(document.querySelectorAll('img')).toHaveLength(0);
   expect(f.manager.begin()).toBeUndefined();
@@ -84,7 +79,7 @@ test('pins the pre-touch image across disabled updates and restores ownership on
   await vi.advanceTimersByTimeAsync(40);
   f.manager.updated(undefined, ['button'], 3);
   await drain();
-  expect(snapshotOwns(f.button)).toBe(false);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(false);
   expect(document.querySelectorAll('img')).toHaveLength(0);
   expect(f.bridge).toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
 });
@@ -150,7 +145,7 @@ test('entry returns without waiting but keeps Web pixels hidden until the native
   f.bridge.mockClear();
   f.bridge.mockImplementation(() => new Promise(() => {}));
   expect(f.manager.begin()).toBeUndefined();
-  expect(snapshotOwns(f.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(true);
   expect(f.bridge).toHaveBeenCalledWith({ action: 'cover', token: 'image-1' });
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
   // Cleanup is not the subject of the stalled-bridge test.
@@ -308,7 +303,7 @@ test('a stalled native restoration releases the image and Web ownership promptly
   f.manager.end();
   await vi.advanceTimersByTimeAsync(251);
   expect(f.manager.token).toBeUndefined();
-  expect(snapshotOwns(f.button)).toBe(false);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(false);
   expect(document.querySelectorAll('img')).toHaveLength(0);
   f.manager.consider(2, [f.candidate]);
   await drain();
@@ -324,7 +319,7 @@ test('a failed native cover notification releases ownership to ordinary Web proj
   f.manager.begin();
   await vi.advanceTimersByTimeAsync(0);
   expect(f.manager.token).toBeUndefined();
-  expect(snapshotOwns(f.button)).toBe(false);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(false);
   expect(document.querySelectorAll('img')).toHaveLength(0);
 });
 
@@ -423,21 +418,21 @@ test('moving modal keeps the background cache and resumes only after its own con
   const modal = document.createElement('ion-modal');
   document.body.append(modal);
   const foreground = await fixture(modal);
-  const clone = snapshotTargets.get(foreground.button)!;
+  const clone = snapshotScope.getTarget(foreground.button)!;
   clone.getBoundingClientRect = () => DOMRect.fromRect({ x: 13, y: 14, width: 48, height: 48 });
   foreground.manager.consider(2, [foreground.candidate]);
   await drain();
-  expect(preparedOwners.has(background.button)).toBe(true);
-  expect(preparedOwners.has(foreground.button)).toBe(true);
+  expect(snapshotScope.preparedOwners.includes(background.button)).toBe(true);
+  expect(snapshotScope.preparedOwners.includes(foreground.button)).toBe(true);
   foreground.manager.begin();
   await drain();
   expect(foreground.bridge).toHaveBeenCalledWith({ action: 'cover', token: 'image-1', transient: true });
-  expect(snapshotOwns(background.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(background.button)).toBe(true);
   clone.getBoundingClientRect = () => DOMRect.fromRect({ x: 394, y: 339, width: 48, height: 48 });
   foreground.bridge.mockImplementation(async (args) => (args.action === 'restore' ? new Promise(() => {}) : { shown: true }));
   foreground.manager.end();
-  expect(snapshotOwns(foreground.button)).toBe(false);
-  expect(snapshotOwns(background.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(foreground.button)).toBe(false);
+  expect(snapshotScope.snapshotOwns(background.button)).toBe(true);
   expect(foreground.bridge).toHaveBeenCalledWith(
     expect.objectContaining({ action: 'restore', parts: [expect.objectContaining({ x: 382, y: 327 })] }),
   );
@@ -446,8 +441,8 @@ test('moving modal keeps the background cache and resumes only after its own con
   expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
   foreground.manager.updated(background.manager.token, ['button'], 3);
   expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
-  expect(preparedOwners.has(background.button)).toBe(true);
-  expect(snapshotOwns(background.button)).toBe(true);
+  expect(snapshotScope.preparedOwners.includes(background.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(background.button)).toBe(true);
   await foreground.manager.destroy();
   expect(foreground.bridge.mock.calls.some(([args]) => args.action === 'reset')).toBe(false);
 });
@@ -483,7 +478,7 @@ test.each(['segment', 'floating-action-button'] as const)('%s reuses the prepare
   expect(f.bridge).toHaveBeenCalledWith(expect.objectContaining({ action: 'prepare', ids: ['button'] }));
   f.manager.begin();
   await vi.advanceTimersByTimeAsync(0);
-  expect(snapshotOwns(f.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(true);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
 });
 
@@ -495,7 +490,7 @@ test('an overlay retirement cannot invalidate the prepared pre-overlay layout', 
   f.manager.consider(2, []);
   f.manager.begin();
   expect(f.bridge).toHaveBeenCalledWith({ action: 'cover', token: 'image-1' });
-  expect(snapshotOwns(f.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(true);
 });
 
 test.each(['button', 'button-group', 'back-button', 'menu-button', 'tab-bar', 'segment', 'floating-action-button', 'extension'] as const)(
@@ -554,7 +549,7 @@ test('cache retirement preserves the host-owned prepared marker', async () => {
   const modal = document.createElement('ion-modal');
   document.body.append(modal);
   const f = await fixture(modal);
-  const clone = snapshotTargets.get(f.button)!;
+  const clone = snapshotScope.getTarget(f.button)!;
   clone.setAttribute('data-native-ui-snapshot-prepared', '');
   f.manager.consider(1, [f.candidate]);
   await drain();
@@ -563,7 +558,7 @@ test('cache retirement preserves the host-owned prepared marker', async () => {
   expect(clone.hasAttribute('data-native-ui-snapshot')).toBe(false);
   expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
   expect(clone.hasAttribute('data-native-ui-snapshot-prepared')).toBe(true);
-  expect(preparedOwners.has(f.button)).toBe(false);
+  expect(snapshotScope.preparedOwners.includes(f.button)).toBe(false);
 });
 
 test('a departing modal image cannot restore onto the newly exposed modal', async () => {
@@ -578,7 +573,7 @@ test('a departing modal image cannot restore onto the newly exposed modal', asyn
   f.callbacks.modal = () => parent;
   f.manager.end();
   expect(f.bridge.mock.calls.some(([args]) => args.action === 'restore')).toBe(false);
-  expect(snapshotOwns(f.button)).toBe(false);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(false);
   expect(f.manager.token).toBeUndefined();
 });
 
@@ -617,7 +612,7 @@ test.each([0, 10])('modal image reuse follows returned coordinates (movement: %s
   await drain();
   f.manager.begin();
   await drain();
-  const clone = snapshotTargets.get(f.button)!;
+  const clone = snapshotScope.getTarget(f.button)!;
   clone.getBoundingClientRect = () => DOMRect.fromRect({ y: movement, width: 48, height: 48 });
   const style = window.getComputedStyle.bind(window);
   vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) =>
@@ -645,12 +640,12 @@ test('card images share the presenting page composition without moving their sou
   expect(layer.querySelector('img')?.style.left).toBe('1px');
   expect(f.button.parentElement).toBe(originalParent);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
-  expect(snapshotOwns(f.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(true);
   expect(f.bridge.mock.calls.filter(([args]) => args.action === 'prepare')).toHaveLength(1);
   f.manager.end();
   f.manager.updated(undefined, ['button'], 2);
   expect(layer.isConnected).toBe(false);
-  expect(snapshotOwns(f.button)).toBe(false);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(false);
   // A later presentation reuses the same decoded layer; no accumulation.
   f.manager.begin(page);
   expect(page.querySelector('[data-native-ui-snapshot-layer]')).toBe(layer);
@@ -681,7 +676,7 @@ test.each(['cover-false', 'cover-error', 'painted-error'])('ignores a previous p
   else fail(new Error('Delayed previous presentation failure'));
   await vi.advanceTimersByTimeAsync(0);
   expect(f.manager.token).toBe('image-1');
-  expect(snapshotOwns(f.button)).toBe(true);
+  expect(snapshotScope.snapshotOwns(f.button)).toBe(true);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
 });
 
@@ -689,7 +684,7 @@ test('a scaled modal restores the captured image at its current viewport size an
   const modal = document.createElement('ion-modal');
   document.body.append(modal);
   const f = await fixture(modal);
-  const target = snapshotTargets.get(f.button)!;
+  const target = snapshotScope.getTarget(f.button)!;
   Object.assign(target.style, { width: '127.5px', height: '63.25px', boxSizing: 'border-box', border: '3px solid black' });
   let x = 10.25,
     y = 20.5,
@@ -725,7 +720,7 @@ test('a source moved from rail to element keeps its image on the source after ta
   const f = await fixture();
   const proxy = document.createElement('button');
   document.body.append(proxy);
-  snapshotTargets.set(f.button, proxy);
+  snapshotScope.setTarget(f.button, proxy);
   f.candidate.control.placement = 'vertical-bars';
   f.manager.consider(1, [f.candidate]);
   await drain();
