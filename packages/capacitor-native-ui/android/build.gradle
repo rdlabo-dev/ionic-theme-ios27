@@ -46,7 +46,7 @@ android {
         sourceSets {
             debug {
                 java.srcDirs += 'fixtures/debug/java'
-                assets.srcDirs += 'fixtures/debug/assets'
+                assets.srcDirs += ['fixtures/debug/assets', layout.buildDirectory.dir('generated/kit-fixture-assets').get().asFile]
                 manifest.srcFile 'fixtures/debug/AndroidManifest.xml'
             }
             androidTest.java.srcDirs += 'fixtures/androidTest/java'
@@ -69,7 +69,7 @@ repositories {
 
 dependencies {
     def kitVersion = new groovy.json.JsonSlurper().parse(file('../package.json')).dependencies['@rdlabo/capacitor-native-ui-kit']
-    implementation "dev.rdlabo.capacitor:native-ui-kit:$kitVersion"
+    implementation "io.github.rdlabo:native-ui-kit:$kitVersion"
     api platform("androidx.compose:compose-bom:2025.10.00")
     api "androidx.compose.ui:ui"
     api "androidx.compose.foundation:foundation"
@@ -81,4 +81,17 @@ dependencies {
     testImplementation "org.json:json:20250517"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+}
+
+if (project.hasProperty('nativeUIKitIntegrationTest')) {
+    def kitSource = file('../../capacitor-native-ui-kit/src')
+    def fixtureBundle = layout.buildDirectory.file('generated/kit-fixture-assets/public/native-ui-kit.js')
+    def bundleFixture = tasks.register('bundleNativeUIKitFixture', Exec) {
+        inputs.dir kitSource
+        outputs.file fixtureBundle
+        commandLine file('../../../node_modules/.bin/esbuild').absolutePath,
+            new File(kitSource, 'index.ts').absolutePath, '--bundle', '--format=iife',
+            '--global-name=NativeUIKit', "--outfile=${fixtureBundle.get().asFile.absolutePath}"
+    }
+    tasks.matching { it.name == 'preDebugBuild' }.configureEach { dependsOn bundleFixture }
 }

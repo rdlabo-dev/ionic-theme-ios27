@@ -15,7 +15,10 @@ public final class NativeUICoveredSnapshots {
         let parts: [Part]
     }
     private let snapshotView: (UIWindow) -> UIView
-    public init(snapshotView: @escaping (UIWindow) -> UIView = { $0.screen.snapshotView(afterScreenUpdates: false) }) {
+    public convenience init() {
+        self.init(snapshotView: { $0.screen.snapshotView(afterScreenUpdates: false) })
+    }
+    init(snapshotView: @escaping (UIWindow) -> UIView) {
         self.snapshotView = snapshotView
     }
     private var captures: [String: Capture] = [:]
@@ -229,7 +232,7 @@ public final class NativeUICoveredSnapshots {
 private final class SnapshotTouchObserver: UIGestureRecognizer {
     private let changed: (Bool) -> Void
     private var touches = Set<UITouch>()
-    public init(changed: @escaping (Bool) -> Void) {
+    init(changed: @escaping (Bool) -> Void) {
         self.changed = changed
         super.init(target: nil, action: nil)
         cancelsTouchesInView = false

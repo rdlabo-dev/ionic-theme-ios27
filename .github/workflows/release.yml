@@ -653,7 +653,7 @@ jobs:
           }
           if (EXPECTED_NAME === theme) {
             assert.match(EXPECTED_VERSION, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
-            const base = `https://repo.maven.apache.org/maven2/dev/rdlabo/capacitor/native-ui-kit/${EXPECTED_VERSION}/native-ui-kit-${EXPECTED_VERSION}`;
+            const base = `https://repo.maven.apache.org/maven2/io/github/rdlabo/native-ui-kit/${EXPECTED_VERSION}/native-ui-kit-${EXPECTED_VERSION}`;
             for (const extension of ['pom', 'aar']) execFileSync('curl', ['--fail', '--silent', '--show-error', '--head', '--max-time', '30', `${base}.${extension}`]);
           }
           const pending = [];

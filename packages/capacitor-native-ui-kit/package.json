@@ -1,7 +1,7 @@
 {
   "name": "@rdlabo/capacitor-native-ui-kit",
   "version": "2.0.3",
-  "description": "Native UI infrastructure for Capacitor plugin authors: placement, scroll tracking, and snapshot handoff.",
+  "description": "Native UI infrastructure for Capacitor plugin maintainers: placement, scroll tracking, and snapshot handoff.",
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -18,7 +18,6 @@
   "files": [
     "dist",
     "ios/Sources",
-    "Package.swift",
     "CapacitorNativeUIKit.podspec",
     "README.md",
     "LICENSE"

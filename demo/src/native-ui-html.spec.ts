@@ -994,7 +994,9 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
       document.querySelector('ion-app')!.append(child);
       const next = { ...configure(child, index), source: button };
       child.dispatchEvent(new Event('ionModalWillPresent', { bubbles: true }));
-      for (const previous of surfaces) expect(previous.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+      await vi.waitFor(() => {
+        for (const previous of surfaces) expect(previous.source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+      });
       child.dispatchEvent(new Event('ionModalDidPresent', { bubbles: true }));
       surfaces.push(next);
       await vi.waitFor(() => expect(button.hasAttribute('data-native-ui-snapshot')).toBe(true));

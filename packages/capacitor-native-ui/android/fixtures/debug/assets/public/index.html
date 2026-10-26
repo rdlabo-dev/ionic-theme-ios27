@@ -2,12 +2,21 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="native-ui-kit.js"></script>
   </head>
   <body style="margin: 0; background: repeating-linear-gradient(90deg, rgb(40, 80, 120) 0px 20px, rgb(180, 160, 60) 20px 40px)">
+    <div id="source" style="position: absolute; left: 20px; top: 100px; width: 160px; height: 64px"></div>
     <script>
-      const send = (method, options = {}) => Capacitor.nativePromise('NativeUI', method, options);
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      let revision = 0;
+      const until = async (condition, description) => {
+        const deadline = performance.now() + 5000;
+        while (!condition()) {
+          if (performance.now() >= deadline) throw Error(description);
+          await wait(10);
+        }
+      };
+      const source = document.getElementById('source');
+      const scope = NativeUIKit.createSnapshotScope('acceptance');
       const node = {
         id: 'fixture',
         kind: 'extension',
@@ -17,35 +26,107 @@
         height: 64,
         extension: { name: 'kit.fixture', props: '{}', actions: {} },
       };
-      const update = (controls, token) =>
-        send('update', { revision: ++revision, viewportWidth: innerWidth, controls, coveredSnapshotToken: token });
+      let revision = 0;
+      let delay = 0;
+      let manager;
+      let requests = Promise.resolve();
+      let painted = 0;
+      let restored = 0;
+      let frame = 0;
+      let syncing = false;
+      let dirty = false;
+      let stopped = false;
+      let signature = '';
+      let failure;
+      // Delay native delivery of cover, preserving FIFO for BOTH snapshots and updates.
+      const send = (method, options = {}) => {
+        const response = requests.then(async () => {
+          if (method === 'coveredSnapshot' && options.action === 'cover' && delay) await wait(delay);
+          return Capacitor.nativePromise('NativeUI', method, options);
+        });
+        requests = response.catch(() => {});
+        return response;
+      };
+      const reconcile = async () => {
+        const controls = scope.snapshotOwns(source) ? [] : [node];
+        const token = manager.token;
+        const next = JSON.stringify([controls.map((control) => control.id), token]);
+        if (next === signature) return;
+        const result = await send('update', { revision: ++revision, viewportWidth: innerWidth, controls, coveredSnapshotToken: token });
+        if (result.rejectedControls.length) throw Error('Native rendering rejected');
+        signature = next;
+        manager.updated(
+          token,
+          controls.map((control) => control.id),
+          result.revision,
+        );
+        if (controls.length) manager.consider(result.revision, [{ element: source, control: node }]);
+      };
+      const wake = () => {
+        if (stopped) return;
+        dirty = true;
+        if (frame || syncing) return;
+        frame = requestAnimationFrame(async () => {
+          frame = 0;
+          if (manager.handoffPending) return;
+          dirty = false;
+          syncing = true;
+          try {
+            await reconcile();
+          } catch (error) {
+            failure = error;
+          } finally {
+            syncing = false;
+            if (dirty) wake();
+          }
+        });
+      };
       window.prepare = async () => {
         const capabilities = await send('configure');
         if (!capabilities.coveredSnapshots) throw Error('Snapshot capability missing');
-        await update([node]);
-        await wait(200);
-        window.snapshot = await send('coveredSnapshot', { action: 'prepare', revision, viewportWidth: innerWidth, ids: ['fixture'] });
-        if (!snapshot?.token) throw Error('No prepared image');
-        const part = snapshot.parts[0];
-        window.proxy = document.createElement('img');
-        proxy.src = Capacitor.convertFileSrc(part.url);
-        proxy.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;left:${part.x}px;top:${part.y}px;width:${part.width}px;height:${part.height}px`;
-        document.body.append(proxy);
-        await proxy.decode();
+        manager = await NativeUIKit.createSnapshotHandoff(
+          document,
+          {
+            send: async (request) => {
+              const result = await send('coveredSnapshot', request);
+              if (request.action === 'painted') painted++;
+              if (request.action === 'restored') restored++;
+              return result ?? {};
+            },
+            listen: async (listener) => Capacitor.addListener('NativeUI', 'snapshotInteraction', listener),
+            resolveURL: (url) => Capacitor.convertFileSrc(url),
+          },
+          scope,
+          { wake, blocked: () => false, revision: () => revision },
+        );
+        await reconcile();
+        await until(() => source.hasAttribute('data-native-ui-snapshot'), 'Image preparation did not complete');
       };
-      window.roundTrip = async () => {
-        const token = snapshot.token;
-        const cover = await send('coveredSnapshot', { action: 'cover', token });
-        if (!cover.shown) throw Error('Cover rejected');
-        proxy.style.visibility = 'visible';
-        await send('coveredSnapshot', { action: 'painted', token });
-        await update([], token);
+      window.roundTrip = async (bridgeDelay) => {
+        delay = bridgeDelay;
+        const beforePaint = painted;
+        manager.begin();
+        await until(
+          () => painted > beforePaint && source.hasAttribute('data-native-ui-snapshot-visible'),
+          'Image handoff did not complete',
+        );
+        // Dwell lets PixelCopy sample each stable representation as well as both transfers.
         await wait(120);
-        await send('coveredSnapshot', { action: 'restore', token, viewportWidth: innerWidth, parts: snapshot.parts });
-        await update([node]);
-        proxy.style.visibility = 'hidden';
-        await send('coveredSnapshot', { action: 'restored', token });
+        const beforeRestore = restored;
+        manager.end();
+        await until(
+          () => restored > beforeRestore && !source.hasAttribute('data-native-ui-snapshot-visible'),
+          'Native restoration did not complete',
+        );
         await wait(120);
+        if (failure) throw failure;
+      };
+      window.teardown = async () => {
+        stopped = true;
+        cancelAnimationFrame(frame);
+        await manager.destroy();
+        await requests;
+        await send('clear', { revision: ++revision });
       };
     </script>
   </body>

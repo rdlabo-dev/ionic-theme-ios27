@@ -103,6 +103,7 @@ export const createSnapshotHandoff = async (
   const viewport = () => `${win.innerWidth}:${win.innerHeight}:${win.devicePixelRatio}`;
   let surfaceLayer: HTMLElement | undefined;
   let handoffPending = false;
+  let presented = false;
   let paintFrame = 0;
   let presentation = 0;
   let cached: Prepared | undefined;
@@ -314,7 +315,9 @@ export const createSnapshotHandoff = async (
       if (!pressed) schedule();
     }),
   );
+  const preparedTargets = new Set<HTMLElement>();
   const clearTarget = (target: HTMLElement) => {
+    if (preparedTargets.delete(target)) target.removeAttribute('data-native-ui-snapshot-prepared');
     target.removeAttribute('data-native-ui-snapshot-visible');
     target.removeAttribute(imageMarker);
     target.removeAttribute('data-native-ui-snapshot-source');
@@ -327,6 +330,7 @@ export const createSnapshotHandoff = async (
     offsets.clear();
     paintFrame = 0;
     handoffPending = false;
+    presented = false;
     surfaceLayer?.remove();
     surfaceLayer = undefined;
     clearPrepared();
@@ -437,7 +441,7 @@ export const createSnapshotHandoff = async (
         if (!key || !target?.isConnected) continue;
         target.setAttribute(imageMarker, key);
         target.setAttribute('data-native-ui-snapshot-source', '');
-        target.toggleAttribute('data-native-ui-snapshot-visible', !surfaceLayer);
+        target.toggleAttribute('data-native-ui-snapshot-visible', presented && !surfaceLayer);
         next.add(target);
       }
       for (const target of rendered) if (!next.has(target)) clearTarget(target);
@@ -465,7 +469,10 @@ export const createSnapshotHandoff = async (
       const { rules, positions } = group;
       // A decoded clone stays concealed even if this cache is invalidated before
       // the projection adapter publishes its next Native/Web ownership state.
-      if (target !== image.targets[targets.indexOf(target)]) target.setAttribute('data-native-ui-snapshot-prepared', '');
+      if (target !== image.targets[targets.indexOf(target)] && !target.hasAttribute('data-native-ui-snapshot-prepared')) {
+        target.setAttribute('data-native-ui-snapshot-prepared', '');
+        preparedTargets.add(target);
+      }
       target.toggleAttribute('data-native-ui-snapshot-visible', !!active && !surfaceLayer);
       if (active) target.setAttribute('data-native-ui-snapshot-source', '');
       const indices = targets.flatMap((owner, index) => (owner === target ? [index] : []));
@@ -539,12 +546,14 @@ export const createSnapshotHandoff = async (
     const currentPresentation = ++presentation;
     const isCurrent = () => presentation === currentPresentation;
     handoffPending = true;
+    presented = false;
     active = image;
     if (presentingSurface?.isConnected) {
       // One coordinate conversion before the host starts its animation. The browser
       // then applies the same transform, filter and clip to page and images.
       const space = coordinateSpace(presentingSurface, win);
       surfaceLayer = image.layer;
+      surfaceLayer.style.display = 'none';
       surfaceLayer.style.left = `${-space.x / space.scaleX - space.left}px`;
       surfaceLayer.style.top = `${-space.y / space.scaleY - space.top}px`;
       surfaceLayer.style.transformOrigin = '0 0';
@@ -556,34 +565,50 @@ export const createSnapshotHandoff = async (
     win.clearTimeout(timer);
     image.sources.forEach((source) => {
       owners.add(source);
-      visibleOwners.add(source);
     });
     rendered.forEach((target) => {
       target.setAttribute('data-native-ui-snapshot-source', '');
-      target.toggleAttribute('data-native-ui-snapshot-visible', !surfaceLayer);
+      target.toggleAttribute('data-native-ui-snapshot-visible', presented && !surfaceLayer);
+    });
+    // Reconciliation may continue after one frame even if the optional bridge reply
+    // is delayed. The ordered native transport processes cover before that update.
+    paintFrame = win.requestAnimationFrame(() => {
+      paintFrame = 0;
+      if (!isCurrent()) return;
+      handoffPending = false;
+      callbacks.wake();
     });
     void bounded(call({ action: 'cover', token: image.data.token, ...(callbacks.transient ? { transient: true } : {}) }))
       .then((result) => {
         if (!isCurrent()) return;
         handoffPending = false;
-        if (result?.shown === false) abandon(image, false);
-        else callbacks.wake();
+        if (result?.shown === false) {
+          abandon(image, false);
+          return;
+        }
+        // Live translucent Native must be hidden before its composited Web image
+        // becomes visible. Native's prepared entry copy spans this bridge interval.
+        if (!ending) {
+          presented = true;
+          image.sources.forEach((source) => visibleOwners.add(source));
+          if (surfaceLayer) surfaceLayer.style.display = 'block';
+          render();
+          updateOffsets();
+          followBorderAnimation();
+        }
+        win.cancelAnimationFrame(paintFrame);
+        paintFrame = win.requestAnimationFrame(() => {
+          paintFrame = 0;
+          if (!isCurrent()) return;
+          void call({ action: 'painted', token: image.data.token }).catch(() => {
+            if (isCurrent()) abandon(image, false);
+          });
+        });
+        callbacks.wake();
       })
       .catch(() => {
         if (isCurrent()) abandon(image, false);
       });
-    paintFrame = win.requestAnimationFrame(() => {
-      paintFrame = 0;
-      if (!isCurrent()) return;
-      // The optional cover acknowledgement must not stall unrelated Native UI updates.
-      handoffPending = false;
-      updateOffsets();
-      followBorderAnimation();
-      void call({ action: 'painted', token: image.data.token }).catch(() => {
-        if (isCurrent()) abandon(image, false);
-      });
-      callbacks.wake();
-    });
   };
   const end = () => {
     if (!active || stopped || ending) return;

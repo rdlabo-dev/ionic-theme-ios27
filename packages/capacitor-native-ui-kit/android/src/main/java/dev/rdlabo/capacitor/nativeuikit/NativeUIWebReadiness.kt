@@ -4,7 +4,8 @@ import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
 
-/** Call after inserting and decoding prepared Web pixels, never on the handoff path.
+/** Confirm the Web draw after prepared pixels are shown or retired.
+ * The caller keeps its temporary native copy until completion; overlay startup need not wait.
  * Success means ready for a subsequent WebView draw, not displayed on screen.
  */
 object NativeUIWebReadiness {

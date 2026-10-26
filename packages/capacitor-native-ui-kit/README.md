@@ -1,6 +1,6 @@
 # Capacitor Native UI Kit
 
-`@rdlabo/capacitor-native-ui-kit` is infrastructure **for Capacitor plugin authors**. It is a library dependency, not an application-facing Capacitor plugin: it registers no bridge, renders no controls, and requires no Ionic or Angular runtime.
+`@rdlabo/capacitor-native-ui-kit` is infrastructure **for Capacitor plugin maintainers**. It is a library dependency, not an application-facing Capacitor plugin: it registers no bridge, renders no controls, and requires no Ionic or Angular runtime.
 
 The kit associates DOM layout with native views, tracks scrolling, prepares native images before interaction, and manages image handoff and native restoration. The consuming plugin supplies its renderer, existing ordered transport, and presentation policy.
 
@@ -24,7 +24,7 @@ A DOM slot does not necessarily contain a Web replacement: a UI plugin can resto
 npm install @rdlabo/capacitor-native-ui-kit
 ```
 
-The npm archive contains TypeScript declarations, ESM, a Swift package and a podspec. Native dependencies must also be declared by the consuming plugin; an npm dependency alone does not link Swift code.
+The npm archive contains TypeScript declarations, ESM, Swift sources and a podspec. Native dependencies must also be declared by the consuming plugin; an npm dependency alone does not link Swift code.
 
 The primary native distribution is Swift Package Manager. Depend on the repository-root library from your plugin:
 
@@ -38,7 +38,29 @@ The primary native distribution is Swift Package Manager. Depend on the reposito
 
 Within a source checkout, the first consumer uses the sibling Swift package for development. Installed Native UI plugins resolve Git: versioned releases pin their release tag, and beta artifacts pin the source commit. This avoids relying on npm hoisting or the location of `node_modules` to find Swift sources.
 
-For CocoaPods, the plugin declares `s.dependency 'CapacitorNativeUIKit', '<matching version>'`; the kit podspec must be distributed through a spec repository, or the integrating Podfile must provide its local path. Merely installing npm does not register this library as a Capacitor plugin. SwiftPM is the primary supported distribution route.
+### CocoaPods compatibility through npm
+
+CocoaPods uses the Swift sources and podspec shipped in npm; no CocoaPods Trunk publication is required. The plugin maintainer declares the matching dependency in the plugin's podspec:
+
+```ruby
+s.dependency 'CapacitorNativeUIKit', '<matching kit version>'
+```
+
+The maintainer must also document this one-time application setup. Install the matching kit version as a direct npm dependency, then add the local pod **inside the application's target, outside `def capacitor_pods`**, which Capacitor regenerates:
+
+```sh
+npm install @rdlabo/capacitor-native-ui-kit@<matching-kit-version>
+```
+
+```ruby
+# ios/App/Podfile; adjust the path for a different native project layout.
+target 'App' do
+  capacitor_pods
+  pod 'CapacitorNativeUIKit', :path => '../../node_modules/@rdlabo/capacitor-native-ui-kit'
+end
+```
+
+Run `npx cap sync ios` and rebuild. Keep the direct kit version aligned with the consuming plugin's dependency when upgrading. With a nonstandard node_modules layout, point `:path` at the installed kit package directory. An npm dependency alone does not register a Pod, and a podspec dependency cannot specify this local path. The kit intentionally has no Capacitor plugin registration or Podfile rewriting hook. SwiftPM consumers do not need this CocoaPods setup.
 
 ## Image handoff
 
@@ -116,17 +138,17 @@ The kit follows the monorepo release version. Publish order is the native Maven 
 
 ## Android library
 
-Android uses a Gradle Android library, distributed as an AAR through Maven rather than Capacitor plugin registration. The publication coordinates are `dev.rdlabo.capacitor:native-ui-kit:<version>`. They are not yet published to a remote Maven repository; do not add an unresolved dependency to an application. Build and verify the local Maven publication with:
+Android uses a Gradle Android library, distributed as an AAR through Maven rather than Capacitor plugin registration. The publication coordinates are `io.github.rdlabo:native-ui-kit:<version>`. The first Maven Central publication is pending; do not add an unresolved dependency to an application. Build and verify the local Maven publication with:
 
 ```sh
 packages/capacitor-native-ui-kit/android/gradlew -p packages/capacitor-native-ui-kit/android testDebugUnitTest assembleRelease connectedDebugAndroidTest publishReleasePublicationToVerificationRepository
 ```
 
-`NativeUIClippedView` applies position and clipping without resetting unchanged dimensions. Send rAF-coalesced measurements from `readPlacement` through the existing bridge. The optional `NativeUIPlacementChannel` uses AndroidX WebMessageListener for coordinates only, exact trusted origins, and the same `PlacementSession` sequence guard as the ordinary bridge. Close the channel on teardown. Android does not claim WKWebView-style native overflow binding.
+`NativeUIClippedView` applies position and clipping without resetting unchanged dimensions. The consuming plugin retains its existing coordinate measurements and ordered bridge; the kit adds no separate coordinate channel. Android does not claim WKWebView-style native overflow binding.
 
 `NativeUISnapshots` prepares composited PixelCopy images and local PNG files, then covers/restores from that cache. Encoding runs off the UI thread; only one preparation runs per owner. Notify it of visual changes and interaction, and release tokens on teardown. All view/lifecycle calls run on the UI thread. The plugin retains revision, eligibility and fallback policy.
 
-After Web image insertion and decode, `NativeUIWebReadiness.prepare` checks readiness for a subsequent WebView draw. Its `current` predicate must validate the owning session, source generation and image revision. This is preparation work, not a wait inserted when scrolling or an overlay starts. Neither bridge acknowledgement nor this callback proves physical display presentation.
+After prepared Web pixels are shown or retired, `NativeUIWebReadiness.prepare` checks readiness for a subsequent WebView draw. Its `current` predicate must validate the owning session, source generation and image revision. The temporary native copy covers this asynchronous handoff; overlay startup itself does not wait. Neither bridge acknowledgement nor this callback proves physical display presentation.
 
 [AdMob PR #487](https://github.com/capacitor-community/admob/pull/487) demonstrates a persistent image underlay for opaque test ads. That policy is not enabled globally: translucent UI would be composited twice, and video/SDK interactions require renderer-specific decisions. Never synthesize clicks through an image. The Native UI consumer uses the kit on both iOS and Android. Android acceptance tests exercise the real Capacitor bridge and translucent Compose content. Other SDK consumers still require their own integration and acceptance testing.
 
@@ -139,3 +161,11 @@ For return, install the prepared return copy with `restore`, restore the native 
 This preserves the captured background, not a continuously changing scene behind the image. Background changes must invalidate the cache through the same visual-change notifications as content updates. Video and unsupported capture surfaces retain the consumer's fallback policy.
 
 The Native UI Android plugin declares the kit as a Maven dependency. For local verification, `-PnativeUIKitRepository=<absolute path to kit/android/build/maven>` adds the generated repository; no relative npm source path is used as the native dependency. With JDK 21 and Android SDK 36 installed, run `sh scripts/verify-native-ui-kit-android.sh <emulator serial>` to test the library and its real Capacitor/Compose consumer. Omit the serial for build/unit/lint checks. The acceptance activity and Web assets are enabled only by `-PnativeUIKitIntegrationTest` and cannot enter ordinary consumer builds.
+
+## Maven publication
+
+The `Native UI Kit Maven Release` workflow is manually dispatched on `main` with the exact kit package version. That commit must first pass `Native UI Kit` CI. It signs an AAR, source archive, generated Kotlin API documentation and Maven metadata, verifies the consumer against the staged repository, publishes once, and builds the consumer again from Maven Central. Existing coordinates are never overwritten; if an upload times out, inspect the recorded deployment in Central before taking further action.
+
+Configure the repository's Actions secrets with `CENTRAL_USERNAME`, `CENTRAL_PASSWORD` (a Central user token), `MAVEN_SIGNING_KEY` (ASCII-armored private key) and `MAVEN_SIGNING_PASSWORD`. The signing public key must be available to Central. These are the same credential types used by cf-workers-native; GitHub secrets are scoped to their repository and must be provisioned here separately.
+
+For local packaging verification, run `python3 scripts/native-ui-kit-release/verify.py` with JDK 21, Android SDK 36 and GnuPG. It creates a disposable key, validates signatures and checksums, and deletes its test ZIP without uploading. Publication always rebuilds from clean outputs with the real signing key. The kit shares the monorepo version; publish its Maven artifact before the corresponding npm release, including prereleases.

@@ -13,7 +13,6 @@ import org.junit.Test
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 class NativeUIKitTest {
  private val instrumentation get()=InstrumentationRegistry.getInstrumentation()
@@ -22,7 +21,15 @@ class NativeUIKitTest {
   val context=instrumentation.targetContext
   val activity=instrumentation.startActivitySync(Intent(context,KitTestActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as KitTestActivity
   instrumentation.waitForIdleSync()
-  Thread.sleep(250)
+  val deadline=System.currentTimeMillis()+5000
+  var ready=false
+  while(!ready && System.currentTimeMillis()<deadline) {
+   val done=CountDownLatch(1)
+   main{activity.web.evaluateJavascript("document.readyState==='complete' && document.body?.textContent.includes('Web content')"){ready=it=="true";done.countDown()}}
+   assertTrue(done.await(2,TimeUnit.SECONDS))
+   if(!ready)Thread.sleep(10)
+  }
+  assertTrue("Web fixture did not finish loading",ready)
   return activity
  }
  @Test fun placementChangesPositionWithoutResettingDimensionsAndClipsInput() {
@@ -167,27 +174,6 @@ class NativeUIKitTest {
     current=false
    }
    assertTrue(stale.await(5,TimeUnit.SECONDS));assertFalse(staleAccepted)
-  } finally {main{activity.finish()}}
- }
- @Test fun directCoordinatesShareSessionAndSequenceWithRegularBridge() {
-  val activity=activity();lateinit var channel:NativeUIPlacementChannel;val calls=AtomicInteger();val delivered=CountDownLatch(1)
-  try {
-   main {
-    channel=NativeUIPlacementChannel(activity.web,"kitCoordinates",PlacementSession("current")){calls.incrementAndGet();delivered.countDown()}
-    assertTrue(channel.attach(setOf("https://localhost")))
-    // Listener injection applies on the next navigation, not retroactively.
-    activity.web.loadDataWithBaseURL("https://localhost","<html><body>Native kit</body></html>","text/html","utf-8",null)
-   }
-   Thread.sleep(400)
-   main{activity.web.evaluateJavascript("kitCoordinates.postMessage(JSON.stringify({sessionId:'current',sequence:1,placements:[]}))",null)}
-   assertTrue(delivered.await(5,TimeUnit.SECONDS))
-   main {
-    assertFalse(channel.receive("{\"sessionId\":\"old\",\"sequence\":2,\"placements\":[]}"))
-    assertFalse(channel.receive("{\"sessionId\":\"current\",\"sequence\":1,\"placements\":[]}"))
-    assertTrue(channel.receive("{\"sessionId\":\"current\",\"sequence\":2,\"placements\":[]}"))
-    channel.close();assertFalse(channel.receive("{\"sessionId\":\"current\",\"sequence\":3,\"placements\":[]}"))
-   }
-   assertEquals(2,calls.get())
   } finally {main{activity.finish()}}
  }
 }

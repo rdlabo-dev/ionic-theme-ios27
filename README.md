@@ -51,9 +51,9 @@ Both packages support Ionic 8.8.1 or later within Ionic 8 or 9. Native UI requir
 
 Use standard native buttons without Ionic through the [plain HTML adapter](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/framework-independent), or keep Ionic markup and enable only [Vertical Bars](https://docs.rdlabo.dev/projects/capacitor-native-ui/docs/configuration). Both use the same native renderers.
 
-## For plugin authors
+## For plugin maintainers
 
-[`@rdlabo/capacitor-native-ui-kit`](packages/capacitor-native-ui-kit/README.md) provides DOM/native placement, scroll tracking and prepared-image handoff. It is a library dependency for plugin authors, not a Capacitor plugin for applications. The initial native backend is iOS.
+[`@rdlabo/capacitor-native-ui-kit`](packages/capacitor-native-ui-kit/README.md) provides DOM/native placement, scroll tracking and prepared-image handoff. It is a library dependency for plugin maintainers, not a Capacitor plugin for applications. Native libraries support iOS and Android.
 
 ## Maintenance
 

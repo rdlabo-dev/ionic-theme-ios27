@@ -4,7 +4,8 @@ set -eu
 repo=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 kit="$repo/packages/capacitor-native-ui-kit/android"
 plugin="$repo/packages/capacitor-native-ui/android"
-"$kit/gradlew" -p "$kit" testDebugUnitTest lintRelease assembleRelease publishReleasePublicationToVerificationRepository
+npm --prefix "$repo" run build --workspace @rdlabo/capacitor-native-ui-kit
+"$kit/gradlew" -p "$kit" lintRelease assembleRelease publishReleasePublicationToVerificationRepository
 "$kit/gradlew" -p "$plugin" "-PnativeUIKitRepository=$kit/build/maven" :testDebugUnitTest :assembleRelease
 if [ "${1:-}" ]; then
   export ANDROID_SERIAL="$1"

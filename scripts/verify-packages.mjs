@@ -95,7 +95,7 @@ try {
       assert(!files.has('dist/native-integration/transition.js'), 'Ionic transition adapter belongs to the theme');
     } else if (manifest.name === '@rdlabo/capacitor-native-ui-kit') {
       assert.equal(manifest.capacitor, undefined, 'Kit is a library, never a registered plugin');
-      assert(files.has('Package.swift'));
+      assert(!files.has('Package.swift'), 'Native SwiftPM dependencies resolve from Git, not npm');
       assert(files.has('CapacitorNativeUIKit.podspec'));
       assert(files.has('ios/Sources/CapacitorNativeUIKit/CoveredSnapshots.swift'));
       assert.equal(Object.keys(manifest.dependencies ?? {}).length, 0, 'Kit must not depend on a renderer');

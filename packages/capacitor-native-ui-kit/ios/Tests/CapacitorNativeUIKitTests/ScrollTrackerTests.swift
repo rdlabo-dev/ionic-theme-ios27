@@ -21,6 +21,7 @@ final class NativeUIScrollTrackerTests: XCTestCase {
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
         let web = WKWebView(frame: window.bounds)
+        web.scrollView.contentInsetAdjustmentBehavior = .never
         owner.view.addSubview(web)
         let scroll = TrackingScrollView(frame: CGRect(x: 0, y: 80, width: 320, height: 500))
         scroll.contentSize = CGSize(width: 320, height: 1200)
@@ -75,6 +76,7 @@ final class NativeUIScrollTrackerTests: XCTestCase {
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
         let web = WKWebView(frame: window.bounds)
+        web.scrollView.contentInsetAdjustmentBehavior = .never
         owner.view.addSubview(web)
         web.loadHTMLString("""
         <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -108,6 +110,7 @@ final class NativeUIScrollTrackerTests: XCTestCase {
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
         let web = WKWebView(frame: window.bounds)
+        web.scrollView.contentInsetAdjustmentBehavior = .never
         owner.view.addSubview(web)
         for direction in ["ltr", "rtl"] {
             web.loadHTMLString("""

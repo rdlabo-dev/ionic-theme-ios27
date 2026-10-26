@@ -53,7 +53,7 @@ class KitConsumerTest {
             }
             jsWidth=js("innerWidth").toFloat();running.set(true);main{handler.post(sample)}
             Thread.sleep(120)
-            repeat(3){awaitJS("roundTrip()")}
+            for(delay in listOf(0,80)) repeat(3){awaitJS("roundTrip($delay)")}
             running.set(false);main{handler.removeCallbacks(sample)}
             val deadline2=System.currentTimeMillis()+2000
             while(pending.get()>0 && System.currentTimeMillis()<deadline2)Thread.sleep(10)
@@ -66,8 +66,7 @@ class KitConsumerTest {
             samples.forEach{it.recycle()}
             android.util.Log.i("KitConsumerTest","Capacitor/Compose handoff: ${samples.size} frames, max channel delta $delta")
             assertTrue("Color changed: $delta",delta<=2)
-            awaitJS("send('coveredSnapshot',{action:'release',token:snapshot.token})")
-            awaitJS("send('clear',{revision:++revision})")
+            awaitJS("teardown()")
         } finally {running.set(false);main{activity.finish()}}
     }
     private var jsWidth=1f

@@ -8,7 +8,7 @@ const boot = async (page: Page) => {
   );
   await page.addScriptTag({ content: bundle });
 };
-const prepare = async (page: Page, fail = false, shadow = false) => {
+const prepare = async (page: Page, fail = false, shadow = false, proxy = false) => {
   await boot(page);
   if (shadow)
     await page.evaluate(() => {
@@ -17,70 +17,90 @@ const prepare = async (page: Page, fail = false, shadow = false) => {
       document.body.append(host);
       (window as any).sourceRoot = host.shadowRoot;
     });
-  await page.evaluate(async (fail) => {
-    const w = window as any,
-      source = (w.sourceRoot ?? document).querySelector('#source') as HTMLElement,
-      owner = (w.sourceRoot ?? document).querySelector('#scroll') as HTMLElement;
-    const rect = source.getBoundingClientRect(),
-      viewport = owner.getBoundingClientRect();
-    w.calls = [];
-    w.revision = 1;
-    w.failCover = false;
-    w.scope = w.kit.createSnapshotScope('test');
-    w.source = {
-      element: source,
-      scrollElement: owner,
-      control: {
-        id: 'counter',
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-        scroll: {
-          id: 'owner',
-          offsetX: 0,
-          offsetY: 0,
-          viewport: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
-          clip: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
-          contentWidth: 300,
-          contentHeight: 1040,
-          frame: { x: 0, y: 100, width: 120, height: 40 },
+  await page.evaluate(
+    async ({ fail, proxy }) => {
+      const w = window as any,
+        source = (w.sourceRoot ?? document).querySelector('#source') as HTMLElement,
+        owner = (w.sourceRoot ?? document).querySelector('#scroll') as HTMLElement;
+      const rect = source.getBoundingClientRect(),
+        viewport = owner.getBoundingClientRect();
+      w.calls = [];
+      w.revision = 1;
+      w.failCover = false;
+      w.coverReplies = [];
+      if (proxy) {
+        const target = document.createElement('button');
+        target.id = 'proxy';
+        target.textContent = 'Web proxy';
+        document.body.append(target);
+      }
+      w.scope = w.kit.createSnapshotScope('test');
+      w.source = {
+        element: source,
+        scrollElement: owner,
+        control: {
+          id: 'counter',
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          scroll: {
+            id: 'owner',
+            offsetX: 0,
+            offsetY: 0,
+            viewport: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
+            clip: { x: viewport.x, y: viewport.y, width: viewport.width, height: viewport.height },
+            contentWidth: 300,
+            contentHeight: 1040,
+            frame: { x: 0, y: 100, width: 120, height: 40 },
+          },
         },
-      },
-    };
-    w.manager = await w.kit.createSnapshotHandoff(
-      document,
-      {
-        send: async (request: any) => {
-          w.calls.push(request);
-          if (request.action === 'prepare')
-            return fail
-              ? {}
-              : {
-                  token: 'image',
-                  parts: [{ ids: ['counter'], url: 'file:///image.png', x: rect.x, y: rect.y, width: rect.width, height: rect.height }],
-                };
-          if (request.action === 'cover') return { shown: !w.failCover };
-          return {};
+      };
+      w.manager = await w.kit.createSnapshotHandoff(
+        document,
+        {
+          send: async (request: any) => {
+            w.calls.push(request);
+            if (request.action === 'prepare')
+              return fail
+                ? {}
+                : {
+                    token: 'image',
+                    parts: [{ ids: ['counter'], url: 'file:///image.png', x: rect.x, y: rect.y, width: rect.width, height: rect.height }],
+                  };
+            if (request.action === 'cover') {
+              if (w.holdCover) return new Promise((resolve) => w.coverReplies.push(resolve));
+              return { shown: !w.failCover };
+            }
+            return {};
+          },
+          listen: async (listener: Function) => {
+            w.interact = listener;
+            return {
+              remove() {
+                w.removed = true;
+              },
+            };
+          },
+          resolveURL: () =>
+            'data:image/svg+xml,' +
+            encodeURIComponent(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><path fill="red" d="M0 0h120v40H0z"/></svg>',
+            ),
         },
-        listen: async (listener: Function) => {
-          w.interact = listener;
-          return {
-            remove() {
-              w.removed = true;
-            },
-          };
+        w.scope,
+        {
+          wake() {},
+          blocked: () => false,
+          revision: () => w.revision,
+          target: proxy ? () => document.getElementById('proxy')! : undefined,
         },
-        resolveURL: () =>
-          'data:image/svg+xml,' +
-          encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><path fill="red" d="M0 0h120v40H0z"/></svg>'),
-      },
-      w.scope,
-      { wake() {}, blocked: () => false, revision: () => w.revision },
-    );
-    w.manager.consider(1, [w.source]);
-  }, fail);
-  if (!fail) await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+      );
+      w.manager.consider(1, [w.source]);
+    },
+    { fail, proxy },
+  );
+  if (!fail) await expect(page.locator(proxy ? '#proxy' : '#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
 };
 
 test('prepared pixels appear without a new capture; only matching restore ACK retires them', async ({ page }) => {
@@ -232,8 +252,8 @@ test('image presentation works inside a shadow tree and restores Web', async ({ 
   expect(await page.evaluate(() => (window as any).sourceRoot.querySelectorAll('style[data-native-ui-snapshot]').length)).toBe(0);
 });
 
-test('destroying one plugin leaves another plugin image and listener intact', async ({ page }) => {
-  await prepare(page);
+test('destroying one plugin restores its proxy and leaves another plugin image and listener intact', async ({ page }) => {
+  await prepare(page, false, false, true);
   await page.evaluate(async () => {
     const w = window as any,
       element = document.createElement('div');
@@ -274,6 +294,8 @@ test('destroying one plugin leaves another plugin image and listener intact', as
     await w.manager.destroy();
   });
   await expect(page.locator('#second')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await expect(page.locator('#proxy')).not.toHaveAttribute('data-native-ui-snapshot-prepared');
+  await expect(page.locator('#proxy')).toBeVisible();
   expect(
     await page.evaluate(() => {
       const w = window as any;
@@ -286,24 +308,49 @@ test('destroying one plugin leaves another plugin image and listener intact', as
   ).toEqual({ owners: 1, removed: false, opacity: '1' });
 });
 
-test('coordinate placement preserves full size while clipping partially scrolled content', async ({ page }) => {
-  await boot(page);
-  const result = await page.evaluate(() => {
-    const owner = document.querySelector('#scroll') as HTMLElement;
-    const source = document.querySelector('#source') as HTMLElement;
-    owner.style.border = '2px solid black';
-    owner.scrollTop = 120;
-    const placement = (window as any).kit.readPlacement(source);
-    const bounds = owner.getBoundingClientRect();
-    owner.style.borderRadius = '20px';
-    const shaped = (window as any).kit.readPlacement(source);
-    owner.style.borderRadius = '0';
-    owner.scrollTop = 200;
-    return { placement, top: bounds.top + 2, shaped, offscreen: (window as any).kit.readPlacement(source) };
+for (const surface of [false, true])
+  test(`delayed cover does not composite Web pixels over live Native (${surface})`, async ({ page }) => {
+    await prepare(page);
+    await page.evaluate((surface) => {
+      const w = window as any;
+      w.holdCover = true;
+      w.manager.begin(surface ? document.querySelector('#surface') : undefined);
+      window.dispatchEvent(new Event(w.scope.snapshotTargetsChanged));
+    }, surface);
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    expect(
+      await page.evaluate(() => {
+        const w = window as any;
+        const layer = document.querySelector<HTMLElement>('[data-native-ui-snapshot-layer]');
+        return {
+          visible: document.querySelector('#source')!.hasAttribute('data-native-ui-snapshot-visible'),
+          layerDisplay: layer && getComputedStyle(layer).display,
+          pending: w.manager.handoffPending,
+          visibleOwners: w.scope.visibleOwners.size,
+          painted: w.calls.some((call: any) => call.action === 'painted'),
+        };
+      }),
+    ).toEqual({ visible: false, layerDisplay: surface ? 'none' : null, pending: false, visibleOwners: 0, painted: false });
+    await page.evaluate(() => (window as any).coverReplies.shift()({ shown: true }));
+    if (surface) await expect(page.locator('[data-native-ui-snapshot-layer] img')).toBeVisible();
+    else await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+    await expect.poll(() => page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'painted').length)).toBe(1);
+    expect(await page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'prepare').length)).toBe(1);
   });
-  expect(result.placement.frame.height).toBe(40);
-  expect(result.placement.clip.height).toBe(20);
-  expect(result.placement.clip.y).toBe(result.top);
-  expect(result.shaped).toBeUndefined();
-  expect(result.offscreen).toBeUndefined();
+
+test('a late cover reply cannot expose a reopened cached image before its own cover succeeds', async ({ page }) => {
+  await prepare(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdCover = true;
+    w.manager.begin();
+    w.manager.end();
+    w.manager.updated(undefined, ['counter'], 2);
+    w.manager.begin();
+    w.coverReplies.shift()({ shown: true });
+  });
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  await page.evaluate(() => (window as any).coverReplies.shift()({ shown: true }));
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  expect(await page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'prepare').length)).toBe(1);
 });

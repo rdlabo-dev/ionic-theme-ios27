@@ -143,7 +143,7 @@ test('geometry invalidation releases files and prevents stale image reuse', asyn
   expect(f.manager.begin()).toBeUndefined();
   expect(f.bridge).toHaveBeenCalledWith({ action: 'release', token: 'image-1' });
 });
-test('entry adopts the decoded image without waiting for the native cover notification', async () => {
+test('entry returns without waiting but keeps Web pixels hidden until the native cover notification', async () => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
@@ -152,6 +152,7 @@ test('entry adopts the decoded image without waiting for the native cover notifi
   expect(f.manager.begin()).toBeUndefined();
   expect(snapshotOwns(f.button)).toBe(true);
   expect(f.bridge).toHaveBeenCalledWith({ action: 'cover', token: 'image-1' });
+  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
   // Cleanup is not the subject of the stalled-bridge test.
   f.bridge.mockResolvedValue({ shown: true });
 });
@@ -359,9 +360,9 @@ test('handoff reuses prepared DOM without viewport reads or waiting for the nati
   expect(bounds).not.toHaveBeenCalled();
   expect(styles).toHaveBeenCalledTimes(1); // Only the current border offset; no viewport geometry or capture.
   expect(document.querySelector('style[data-native-ui-snapshot]')).toBe(sheet);
-  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
+  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
   await vi.advanceTimersByTimeAsync(20);
-  expect(f.bridge).toHaveBeenCalledWith({ action: 'painted', token: 'image-1' });
+  expect(f.bridge).not.toHaveBeenCalledWith({ action: 'painted', token: 'image-1' });
   expect(f.manager.handoffPending).toBe(false);
 });
 
@@ -392,6 +393,7 @@ test('preparing an image leaves source styles intact until the handoff', async (
   expect(getComputedStyle(f.button).overflow).toBe('hidden');
   expect(f.button.hasAttribute('data-native-ui-snapshot-source')).toBe(false);
   f.manager.begin();
+  await vi.advanceTimersByTimeAsync(0);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
   expect(getComputedStyle(f.button).transform).toBe('translateZ(0)');
   f.manager.invalidate();
@@ -480,6 +482,7 @@ test.each(['segment', 'floating-action-button'] as const)('%s reuses the prepare
   await drain();
   expect(f.bridge).toHaveBeenCalledWith(expect.objectContaining({ action: 'prepare', ids: ['button'] }));
   f.manager.begin();
+  await vi.advanceTimersByTimeAsync(0);
   expect(snapshotOwns(f.button)).toBe(true);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
 });
@@ -503,6 +506,7 @@ test.each(['button', 'button-group', 'back-button', 'menu-button', 'tab-bar', 's
     f.manager.consider(2, [f.candidate]);
     await drain();
     f.manager.begin();
+    await vi.advanceTimersByTimeAsync(0);
     f.manager.end();
     f.manager.updated(undefined, ['button'], 2);
     expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
@@ -546,11 +550,12 @@ test('refreshing a prepared image updates its stylesheet in place', async () => 
   }
 });
 
-test('cache retirement cannot expose a prepared clone before projection ownership is reconciled', async () => {
+test('cache retirement preserves the host-owned prepared marker', async () => {
   const modal = document.createElement('ion-modal');
   document.body.append(modal);
   const f = await fixture(modal);
   const clone = snapshotTargets.get(f.button)!;
+  clone.setAttribute('data-native-ui-snapshot-prepared', '');
   f.manager.consider(1, [f.candidate]);
   await drain();
   expect(clone.hasAttribute('data-native-ui-snapshot-prepared')).toBe(true);
@@ -732,6 +737,7 @@ test('a source moved from rail to element keeps its image on the source after ta
   expect(f.button.hasAttribute('data-native-ui-snapshot')).toBe(true);
   f.manager.begin();
   window.dispatchEvent(new Event('nativeUISnapshotTargetsChange'));
+  await vi.advanceTimersByTimeAsync(0);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
   expect(proxy.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
   f.manager.end();
@@ -747,6 +753,7 @@ test('border offset correction continues until the delayed native restore acknow
   f.button.getAnimations = () =>
     [{ playState: 'running', effect: { getKeyframes: () => [{ borderLeftWidth: '3px' }] } }] as unknown as Animation[];
   f.manager.begin();
+  await vi.advanceTimersByTimeAsync(0);
   await vi.advanceTimersToNextFrame();
   f.manager.end();
   // Native has not acknowledged yet; the image remains the visible owner.
@@ -763,4 +770,15 @@ test('border offset correction continues until the delayed native restore acknow
   const styles = vi.spyOn(window, 'getComputedStyle');
   await vi.advanceTimersToNextFrame();
   expect(styles).not.toHaveBeenCalled();
+});
+
+test('kit base stylesheet insertion and removal are not source visual changes', () => {
+  const observer = new MutationObserver(() => {});
+  observer.observe(document.head, { childList: true });
+  const style = document.createElement('style');
+  style.setAttribute('data-native-ui-snapshot-base', '');
+  document.head.append(style);
+  style.remove();
+  expect(observer.takeRecords().map(snapshotMutation)).toEqual([true, true]);
+  observer.disconnect();
 });

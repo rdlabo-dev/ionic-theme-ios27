@@ -4,7 +4,7 @@ plugins {
     id 'maven-publish'
 }
 
-group = 'dev.rdlabo.capacitor'
+group = 'io.github.rdlabo'
 version = new groovy.json.JsonSlurper().parse(file('../package.json')).version
 android {
     namespace 'dev.rdlabo.capacitor.nativeuikit'
@@ -15,11 +15,10 @@ android {
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = '17' }
-    publishing { singleVariant('release') { withSourcesJar() } }
+    publishing { singleVariant('release') { withSourcesJar(); withJavadocJar() } }
 }
 dependencies {
-    implementation 'androidx.webkit:webkit:1.14.0'
-    testImplementation 'junit:junit:4.13.2'
+    implementation 'androidx.annotation:annotation:1.9.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }
@@ -31,13 +30,43 @@ afterEvaluate {
                 artifactId = 'native-ui-kit'
                 pom {
                     name = 'Capacitor Native UI Kit'
-                    description = 'Native UI placement and image handoff for Capacitor plugin authors.'
+                    description = 'Native UI placement and image handoff for Capacitor plugin maintainers.'
                     url = 'https://github.com/rdlabo-dev/ionic-theme-ios27'
                     licenses { license { name = 'MIT'; url = 'https://opensource.org/licenses/MIT' } }
-                    scm { url = 'https://github.com/rdlabo-dev/ionic-theme-ios27' }
+                    developers { developer { id = 'rdlabo'; name = 'rdlabo'; url = 'https://github.com/rdlabo' } }
+                    scm {
+                        url = 'https://github.com/rdlabo-dev/ionic-theme-ios27'
+                        connection = 'scm:git:https://github.com/rdlabo-dev/ionic-theme-ios27.git'
+                        developerConnection = 'scm:git:ssh://git@github.com/rdlabo-dev/ionic-theme-ios27.git'
+                    }
                 }
             }
         }
         repositories { maven { name = 'verification'; url = layout.buildDirectory.dir('maven') } }
+    }
+}
+
+if (providers.gradleProperty('signRelease').isPresent()) {
+    apply plugin: 'signing'
+    def key = providers.environmentVariable('MAVEN_SIGNING_KEY').orNull
+    if (!key) throw new GradleException('MAVEN_SIGNING_KEY is required for signing')
+    signing {
+        useInMemoryPgpKeys(key, providers.environmentVariable('MAVEN_SIGNING_PASSWORD').getOrElse(''))
+    }
+    afterEvaluate { signing.sign(publishing.publications.release) }
+}
+
+tasks.register('centralBundle', Zip) {
+    dependsOn 'publishReleasePublicationToVerificationRepository'
+    from(layout.buildDirectory.dir('maven')) {
+        include "io/github/rdlabo/native-ui-kit/${project.version}/**"
+        exclude '**/maven-metadata*'
+    }
+    archiveFileName = "native-ui-kit-${project.version}-central.zip"
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    doFirst {
+        if (!providers.gradleProperty('signRelease').isPresent()) {
+            throw new GradleException('centralBundle requires -PsignRelease')
+        }
     }
 }

@@ -163,6 +163,24 @@ For a plugin-only app, use [navigation without the theme](#navigation-without-th
 
 ## 4. Build, sync, and run
 
+For CocoaPods projects, first install the kit version required by your installed Native UI package:
+
+```sh
+npm install --save-exact "@rdlabo/capacitor-native-ui-kit@$(node -p "require('./node_modules/@rdlabo/capacitor-native-ui/package.json').dependencies['@rdlabo/capacitor-native-ui-kit']")"
+```
+
+Add the kit to the existing app target in `ios/App/Podfile`, outside the generated `def capacitor_pods` block:
+
+```ruby
+target 'App' do
+  capacitor_pods
+  pod 'CapacitorNativeUIKit', :path => '../../node_modules/@rdlabo/capacitor-native-ui-kit'
+  # Keep your other application pods here.
+end
+```
+
+Adjust the path if your native project or node_modules layout differs. Repeat the npm version alignment when upgrading Native UI. The kit is distributed through npm, not CocoaPods Trunk. SwiftPM projects resolve the native library from Git and do not need this step.
+
 Run your application's Web build, then sync:
 
 ```sh
