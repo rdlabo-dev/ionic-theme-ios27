@@ -1,3 +1,4 @@
+import { projectionPlacement } from './projection-placement.js';
 import { getOverlayCoordinator } from './overlays.js';
 import { readScrollPlacement } from './scroll-placement.js';
 import { projectionAncestors } from './geometry.js';
@@ -14,6 +15,8 @@ export interface NativeSessionConfiguration {
   /** Recovery while native is requested. Explicit web/none destinations take precedence. */
   failedFallback?: 'web' | 'native';
   captureMode?: 'composited' | 'view';
+  /** Native registration accepts a final placement in its reveal request. */
+  placementHandoff?: boolean;
   receiveListeners?: {
     update?: string[];
     projection?: Partial<Record<ProjectionDestination, string[]>>;
@@ -36,7 +39,7 @@ export interface NativeSessionBridge {
 /** Native startup calls this; application code does not initialize or wrap the plugin. */
 export const startNativeSession = async (
   config: NativeSessionConfiguration,
-  bridge: NativeSessionBridge,
+  nativeBridge: NativeSessionBridge,
   plugin: { addListener(name: string, listener: (event: unknown) => void): Promise<ListenerHandle> } = {
     addListener: async (name, listener) => {
       const capacitor = (
@@ -65,7 +68,94 @@ export const startNativeSession = async (
   let scrollOwner: HTMLElement | undefined;
   let scrollTimer: ReturnType<typeof setTimeout> | undefined;
   let manager: WebProjection | undefined;
+  let startingProjection = false;
+  const beginProjection = () => {
+    const previous = startingProjection;
+    startingProjection = true;
+    try {
+      manager?.begin();
+    } finally {
+      startingProjection = previous;
+    }
+  };
   let target: HTMLElement | undefined;
+  const placementOwner = {};
+  let coveredToken: string | undefined;
+  let placementEpoch = 0;
+  const clearPlacement = () => {
+    placementEpoch++;
+    coveredToken = undefined;
+    const binding = projectionPlacement(target);
+    if (binding?.owner === placementOwner) {
+      binding.projected = false;
+      binding.owner = undefined;
+    }
+  };
+  const bridge: NativeSessionBridge = {
+    listen: (listener) => nativeBridge.listen(listener),
+    send: (request) => {
+      if (!config.placementHandoff) return nativeBridge.send(request);
+      const binding = projectionPlacement(target);
+      if (request.action === 'cover') {
+        const epoch = ++placementEpoch;
+        coveredToken = request.token;
+        if (binding) {
+          binding.owner = placementOwner;
+          binding.projected = false;
+        }
+        return nativeBridge
+          .send(request)
+          .then((result) => {
+            if (epoch === placementEpoch && binding === projectionPlacement(target) && binding?.owner === placementOwner)
+              binding.projected = result?.shown === true;
+            return result;
+          })
+          .catch((error) => {
+            if (epoch === placementEpoch && binding?.owner === placementOwner) {
+              clearPlacement();
+              binding.invalidate();
+            }
+            throw error;
+          });
+      }
+      const releasing = request.action === 'release' && request.token === coveredToken;
+      const revealing =
+        coveredToken &&
+        (request.action === 'restore' || releasing || request.action === 'reset' || (request.action === 'visibility' && request.visible));
+      if (revealing) placementEpoch++;
+      const epoch = placementEpoch;
+      const failed = () => {
+        if (epoch !== placementEpoch || binding?.owner !== placementOwner) return;
+        clearPlacement();
+        binding.invalidate();
+      };
+      // Measure synchronously and use the existing ordered reveal/draw acknowledgement.
+      try {
+        const payload =
+          revealing && binding?.owner === placementOwner
+            ? { ...request, token: ('token' in request ? request.token : coveredToken)!, placement: binding.measure() }
+            : request;
+        return nativeBridge
+          .send(payload)
+          .then((result) => {
+            if (
+              epoch === placementEpoch &&
+              (request.action === 'resume' || releasing || request.action === 'reset' || request.action === 'visibility')
+            )
+              clearPlacement();
+            return result;
+          })
+          .catch((error) => {
+            failed();
+            throw error;
+          });
+      } catch (error) {
+        failed();
+        return Promise.reject(error);
+      }
+    },
+  };
+
   let revision = 0;
   let contentRevision = 0;
   let generation = 0;
@@ -116,7 +206,9 @@ export const startNativeSession = async (
     else target.removeAttribute(marker);
   };
   const wake = () => {
-    if (stopped) return;
+    // begin() can synchronously retire a previous return before installing its next
+    // image. That intermediate state is not a failed projection or a new reveal.
+    if (stopped || startingProjection) return;
     applyFailedFallback();
     if (destination === 'web' && manager && !manager.token && !manager.restoring) {
       void bridge.send({ action: 'visibility', visible: false }).catch(() => {});
@@ -156,6 +248,7 @@ export const startNativeSession = async (
     const found = findTarget();
     if (found !== target) {
       generation++;
+      clearPlacement();
       target?.removeAttribute(marker);
       await manager?.destroy();
       manager = undefined;
@@ -264,8 +357,11 @@ export const startNativeSession = async (
       return;
     }
     if (!automaticMotion) {
+      // A fresh gesture supersedes the preceding presentation's pending draw ACK.
+      // begin() retires that return image and starts another presentation on the same manager.
+      if (restoring || manager?.restoring) generation++;
       automaticMotion = true;
-      manager?.begin();
+      beginProjection();
       placementPending = config.failedFallback !== 'native';
       if (manager?.token) target.removeAttribute(marker);
       else applyFailedFallback();
@@ -337,7 +433,7 @@ export const startNativeSession = async (
           setVisibility();
         });
     } else if (destination === 'web') {
-      manager?.begin();
+      beginProjection();
       if (!manager?.token) void bridge.send({ action: 'visibility', visible: false }).catch(() => {});
       setVisibility();
     } else if (destination === 'native') {
@@ -351,6 +447,7 @@ export const startNativeSession = async (
   const destroy = async () => {
     if (stopped) return;
     stopped = true;
+    clearPlacement();
     generation++;
     stopOverlays();
     observer.disconnect();

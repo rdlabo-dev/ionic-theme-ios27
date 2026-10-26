@@ -7,6 +7,13 @@ const bundle = buildSync({
   globalName: 'sessionEngine',
   write: false,
 }).outputFiles[0].text;
+const placementBundle = buildSync({
+  entryPoints: ['src/projection-placement.ts'],
+  bundle: true,
+  format: 'iife',
+  globalName: 'placementEngine',
+  write: false,
+}).outputFiles[0].text;
 const boot = async (
   page: import('@playwright/test').Page,
   present = true,
@@ -14,6 +21,7 @@ const boot = async (
   failedFallback: 'web' | 'native' = 'web',
   unavailable = false,
   captureMode: 'view' | 'composited' = 'composited',
+  placementHandoff = false,
 ) => {
   await page.setContent(present ? '<div id="slot" style="width:120px;height:40px"><button>Fallback</button></div>' : '<main></main>');
   await page.evaluate(() => {
@@ -22,13 +30,16 @@ const boot = async (
     };
   });
   await page.addScriptTag({ content: bundle });
+  await page.addScriptTag({ content: placementBundle });
   await page.evaluate(
-    async ({ projectionSelector, failedFallback, unavailable, captureMode }) => {
+    async ({ projectionSelector, failedFallback, unavailable, captureMode, placementHandoff }) => {
       const w = window as any;
       w.calls = [];
       w.events = {};
       w.removed = [];
       w.pendingResume = [];
+      w.pendingCover = [];
+      w.pendingPrepare = [];
       w.pendingHide = [];
       w.session = await w.sessionEngine.startNativeSession(
         {
@@ -37,6 +48,7 @@ const boot = async (
           projectionSelector,
           failedFallback,
           captureMode,
+          placementHandoff,
           receiveListeners: {
             update: ['updated'],
             projection: { native: ['shown'], web: ['moving'], none: ['hidden'] },
@@ -55,10 +67,14 @@ const boot = async (
                 w.rejectTrack = reject;
               });
             if (request.action === 'track' && w.failTrack) throw new Error('Tracking reply unavailable');
+            if (request.action === 'prepare' && w.holdPrepare) return new Promise((resolve) => w.pendingPrepare.push(resolve));
             if (request.action === 'prepare' && (unavailable || w.unavailable || w.noCapture)) return {};
+            if (request.action === 'cover' && w.holdCover) return new Promise((resolve) => w.pendingCover.push(resolve));
             if (request.action === 'cover' && w.failCover) return { shown: false };
             if (request.action === 'prepare')
               return { token: 'pixels', parts: [{ ids: ['view'], url: 'file:///pixels.png', x: 8, y: 8, width: 120, height: 40 }] };
+            if (request.action === 'release' && w.failRelease) throw new Error('Native release failed');
+            if (request.action === 'visibility' && w.failVisibility) throw new Error('Native recovery failed');
             if (request.action === 'resume' && w.failResume) throw new Error('Native restore failed');
             if (request.action === 'resume' && w.holdResume) return new Promise((resolve) => w.pendingResume.push(resolve));
             if (request.action === 'cover' || request.action === 'restore') return { shown: true };
@@ -78,7 +94,7 @@ const boot = async (
         },
       );
     },
-    { projectionSelector, failedFallback, unavailable, captureMode },
+    { projectionSelector, failedFallback, unavailable, captureMode, placementHandoff },
   );
 };
 
@@ -585,3 +601,239 @@ test('scroll with a prepared image still restores through the native placement a
   expect(calls.find((c: any) => c.action === 'restore').parts[0].y).toBe(-22);
   expect(calls.some((c: any) => c.action === 'resume')).toBe(true);
 });
+
+const bindPlacement = async (page: import('@playwright/test').Page, enabled = true) => {
+  await boot(page, true, '#slot', 'native', false, 'view', enabled);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.measureCount = 0;
+    w.latestPlacement = { sequence: 1, x: 10, y: 20 };
+    w.binding = w.placementEngine.bindProjectionPlacement(document.querySelector('#slot'), () => {
+      w.measureCount++;
+      return { ...w.latestPlacement };
+    });
+  });
+};
+
+test('placement handoff measures latest geometry once and waits for cover and resume acknowledgements', async ({ page }) => {
+  await bindPlacement(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdCover = true;
+    w.holdResume = true;
+    w.events.moving({ slot: 1 });
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).pendingCover.length)).toBe(1);
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(false);
+  await page.evaluate(() => (window as any).pendingCover.shift()({ shown: true }));
+  await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(true);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.latestPlacement = { sequence: 9, x: 30, y: 80 };
+    w.events.shown({ slot: 1 });
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).pendingResume.length)).toBe(1);
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(true);
+  expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'restore').map((c: any) => c.placement))).toEqual([
+    { sequence: 9, x: 30, y: 80 },
+  ]);
+  expect(await page.evaluate(() => (window as any).measureCount)).toBe(1);
+  await page.evaluate(() => (window as any).pendingResume.shift()({}));
+  await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(false);
+});
+
+test('late cover acknowledgement cannot mark a hidden placement projected again', async ({ page }) => {
+  await bindPlacement(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdCover = true;
+    w.events.moving({ slot: 1 });
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).pendingCover.length)).toBe(1);
+  await page.evaluate(() => (window as any).session.hide());
+  await page.evaluate(() => (window as any).pendingCover.shift()({ shown: true }));
+  await page.waitForTimeout(50);
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(false);
+});
+
+test('releasing an idle cached image does not measure a final native placement', async ({ page }) => {
+  await bindPlacement(page);
+  await page.evaluate(() => (window as any).events.updated({ slot: 1 }));
+  await expect.poll(() => page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'release'))).toBe(true);
+  expect(await page.evaluate(() => (window as any).measureCount)).toBe(0);
+  expect(
+    await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'release').some((c: any) => 'placement' in c)),
+  ).toBe(false);
+});
+
+test('placement binding stays inert for registrations without handoff opt-in', async ({ page }) => {
+  await bindPlacement(page, false);
+  await page.evaluate(() => (window as any).events.moving({ slot: 1 }));
+  await expect.poll(() => page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'cover'))).toBe(true);
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(false);
+  await page.evaluate(() => (window as any).events.shown({ slot: 1 }));
+  await expect.poll(() => page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'resume'))).toBe(true);
+  expect(await page.evaluate(() => (window as any).measureCount)).toBe(0);
+  expect(await page.evaluate(() => (window as any).calls.some((c: any) => 'placement' in c))).toBe(false);
+});
+
+test('late unused capture release preserves an active placement without measuring', async ({ page }) => {
+  await bindPlacement(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdPrepare = true;
+    w.events.updated({ slot: 1 });
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).pendingPrepare.length)).toBe(1);
+  await page.evaluate(() => (window as any).events.moving({ slot: 1 }));
+  await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(true);
+  await page.evaluate(() =>
+    (window as any).pendingPrepare.shift()({
+      token: 'unused-late-image',
+      parts: [{ ids: ['view'], url: 'file:///unused.png', x: 0, y: 0, width: 120, height: 40 }],
+    }),
+  );
+  await expect
+    .poll(() => page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'release' && c.token === 'unused-late-image')))
+    .toBe(true);
+  expect(await page.evaluate(() => (window as any).measureCount)).toBe(0);
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(true);
+});
+
+for (const failure of ['resume', 'release'] as const) {
+  test(`placement ${failure} rejection resumes consumer measurement when recovery rejects`, async ({ page }) => {
+    await bindPlacement(page);
+    await page.evaluate(() => {
+      const w = window as any;
+      w.invalidations = 0;
+      w.resumedMeasurements = 0;
+      w.binding.dispose();
+      w.binding = w.placementEngine.bindProjectionPlacement(
+        document.querySelector('#slot'),
+        () => {
+          w.measureCount++;
+          return { ...w.latestPlacement };
+        },
+        () => {
+          w.invalidations++;
+          if (!w.binding.projected) w.resumedMeasurements++;
+        },
+      );
+      w.events.moving({ slot: 1 });
+    });
+    await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(true);
+    await page.evaluate((failure) => {
+      const w = window as any;
+      w.failRelease = true;
+      w.failVisibility = true;
+      if (failure === 'resume') {
+        w.failResume = true;
+        w.events.shown({ slot: 1 });
+      } else document.querySelector<HTMLElement>('#slot')!.style.width = '130px';
+    }, failure);
+    await expect.poll(() => page.evaluate((action) => (window as any).calls.some((c: any) => c.action === action), failure)).toBe(true);
+    await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(false);
+    expect(await page.evaluate(() => (window as any).invalidations)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as any).resumedMeasurements)).toBeGreaterThan(0);
+  });
+}
+
+test('an older session resume acknowledgement cannot clear a newer session placement owner', async ({ page }) => {
+  await bindPlacement(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdResume = true;
+    w.events.moving({ slot: 1 });
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(true);
+  await page.evaluate(async () => {
+    const w = window as any;
+    w.newEvents = {};
+    w.newPrepared = false;
+    w.newSession = await w.sessionEngine.startNativeSession(
+      {
+        id: 'replacement',
+        plugin: 'Example',
+        projectionSelector: '#slot',
+        failedFallback: 'native',
+        captureMode: 'view',
+        placementHandoff: true,
+        receiveListeners: { projection: { web: ['replacementMoving'] } },
+      },
+      {
+        send: async (request: any) => {
+          if (request.action === 'prepared') w.newPrepared = true;
+          if (request.action === 'prepare')
+            return {
+              token: 'replacement-pixels',
+              parts: [{ ids: ['view'], url: 'file:///replacement.png', x: 8, y: 8, width: 120, height: 40 }],
+            };
+          if (request.action === 'cover' || request.action === 'restore') return { shown: true };
+          return {};
+        },
+        listen: async () => ({ remove() {} }),
+      },
+      {
+        addListener: async (name: string, callback: Function) => {
+          w.newEvents[name] = callback;
+          return { remove() {} };
+        },
+      },
+    );
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).newPrepared)).toBe(true);
+  await page.evaluate(() => (window as any).events.shown({ slot: 1 }));
+  await expect.poll(() => page.evaluate(() => (window as any).pendingResume.length)).toBe(1);
+  await page.evaluate(() => (window as any).newEvents.replacementMoving({}));
+  await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(true);
+  await page.evaluate(() => (window as any).pendingResume.shift()({}));
+  await page.waitForTimeout(50);
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(true);
+  await page.evaluate(() => (window as any).session.destroy());
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(true);
+});
+
+test('a previous automatic-scroll resume cannot finish a newer image presentation', async ({ page }) => {
+  await bindPlacement(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdResume = true;
+    document.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).pendingResume.length), { intervals: [10] }).toBe(1);
+  await page.evaluate(() => document.dispatchEvent(new Event('scroll')));
+  await expect
+    .poll(() => page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'restore').length), { intervals: [10] })
+    .toBe(2);
+  await page.evaluate(() => (window as any).pendingResume.shift()({}));
+  // The old draw acknowledgement must start a new resume, not retire its image.
+  await expect.poll(() => page.evaluate(() => (window as any).pendingResume.length), { intervals: [10] }).toBe(1);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-source', '');
+  expect(await page.evaluate(() => (window as any).binding.projected)).toBe(true);
+  await page.evaluate(() => (window as any).pendingResume.shift()({}));
+  await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-snapshot-source');
+  await expect.poll(() => page.evaluate(() => (window as any).binding.projected)).toBe(false);
+});
+
+for (const next of ['scroll', 'web'] as const) {
+  test(`reentering a returning image through ${next} does not send an intermediate visibility request`, async ({ page }) => {
+    await bindPlacement(page);
+    await page.evaluate(() => {
+      const w = window as any;
+      w.holdResume = true;
+      document.dispatchEvent(new Event('scroll'));
+    });
+    await expect.poll(() => page.evaluate(() => (window as any).pendingResume.length), { intervals: [10] }).toBe(1);
+    const actions = await page.evaluate((next) => {
+      const w = window as any;
+      w.calls = [];
+      if (next === 'scroll') document.dispatchEvent(new Event('scroll'));
+      else w.events.moving({ slot: 1 });
+      return w.calls.map((request: any) => ({ action: request.action, visible: request.visible }));
+    }, next);
+    expect(actions.filter((request: any) => request.action === 'cover')).toHaveLength(1);
+    expect(actions.filter((request: any) => request.action === 'visibility')).toHaveLength(0);
+    await expect.poll(() => page.evaluate(() => (window as any).binding.projected), { intervals: [10] }).toBe(true);
+  });
+}

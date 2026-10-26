@@ -316,11 +316,26 @@ class NativeUIEngineTest {
   }} finally {main{activity.finish()}}
  }
 
+ @Test fun compositedCaptureRejectsPlacementHandoff() {
+  val activity=activity()
+  try {main {
+   try {
+    NativeUIProjection(activity.window,activity.web,"Fixture","#slot",
+     failedFallback=NativeUIProjection.FailedFallback.WEB,
+     captureMode=NativeUIProjection.CaptureMode.COMPOSITED,updatePlacement={},view={null})
+    fail("Composited capture must reject placement handoff")
+   } catch(error:IllegalArgumentException) {
+    assertEquals("Placement handoff requires VIEW capture mode",error.message)
+   }
+  }} finally {main{activity.finish()}}
+ }
  @Test fun nativeInitializationOwnsImagesEventsAndTeardown() = nativeInitialization(NativeUIProjection.CaptureMode.COMPOSITED)
  @Test fun opaqueViewUsesPreparedWebPixelsWithoutNativeCopies() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW)
  @Test fun lateOpaqueCoverCannotHideAfterResume() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, true)
  @Test fun invalidatedOpaqueImageAppliesPendingPlacementBeforeRelease() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, releaseWhileActive = true)
- private fun nativeInitialization(mode: NativeUIProjection.CaptureMode, delayCover:Boolean = false, releaseWhileActive:Boolean = false) {
+ @Test fun pressedWindowBlocksCaptureAcrossFirstConnection() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, pressOnConnect = true)
+ @Test fun explicitPlacementIsNotOverwrittenByOlderImageFrame() = nativeInitialization(NativeUIProjection.CaptureMode.VIEW, authoritativePlacement = true)
+ private fun nativeInitialization(mode: NativeUIProjection.CaptureMode, delayCover:Boolean = false, releaseWhileActive:Boolean = false, pressOnConnect:Boolean = false, authoritativePlacement:Boolean = false) {
 
   val activity=activity(); lateinit var registration:NativeUIProjection; lateinit var native:View
   val loaded=CountDownLatch(1)
@@ -328,6 +343,7 @@ class NativeUIEngineTest {
   var revealCount=0
   var pendingPlacement=false
   var pendingNativeY=0f
+  var stopInitialTouch:(()->Unit)?=null
   fun js(expression:String):String {
    val done=CountDownLatch(1);var result=""
    main{activity.web.evaluateJavascript(expression){result=it;done.countDown()}}
@@ -340,7 +356,10 @@ class NativeUIEngineTest {
   }
   fun waitNative(visibility:Int) {
    val deadline=System.currentTimeMillis()+10000;var matched=false
-   while(!matched && System.currentTimeMillis()<deadline) {main{matched=native.visibility==visibility};Thread.sleep(20)}
+   while(!matched && System.currentTimeMillis()<deadline) {main{
+    // INVISIBLE also occurs during Web fallback; wait for the actual VIEW cover.
+    matched=native.visibility==visibility && (visibility!=View.INVISIBLE || registration.isProjecting)
+   };Thread.sleep(20)}
    assertTrue("Native visibility did not change",matched)
   }
   try {
@@ -358,11 +377,32 @@ class NativeUIEngineTest {
       return runCatching {android.webkit.WebResourceResponse("image/png",null,file.inputStream())}.getOrNull()
      }
     }
+    if(pressOnConnect) {
+     val previous=activity.window.callback
+     activity.window.callback=object:android.view.Window.Callback by previous {
+      override fun dispatchTouchEvent(event:android.view.MotionEvent):Boolean {previous.dispatchTouchEvent(event);return true}
+     }
+     // Install the handled callback beneath the observer, so DOWN stays active
+     // independently of fixture layout or WebView hit testing during startup.
+     var initialTouchActive=false
+     stopInitialTouch=NativeUIWindowInteraction.observe(activity.window) {initialTouchActive=it}
+     val now=android.os.SystemClock.uptimeMillis()
+     val event=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_DOWN,25f*density,105f*density,0)
+     activity.window.callback.dispatchTouchEvent(event);event.recycle()
+     assertTrue("Fixture DOWN must remain active before registration",initialTouchActive)
+    }
     registration=NativeUIProjection(activity.window,activity.web,"Fixture","#slot",
      receiveListeners=NativeUIProjection.ReceiveListeners(
       update=listOf("updated"),
       projection=NativeUIProjection.ReceiveListeners.Projection(native=listOf("shown"),web=listOf("moving"),none=listOf("hidden"))),
-     failedFallback=NativeUIProjection.FailedFallback.WEB,captureMode=mode,beforeNativeReveal={
+     failedFallback=NativeUIProjection.FailedFallback.WEB,captureMode=mode,
+     updatePlacement=if(authoritativePlacement) ({ placement ->
+      assertEquals(View.INVISIBLE,native.visibility)
+      native.y=(placement.getDouble("y")*activity.web.width/placement.getDouble("viewportWidth")).toFloat()
+      pendingPlacement=false
+      revealCount++
+     }) else null,
+     beforeNativeReveal={
       assertFalse(registration.isProjecting)
       if(pendingPlacement) {
        assertEquals(View.INVISIBLE,native.visibility)
@@ -373,7 +413,7 @@ class NativeUIEngineTest {
      },view={native})
     if(delayCover) registration.awaitWebDraw = { _, current, done -> pendingDraws.add { done(current()) } }
     registration.receive("hidden")
-    registration.receive("moving")
+    registration.receive(if(pressOnConnect) "shown" else "moving")
 
     activity.web.loadDataWithBaseURL("https://localhost", """
      <meta name='viewport' content='width=device-width,initial-scale=1'><script>
@@ -386,10 +426,21 @@ class NativeUIEngineTest {
    assertTrue("Fixture navigation did not complete",loaded.await(10,TimeUnit.SECONDS))
    waitFor("typeof testEvents?.shown==='function'")
    waitFor("document.querySelector('#slot')!==null")
+   if(pressOnConnect) {
+    Thread.sleep(500)
+    assertEquals("false",js("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot')"))
+    main {
+     val now=android.os.SystemClock.uptimeMillis()
+     val event=android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_CANCEL,0f,0f,0)
+     activity.window.callback.dispatchTouchEvent(event);event.recycle()
+     stopInitialTouch?.invoke();stopInitialTouch=null
+    }
+   } else {
    val hiddenDeadline=System.currentTimeMillis()+3000
    while(System.currentTimeMillis()<hiddenDeadline) { var hidden=false; main{hidden=native.visibility==View.INVISIBLE};if(hidden)break;Thread.sleep(20) }
    main{assertEquals(View.INVISIBLE,native.visibility)}
    js("testEvents.shown({})")
+   }
    waitFor("document.querySelector('#slot')?.hasAttribute('data-native-ui-snapshot')===true")
    if(!delayCover) {
    val before=js("getComputedStyle(document.querySelector('#slot'),'::before').backgroundImage")
@@ -420,6 +471,12 @@ class NativeUIEngineTest {
     main{assertEquals(View.VISIBLE,native.visibility)}
    }
 
+   if(authoritativePlacement) js("""
+    // The plugin's latest placement is newer than the image return frame.
+    document.querySelector('#slot')[Symbol.for('capacitor-native-ui-engine.projection-placement')]={
+      projected:false,invalidate(){},measure(){return {y:parseFloat(document.querySelector('#slot').style.top)+20,viewportWidth:innerWidth}}
+    }
+   """.trimIndent())
    repeat(2) { iteration ->
     waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot')")
     js("testEvents.moving({})")
@@ -444,7 +501,7 @@ class NativeUIEngineTest {
      if(mode==NativeUIProjection.CaptureMode.COMPOSITED) assertEquals((20+iteration*20)*activity.web.width/cssWidth,native.translationY,0.01f)
      else {
       val location=IntArray(2);val origin=IntArray(2);native.getLocationInWindow(location);activity.web.getLocationInWindow(origin)
-      assertEquals((120+iteration*20)*activity.web.width/cssWidth,(location[1]-origin[1]).toFloat(),1f)
+      assertEquals((120+iteration*20+(if(authoritativePlacement)20 else 0))*activity.web.width/cssWidth,(location[1]-origin[1]).toFloat(),1f)
      }
     }
    }

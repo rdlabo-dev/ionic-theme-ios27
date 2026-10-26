@@ -573,3 +573,31 @@ For local packaging verification, run `python3 scripts/native-ui-engine-release/
 This engine uses the [Zlib license](LICENSE): commercial use, modification and redistribution are permitted. Do not misrepresent the origin or claim authorship of the original software; identify altered source versions and retain the notice in source distributions. Forking, renaming or removing Git history is not itself prohibited by this license.
 
 [NOTICE](NOTICE) preserves the upstream MIT notice for code adapted from ionic-theme-ios27 / capacitor-native-ui. Previously granted MIT permissions remain applicable to those versions and portions. The theme and Native UI plugin remain MIT; the engine's Zlib license does not change their licenses or the licenses of applications that depend on it. The npm archive and Android artifacts include the engine notices; SwiftPM users obtain them in this repository alongside the engine sources.
+
+### Final placement when returning from an opaque image (Android)
+
+A plugin that normally measures and posts native placement on every scroll can opt
+into a final placement handoff. Pass `updatePlacement: (JSONObject) -> Unit` to its
+Android `NativeUIProjection` registration and bind its Web host with
+`bindProjectionPlacement(element, measure, invalidate)`.
+
+- `binding.projected` becomes true only after native confirms the image handoff.
+  While true, the plugin can reuse that host's last placement in full placement
+  batches and skip measuring it. Other hosts continue their ordinary updates.
+- `measure()` returns a JSON object synchronously. The engine includes it in the
+  existing restore request (or an active-image recovery request). Native validates
+  the active image token and View identity, calls `updatePlacement`, then reveals
+  native and acknowledges its draw. No extra bridge round trip is introduced.
+- The plugin must validate its own identity, generation and per-host sequence in
+  `updatePlacement`. Throw to reject a stale or invalid placement. A final update
+  for one host must not cause updates for another host to be dropped.
+- `invalidate()` is called after a failed handoff request. Clear optimistic
+  placement/deduplication caches and schedule ordinary placement reconciliation.
+- Dispose the binding when detaching a host. Session ownership prevents an old
+  registration's delayed acknowledgement from clearing a new registration's
+  projection state. Pause, author visibility and layout changes must still use
+  the plugin's normal visibility/invalidation paths.
+
+This opt-in does not change registrations without `updatePlacement`. Android rejects
+`updatePlacement` unless `captureMode = CaptureMode.VIEW`; live video and other ineligible captures
+continue native placement tracking under `failedFallback = NATIVE`.

@@ -25,8 +25,25 @@ class NativeUIProjection(
     private val captureMode: CaptureMode = CaptureMode.COMPOSITED,
     private val canCapture: () -> Boolean = { true },
     private val beforeNativeReveal: () -> Unit = {},
+    private val updatePlacement: ((JSONObject) -> Unit)?,
     view: () -> View?
 ) : AutoCloseable {
+    /** Preserve the pre-placement-handoff constructor, including Kotlin default arguments. */
+    constructor(
+        window: Window,
+        webView: WebView,
+        plugin: String,
+        projectionSelector: String,
+        receiveListeners: ReceiveListeners = ReceiveListeners(),
+        allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost"),
+        failedFallback: FailedFallback,
+        captureMode: CaptureMode = CaptureMode.COMPOSITED,
+        canCapture: () -> Boolean = { true },
+        beforeNativeReveal: () -> Unit = {},
+        view: () -> View?
+    ) : this(window, webView, plugin, projectionSelector, receiveListeners, allowedOrigins,
+        failedFallback, captureMode, canCapture, beforeNativeReveal, null, view)
+
     /** Preserve the original source and JVM constructor contracts for existing plugin binaries. */
     constructor(
         window: Window,
@@ -38,7 +55,7 @@ class NativeUIProjection(
         canCapture: () -> Boolean = { true },
         view: () -> View?
     ) : this(window, webView, plugin, projectionSelector, receiveListeners, allowedOrigins,
-        FailedFallback.WEB, CaptureMode.COMPOSITED, canCapture, {}, view)
+        FailedFallback.WEB, CaptureMode.COMPOSITED, canCapture, {}, null, view)
 
     /** True only after an opaque VIEW handoff hid native pixels. Main-thread access only. */
     var isProjecting: Boolean = false
@@ -128,13 +145,20 @@ class NativeUIProjection(
     private var documentID: String? = null
     private val script: ScriptHandler
     private val stopInteraction: () -> Unit
+    private var windowInteracting = false
+    private fun resetSnapshots() {
+        snapshots.reset()
+        snapshots.interaction(windowInteracting)
+    }
     init {
         check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
+        require(updatePlacement == null || captureMode == CaptureMode.VIEW) { "Placement handoff requires VIEW capture mode" }
         require(projectionSelector.isNotBlank())
         require(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) { "WebView document-start messaging is required" }
         val config = JSONObject().put("id", id).put("plugin", plugin).put("projectionSelector", projectionSelector)
             .put("receiveListeners", receiveListeners.configuration()).put("failedFallback", failedFallback.value).put("captureMode", if (captureMode == CaptureMode.VIEW) "view" else "composited")
+        if (updatePlacement != null) config.put("placementHandoff", true)
         val runtime = webView.context.assets.open("native-ui-engine.js").bufferedReader().use { it.readText() }
         val source = "if (!globalThis.CapacitorNativeUIEngineRuntime) { $runtime } CapacitorNativeUIEngineRuntime.start($config).catch(console.error);"
         install(webView, allowedOrigins)
@@ -154,6 +178,7 @@ class NativeUIProjection(
             throw error
         }
         stopInteraction = NativeUIWindowInteraction.observe(window) { active ->
+            windowInteracting = active
             snapshots.interaction(active)
             reply(null, JSONObject().put("active", active))
         }
@@ -184,13 +209,36 @@ class NativeUIProjection(
         }
     }
     private fun receive(message: JSONObject) {
+        if (closed) return
         val key = message.optString("key")
         if (!key.startsWith("$id:")) return
         val page = key.split(":").getOrNull(1)
-        if (documentID != page) { coverGeneration++; prepareNativeReveal(); snapshots.reset(); webReadyTokens.clear(); captured.clear(); anchors.clear(); documentID = page }
+        if (documentID != page) { coverGeneration++; prepareNativeReveal(); resetSnapshots(); webReadyTokens.clear(); captured.clear(); anchors.clear(); documentID = page }
         val request = message.optJSONObject("request") ?: return
         val token = request.optString("token")
         val complete: (JSONObject) -> Unit = { value -> if (!closed && documentID == page) reply(key, value) }
+        fun applyPlacement(): Boolean {
+            if (closed || suspended || !visible) return false
+            val placement = request.optJSONObject("placement") ?: return true
+            val selected = captured[token]
+            val current = views()
+            if (!snapshots.hidesNativeViews(token) || selected.isNullOrEmpty() || selected.any { (id, view) -> current[id] !== view }) {
+                reply(key, JSONObject(), "Native placement token is no longer active")
+                return false
+            }
+            return try {
+                updatePlacement?.invoke(placement)
+                !closed && !suspended && visible
+            } catch (error: Exception) {
+                reply(key, JSONObject(), error.message ?: "Native placement update failed")
+                false
+            }
+        }
+        fun ownsHiddenToken(): Boolean {
+            val selected = captured[token] ?: return false
+            val current = views()
+            return snapshots.hidesNativeViews(token) && selected.isNotEmpty() && selected.all { (id, view) -> current[id] === view }
+        }
         when (request.optString("action")) {
             "connect" -> {
                 if (!connected) { destination = (if (views().values.any { it.visibility == View.VISIBLE }) "native" else "none"); connected = true }
@@ -256,7 +304,7 @@ class NativeUIProjection(
             "restore" -> {
                 coverGeneration++
                 restoreAccepted = false
-                if (suspended) { complete(JSONObject().put("shown", false)); return }
+                if (suspended || !visible) { complete(JSONObject().put("shown", false)); return }
                 val parts = request.optJSONArray("parts") ?: JSONArray()
                 val width = request.optDouble("viewportWidth")
                 if (!width.isFinite() || width <= 0 || parts.length() == 0) { complete(JSONObject().put("shown", false)); return }
@@ -270,6 +318,7 @@ class NativeUIProjection(
                     for (i in 0 until ids.length()) frames[ids.getString(i)] = RectF((x*scale).toFloat(), (y*scale).toFloat(), ((x+w)*scale).toFloat(), ((y+h)*scale).toFloat())
                 }
                 if (frames.isEmpty() || frames.keys != snapshots.identifiers(token)) { complete(JSONObject().put("shown", false)); return }
+                if (!applyPlacement()) return
                 prepareNativeReveal()
                 val current = views()
                 for ((id, target) in frames) {
@@ -282,11 +331,15 @@ class NativeUIProjection(
                         complete(JSONObject().put("shown", false)); return
                     }
                 }
-                for ((id, target) in frames) {
-                    val view = current.getValue(id); val old = frame(view)
-                    val anchor = anchors.getValue(token).getValue(id)
-                    view.translationX += anchor.native.left+target.left-anchor.image.left-old.left
-                    view.translationY += anchor.native.top+target.top-anchor.image.top-old.top
+                // A successful plugin placement is newer than the image's return frame.
+                // Only legacy consumers need the captured anchor to position native views.
+                if (updatePlacement == null || request.optJSONObject("placement") == null) {
+                    for ((id, target) in frames) {
+                        val view = current.getValue(id); val old = frame(view)
+                        val anchor = anchors.getValue(token).getValue(id)
+                        view.translationX += anchor.native.left+target.left-anchor.image.left-old.left
+                        view.translationY += anchor.native.top+target.top-anchor.image.top-old.top
+                    }
                 }
                 restoreAccepted = captureMode == CaptureMode.VIEW || snapshots.restore(token, window, webView, frames, clips = clips(current.filterKeys { it in frames }))
                 complete(JSONObject().put("shown", restoreAccepted))
@@ -320,7 +373,7 @@ class NativeUIProjection(
             "visibility" -> {
                 coverGeneration++
                 visible = request.optBoolean("visible") && !suspended
-                if (visible) { prepareNativeReveal(); snapshots.restoreViews() } else { isProjecting = false; snapshots.dismiss() }
+                if (visible) { if (!applyPlacement()) return; prepareNativeReveal(); snapshots.restoreViews() } else { isProjecting = false; snapshots.dismiss() }
                 if (visible) {
                     hiddenByProjection.forEach { if (it.visibility == View.INVISIBLE) it.visibility = View.VISIBLE }
                     hiddenByProjection.clear()
@@ -333,8 +386,8 @@ class NativeUIProjection(
                 if (ready) complete(JSONObject()) else reply(key, JSONObject(), "Web image did not draw")
             }
             "restored" -> { snapshots.retireCopy(token, false); complete(JSONObject()) }
-            "release" -> { if (snapshots.hidesNativeViews(token)) prepareNativeReveal(); snapshots.release(token); webReadyTokens.remove(token); captured.remove(token); anchors.remove(token); complete(JSONObject()) }
-            "reset" -> { coverGeneration++; prepareNativeReveal(); snapshots.reset(); webReadyTokens.clear(); captured.clear(); anchors.clear(); complete(JSONObject()) }
+            "release" -> { if (ownsHiddenToken()) { if (!applyPlacement()) return; prepareNativeReveal() }; snapshots.release(token); webReadyTokens.remove(token); captured.remove(token); anchors.remove(token); complete(JSONObject()) }
+            "reset" -> { coverGeneration++; if (!suspended && visible && !applyPlacement()) return; prepareNativeReveal(); resetSnapshots(); webReadyTokens.clear(); captured.clear(); anchors.clear(); complete(JSONObject()) }
             else -> complete(JSONObject())
         }
     }
