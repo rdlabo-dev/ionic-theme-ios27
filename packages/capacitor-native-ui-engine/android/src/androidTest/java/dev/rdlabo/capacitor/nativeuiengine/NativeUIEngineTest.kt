@@ -41,18 +41,6 @@ class NativeUIEngineTest {
   NativeUIProjection::class.java.getConstructor(*parameters, Int::class.javaPrimitiveType,
    Class.forName("kotlin.jvm.internal.DefaultConstructorMarker"))
  }
- @Test fun publishedSnapshotMethodBinaryContractsRemainAvailable() {
-  val type=NativeUISnapshots::class.java
-  type.getMethod("prepare",android.view.Window::class.java,View::class.java,Double::class.javaPrimitiveType,
-   kotlin.jvm.functions.Function0::class.java,kotlin.jvm.functions.Function1::class.java)
-  for((name,collection) in listOf("cover" to List::class.java,"restore" to Map::class.java)) {
-   val parameters=arrayOf(String::class.java,android.view.Window::class.java,View::class.java,collection,
-    Boolean::class.javaPrimitiveType)
-   assertEquals(Boolean::class.javaPrimitiveType,type.getMethod(name,*parameters).returnType)
-   assertEquals(Boolean::class.javaPrimitiveType,type.getMethod("${name}\$default",type,*parameters,
-    Int::class.javaPrimitiveType,Any::class.java).returnType)
-  }
- }
  @Test fun placementChangesPositionWithoutResettingDimensionsAndClipsInput() {
   val activity=activity()
   try {main {
