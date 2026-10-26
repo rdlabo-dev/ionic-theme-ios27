@@ -6,9 +6,18 @@ const boot = async (page: Page) => {
   await page.setContent(
     '<main id="surface" style="position:relative"><div id="scroll" style="height:300px;width:300px;overflow:auto"><div style="height:100px"></div><div id="source" style="width:120px;height:40px"><button>Web action</button></div><div style="height:900px"></div></div></main><div id="other"></div>',
   );
+  await page.evaluate(() => {
+    (window as any).Capacitor = {
+      convertFileSrc: (url: string) =>
+        'data:image/svg+xml,' +
+        encodeURIComponent(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="${url.endsWith('/ad.png') ? 'blue' : 'red'}"/></svg>`,
+        ),
+    };
+  });
   await page.addScriptTag({ content: bundle });
 };
-const prepare = async (page: Page, fail = false, shadow = false, proxy = false, shared = false) => {
+const prepare = async (page: Page, fail = false, shadow = false, proxy = false, shared = false, events = false) => {
   await boot(page);
   if (shadow)
     await page.evaluate(() => {
@@ -18,7 +27,7 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false, 
       (window as any).sourceRoot = host.shadowRoot;
     });
   await page.evaluate(
-    async ({ fail, proxy, shared }) => {
+    async ({ fail, proxy, shared, events }) => {
       const w = window as any,
         source = (w.sourceRoot ?? document).querySelector('#source') as HTMLElement,
         owner = (w.sourceRoot ?? document).querySelector('#scroll') as HTMLElement;
@@ -91,21 +100,27 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false, 
               },
             };
           },
-          resolveURL: () =>
-            'data:image/svg+xml,' +
-            encodeURIComponent(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><path fill="red" d="M0 0h120v40H0z"/></svg>',
-            ),
         },
         {
           wake() {},
           blocked: () => false,
           revision: () => w.revision,
+          events: events
+            ? {
+                addListener: async (name: string, callback: Function) => {
+                  (w.eventListeners ??= {})[name] = callback;
+                  return { remove: () => (w.removedEvents ??= []).push(name) };
+                },
+                update: ['setColors', 'shown'],
+                projection: { native: ['shown'], web: ['transitionStarted'], none: ['hidden'] },
+                accepts: (event: any) => event.id === 'counter',
+              }
+            : undefined,
         },
       );
       w.manager.consider(1, [w.source]);
     },
-    { fail, proxy, shared },
+    { fail, proxy, shared, events },
   );
   if (!fail)
     await expect(page.locator(shared ? '#projection-host' : proxy ? '#proxy' : '#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
@@ -287,11 +302,6 @@ test('identical native tokens stay isolated across plugin scopes and teardown', 
             w.secondRemoved = true;
           },
         }),
-        resolveURL: () =>
-          'data:image/svg+xml,' +
-          encodeURIComponent(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="blue"/></svg>',
-          ),
       },
       { wake() {}, blocked: () => false },
     );
@@ -507,11 +517,6 @@ test('batch uses one capture, listener and cover for multiple fixed fallback DOM
           w.listeners++;
           return { remove() {} };
         },
-        resolveURL: () =>
-          'data:image/svg+xml,' +
-          encodeURIComponent(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="red"/></svg>',
-          ),
       },
       { wake() {}, blocked: () => false },
     );
@@ -560,7 +565,6 @@ test('empty batch can begin and be destroyed before a document is known', async 
             listeners++;
             return { remove() {} };
           },
-          resolveURL: (url: string) => url,
         },
         { wake() {}, blocked: () => false },
       );
@@ -594,7 +598,6 @@ test('batch rejects mixed documents and disposes a listener resolved after teard
             new Promise((resolve) => {
               resolveListener = resolve;
             }),
-          resolveURL: (url: string) => url,
         },
         { wake() {}, blocked: () => false },
       );
@@ -642,7 +645,6 @@ test('replacing a fallback scope invalidates the old image even with unchanged n
           return { shown: true };
         },
         listen: async () => ({ remove() {} }),
-        resolveURL: () => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"/>'),
       },
       { wake() {}, blocked: () => false },
     );
@@ -692,7 +694,6 @@ for (const detached of [false, true]) {
             return result;
           },
           listen: async () => ({ remove() {} }),
-          resolveURL: () => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"/>'),
         },
         { wake() {}, blocked: () => false },
       );
@@ -730,4 +731,48 @@ test('replaced fallback elements are rejected before native ownership can change
       });
     }),
   ).toEqual([true, true, true, true, true, true, true]);
+});
+
+test('plugin events preserve web projection through updates and ignore other surfaces', async ({ page }) => {
+  await prepare(page, false, false, false, false, true);
+  await page.evaluate(() => (window as any).eventListeners.transitionStarted({ id: 'other' }));
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  await page.evaluate(() => (window as any).eventListeners.transitionStarted({ id: 'counter' }));
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() => {
+    const w = window as any;
+    for (let i = 0; i < 20; i++) w.eventListeners.setColors({ id: 'counter' });
+  });
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'prepare').length)).toBe(1);
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() => (window as any).eventListeners.shown({ id: 'counter' }));
+  // Notifications never bypass the native draw acknowledgement.
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() => (window as any).manager.updated(undefined, ['counter'], 2));
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+});
+
+test('hidden notification invalidates delayed cover and updates cannot resurrect it', async ({ page }) => {
+  await prepare(page, false, false, false, false, true);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.holdCover = true;
+    w.eventListeners.transitionStarted({ id: 'counter' });
+    w.eventListeners.hidden({ id: 'counter' });
+    w.coverReplies.splice(0).forEach((resolve: Function) => resolve({ shown: true }));
+    w.eventListeners.setColors({ id: 'counter' });
+  });
+  await page.waitForTimeout(100);
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  expect(await page.evaluate(() => (window as any).calls.filter((call: any) => call.action === 'prepare').length)).toBe(1);
+  await page.evaluate(() => (window as any).eventListeners.shown({ id: 'counter' }));
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.evaluate(async () => {
+    const w = window as any;
+    await w.manager.destroy();
+    Object.values(w.eventListeners).forEach((callback: any) => callback({ id: 'counter' }));
+  });
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot');
+  expect(await page.evaluate(() => (window as any).removedEvents.sort())).toEqual(['hidden', 'setColors', 'shown', 'transitionStarted']);
 });

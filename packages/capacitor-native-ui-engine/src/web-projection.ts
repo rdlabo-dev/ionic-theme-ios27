@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import type {
   WebProjectionSource,
   ScopedWebProjectionSource as Candidate,
@@ -7,10 +8,13 @@ import type {
 } from './types.js';
 import type { WebProjectionScope } from './web-projection-scope.js';
 import { bounded, boundedListener } from './bridge.js';
+import { bindProjectionEvents, type ProjectionEvents, type ProjectionDestination } from './projection-events.js';
 import { projectionAncestors } from './geometry.js';
 import { snapshotStyles } from './snapshot-styles.js';
 
 export interface WebProjectionOptions {
+  /** Existing plugin notifications, scoped to this presentation surface. */
+  events?: ProjectionEvents;
   wake(): void;
   blocked(): boolean;
   revision?(): number;
@@ -76,6 +80,7 @@ const coordinateSpace = (target: HTMLElement, win: Window, style = win.getComput
 
 /** Images are prepared after accepted native updates, never on the overlay's critical path. */
 const createProjectionEngine = async (scope: WebProjectionScope, transport: WebProjectionTransport, callbacks: WebProjectionOptions) => {
+  let destination: ProjectionDestination = 'native';
   const doc = scope.element.ownerDocument;
   const win = doc.defaultView!;
   // Native tokens are local to a transport; never use them as global CSS identities.
@@ -173,6 +178,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
     timer = 0;
     if (
       stopped ||
+      destination !== 'native' ||
       flight ||
       touching ||
       active ||
@@ -231,7 +237,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
           result.parts.map(async (part) => {
             const image = doc.createElement('img');
             images.push(image);
-            image.src = transport.resolveURL(part.url);
+            image.src = Capacitor.convertFileSrc(part.url);
             await image.decode();
             return image;
           }),
@@ -239,6 +245,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
       );
       if (
         stopped ||
+        destination !== 'native' ||
         touching ||
         active ||
         callbacks.blocked() ||
@@ -291,7 +298,8 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
   // available while their replacement is being rendered and decoded.
   const schedule = () => {
     win.clearTimeout(timer);
-    if (!stopped && !active && !touching && !callbacks.blocked()) timer = win.setTimeout(() => void prepare(), 50);
+    if (!stopped && destination === 'native' && !active && !touching && !callbacks.blocked())
+      timer = win.setTimeout(() => void prepare(), 50);
   };
   let consideredLayout: string | undefined;
   const consider = (revision: number, candidates: Candidate[]) => {
@@ -557,7 +565,7 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
   };
   const begin = () => {
     retireRestoration();
-    if (stopped || active) return;
+    if (stopped || destination === 'none' || active) return;
     const image = cached;
     if (
       !image ||
@@ -698,6 +706,31 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
       win.dispatchEvent(new Event(sourcesChangedEvent));
     }
   };
+  let eventListener: Awaited<ReturnType<typeof bindProjectionEvents>> | undefined;
+  try {
+    if (callbacks.events)
+      eventListener = await bindProjectionEvents(callbacks.events, (next, updated) => {
+        if (stopped) return;
+        if (next) destination = next;
+        // Native hide has already happened. Retire images and invalidate pending captures,
+        // without calling the plugin's public hide method or disturbing its fallback DOM.
+        if (destination === 'none') {
+          invalidate();
+          return;
+        }
+        if (next === 'web') begin();
+        if (next === 'native') {
+          end();
+          schedule();
+        }
+        if (updated) changed();
+      });
+  } catch (error) {
+    stopped = true;
+    invalidate();
+    await bounded(Promise.resolve(listener.remove())).catch(() => {});
+    throw error;
+  }
   return {
     get owners(): readonly HTMLElement[] {
       return [...owners];
@@ -727,7 +760,10 @@ const createProjectionEngine = async (scope: WebProjectionScope, transport: WebP
     async destroy() {
       stopped = true;
       invalidate();
-      await bounded(Promise.resolve(listener?.remove())).catch(() => {});
+      await Promise.allSettled([
+        bounded(Promise.resolve().then(() => listener?.remove())),
+        bounded(Promise.resolve().then(() => eventListener?.remove())),
+      ]);
     },
   };
 };

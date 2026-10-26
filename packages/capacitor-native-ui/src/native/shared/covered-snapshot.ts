@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core';
 import {
   createWebProjectionBatch,
   createWebProjectionScope,
@@ -41,7 +40,6 @@ export const createCoveredSnapshots = async (
     {
       send: (request) => plugin.coveredSnapshot!(request),
       listen: (listener) => listen('snapshotInteraction', listener),
-      resolveURL: (url) => Capacitor.convertFileSrc(url),
     },
     {
       wake: () => {

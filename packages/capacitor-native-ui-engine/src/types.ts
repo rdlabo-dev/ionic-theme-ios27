@@ -53,5 +53,4 @@ export interface ListenerHandle {
 export interface WebProjectionTransport {
   send<Request extends WebProjectionRequest>(request: Request): Promise<WebProjectionResult<Request>>;
   listen(listener: (event: { active: boolean }) => void): Promise<ListenerHandle>;
-  resolveURL(fileURL: string): string;
 }

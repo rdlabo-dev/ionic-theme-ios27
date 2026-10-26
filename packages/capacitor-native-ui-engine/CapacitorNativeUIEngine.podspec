@@ -9,6 +9,7 @@ Pod::Spec.new do |s|
  s.preserve_paths = 'LICENSE', 'NOTICE'
  s.author = { 'rdlabo' => 'sakakibara@rdlabo.jp' }
  s.source = { :git => 'https://github.com/rdlabo-dev/ionic-theme-ios27.git', :tag => "ios27-v#{s.version}" }
+ s.resource_bundles = { 'CapacitorNativeUIEngine' => ['ios/Sources/CapacitorNativeUIEngine/Resources/*.js'] }
  s.source_files = 'ios/Sources/CapacitorNativeUIEngine/**/*.swift'
  s.ios.deployment_target = '15.0'
  s.swift_version = '5.9'

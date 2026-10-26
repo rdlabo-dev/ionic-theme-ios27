@@ -186,4 +186,62 @@ class NativeUIEngineTest {
    assertTrue(stale.await(5,TimeUnit.SECONDS));assertFalse(staleAccepted)
   } finally {main{activity.finish()}}
  }
+ @Test fun nativeInitializationOwnsImagesEventsAndTeardown() {
+  val activity=activity(); lateinit var registration:NativeUIProjection; lateinit var native:View
+  fun js(expression:String):String {
+   val done=CountDownLatch(1);var result=""
+   main{activity.web.evaluateJavascript(expression){result=it;done.countDown()}}
+   assertTrue(done.await(3,TimeUnit.SECONDS)); return result
+  }
+  fun waitFor(expression:String) {
+   val deadline=System.currentTimeMillis()+10000
+   while(System.currentTimeMillis()<deadline) { if(js(expression)=="true") return; Thread.sleep(20) }
+   fail("Timed out: $expression")
+  }
+  try {
+   main {
+    val density=activity.resources.displayMetrics.density
+    native=View(activity);native.setBackgroundColor(Color.RED)
+    activity.root.addView(native,FrameLayout.LayoutParams((100*density).toInt(),(40*density).toInt()).apply {leftMargin=(20*density).toInt();topMargin=(100*density).toInt()})
+    activity.web.webViewClient=object:android.webkit.WebViewClient(){
+     override fun shouldInterceptRequest(view:android.webkit.WebView,request:android.webkit.WebResourceRequest):android.webkit.WebResourceResponse? {
+      val path=request.url.path ?: return null
+      if(!path.startsWith("/_capacitor_file_"))return null
+      val file=File(path.removePrefix("/_capacitor_file_"))
+      if(!file.canonicalPath.startsWith(activity.cacheDir.canonicalPath+"/"))return null
+      return runCatching {android.webkit.WebResourceResponse("image/png",null,file.inputStream())}.getOrNull()
+     }
+    }
+    registration=NativeUIProjection(activity.window,activity.web,"Fixture","#slot",listOf("button"),
+     update=listOf("updated"),projection=mapOf("web" to listOf("moving"),"native" to listOf("shown"),"none" to listOf("hidden")),views={mapOf("button" to native)})
+    activity.web.loadDataWithBaseURL("https://localhost", """
+     <meta name='viewport' content='width=device-width,initial-scale=1'><script>
+     window.testEvents={};window.Capacitor={
+      addListener:(plugin,name,fn)=>{testEvents[name]=fn;return{remove:async()=>{delete testEvents[name]}}},
+      convertFileSrc:url=>'https://localhost/_capacitor_file_'+url.replace('file://','')
+     };</script><body><div id='slot' style='position:absolute;left:20px;top:100px;width:100px;height:40px'>Fallback</div></body>
+    """.trimIndent(),"text/html","utf-8",null)
+   }
+   waitFor("document.querySelector('#slot')?.hasAttribute('data-native-ui-snapshot')===true")
+   repeat(2) { iteration ->
+    waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot')")
+    js("testEvents.moving({})")
+    waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
+    main{assertEquals(View.INVISIBLE,native.visibility)}
+    js("document.querySelector('#slot').style.top='${120+iteration*20}px'")
+    js("testEvents.shown({})")
+    waitFor("!document.querySelector('#slot').hasAttribute('data-native-ui-snapshot-visible')")
+    val cssWidth=js("innerWidth").toFloat()
+    main{
+     assertEquals(View.VISIBLE,native.visibility)
+     assertEquals((20+iteration*20)*activity.web.width/cssWidth,native.translationY,0.01f)
+    }
+   }
+   js("testEvents.hidden({})")
+   waitFor("document.querySelector('#slot').getAttributeNames().some(n=>n.startsWith('data-native-ui-session-')&&document.querySelector('#slot').getAttribute(n)==='none')")
+   main{assertEquals(View.INVISIBLE,native.visibility);registration.close()}
+   waitFor("Object.keys(testEvents).length===0")
+  } finally {main{activity.finish()}}
+ }
+
 }

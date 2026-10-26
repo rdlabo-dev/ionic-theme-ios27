@@ -1,22 +1,76 @@
 # Capacitor Native UI Engine
 
-`@rdlabo/capacitor-native-ui-engine` is infrastructure **for Capacitor plugin maintainers**. It is a library dependency, not an application-facing Capacitor plugin: it registers no bridge, renders no controls, and requires no Ionic or Angular runtime.
+`@rdlabo/capacitor-native-ui-engine` is infrastructure **for Capacitor plugin maintainers**. It is a library dependency that renders no controls, registers no application-facing Capacitor plugin, and requires no Ionic or Angular runtime. Its native registration owns a scoped internal WebView channel.
 
-The engine associates DOM layout with native views, tracks scrolling, prepares native images before interaction, and manages image handoff and native restoration. The consuming plugin supplies its renderer, existing ordered transport, and presentation policy.
+The engine associates DOM layout with native views, tracks scrolling, prepares native images before interaction, and manages image handoff and native restoration. The consuming plugin supplies its native views, corresponding DOM and presentation events. Existing renderers can also use the low-level APIs with their own ordered transport.
 
 The native libraries support iOS (`UIKit` / `WKWebView`) and Android (`View` / `WebView`). TypeScript geometry and image presentation are framework-independent. APIs are experimental during extraction. Android placement requires API 24+, and composited snapshots require API 26+.
 
 ## Ownership
 
-| Engine                                                                | Consuming plugin                                                         |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| DOM geometry, clipping and native scroll binding                      | Creating native buttons, SDK views, or SwiftUI content                   |
-| Binding acquisition, reuse validation and stale acquisition detection | Sending updates and applying acknowledgements on its existing bridge     |
-| Prepared image cache, decoding, display and retirement                | Choosing which surface is covered or moving                              |
-| Native capture, clipped view and temporary return images              | Measuring the actual native view and reporting renderer state changes    |
-| Image invalidation, token cleanup and scroll observer teardown        | Restoring interactive Web content or hiding a slot when projection fails |
+| Engine                                                        | Consuming plugin                                                     |
+| ------------------------------------------------------------- | -------------------------------------------------------------------- |
+| DOM geometry, clipping and native scroll binding              | Creating native buttons, SDK views, or SwiftUI content               |
+| Startup, event subscriptions and native draw acknowledgements | Providing the fallback DOM at the correct layer                      |
+| Prepared image cache, decoding, display and retirement        | Reporting appearance changes and the intended projection destination |
+| Native capture and temporary return images                    | Providing native views and SDK capture eligibility                   |
+| Image invalidation, token cleanup and observer teardown       | Owning business actions and the interactive Web fallback             |
 
 A DOM slot does not necessarily contain a Web replacement: a UI plugin can restore a button, while an ad plugin may hide its slot. Image handoff is explicit and noninteractive. The engine never forwards clicks through an image or replaces SDK click/impression handling.
+
+## Register from the native plugin
+
+Keep the plugin's normal `registerPlugin()` export and public methods unchanged. Create and retain a registration after creating the native renderer. The engine ships its Web runtime with the Swift/Android library, starts it in the current document and future documents, finds the existing fallback DOM, and subscribes to the plugin's notifications. Applications do not call a separate JS initializer.
+
+The integration has three responsibilities:
+
+1. The consumer provides an existing, laid-out Web fallback container in the correct layer. Pass its selector as the required `fallbackSelector: string`; there is no `null` / automatic DOM creation mode.
+2. The plugin registers its native views and notification names once on each platform.
+3. The plugin emits notifications after its updates and releases the registration at teardown.
+
+For a single Tab Bar surface:
+
+```swift
+import CapacitorNativeUIEngine
+
+projection = try NativeUIProjection(
+    webView: bridge.webView!, plugin: "TabBar", fallbackSelector: "#tab-bar-fallback", ids: ["bar"],
+    update: ["tabSelected", "setColors", "setTabs"],
+    projection: ["native": ["shown"], "web": ["transitionStarted"], "none": ["hidden"]],
+    views: { [weak self] in self?.tabBarView.map { ["bar": $0] } ?? [:] }
+)
+```
+
+```kotlin
+import dev.rdlabo.capacitor.nativeuiengine.NativeUIProjection
+
+projection = NativeUIProjection(
+    activity.window, bridge.webView, "TabBar", "#tab-bar-fallback", listOf("bar"),
+    update = listOf("tabSelected", "setColors", "setTabs"),
+    projection = mapOf("native" to listOf("shown"), "web" to listOf("transitionStarted"), "none" to listOf("hidden")),
+    views = { tabBarView?.let { mapOf("bar" to it) } ?: emptyMap() }
+)
+```
+
+Here `setColors` is an **event emitted after a successful update**, not a method the engine calls. Reuse existing events such as `tabSelected`; where no notification exists, add it after the native operation succeeds:
+
+```swift
+notifyListeners("setColors", data: [:])
+```
+
+```kotlin
+notifyListeners("setColors", JSObject())
+```
+
+Emit `transitionStarted` before the DOM starts moving, `shown` when native projection is requested again, and `hidden` after the plugin's own hide operation. Native capture, URL conversion, image preparation, draw acknowledgement, image retirement and listener cleanup stay inside the engine. The engine never invokes the plugin's `show`, `hide`, selection or ad-loading methods. End the registration with `projection.destroy()` on iOS or `projection.close()` on Android when the renderer is destroyed. Retain the registration for its full lifetime and call native APIs on the UI thread.
+
+`fallbackSelector` is required and must resolve to **one existing container**, including one retrieved by the plugin's own `querySelector`. The engine does not create a DOM or choose its size, placement, layer or z-index. Keep the container's normal layout and any interactive Web controls; an empty zero-size placeholder is not a usable fallback. It is a fixed scope, not a discovery root. A missing DOM waits without showing native content; replacing it creates a new binding and retires old images. The engine preserves the container's children, listeners and values. Several native IDs can share one container and capture transaction. Views not listed in `ids` are never controlled.
+
+For independently moving AdMob slots, retain one registration per loaded native view/surface, use a slot-specific selector and filter the plugin's notifications with `match: ["slotKey": slotKey, "loadId": loadId]` / `match = mapOf("slotKey" to slotKey, "loadId" to loadId)`. Dispose the registration when a loaded ad is replaced, even if its host view is reused. Keep SDK loading, impression and click handling in the ad plugin. Supply `canCapture` with its existing capture eligibility checks (for example, test-ad / opaque-background / no-video restrictions); the engine does not grant permission to snapshot an SDK view.
+
+Scrolling is internal: iOS uses a uniquely matched native scroll binding when available; otherwise, including Android, scrolling temporarily uses the prepared image and restores native content after motion settles. Automatic scroll handling never overrides explicit `web` or `none`. Unsupported capture or geometry keeps the normal DOM fallback; it does not wait for a new capture on the transition path. The latest explicit destination survives WebView reload, and old-document replies cannot complete a new document's requests.
+
+By default, the internal channel is limited to the main frame on Capacitor's localhost origins. Pass the application's exact `allowedOrigins` for a different configured origin. Android requires WebView's `WEB_MESSAGE_LISTENER` and `DOCUMENT_START_SCRIPT` features; registration fails explicitly on unsupported WebView implementations. Do not use wildcard origins for remotely navigable WebViews.
 
 ## Install inside a plugin
 
@@ -62,13 +116,12 @@ end
 
 Run `npx cap sync ios` and rebuild. Keep the direct engine version aligned with the consuming plugin's dependency when upgrading. With a nonstandard node_modules layout, point `:path` at the installed engine package directory. An npm dependency alone does not register a Pod, and a podspec dependency cannot specify this local path. The engine intentionally has no Capacitor plugin registration or Podfile rewriting hook. SwiftPM consumers do not need this CocoaPods setup.
 
-## Web projection
+## Low-level Web projection
 
 A scope binds one existing Web fallback element for its lifetime. Obtain that element from your plugin's DOM; the engine does not create a replacement host or choose a page, stacking order or z-index. A different fallback element requires a new scope. Its Document is derived from `element.ownerDocument`.
 
 ```ts
 import { createWebProjectionScope, createWebProjection } from '@rdlabo/capacitor-native-ui-engine';
-import { Capacitor } from '@capacitor/core';
 
 const fallback = container.querySelector<HTMLElement>('[data-web-fallback]');
 if (!fallback) throw new Error('Web fallback is missing');
@@ -78,7 +131,6 @@ const projection = await createWebProjection(
   {
     send: (request) => plugin.snapshot(request),
     listen: (listener) => plugin.addListener('snapshotInteraction', listener),
-    resolveURL: (url) => Capacitor.convertFileSrc(url),
   },
   {
     wake: () => schedulePluginUpdate(),
@@ -98,6 +150,30 @@ The container, bridge and update callbacks above belong to the consuming plugin.
 6. Call `projection.destroy()` when disposing the surface. It releases only its own images and listener; the plugin owns final Native reset and its DOM.
 
 The engine uses a noninteractive, empty CSS `::before` pseudo-element for the prepared image. Supply a container that supports it, such as an existing `div`, `button` or custom element. Replaced/void elements such as `img`, `input` and `video` are rejected when creating the scope; use their existing fallback container. It does not clone, replace, remove or set `inert`/`aria-hidden` on the existing fallback or its children. Removing its temporary image styles restores the same live DOM, including application changes made during projection. Event listeners and form values are preserved. The renderer may move that same element between parents; it must not replace the scope's element or let two managers control it simultaneously.
+
+### Notifications from the existing plugin
+
+The low-level manager can subscribe to the existing plugin's events through `options.events`:
+
+```ts
+events: {
+  addListener: (name, listener) => plugin.addListener(name, listener),
+  update: ['setColors', 'setTabs', 'tabSelected'],
+  projection: {
+    native: ['shown'],
+    web: ['transitionStarted'],
+    none: ['hidden'],
+  },
+}
+```
+
+These are **notifications**, not intercepted method names. The plugin emits update events after its native changes succeed. A Web projection event must arrive before movement starts; it uses the previously prepared image. A native event requests restoration, but the image remains until the normal renderer acknowledgement confirms that Native is ready. A hidden event follows the plugin's native hide operation and retires the image; it does not invoke `hide()` or change application-owned fallback DOM. Appearance updates preserve the requested destination, including `none`.
+
+For plugins with several surfaces, provide `accepts(event)` to select this scope's stable surface identity. Events shared by `update` and a destination are subscribed once and processed together. Conflicting destinations for the same event are rejected before subscription. Destroying the manager removes all its subscriptions, including registrations that resolve late after initialization fails. No public plugin methods are wrapped or replayed.
+
+The manager converts private native file URLs with Capacitor internally. Plugin authors do not supply a URL resolver.
+
+This section describes the lower-level manager for renderers that already own batch reconciliation, such as the Ionic adapter. Prefer the native registration above for a new integration; it owns startup, measurements and draw acknowledgements.
 
 ### Multiple fallbacks in one Native transaction
 
@@ -181,7 +257,7 @@ Android uses a Gradle Android library, distributed as an AAR through Maven rathe
 packages/capacitor-native-ui-engine/android/gradlew -p packages/capacitor-native-ui-engine/android testDebugUnitTest assembleRelease connectedDebugAndroidTest publishReleasePublicationToVerificationRepository
 ```
 
-`NativeUIClippedView` applies position and clipping without resetting unchanged dimensions. The consuming plugin retains its existing coordinate measurements and ordered bridge; the engine adds no separate coordinate channel. Android does not claim WKWebView-style native overflow binding.
+`NativeUIClippedView` applies position and clipping without resetting unchanged dimensions. Low-level integrations can retain their existing coordinate measurements and ordered bridge; the native registration owns these messages for new integrations. Android does not claim WKWebView-style native overflow binding.
 
 `NativeUISnapshots` prepares composited PixelCopy images and local PNG files, then covers/restores from that cache. Encoding runs off the UI thread; only one preparation runs per owner. Notify it of visual changes and interaction, and release tokens on teardown. All view/lifecycle calls run on the UI thread. The plugin retains revision, eligibility and fallback policy.
 

@@ -18,6 +18,7 @@ android {
     publishing { singleVariant('release') { withSourcesJar(); withJavadocJar() } }
 }
 dependencies {
+    implementation 'androidx.webkit:webkit:1.14.0'
     implementation 'androidx.annotation:annotation:1.9.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
@@ -83,3 +84,5 @@ tasks.withType(Jar).configureEach {
         from('..') { include 'LICENSE', 'NOTICE'; into 'META-INF/capacitor-native-ui-engine' }
     }
 }
+
+android.sourceSets.main.assets.srcDir('../ios/Sources/CapacitorNativeUIEngine/Resources')

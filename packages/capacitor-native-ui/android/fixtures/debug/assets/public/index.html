@@ -100,7 +100,6 @@
               return result ?? {};
             },
             listen: async (listener) => Capacitor.addListener('NativeUI', 'snapshotInteraction', listener),
-            resolveURL: (url) => Capacitor.convertFileSrc(url),
           },
           { wake, blocked: () => false, revision: () => revision },
         );
