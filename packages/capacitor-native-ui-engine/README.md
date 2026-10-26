@@ -30,7 +30,7 @@ The integration has three responsibilities:
 
 ### iOS: add the registration to your `CAPPlugin` class
 
-In `ios/Sources/NamePlugin/NamePlugin.swift`, retain the registration as a property and initialize it in `load()`, **after your existing renderer creates and attaches its view**.
+In `ios/Sources/ExamplePlugin/ExamplePlugin.swift`, retain the registration as a property and initialize it in `load()`, **after your existing renderer creates and attaches its view**.
 
 In this diff, `nativeView` is the `UIView` your plugin already owns; its existing rendering code is represented by comments.
 
@@ -41,10 +41,10 @@ Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS 
  import UIKit
 +import CapacitorNativeUIEngine
 
- @objc(NamePlugin)
- public class NamePlugin: CAPPlugin, CAPBridgedPlugin {
-     public let identifier = "NamePlugin"
-     public let jsName = "Name"
+ @objc(ExamplePlugin)
+ public class ExamplePlugin: CAPPlugin, CAPBridgedPlugin {
+     public let identifier = "ExamplePlugin"
+     public let jsName = "Example"
      public let pluginMethods: [CAPPluginMethod] = [
          CAPPluginMethod(name: "setColors", returnType: CAPPluginReturnPromise)
      ]
@@ -95,7 +95,7 @@ If the view is created later in an existing `initialize` / `show` method, put th
 
 ### Android: add the registration to your `Plugin` class
 
-Make the corresponding changes in `android/src/main/java/<your-package>/NamePlugin.kt`. **`pluginHandle.id`** is Capacitor's registered plugin name, derived from `@CapacitorPlugin`; no second name string is needed.
+Make the corresponding changes in `android/src/main/java/<your-package>/ExamplePlugin.kt`. **`pluginHandle.id`** is Capacitor's registered plugin name, derived from `@CapacitorPlugin`; no second name string is needed.
 
 ```diff
  import android.view.View
@@ -108,8 +108,8 @@ Make the corresponding changes in `android/src/main/java/<your-package>/NamePlug
 +import dev.rdlabo.capacitor.nativeuiengine.NativeUIProjection
 +import dev.rdlabo.capacitor.nativeuiengine.NativeUIProjection.ReceiveListeners
 
- @CapacitorPlugin(name = "Name")
- class NamePlugin : Plugin() {
+ @CapacitorPlugin(name = "Example")
+ class ExamplePlugin : Plugin() {
      private var nativeView: View? = null
 +    private var projection: NativeUIProjection? = null
 
