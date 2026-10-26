@@ -66,6 +66,8 @@ Run `npx cap sync ios` and rebuild. Keep the direct kit version aligned with the
 
 Create one `createWebProjectionScope(namespace)` per plugin instance and share it among that instance's page/overlay managers. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
 
+Supply the projection host as an `HTMLElement` reference through the required `target(source, placement)` callback. The example below uses the source component itself. For a separate display proxy, return that element instead, or `undefined` when unavailable. Your plugin places the host in the appropriate page or overlay and controls its positioning, stacking order and clipping; the kit does not locate it by a class or ID, infer a z-index, or fall back to `document.body`.
+
 ```ts
 import { createWebProjectionScope, createWebProjection } from '@rdlabo/capacitor-native-ui-kit';
 import { Capacitor } from '@capacitor/core';
@@ -83,8 +85,8 @@ const projection = await createWebProjection(
     wake: () => schedulePluginUpdate(),
     blocked: () => overlayIsActive(),
     revision: () => lastSentRevision,
-    // Created/selected by your renderer in the correct page or overlay layer.
-    target: (source) => scope.getTarget(source),
+    // Use the existing component as its own projection host.
+    target: (source) => source,
   },
 );
 ```
@@ -98,22 +100,17 @@ const projection = await createWebProjection(
 5. After the overlay closes, call `projection.end()`, send the normal native update, then call `projection.updated(snapshotToken, acceptedIDs, revision)`. Only a newer ACK covering all captured IDs retires the Web image.
 6. Call `projection.destroy()` on surface teardown. It releases only its tokens and listener. The plugin owns the final native reset, so destroying one surface cannot invalidate another plugin or overlay.
 
-### The renderer owns the DOM layer
-
-The plugin author supplies projection DOM in the correct stacking context. `target(source, placement)` is required and returns the display host for each source, or `undefined` when unavailable. The host may be the existing source component or a dedicated proxy created by your renderer. Register a proxy with `scope.setTarget(source, host)` before it is used. The kit does not search for an overlay, infer a z-index, or choose `document.body` as a fallback.
-
 For card/modal transforms that need one shared image layer, create a dedicated host in the relevant page and pass **that host**, not the page itself, to `projection.begin(host)`:
 
 ```ts
 const host = document.createElement('div');
-host.className = 'my-plugin-web-projection';
 host.inert = true;
 host.setAttribute('aria-hidden', 'true');
 presentingPage.append(host);
 projection.begin(host);
 ```
 
-Your CSS sets the host's positioning, stacking order, clipping and pointer behavior to match your UI. For example, use an absolute host anchored to a positioned page; choose its z-index relative to that page's other layers. The kit inserts noninteractive image content into the host and converts viewport coordinates into its local coordinates. It never assigns a z-index to that content. It removes its own image content on retirement, but **does not remove or restyle your host**. Remove the host in your renderer's teardown after destroying the projection manager.
+Style this host through your plugin's normal styling mechanism; a CSS class is optional and is not used to connect it to the kit. Set its positioning, stacking order, clipping and pointer behavior to match your UI. For example, use an absolute host anchored to a positioned page; choose its z-index relative to that page's other layers. The kit inserts noninteractive image content into the host and converts viewport coordinates into its local coordinates. It never assigns a z-index to that content. It removes its own image content on retirement, but **does not remove or restyle your host**. Remove the host in your renderer's teardown after destroying the projection manager.
 
 A disconnected supplied host or an unresolved per-source target prevents projection. Continue your renderer's normal Web fallback instead of moving the projection into another layer. Web projection is the intentional transfer of the native appearance to the Web layer; snapshot capture is its implementation, and ordinary Web fallback is the renderer's failure path.
 
