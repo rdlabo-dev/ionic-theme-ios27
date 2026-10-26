@@ -52,7 +52,7 @@ test('injected runtime retains the existing Capacitor object and disposes a pend
     w.start = w.CapacitorNativeUIEngineRuntime.start({
       id: 'channel',
       plugin: 'Fixture',
-      fallbackSelector: '#slot',
+      projectionSelector: '#slot',
       receiveListeners: { update: ['updated'] },
     }).catch(() => {});
   });

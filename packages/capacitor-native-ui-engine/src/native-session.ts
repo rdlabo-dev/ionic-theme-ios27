@@ -9,7 +9,7 @@ import type { Frame, ScrollPlacement, ListenerHandle, WebProjectionRequest } fro
 export interface NativeSessionConfiguration {
   id: string;
   plugin: string;
-  fallbackSelector: string;
+  projectionSelector: string;
   receiveListeners?: {
     update?: string[];
     projection?: Partial<Record<ProjectionDestination, string[]>>;
@@ -122,7 +122,7 @@ export const startNativeSession = async (
       wake();
       return;
     }
-    const candidates = document.querySelectorAll(config.fallbackSelector);
+    const candidates = document.querySelectorAll(config.projectionSelector);
     const found = candidates.length === 1 && candidates[0] instanceof HTMLElement ? candidates[0] : undefined;
     if (found !== target) {
       generation++;
@@ -227,7 +227,7 @@ export const startNativeSession = async (
   document.addEventListener('scroll', onScroll, true);
   const observer = new MutationObserver(() => {
     // Do not react to Engine's own image styles or ordinary content updates.
-    const matches = document.querySelectorAll(config.fallbackSelector);
+    const matches = document.querySelectorAll(config.projectionSelector);
     if (!target?.isConnected || matches.length !== 1 || matches[0] !== target) schedule();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });

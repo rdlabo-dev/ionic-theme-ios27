@@ -25,7 +25,7 @@ const boot = async (page: import('@playwright/test').Page, present = true) => {
       {
         id: 'surface',
         plugin: 'Example',
-        fallbackSelector: '#slot',
+        projectionSelector: '#slot',
         receiveListeners: {
           update: ['updated'],
           projection: { native: ['shown'], web: ['moving'], none: ['hidden'] },

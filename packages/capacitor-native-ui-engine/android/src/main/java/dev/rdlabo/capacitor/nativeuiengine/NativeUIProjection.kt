@@ -18,7 +18,7 @@ class NativeUIProjection(
     private val window: Window,
     private val webView: WebView,
     plugin: String,
-    fallbackSelector: String,
+    projectionSelector: String,
     receiveListeners: ReceiveListeners = ReceiveListeners(),
     allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost"),
     private val canCapture: () -> Boolean = { true },
@@ -59,10 +59,10 @@ class NativeUIProjection(
     private val script: ScriptHandler
     init {
         check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
-        require(fallbackSelector.isNotBlank())
+        require(projectionSelector.isNotBlank())
         require(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) { "WebView document-start messaging is required" }
-        val config = JSONObject().put("id", id).put("plugin", plugin).put("fallbackSelector", fallbackSelector)
+        val config = JSONObject().put("id", id).put("plugin", plugin).put("projectionSelector", projectionSelector)
             .put("receiveListeners", receiveListeners.configuration())
         val runtime = webView.context.assets.open("native-ui-engine.js").bufferedReader().use { it.readText() }
         val source = "if (!globalThis.CapacitorNativeUIEngineRuntime) { $runtime } CapacitorNativeUIEngineRuntime.start($config).catch(console.error);"

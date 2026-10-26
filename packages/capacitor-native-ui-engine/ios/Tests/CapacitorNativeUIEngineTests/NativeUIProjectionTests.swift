@@ -5,7 +5,7 @@ import WebKit
 final class NativeUIProjectionTests: XCTestCase {
     @MainActor func testMissingWebViewThrowsDuringInitialization() {
         XCTAssertThrowsError(try NativeUIProjection(
-            webView: nil, plugin: "Fixture", fallbackSelector: "#slot", view: { nil }
+            webView: nil, plugin: "Fixture", projectionSelector: "#slot", view: { nil }
         ))
     }
 
@@ -34,7 +34,7 @@ final class NativeUIProjectionTests: XCTestCase {
         let hidden = UIView(frame: CGRect(x: 20, y: 160, width: 100, height: 40)); hidden.isHidden = true
         hidden.frame.origin = CGPoint(x: 0, y: 60)
         surface.addSubview(hidden)
-        let registration = try NativeUIProjection(webView: web, plugin: "Fixture", fallbackSelector: "#slot",
+        let registration = try NativeUIProjection(webView: web, plugin: "Fixture", projectionSelector: "#slot",
             receiveListeners: .init(update: ["updated"], projection: .init(native: ["shown"], web: ["moving"], none: ["hidden"])),
             canCapture: { false }, view: { surface })
         defer { registration.destroy(); window.isHidden = true }

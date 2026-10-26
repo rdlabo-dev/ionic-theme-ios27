@@ -43,7 +43,7 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
     private var anchors: [String: [String: Anchor]] = [:]
     private var captured: [String: [String: UIView]] = [:]
 
-    public init(webView: WKWebView?, plugin: String, fallbackSelector: String,
+    public init(webView: WKWebView?, plugin: String, projectionSelector: String,
                 receiveListeners: ReceiveListeners = .init(),
                 allowedOrigins: Set<String> = ["capacitor://localhost", "https://localhost", "http://localhost"],
                 canCapture: @escaping () -> Bool = { true }, view: @escaping () -> UIView?) throws {
@@ -51,8 +51,8 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
         self.webView = webView; self.views = { view().map { ["view": $0] } ?? [:] }; self.origins = allowedOrigins; self.canCapture = canCapture
         super.init()
         precondition(Thread.isMainThread)
-        guard !fallbackSelector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ProjectionError.invalidConfiguration }
-        let config: [String: Any] = ["id": id, "plugin": plugin, "fallbackSelector": fallbackSelector,
+        guard !projectionSelector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ProjectionError.invalidConfiguration }
+        let config: [String: Any] = ["id": id, "plugin": plugin, "projectionSelector": projectionSelector,
                                      "receiveListeners": receiveListeners.configuration]
         let json = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
         let allowed = String(data: try JSONSerialization.data(withJSONObject: Array(allowedOrigins)), encoding: .utf8)!

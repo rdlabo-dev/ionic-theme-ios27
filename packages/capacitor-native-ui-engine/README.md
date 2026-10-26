@@ -24,7 +24,7 @@ Keep the plugin's normal `registerPlugin()` export and public methods unchanged.
 
 The integration has three responsibilities:
 
-1. The consumer provides an existing, laid-out Web fallback container in the correct layer. Pass its selector as the required `fallbackSelector: string`; there is no `null` / automatic DOM creation mode.
+1. The consumer provides an existing, laid-out Web fallback container in the correct layer. Pass this projection destination as the required `projectionSelector: string`; there is no `null` / automatic DOM creation mode.
 2. The plugin registers its native views and notification names once on each platform.
 3. The plugin emits notifications after its updates and releases the registration at teardown.
 
@@ -57,7 +57,7 @@ Use the existing **`jsName`**, not `identifier`: Capacitor uses `jsName` for JS 
 +            projection = try NativeUIProjection(
 +                webView: bridge?.webView,
 +                plugin: jsName,
-+                fallbackSelector: "#native-ui-fallback",
++                projectionSelector: "#native-ui-fallback",
 +                receiveListeners: .init(
 +                    update: ["appearanceChanged"],
 +                    projection: .init(
@@ -120,7 +120,7 @@ Make the corresponding changes in `android/src/main/java/<your-package>/NamePlug
 +                window = activity.window,
 +                webView = bridge.webView,
 +                plugin = pluginHandle.id,
-+                fallbackSelector = "#native-ui-fallback",
++                projectionSelector = "#native-ui-fallback",
 +                receiveListeners = ReceiveListeners(
 +                    update = listOf("appearanceChanged"),
 +                    projection = ReceiveListeners.Projection(
@@ -172,7 +172,7 @@ The names in the examples are conventions you choose, not reserved Engine method
 
 Emit `transitionStarted` before the DOM starts moving, `shown` when native projection is requested again, and `hidden` after the plugin's own hide operation. Native capture, URL conversion, image preparation, draw acknowledgement, image retirement and listener cleanup stay inside the engine. The engine never invokes the plugin's `show`, `hide`, selection or ad-loading methods. End the registration with `projection.destroy()` on iOS or `projection.close()` on Android when the renderer is destroyed. Retain the registration for its full lifetime and call native APIs on the UI thread.
 
-`fallbackSelector` is required and must resolve to **one existing container**, including one retrieved by the plugin's own `querySelector`. The engine does not create a DOM or choose its size, placement, layer or z-index. Keep the container's normal layout and any interactive Web controls; an empty zero-size placeholder is not a usable fallback. It is a fixed scope, not a discovery root.
+`projectionSelector` is required and must resolve to **one existing container**, including one retrieved by the plugin's own `querySelector`. The engine does not create a DOM or choose its size, placement, layer or z-index. Keep the container's normal layout and any interactive Web controls; an empty zero-size placeholder is not a usable fallback. It is a fixed scope, not a discovery root.
 
 A missing DOM waits without showing native content; replacing it creates a new binding and retires old images. The engine preserves the container's children, listeners and values. Pass the native view itself through `view`; a group of controls can use their common native container. The engine manages the internal identifier, so no ID list or view dictionary is required. Independent surfaces use separate registrations.
 
