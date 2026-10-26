@@ -656,6 +656,17 @@ test('native popover retention skips image handoff; a Web fallback reuses it wit
   expect(source.hasAttribute('data-native-ui-fading')).toBe(false);
   expect(latest!.controls).toHaveLength(1);
   expect(click).not.toHaveBeenCalled();
+
+  // Framework teardown may remove an overlay without emitting DidDismiss.
+  // The shared monitor must release this consumer's image as well as native-init sessions.
+  await vi.waitFor(() => expect(capture.mock.calls.filter(([args]) => args.action === 'prepare').length).toBeGreaterThan(1));
+  const alert = document.createElement('ion-alert');
+  document.body.append(alert);
+  alert.dispatchEvent(new CustomEvent('ionAlertWillPresent', { bubbles: true }));
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(true));
+  alert.remove();
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
+  expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
 });
 
 test('older Native binaries keep modal rail projection and geometry updates during dragging', async () => {

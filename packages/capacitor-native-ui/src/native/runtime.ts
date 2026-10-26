@@ -1,3 +1,5 @@
+import { type OverlayChange } from '@rdlabo/capacitor-native-ui-engine';
+import { enableSupportIonicOverlays, coveredIonicSurface } from '@rdlabo/capacitor-native-ui-engine/ionic';
 import { createScrollBindings } from '@rdlabo/capacitor-native-ui-engine';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
@@ -62,10 +64,8 @@ import type { Candidate } from './shared/candidate';
 import { CSS_MOTION_EVENTS } from './shared/events';
 import { createCrossfade, fadeMarker } from './shared/crossfade';
 
-const overlays = 'ion-modal, ion-popover, ion-alert, ion-action-sheet, ion-loading, ion-picker, ion-toast, ion-menu';
 // Only these Web overlays leave the rail's display and interaction intact.
 const railPreservingOverlays = 'ion-toast, ion-popover, ion-picker';
-const overlayNames = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'];
 const verticalBarsMarker = 'data-native-ui-vertical-bars';
 const verticalBarsMemberMarker = 'data-native-ui-vertical-bars-member';
 
@@ -99,10 +99,7 @@ export const createRuntime = async (
   const modalSnapshots = new Map<HTMLIonModalElement, CoveredSnapshots>();
   const imageSurfaces = () => [...(snapshots ? [snapshots] : []), ...modalSnapshots.values()];
   const imagesFor = (modal?: HTMLIonModalElement) => (modal ? modalSnapshots.get(modal) : snapshots);
-  const coveredSurface = (overlay: HTMLElement) => {
-    const stack = modalStack(doc);
-    return overlay.matches('ion-modal') ? stack[stack.indexOf(overlay as HTMLIonModalElement) - 1] : topModal(doc);
-  };
+  const coveredSurface = (overlay: HTMLElement) => coveredIonicSurface(overlay) as HTMLIonModalElement | undefined;
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
   const sources = new Map<HTMLElement, string | null>();
@@ -123,7 +120,8 @@ export const createRuntime = async (
   const pages = new Set<HTMLElement>();
   const tabActivationPages = new Map<HTMLElement, number>();
   const verticalBarsPages = createVerticalBarsPageState();
-  const presented = new Set<HTMLElement>();
+  const overlayMonitor = enableSupportIonicOverlays(undefined, doc)!;
+  const presented = overlayMonitor.active;
   const blockingRailOverlays = new WeakSet<HTMLElement>();
   const manualSuspensions = new Map<symbol, boolean>();
   const moving = new Map<HTMLElement, Set<string>>();
@@ -343,24 +341,13 @@ export const createRuntime = async (
   const overlayOpen = (includeMenu = true, allowModal = false, ignoredSelector?: string) => {
     const modal = topModal(doc);
     const ignored = (element: Element) =>
-      // Ionic marks a popover presented before WillPresent chooses Native/Web.
-      (element.matches('ion-popover') && !presented.has(element as HTMLElement)) ||
+      overlayMonitor.isExcluded(element as HTMLElement) ||
       (!!ignoredSelector && element.matches(ignoredSelector) && !blockingRailOverlays.has(element as HTMLElement)) ||
       (allowModal && !!modal && modalUsesVerticalBars(modal) && element.matches('ion-modal'));
-    for (const element of presented) if (!element.isConnected) presented.delete(element);
     const presentedOverlayOpen = Array.from(presented).some(
       (element) => !ignored(element) && (includeMenu || !element.matches('ion-menu')),
     );
-    return (
-      manualSuspensions.size > 0 ||
-      presentedOverlayOpen ||
-      Array.from(doc.querySelectorAll(overlays)).some(
-        (element) =>
-          !ignored(element) &&
-          (includeMenu || !element.matches('ion-menu')) &&
-          ((element as Element & { presented?: boolean }).presented || element.classList.contains('show-menu')),
-      )
-    );
+    return manualSuspensions.size > 0 || presentedOverlayOpen;
   };
   // Compare source data before PNG rendering mutates each item's payload.
   const signature = (candidate: Candidate, includeTransitionIds = true) => {
@@ -591,7 +578,13 @@ export const createRuntime = async (
   };
   const coverWebOverlay = () => {
     if (stopped || retentions.size || manualSuspensions.size) return;
-    if (![...presented].some((overlay) => overlay.isConnected && !overlay.matches('ion-modal') && usesCoveredBackground(overlay))) return;
+    if (
+      ![...presented].some(
+        (overlay) =>
+          overlay.isConnected && !overlayMonitor.isExcluded(overlay) && !overlay.matches('ion-modal') && usesCoveredBackground(overlay),
+      )
+    )
+      return;
     // Native popovers retain their controls synchronously. Only the Web route reaches here.
     imagesFor(topModal(doc))?.begin();
   };
@@ -1248,8 +1241,8 @@ export const createRuntime = async (
   });
   on(doc, 'ionTabsDidChange', endTabSwitchHandoff);
   const overlayPresenting = (element: HTMLElement) => {
+    if (overlayMonitor.isExcluded(element)) return;
     imagesFor(coveredSurface(element))?.retireRestoration();
-    presented.add(element);
     if (element.matches('ion-popover')) {
       // Retention is chosen synchronously by the native overlay controller.
       // Otherwise a blocking Web popover must sit above the entire rail.
@@ -1268,53 +1261,46 @@ export const createRuntime = async (
     if (!element.matches('ion-modal')) win.queueMicrotask(coverWebOverlay);
     schedule();
   };
-  // Adoption changes the document, but not the in-flight Ionic event path.
-  // Do not replay WillPresent: application handlers must run exactly once.
-  on(doc, 'nativeUIOverlayAdopted', (event) => overlayPresenting((event as CustomEvent<HTMLElement>).detail));
-  on(doc, 'ionBreakpointDidChange', (event) => {
-    const modal = event.target as HTMLIonModalElement;
-    const breakpoint = (event as CustomEvent<{ breakpoint?: number }>).detail?.breakpoint;
-    // Zero dismisses the sheet. Keep its image until DidDismiss restores Native.
-    if (breakpoint !== undefined && breakpoint > 0 && breakpoint <= (modal.backdropBreakpoint ?? 0))
-      imagesFor(coveredSurface(modal))?.invalidate();
-  });
-  on(doc, 'ionModalWillDismiss', (event) => {
-    // The departing surface carries its prepared pixels until DidDismiss.
-    modalSnapshots.get(event.target as HTMLIonModalElement)?.begin();
-    modalHandoff = true;
-    if (pending) handoffInstant = true;
-    schedule();
-  });
-  for (const name of overlayNames) {
-    on(doc, `ion${name}WillPresent`, (event) => overlayPresenting(event.target as HTMLElement));
-    on(doc, `ion${name}DidDismiss`, (event) => {
-      if (name === 'Modal') {
+  const onOverlay = (callback: (change: OverlayChange) => void) => {
+    const remove = overlayMonitor.subscribe(callback);
+    listeners.signal.addEventListener('abort', remove, { once: true });
+  };
+  onOverlay(({ element, phase, event }) => {
+    if (phase === 'change') imageSurfaces().forEach((surface) => surface.end());
+    if (!element) {
+      schedule();
+      return;
+    }
+    if (element.matches('ion-menu')) {
+      if (phase === 'willPresent') snapshots?.retireRestoration();
+      schedule();
+      return;
+    }
+    if (phase === 'willPresent') overlayPresenting(element);
+    if (event?.type === 'ionBreakpointDidChange') {
+      const modal = element as HTMLIonModalElement;
+      const breakpoint = (event as CustomEvent<{ breakpoint?: number }>).detail?.breakpoint;
+      if (breakpoint !== undefined && breakpoint > 0 && breakpoint <= (modal.backdropBreakpoint ?? 0))
+        imagesFor(coveredSurface(modal))?.invalidate();
+    }
+    if (phase === 'willDismiss' && element.matches('ion-modal')) {
+      modalSnapshots.get(element as HTMLIonModalElement)?.begin();
+      modalHandoff = true;
+      if (pending) handoffInstant = true;
+      schedule();
+    }
+    if (phase === 'didDismiss') {
+      blockingRailOverlays.delete(element);
+      if (element.matches('ion-modal')) {
         modalHandoff = true;
         if (pending) handoffInstant = true;
-      }
-      presented.delete(event.target as HTMLElement);
-      blockingRailOverlays.delete(event.target as HTMLElement);
-      if (name === 'Modal') {
-        const modal = event.target as HTMLIonModalElement;
+        const modal = element as HTMLIonModalElement;
         void modalSnapshots.get(modal)?.destroy();
         modalSnapshots.delete(modal);
       }
       imageSurfaces().forEach((surface) => surface.end());
       schedule();
-    });
-  }
-  const eventMenu = (event: Event) =>
-    event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.matches('ion-menu'));
-  on(doc, 'ionWillOpen', (event) => {
-    snapshots?.retireRestoration();
-    const menu = eventMenu(event);
-    if (menu) presented.add(menu);
-    schedule();
-  });
-  on(doc, 'ionDidClose', (event) => {
-    const menu = eventMenu(event);
-    if (menu) presented.delete(menu);
-    schedule();
+    }
   });
   for (const name of [
     'ionChange',
@@ -1439,7 +1425,6 @@ export const createRuntime = async (
         doc.querySelectorAll<HTMLElement>(`.${rejectedClass}`).forEach((element) => setRejected(element, false));
         icons.clear();
         pages.clear();
-        presented.clear();
         manualSuspensions.clear();
         moving.clear();
         suspended.clear();
@@ -1574,8 +1559,10 @@ export const createRuntime = async (
           preparing.delete(modal);
         }
       };
-      for (const name of ['ionModalWillPresent', 'ionModalDidPresent'])
-        on(doc, name, (event) => void prepareSurface(event.target as HTMLIonModalElement));
+      onOverlay(({ element, phase }) => {
+        if (element?.matches('ion-modal') && (phase === 'willPresent' || phase === 'didPresent'))
+          void prepareSurface(element as HTMLIonModalElement);
+      });
       await Promise.all(modalStack(doc).map(prepareSurface));
       on(win, modalMotionEvent, (event) => {
         const { modal, moving } = (event as CustomEvent<{ modal: HTMLIonModalElement; moving: boolean }>).detail;

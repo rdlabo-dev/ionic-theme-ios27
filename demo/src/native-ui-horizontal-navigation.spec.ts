@@ -262,7 +262,7 @@ test.each(['Modal', 'Popover', 'Alert', 'ActionSheet'])(
   async (name) => {
     const f = await fixture();
     const release = await f.start();
-    const overlay = document.createElement(`ion-${name.toLowerCase()}`);
+    const overlay = document.createElement(`ion-${name === 'ActionSheet' ? 'action-sheet' : name.toLowerCase()}`);
     document.body.append(overlay);
     overlay.dispatchEvent(new CustomEvent(`ion${name}WillPresent`, { bubbles: true }));
     await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls).toEqual([]));

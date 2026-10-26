@@ -1,3 +1,4 @@
+import { enableSupportIonicOverlays } from '@rdlabo/capacitor-native-ui-engine/ionic';
 import { getProjectionState } from './shared/covered-source';
 import { controlSelected } from './shared/control-options';
 import { createCrossfade, fadeMarker } from './shared/crossfade';
@@ -514,10 +515,13 @@ export const createVerticalBarsWebProjection = (
   for (const name of ['ionViewWillEnter', 'ionViewWillLeave', 'ionViewDidEnter', 'ionViewDidLeave'])
     doc.addEventListener(name, pageLifecycle, { capture: true, signal: listeners.signal });
   doc.addEventListener(VERTICAL_BARS_TRANSITION_CANCELED, pageLifecycle, { capture: true, signal: listeners.signal });
-  doc.addEventListener('ionModalWillPresent', schedule, { capture: true, signal: listeners.signal });
-  // DidDismiss removes the Modal's rail layout. Retire its clones in the same
-  // turn, before they can paint using the background rail's default offset.
-  doc.addEventListener('ionModalDidDismiss', update, { capture: true, signal: listeners.signal });
+  const stopOverlays = enableSupportIonicOverlays(undefined, doc)!.subscribe(({ element, phase }) => {
+    if (!element?.matches('ion-modal')) return;
+    if (phase === 'willPresent') schedule();
+    // Retire modal clones before they can paint at the background rail offset.
+    if (phase === 'didDismiss') update();
+  });
+  listeners.signal.addEventListener('abort', stopOverlays, { once: true });
   win.addEventListener(
     'nativeUIVerticalBarsAcquire',
     (event) => {

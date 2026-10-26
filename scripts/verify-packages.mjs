@@ -131,7 +131,10 @@ try {
   execFileSync(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
+    import { enableSupportIonicOverlays } from '@rdlabo/capacitor-native-ui-engine/ionic';
     assert.equal(typeof enableNativeUI, 'function');
+    assert.equal(typeof enableSupportIonicOverlays, 'function');
+    assert.equal(enableSupportIonicOverlays(), undefined); // Safe without a Document (SSR).
     await assert.rejects(import('@ionic/core'), { code: 'ERR_MODULE_NOT_FOUND' });
     await assert.rejects(import('@rdlabo/ionic-theme-utils'), { code: 'ERR_MODULE_NOT_FOUND' });
   `], { cwd: dir, stdio: 'inherit' });
@@ -139,6 +142,9 @@ try {
   writeFileSync(consumer, `
     import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
     import { createWebProjection, createWebProjectionScope, type WebProjectionTransport } from '@rdlabo/capacitor-native-ui-engine';
+    import { enableSupportIonicOverlays } from '@rdlabo/capacitor-native-ui-engine/ionic';
+    enableSupportIonicOverlays();
+    enableSupportIonicOverlays({ exclude: '[data-nonblocking-overlay]', covers: (overlay, target) => undefined });
     async function projectionContract(transport: WebProjectionTransport) {
       // @ts-expect-error A scope must explicitly declare its source DOM boundary.
       createWebProjectionScope('consumer');

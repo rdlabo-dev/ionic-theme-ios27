@@ -5,3 +5,4 @@ export { createWebProjectionScope, type WebProjectionScope } from './web-project
 export * from './web-projection.js';
 export * from './scroll-bindings.js';
 export type { ProjectionEvents, ProjectionDestination } from './projection-events.js';
+export { getOverlayCoordinator, usesOverlayBackdrop, type OverlayChange, type OverlayOptions } from './overlays.js';

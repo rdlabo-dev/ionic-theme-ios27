@@ -1,3 +1,4 @@
+import { getOverlayCoordinator } from './overlays.js';
 import { readScrollPlacement } from './scroll-placement.js';
 import { projectionAncestors } from './geometry.js';
 import { createWebProjection, type WebProjection } from './web-projection.js';
@@ -50,7 +51,11 @@ export const startNativeSession = async (
   const listeners = config.receiveListeners;
   let stopped = false;
   let ready = false;
+  let requestedDestination: ProjectionDestination = 'native';
   let destination: ProjectionDestination = 'native';
+  const overlays = getOverlayCoordinator(document);
+  const effectiveDestination = (): ProjectionDestination =>
+    requestedDestination === 'native' && target && overlays.isCovered(target) ? 'web' : requestedDestination;
   let automaticMotion = false;
   let nativeScroll = false;
   let scrollOwner: HTMLElement | undefined;
@@ -137,6 +142,7 @@ export const startNativeSession = async (
       sizeObserver.disconnect();
       if (target) sizeObserver.observe(target);
     }
+    destination = effectiveDestination();
     if (!target) {
       await bridge.send({ action: 'visibility', visible: false });
       return;
@@ -235,16 +241,50 @@ export const startNativeSession = async (
     }, 100);
   };
   document.addEventListener('scroll', onScroll, true);
-  const observer = new MutationObserver(() => {
-    // Do not react to Engine's own image styles or ordinary content updates.
+  const observer = new MutationObserver((records) => {
     if (findTarget() !== target) schedule();
+    // Moving the same host into or out of an overlay changes coverage, not registration.
+    else if (target && records.some((record) => record.type === 'childList')) applyDestination(effectiveDestination());
   });
   observer.observe(document.documentElement, { childList: true, attributes: true, subtree: true });
+  const applyDestination = (next: ProjectionDestination, force = false) => {
+    if (stopped || (!force && next === destination)) return;
+    automaticMotion = false;
+    clearTimeout(scrollTimer);
+    destination = next;
+    generation++;
+    const version = generation;
+    if (destination === 'none') {
+      // Retire native visibility before releasing images; release must not resurrect hidden views.
+      void bridge
+        .send({ action: 'visibility', visible: false })
+        .then(() => {
+          if (destination !== 'none' || version !== generation || stopped) return;
+          manager?.invalidate();
+          setVisibility();
+        })
+        .catch(() => {
+          if (destination !== 'none' || version !== generation || stopped) return;
+          manager?.invalidate();
+          setVisibility();
+        });
+    } else if (destination === 'web') {
+      manager?.begin();
+      if (!manager?.token) void bridge.send({ action: 'visibility', visible: false }).catch(() => {});
+      setVisibility();
+    } else if (destination === 'native') {
+      manager?.end();
+      if (!manager?.restoring) schedule();
+    }
+  };
+  // Let a renderer claim a native child window during the same Ionic event dispatch.
+  const stopOverlays = overlays.subscribe(() => queueMicrotask(() => applyDestination(effectiveDestination())));
   let events: ListenerHandle | undefined;
   const destroy = async () => {
     if (stopped) return;
     stopped = true;
     generation++;
+    stopOverlays();
     observer.disconnect();
     sizeObserver.disconnect();
     window.removeEventListener('resize', resized);
@@ -270,34 +310,9 @@ export const startNativeSession = async (
       (next, updated) => {
         if (stopped) return;
         if (next) {
-          automaticMotion = false;
-          clearTimeout(scrollTimer);
-          destination = next;
-          generation++;
-          void bridge.send({ action: 'destination', destination }).catch(() => {});
-        }
-        const version = generation;
-        if (next === 'none') {
-          // Retire native visibility before releasing images; release must not resurrect hidden views.
-          void bridge
-            .send({ action: 'visibility', visible: false })
-            .then(() => {
-              if (destination !== 'none' || version !== generation || stopped) return;
-              manager?.invalidate();
-              setVisibility();
-            })
-            .catch(() => {
-              if (destination !== 'none' || version !== generation || stopped) return;
-              manager?.invalidate();
-              setVisibility();
-            });
-        } else if (next === 'web') {
-          manager?.begin();
-          if (!manager?.token) void bridge.send({ action: 'visibility', visible: false }).catch(() => {});
-          setVisibility();
-        } else if (next === 'native') {
-          manager?.end();
-          if (!manager?.restoring) schedule();
+          requestedDestination = next;
+          void bridge.send({ action: 'destination', destination: next }).catch(() => {});
+          applyDestination(effectiveDestination(), true);
         }
         if (updated) {
           manager?.changed();
@@ -306,7 +321,9 @@ export const startNativeSession = async (
       },
     );
     const initial = await bridge.send({ action: 'connect' });
-    if (generation === initialGeneration && ['native', 'web', 'none'].includes(initial?.destination)) destination = initial.destination;
+    if (generation === initialGeneration && ['native', 'web', 'none'].includes(initial?.destination))
+      requestedDestination = initial.destination;
+    destination = effectiveDestination();
     ready = true;
     schedule();
     return { destroy };

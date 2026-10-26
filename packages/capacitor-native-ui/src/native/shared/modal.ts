@@ -1,3 +1,4 @@
+import { enableSupportIonicOverlays, ionicModalStack } from '@rdlabo/capacitor-native-ui-engine/ionic';
 import type { Frame } from '../definitions';
 import { readModalAnimation, type ModalAnimation } from './modal-animation';
 
@@ -76,8 +77,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
   const win = doc.defaultView!;
   const state: ModalState = { stack: [] };
   states.set(doc, state);
-  const presenting = new Set<HTMLIonModalElement>();
-  const dismissed = new WeakSet<HTMLIonModalElement>();
+  const overlays = enableSupportIonicOverlays(undefined, doc)!;
   const observed = new Set<Element>();
   const listeners = new AbortController();
   let stopped = false;
@@ -91,11 +91,8 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     if (stopped) return;
     const app = doc.querySelector('ion-app.ios-theme-vertical-bars');
     const modals = Array.from(doc.querySelectorAll<HTMLIonModalElement>('ion-modal'));
-    const active = modals.filter(
-      (modal) => !dismissed.has(modal) && ((modal as HTMLIonModalElement & { presented?: boolean }).presented || presenting.has(modal)),
-    );
-    for (const modal of presenting) if (!modal.isConnected) presenting.delete(modal);
-    state.stack = active.sort((a, b) => a.overlayIndex - b.overlayIndex);
+    const active = ionicModalStack(doc) as HTMLIonModalElement[];
+    state.stack = active;
     const top = state.stack[state.stack.length - 1];
     let changed = state.top !== top;
     state.top = top;
@@ -176,32 +173,22 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
   const observer = new MutationObserver(schedule);
   const observation = { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'] };
   observer.observe(doc.documentElement, observation);
-  for (const name of ['ionModalWillPresent', 'ionModalDidPresent', 'ionModalWillDismiss', 'ionModalDidDismiss', 'ionBreakpointDidChange']) {
-    doc.addEventListener(
-      name,
-      (event) => {
-        const modal = event.target as HTMLIonModalElement;
-        if (modal.localName !== 'ion-modal') return;
-        if (name === 'ionModalWillPresent' && animate() && modal.closest('ion-app.ios-theme-vertical-bars')) presentations.set(modal, null);
-        else if (name === 'ionModalDidPresent' || name === 'ionModalWillDismiss' || name === 'ionModalDidDismiss') {
-          if (presentations.delete(modal)) bounds = '';
-        }
-        if (name === 'ionModalWillDismiss') {
-          dismissing.add(modal);
-          if (animate()) releaseSheetBackdropGesture(modal, (event as CustomEvent<{ role?: string }>).detail?.role);
-        } else if (name === 'ionModalWillPresent' || name === 'ionModalDidDismiss') dismissing.delete(modal);
-        if (name === 'ionModalDidDismiss') {
-          presenting.delete(modal);
-          dismissed.add(modal);
-        } else {
-          presenting.add(modal);
-          dismissed.delete(modal);
-        }
-        refresh();
-      },
-      { capture: true, signal: listeners.signal },
-    );
-  }
+  const stopOverlays = overlays.subscribe(({ element, phase, event }) => {
+    if (!element?.matches('ion-modal')) {
+      if (phase === 'change') refresh();
+      return;
+    }
+    const modal = element as HTMLIonModalElement;
+    if (phase === 'willPresent' && animate() && modal.closest('ion-app.ios-theme-vertical-bars')) presentations.set(modal, null);
+    else if (phase === 'didPresent' || phase === 'willDismiss' || phase === 'didDismiss') {
+      if (presentations.delete(modal)) bounds = '';
+    }
+    if (phase === 'willDismiss') {
+      dismissing.add(modal);
+      if (animate()) releaseSheetBackdropGesture(modal, (event as CustomEvent<{ role?: string }> | undefined)?.detail?.role);
+    } else if (phase === 'willPresent' || phase === 'didDismiss') dismissing.delete(modal);
+    refresh();
+  });
   doc.addEventListener(
     'pointerdown',
     (event) => {
@@ -233,6 +220,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
   refresh();
   return () => {
     stopped = true;
+    stopOverlays();
     win.cancelAnimationFrame(frame);
     observer.disconnect();
     resize?.disconnect();

@@ -13,6 +13,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./ionic": {
+      "types": "./dist/ionic.d.ts",
+      "import": "./dist/ionic.js"
     }
   },
   "files": [

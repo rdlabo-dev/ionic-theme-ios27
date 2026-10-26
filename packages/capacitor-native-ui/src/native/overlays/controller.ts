@@ -1,3 +1,5 @@
+import { getOverlayCoordinator } from '@rdlabo/capacitor-native-ui-engine';
+import { enableSupportIonicOverlays } from '@rdlabo/capacitor-native-ui-engine/ionic';
 import type { NativeUIOptions, NativeUIPlugin } from '../definitions';
 import { bounded, boundedListener } from '../shared/bridge';
 import type { NativeUIConnection } from '../shared/connection';
@@ -50,7 +52,7 @@ export const createOverlayController = async (
   let sequence = 0;
   let stopped = false;
   const suspensions = new Set<symbol>();
-  const events = ['Modal', 'Popover', 'Alert', 'ActionSheet', 'Loading', 'Picker', 'Toast'].map((name) => `ion${name}WillPresent`);
+  const overlays = enableSupportIonicOverlays(undefined, doc)!;
   const cleanup = async (connection: Connection) => {
     // Every teardown step is isolated and bounded: a throwing or hanging step
     // must not strand the retained page projections or the child window.
@@ -78,6 +80,7 @@ export const createOverlayController = async (
       await stage('close', () => bounded(plugin.closeOverlay({ id: connection.id })));
     } finally {
       // The page projections must be released even if teardown throws above.
+      overlays.setNative(connection.overlay, false);
       connection.releaseProjection?.();
       connection.releaseProjection = undefined;
       try {
@@ -245,8 +248,7 @@ export const createOverlayController = async (
       console.error('Native overlay projection failed; keeping Ionic content in the source WebView.', error);
     }
   };
-  const present = (event: Event) => {
-    const overlay = event.target as Overlay;
+  const present = (overlay: Overlay) => {
     if (current) {
       const connection = current;
       const fromChild = overlay.ownerDocument === connection.win?.document;
@@ -280,6 +282,7 @@ export const createOverlayController = async (
     const connection: Connection = { id: `ios-theme-overlay-${++sequence}`, overlay, dismissed: false, focus: activeElement(doc) };
     const presentation: Presentation = { kind: 'popover', animated: overlay.animated };
     current = connection;
+    overlays.setNative(overlay, true);
     // Retain synchronously, before the scheduled projection update can retire the rail.
     const anchorId = verticalBarsPopoverAnchor(overlay);
     connection.releaseProjection = retainProjection(
@@ -325,20 +328,20 @@ export const createOverlayController = async (
         overlay.removeEventListener(lifecycle(overlay, 'DidPresent'), ready);
       });
   };
-  const menuOpen = (event: Event) => {
-    if (!event.composedPath().some((node): node is HTMLElement => node instanceof HTMLElement && node.matches('ion-menu'))) return;
+  const menuOpen = () => {
     // Menus render in the source document below the native overlay; release the relay.
     const connection = current;
     current = undefined;
     if (connection) opening = opening.then(() => release(connection)).catch(console.error);
   };
   const observe = (target: Document) => {
-    for (const name of events) target.addEventListener(name, present);
-    target.addEventListener('ionWillOpen', menuOpen);
-    return () => {
-      for (const name of events) target.removeEventListener(name, present);
-      target.removeEventListener('ionWillOpen', menuOpen);
-    };
+    enableSupportIonicOverlays(undefined, target);
+    return getOverlayCoordinator(target).subscribe(({ element, phase, event }) => {
+      // The child-document handler already owns adoption; only projection observers need the forwarded state.
+      if (!element || phase !== 'willPresent' || event?.type === 'nativeUIOverlayAdopted') return;
+      if (element.matches('ion-menu')) menuOpen();
+      else present(element as Overlay);
+    });
   };
   const invalidate = () => {
     const connection = current;

@@ -236,3 +236,79 @@ for (const destination of ['shown', 'hidden']) {
     await expect(page.locator('#slot button')).toBeHidden();
   });
 }
+
+const ionicBundle = buildSync({
+  stdin: { contents: "export * from './src/ionic'; export * from './src/overlays';", resolveDir: process.cwd() },
+  bundle: true,
+  format: 'iife',
+  globalName: 'ionicEngine',
+  write: false,
+}).outputFiles[0].text;
+
+test('shared overlays temporarily cover native sessions without changing the explicit destination', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.addScriptTag({ content: ionicBundle });
+  await page.evaluate(() => {
+    const w = window as any;
+    w.ionicEngine.enableSupportIonicOverlays();
+    const modal = document.createElement('ion-modal');
+    const alert = document.createElement('ion-alert');
+    document.body.append(modal, alert);
+    modal.dispatchEvent(new CustomEvent('ionModalWillPresent', { bubbles: true }));
+    alert.dispatchEvent(new CustomEvent('ionAlertWillPresent', { bubbles: true }));
+  });
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() => document.querySelector('ion-modal')!.dispatchEvent(new CustomEvent('ionModalDidDismiss', { bubbles: true })));
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() => (window as any).events.hidden({ slot: 1 }));
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'none');
+  await page.evaluate(() => document.querySelector('ion-alert')!.dispatchEvent(new CustomEvent('ionAlertDidDismiss', { bubbles: true })));
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'none');
+  const destinations = await page.evaluate(() =>
+    (window as any).calls.filter((c: any) => c.action === 'destination').map((c: any) => c.destination),
+  );
+  expect(destinations).toEqual(['none']);
+  await page.evaluate(() => (window as any).events.shown({ slot: 1 }));
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'native');
+});
+
+test('a native popover claim prevents image handoff; failed native presentation returns to DOM coverage', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.addScriptTag({ content: ionicBundle });
+  await page.evaluate(() => {
+    const w = window as any;
+    w.overlays = w.ionicEngine.enableSupportIonicOverlays();
+    const popover = document.createElement('ion-popover');
+    document.body.append(popover);
+    document.addEventListener('ionPopoverWillPresent', () => w.overlays.setNative(popover, true), { once: true });
+    popover.dispatchEvent(new CustomEvent('ionPopoverWillPresent', { bubbles: true }));
+  });
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'cover').length)).toBe(0);
+  await page.evaluate(() => (window as any).overlays.setNative(document.querySelector('ion-popover'), false));
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() =>
+    document.querySelector('ion-popover')!.dispatchEvent(new CustomEvent('ionPopoverDidDismiss', { bubbles: true })),
+  );
+  await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'native');
+});
+
+test('moving a projection host into the foreground modal restores it without a new registration', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot', /.+/);
+  await page.addScriptTag({ content: ionicBundle });
+  await page.evaluate(() => {
+    (window as any).ionicEngine.enableSupportIonicOverlays();
+    const modal = document.createElement('ion-modal');
+    document.body.append(modal);
+    modal.dispatchEvent(new CustomEvent('ionModalWillPresent', { bubbles: true }));
+  });
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() => document.querySelector('ion-modal')!.append(document.querySelector('#slot')!));
+  await expect(page.locator('#slot')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  await expect(page.locator('#slot')).toHaveAttribute('data-native-ui-session-surface', 'native');
+  expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'connect').length)).toBe(1);
+});
