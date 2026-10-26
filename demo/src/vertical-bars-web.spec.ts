@@ -4,12 +4,12 @@ import { observeVerticalBarsModals } from '../../packages/capacitor-native-ui/sr
 import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
 import { expect, test, vi } from 'vitest';
 import { createVerticalBarsWebProjection } from '../../packages/capacitor-native-ui/src/native/vertical-bars-web';
-import { coveredSourcesChanged, snapshotScope } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+import { sourcesChangedEvent, projectionScope } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
 import { setVerticalBarsPlacement } from '../../packages/capacitor-native-ui/src/native/shared/dom';
 
 let owners: Set<HTMLElement>, visibleOwners: Set<HTMLElement>, preparedOwners: Set<HTMLElement>;
 beforeEach(() => {
-  ({ owners, visibleOwners, preparedOwners } = mockSnapshotOwnership(snapshotScope));
+  ({ owners, visibleOwners, preparedOwners } = mockSnapshotOwnership(projectionScope));
 });
 
 const mountEligibleBackButton = () => {
@@ -119,19 +119,19 @@ test('a single-action group and its action share the same snapshot projection ta
     await nextFrame();
     const clone = document.querySelector<HTMLElement>('.ios-theme-vertical-bars-toolbar-projection');
     expect(clone).not.toBeNull();
-    expect(snapshotScope.getTarget(group)).toBe(clone);
-    expect(snapshotScope.getTarget(source)).toBe(clone);
+    expect(projectionScope.getTarget(group)).toBe(clone);
+    expect(projectionScope.getTarget(source)).toBe(clone);
     expect(clone?.hasAttribute('data-native-ui-snapshot-prepared')).toBe(true);
     // Popover/background reacquisition must not destroy an already decoded target.
     window.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: true } }));
     expect(clone?.isConnected).toBe(true);
     await nextFrame();
-    expect(snapshotScope.getTarget(source)).toBe(clone);
+    expect(projectionScope.getTarget(source)).toBe(clone);
     // A missing image can return the same target to ordinary Web presentation.
     preparedOwners.delete(source);
     owners.add(source);
     owners.add(group);
-    window.dispatchEvent(new Event(coveredSourcesChanged));
+    window.dispatchEvent(new Event(sourcesChangedEvent));
     await nextFrame();
     expect(clone?.hasAttribute('data-native-ui-snapshot-prepared')).toBe(false);
     expect(clone?.style.visibility).toBe('visible');
@@ -152,7 +152,7 @@ test('a covered back-only rail survives native reacquisition while dragging a sh
   const handle = createVerticalBarsWebProjection(document, {}, () => false);
   try {
     await nextFrame();
-    const clone = snapshotScope.getTarget(source)!;
+    const clone = projectionScope.getTarget(source)!;
     expect(clone?.isConnected).toBe(true);
     clone.setAttribute('data-native-ui-snapshot', 'prepared-back');
     clone.setAttribute('data-native-ui-snapshot-visible', '');
@@ -164,7 +164,7 @@ test('a covered back-only rail survives native reacquisition while dragging a sh
       expect(clone.isConnected).toBe(true);
       expect(clone.getAttribute('data-native-ui-snapshot')).toBe('prepared-back');
       await nextFrame();
-      expect(snapshotScope.getTarget(source)).toBe(clone);
+      expect(projectionScope.getTarget(source)).toBe(clone);
     }
   } finally {
     owners.delete(source);
@@ -183,7 +183,7 @@ test('rebuilding modal controls preserves the covered background rail positionin
   const handle = createVerticalBarsWebProjection(document, {}, () => false);
   try {
     await nextFrame();
-    const first = snapshotScope.getTarget(source)!;
+    const first = projectionScope.getTarget(source)!;
     const modal = document.createElement('ion-modal');
     modal.innerHTML =
       '<main class="ion-page"><ion-header><ion-toolbar class="ios"><ion-button class="ios" data-vertical-bars="true">Close</ion-button></ion-toolbar></ion-header></main>';
@@ -202,11 +202,11 @@ test('rebuilding modal controls preserves the covered background rail positionin
     modal.dispatchEvent(new CustomEvent('ionModalWillPresent', { bubbles: true }));
     await nextFrame();
     await nextFrame();
-    expect(snapshotScope.getTarget(source)).not.toBe(first);
-    expect(snapshotScope.getTarget(source)?.isConnected).toBe(true);
+    expect(projectionScope.getTarget(source)).not.toBe(first);
+    expect(projectionScope.getTarget(source)?.isConnected).toBe(true);
     expect(app.classList.contains('ios-theme-vertical-bars-toolbar-ready')).toBe(true);
     expect(modal.classList.contains('ios-theme-vertical-bars-toolbar-ready')).toBe(true);
-    const outgoing = snapshotScope.getTarget(close)!;
+    const outgoing = projectionScope.getTarget(close)!;
     expect(outgoing.isConnected).toBe(true);
     owners.add(close);
     visibleOwners.add(close);
@@ -222,7 +222,7 @@ test('rebuilding modal controls preserves the covered background rail positionin
     expect(modal.querySelector('.ion-cloned-element')).toBeNull();
     owners.delete(close);
     visibleOwners.delete(close);
-    expect(snapshotScope.getTarget(source)?.isConnected).toBe(true);
+    expect(projectionScope.getTarget(source)?.isConnected).toBe(true);
   } finally {
     preparedOwners.clear();
     owners.delete(source);
@@ -240,7 +240,7 @@ test('native acquisition updates existing image targets without measuring or cre
   const handle = createVerticalBarsWebProjection(document, {}, () => web);
   try {
     await nextFrame();
-    const clone = snapshotScope.getTarget(source)!;
+    const clone = projectionScope.getTarget(source)!;
     const incoming = document.createElement('ion-button');
     incoming.className = 'ios';
     incoming.textContent = 'Save';
@@ -253,11 +253,11 @@ test('native acquisition updates existing image targets without measuring or cre
     const measure = vi.spyOn(source, 'getBoundingClientRect');
     source.setAttribute('data-native-ui-vertical-bars', '');
     window.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: true } }));
-    expect(snapshotScope.getTarget(source)).toBe(clone);
+    expect(projectionScope.getTarget(source)).toBe(clone);
     expect(clone.hasAttribute('data-native-ui-vertical-bars')).toBe(true);
     expect(clone.isConnected).toBe(true);
     expect(measure).not.toHaveBeenCalled();
-    expect(!!snapshotScope.getTarget(incoming)).toBe(false);
+    expect(!!projectionScope.getTarget(incoming)).toBe(false);
     expect(incoming.getAttribute('aria-hidden')).toBeNull();
     measure.mockRestore();
   } finally {

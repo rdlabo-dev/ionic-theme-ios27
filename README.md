@@ -55,6 +55,10 @@ Use standard native buttons without Ionic through the [plain HTML adapter](https
 
 [`@rdlabo/capacitor-native-ui-kit`](packages/capacitor-native-ui-kit/README.md) provides DOM/native placement, scroll tracking and prepared-image handoff. It is a library dependency for plugin maintainers, not a Capacitor plugin for applications. Native libraries support iOS and Android.
 
+## Licenses
+
+The theme and `@rdlabo/capacitor-native-ui` remain MIT. Only [`@rdlabo/capacitor-native-ui-kit`](packages/capacitor-native-ui-kit/LICENSE) uses Zlib; its [NOTICE](packages/capacitor-native-ui-kit/NOTICE) retains the upstream MIT notice for adapted portions. The repository-root MIT license does not replace the kit's package-specific license.
+
 ## Maintenance
 
 Release from a clean, up-to-date `main` with `npm run release`. Request a PR beta with `/beta`. See the [workflows](.github/workflows) for CI and release implementation.

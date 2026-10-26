@@ -34,7 +34,7 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false) 
         target.textContent = 'Web proxy';
         document.body.append(target);
       }
-      w.scope = w.kit.createSnapshotScope('test');
+      w.scope = w.kit.createWebProjectionScope('test');
       w.source = {
         element: source,
         scrollElement: owner,
@@ -56,7 +56,7 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false) 
           },
         },
       };
-      w.manager = await w.kit.createSnapshotHandoff(
+      w.manager = await w.kit.createWebProjection(
         document,
         {
           send: async (request: any) => {
@@ -93,7 +93,8 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false) 
           wake() {},
           blocked: () => false,
           revision: () => w.revision,
-          target: proxy ? () => document.getElementById('proxy')! : undefined,
+          target: (source: HTMLElement) =>
+            w.targetUnavailable ? undefined : proxy ? document.getElementById('proxy')! : (w.projectionTarget ?? source),
         },
       );
       w.manager.consider(1, [w.source]);
@@ -187,11 +188,11 @@ test('plugin scopes do not share ownership or events', async ({ page }) => {
   expect(
     await page.evaluate(() => {
       const w = window as any,
-        a = w.kit.createSnapshotScope('ads'),
-        b = w.kit.createSnapshotScope('ui'),
+        a = w.kit.createWebProjectionScope('ads'),
+        b = w.kit.createWebProjectionScope('ui'),
         source = document.querySelector('#source');
       a.owners.push(source); // Mutating the returned copy cannot change ownership.
-      return [a.snapshotOwns(source), a.owners.length, b.owners.length, a.coveredSourcesChanged !== b.coveredSourcesChanged];
+      return [a.owns(source), a.owners.length, b.owners.length, a.sourcesChangedEvent !== b.sourcesChangedEvent];
     }),
   ).toEqual([false, 0, 0, true]);
 });
@@ -262,8 +263,8 @@ test('destroying one plugin restores its proxy and leaves another plugin image a
     element.textContent = 'Ad slot';
     document.body.append(element);
     const r = element.getBoundingClientRect();
-    w.secondScope = w.kit.createSnapshotScope('ads');
-    w.second = await w.kit.createSnapshotHandoff(
+    w.secondScope = w.kit.createWebProjectionScope('ads');
+    w.second = await w.kit.createWebProjection(
       document,
       {
         send: async (request: any) =>
@@ -282,7 +283,7 @@ test('destroying one plugin restores its proxy and leaves another plugin image a
           ),
       },
       w.secondScope,
-      { wake() {}, blocked: () => false },
+      { wake() {}, blocked: () => false, target: (source: HTMLElement) => source },
     );
     w.second.consider(1, [{ element, control: { id: 'ad', x: r.x, y: r.y, width: r.width, height: r.height } }]);
   });
@@ -315,7 +316,7 @@ for (const surface of [false, true])
       const w = window as any;
       w.holdCover = true;
       w.manager.begin(surface ? document.querySelector('#surface') : undefined);
-      window.dispatchEvent(new Event(w.scope.snapshotTargetsChanged));
+      window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
     }, surface);
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     expect(
@@ -366,4 +367,90 @@ test('cover without a positive acknowledgement restores Web ownership', async ({
   await expect.poll(() => page.evaluate(() => (window as any).scope.owners.length)).toBe(0);
   await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
   expect(await page.evaluate(() => (window as any).manager.token)).toBeUndefined();
+});
+
+test('caller-owned projection layer preserves stacking and survives teardown', async ({ page }) => {
+  await prepare(page);
+  await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.id = 'projection-host';
+    host.style.cssText = 'position:absolute;inset:0;z-index:7;pointer-events:none';
+    document.querySelector('#surface')!.append(host);
+    const overlay = document.createElement('div');
+    overlay.id = 'overlay';
+    overlay.style.cssText = 'position:absolute;inset:0;z-index:8';
+    document.querySelector('#surface')!.append(overlay);
+    (window as any).manager.begin(host);
+  });
+  await expect(page.locator('#projection-host img')).toBeVisible();
+  expect(
+    await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>('#projection-host')!;
+      return {
+        top: document.elementFromPoint(20, 120)?.id,
+        zIndex: host.style.zIndex,
+        imageZ: getComputedStyle(host.querySelector('[data-native-ui-snapshot-layer]')!).zIndex,
+      };
+    }),
+  ).toEqual({ top: 'overlay', zIndex: '7', imageZ: 'auto' });
+  await page.evaluate(async () => {
+    const w = window as any;
+    w.manager.end();
+    w.manager.updated(undefined, ['counter'], 2);
+    await w.manager.destroy();
+  });
+  await expect(page.locator('#projection-host')).toHaveCount(1);
+  await expect(page.locator('#projection-host img')).toHaveCount(0);
+  await expect(page.locator('#projection-host')).toHaveCSS('z-index', '7');
+});
+
+test('missing target or disconnected layer cannot select another projection layer', async ({ page }) => {
+  await prepare(page);
+  expect(
+    await page.evaluate(() => {
+      const w = window as any;
+      w.manager.begin(document.createElement('div'));
+      const detached = w.manager.token;
+      w.targetUnavailable = true;
+      w.manager.begin();
+      return {
+        detached,
+        missing: w.manager.token,
+        owns: w.scope.owns(w.source.element),
+        covers: w.calls.filter((request: any) => request.action === 'cover').length,
+      };
+    }),
+  ).toEqual({ detached: undefined, missing: undefined, owns: false, covers: 0 });
+});
+
+test('removing the active target releases ownership instead of relocating the image', async ({ page }) => {
+  await prepare(page);
+  await page.evaluate(() => (window as any).manager.begin());
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible');
+  await page.evaluate(() => {
+    const w = window as any;
+    w.targetUnavailable = true;
+    window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).manager.token)).toBeUndefined();
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  await expect(page.locator('button')).toBeVisible();
+});
+
+test('an explicit target can also host the shared projection layer', async ({ page }) => {
+  await prepare(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    const host = document.createElement('div');
+    host.id = 'shared-projection-host';
+    host.style.cssText = 'position:absolute;inset:0;z-index:4;pointer-events:none';
+    document.querySelector('#surface')!.append(host);
+    w.projectionTarget = host;
+    window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
+    w.manager.begin(host);
+  });
+  await expect(page.locator('#shared-projection-host img')).toBeVisible();
+  await page.evaluate(() => (window as any).manager.destroy());
+  await expect(page.locator('#shared-projection-host')).toHaveCount(1);
+  await expect(page.locator('#shared-projection-host')).not.toHaveAttribute('data-native-ui-snapshot-source');
 });

@@ -1,6 +1,6 @@
 import { mockSnapshotOwnership } from './snapshot-scope-fixture';
 import { beforeEach } from 'vitest';
-import { snapshotScope, coveredSourcesChanged } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+import { projectionScope, sourcesChangedEvent } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
 import { afterEach, expect, test, vi, onTestFinished } from 'vitest';
 import { createHTMLWebProjection, readHTMLControl } from '../../packages/capacitor-native-ui/src/native/html';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';
@@ -13,7 +13,7 @@ import type {
 
 let owners: Set<HTMLElement>, visibleOwners: Set<HTMLElement>, preparedOwners: Set<HTMLElement>;
 beforeEach(() => {
-  ({ owners, visibleOwners, preparedOwners } = mockSnapshotOwnership(snapshotScope));
+  ({ owners, visibleOwners, preparedOwners } = mockSnapshotOwnership(projectionScope));
 });
 
 const handles: NativeUIRuntimeHandle[] = [];
@@ -542,10 +542,10 @@ test('a frozen native image suppresses HTML rail proxies and stale proxy clicks 
     owners.add(source);
     previous.click();
     expect(click).not.toHaveBeenCalled();
-    window.dispatchEvent(new Event(coveredSourcesChanged));
+    window.dispatchEvent(new Event(sourcesChangedEvent));
     await vi.waitFor(() => expect(options.rail!.host.children.length).toBe(0));
     owners.delete(source);
-    window.dispatchEvent(new Event(coveredSourcesChanged));
+    window.dispatchEvent(new Event(sourcesChangedEvent));
     await vi.waitFor(() => expect(options.rail!.host.querySelector('button')).not.toBeNull());
     options.rail!.host.querySelector<HTMLButtonElement>('button')!.click();
     expect(click).toHaveBeenCalledOnce();

@@ -97,6 +97,10 @@ try {
       assert.equal(manifest.capacitor, undefined, 'Kit is a library, never a registered plugin');
       assert(!files.has('Package.swift'), 'Native SwiftPM dependencies resolve from Git, not npm');
       assert(files.has('CapacitorNativeUIKit.podspec'));
+      assert.equal(manifest.license, 'Zlib');
+      assert(files.has('NOTICE'));
+      assert.match(readFileSync(join(packageRoot, 'LICENSE'), 'utf8'), /origin of this software must not be misrepresented/);
+      assert.match(readFileSync(join(packageRoot, 'NOTICE'), 'utf8'), /MIT License/);
       assert(files.has('ios/Sources/CapacitorNativeUIKit/CoveredSnapshots.swift'));
       assert.equal(Object.keys(manifest.dependencies ?? {}).length, 0, 'Kit must not depend on a renderer');
     } else {
@@ -134,8 +138,12 @@ try {
   const consumer = join(dir, 'consumer.ts');
   writeFileSync(consumer, `
     import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
-    import type { SnapshotTransport } from '@rdlabo/capacitor-native-ui-kit';
-    async function snapshotContract(transport: SnapshotTransport) {
+    import { createWebProjection, createWebProjectionScope, type WebProjectionTransport } from '@rdlabo/capacitor-native-ui-kit';
+    async function projectionContract(transport: WebProjectionTransport) {
+      const scope = createWebProjectionScope('consumer');
+      // @ts-expect-error A renderer must explicitly provide the projection DOM resolver.
+      createWebProjection(document, transport, scope, { wake() {}, blocked: () => false });
+      createWebProjection(document, transport, scope, { wake() {}, blocked: () => false, target: source => source });
       // @ts-expect-error A cover requires a prepared token.
       transport.send({ action: 'cover' });
       // @ts-expect-error Preparation requires the accepted revision and viewport.

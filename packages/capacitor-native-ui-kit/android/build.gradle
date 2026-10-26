@@ -30,9 +30,9 @@ afterEvaluate {
                 artifactId = 'native-ui-kit'
                 pom {
                     name = 'Capacitor Native UI Kit'
-                    description = 'Native UI placement and image handoff for Capacitor plugin maintainers.'
+                    description = 'Native UI placement and Web projection for Capacitor plugin maintainers.'
                     url = 'https://github.com/rdlabo-dev/ionic-theme-ios27'
-                    licenses { license { name = 'MIT'; url = 'https://opensource.org/licenses/MIT' } }
+                    licenses { license { name = 'Zlib'; url = 'https://opensource.org/license/zlib' } }
                     developers { developer { id = 'rdlabo'; name = 'rdlabo'; url = 'https://github.com/rdlabo' } }
                     scm {
                         url = 'https://github.com/rdlabo-dev/ionic-theme-ios27'
@@ -68,5 +68,18 @@ tasks.register('centralBundle', Zip) {
         if (!providers.gradleProperty('signRelease').isPresent()) {
             throw new GradleException('centralBundle requires -PsignRelease')
         }
+    }
+}
+
+// Keep the package notices in binary and source distributions without duplicate source files.
+def licenseResources = tasks.register('prepareLicenseResources', Sync) {
+    from('..') { include 'LICENSE', 'NOTICE' }
+    into(layout.buildDirectory.dir('generated/license-resources/META-INF/capacitor-native-ui-kit'))
+}
+android.sourceSets.main.resources.srcDir(layout.buildDirectory.dir('generated/license-resources'))
+tasks.matching { it.name.startsWith('process') && it.name.endsWith('JavaRes') }.configureEach { dependsOn licenseResources }
+tasks.withType(Jar).configureEach {
+    if (name in ['sourceReleaseJar', 'javaDocReleaseJar']) {
+        from('..') { include 'LICENSE', 'NOTICE'; into 'META-INF/capacitor-native-ui-kit' }
     }
 }

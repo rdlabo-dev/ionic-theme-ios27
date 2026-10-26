@@ -1,11 +1,11 @@
-import type { SnapshotSource } from './types.js';
+import type { WebProjectionSource } from './types.js';
 
 /** Coordinate ownership, independent of any plugin's update transport or rendering. */
 export const createScrollBindings = () => {
-  let acknowledged: SnapshotSource[] = [];
+  let acknowledged: WebProjectionSource[] = [];
   let viewportWidth = 0;
   const motion = new WeakMap<HTMLElement, { version: number; moving: boolean }>();
-  const reuse = (candidate: SnapshotSource, width: number) => {
+  const reuse = (candidate: WebProjectionSource, width: number) => {
     const next = candidate.control.scroll;
     if (!candidate.scrollElement || !next || viewportWidth !== width) return false;
     return acknowledged.some((previous) => {
@@ -23,7 +23,7 @@ export const createScrollBindings = () => {
   };
   return {
     reuse,
-    acknowledge(sources: SnapshotSource[], width: number) {
+    acknowledge(sources: WebProjectionSource[], width: number) {
       acknowledged = sources;
       viewportWidth = width;
     },
@@ -34,10 +34,10 @@ export const createScrollBindings = () => {
       const state = motion.get(owner);
       if (state) state.moving = false;
     },
-    eligible(candidate: SnapshotSource, width: number) {
+    eligible(candidate: WebProjectionSource, width: number) {
       return !candidate.scrollElement || !motion.get(candidate.scrollElement)?.moving || reuse(candidate, width);
     },
-    acquiring(sources: SnapshotSource[], width: number) {
+    acquiring(sources: WebProjectionSource[], width: number) {
       return new Map(
         sources.flatMap((source) =>
           source.scrollElement && !reuse(source, width)
@@ -46,7 +46,7 @@ export const createScrollBindings = () => {
         ),
       );
     },
-    unconfirmed(sources: SnapshotSource[], acquiring: Map<HTMLElement, number>) {
+    unconfirmed(sources: WebProjectionSource[], acquiring: Map<HTMLElement, number>) {
       return new Set(
         sources.flatMap((source) => {
           const owner = source.scrollElement,

@@ -16,7 +16,7 @@
         }
       };
       const source = document.getElementById('source');
-      const scope = NativeUIKit.createSnapshotScope('acceptance');
+      const scope = NativeUIKit.createWebProjectionScope('acceptance');
       const node = {
         id: 'fixture',
         kind: 'extension',
@@ -48,7 +48,7 @@
         return response;
       };
       const reconcile = async () => {
-        const controls = scope.snapshotOwns(source) ? [] : [node];
+        const controls = scope.owns(source) ? [] : [node];
         const token = manager.token;
         const next = JSON.stringify([controls.map((control) => control.id), token]);
         if (next === signature) return;
@@ -84,7 +84,7 @@
       window.prepare = async () => {
         const capabilities = await send('configure');
         if (!capabilities.coveredSnapshots) throw Error('Snapshot capability missing');
-        manager = await NativeUIKit.createSnapshotHandoff(
+        manager = await NativeUIKit.createWebProjection(
           document,
           {
             send: async (request) => {
@@ -97,7 +97,7 @@
             resolveURL: (url) => Capacitor.convertFileSrc(url),
           },
           scope,
-          { wake, blocked: () => false, revision: () => revision },
+          { wake, blocked: () => false, revision: () => revision, target: (source) => source },
         );
         await reconcile();
         await until(() => source.hasAttribute('data-native-ui-snapshot'), 'Image preparation did not complete');

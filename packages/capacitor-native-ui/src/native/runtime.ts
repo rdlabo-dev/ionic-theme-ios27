@@ -1,7 +1,7 @@
 import { createScrollBindings } from '@rdlabo/capacitor-native-ui-kit';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
-import { snapshotScope, snapshotMutation, coveredSourcesChanged } from './shared/covered-source';
+import { projectionScope, isProjectionMutation, sourcesChangedEvent } from './shared/covered-source';
 import { createCoveredSnapshots, type CoveredSnapshots } from './shared/covered-snapshot';
 import { createTabBarWidths } from './shared/tab-bar-width';
 import { createVerticalNavigation } from './shared/vertical-navigation';
@@ -217,7 +217,7 @@ export const createRuntime = async (
         false,
         instant ||
           handoffInstant ||
-          snapshotScope.snapshotVisible(element) ||
+          projectionScope.isVisible(element) ||
           (isVerticalBarsSource(element) && !element.matches('ion-tab-bar')),
       );
     if (element.getAttribute('aria-hidden') === 'true') {
@@ -254,7 +254,7 @@ export const createRuntime = async (
   };
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
-    if (snapshotScope.snapshotOwns(element)) return;
+    if (projectionScope.owns(element)) return;
     if (snapshots && movingModal(doc) && element.closest('ion-modal') === movingModal(doc) && isVerticalBarsSource(element)) return;
     if (options.root && !options.root.contains(element)) return;
     if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
@@ -945,7 +945,7 @@ export const createRuntime = async (
           tabWidths.apply(candidate.element, width);
         const instant =
           handoffInstant ||
-          candidateSources(candidate).some(snapshotScope.snapshotVisible) ||
+          candidateSources(candidate).some(projectionScope.isVisible) ||
           (committingNavigation && horizontalToolbar(candidate));
         for (const element of candidateSources(candidate)) {
           const newlyProjected = !sources.has(element) || !element.hasAttribute(marker);
@@ -1055,7 +1055,7 @@ export const createRuntime = async (
     if (
       records.some(
         (record) =>
-          !snapshotMutation(record) &&
+          !isProjectionMutation(record) &&
           !(
             record.attributeName === 'style' &&
             snapshots &&
@@ -1535,7 +1535,7 @@ export const createRuntime = async (
       const shared = {
         wake: () => {
           schedule();
-          win.dispatchEvent(new Event(coveredSourcesChanged));
+          win.dispatchEvent(new Event(sourcesChangedEvent));
         },
         revision: () => revision,
       };

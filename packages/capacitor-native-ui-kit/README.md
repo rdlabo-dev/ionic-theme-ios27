@@ -62,16 +62,16 @@ end
 
 Run `npx cap sync ios` and rebuild. Keep the direct kit version aligned with the consuming plugin's dependency when upgrading. With a nonstandard node_modules layout, point `:path` at the installed kit package directory. An npm dependency alone does not register a Pod, and a podspec dependency cannot specify this local path. The kit intentionally has no Capacitor plugin registration or Podfile rewriting hook. SwiftPM consumers do not need this CocoaPods setup.
 
-## Image handoff
+## Web projection
 
-Create one `createSnapshotScope(namespace)` per plugin instance and share it among that instance's page/overlay managers. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
+Create one `createWebProjectionScope(namespace)` per plugin instance and share it among that instance's page/overlay managers. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
 
 ```ts
-import { createSnapshotScope, createSnapshotHandoff } from '@rdlabo/capacitor-native-ui-kit';
+import { createWebProjectionScope, createWebProjection } from '@rdlabo/capacitor-native-ui-kit';
 import { Capacitor } from '@capacitor/core';
 
-const scope = createSnapshotScope('my-plugin');
-const images = await createSnapshotHandoff(
+const scope = createWebProjectionScope('my-plugin');
+const projection = await createWebProjection(
   document,
   {
     send: (request) => plugin.snapshot(request),
@@ -83,26 +83,47 @@ const images = await createSnapshotHandoff(
     wake: () => schedulePluginUpdate(),
     blocked: () => overlayIsActive(),
     revision: () => lastSentRevision,
+    // Created/selected by your renderer in the correct page or overlay layer.
+    target: (source) => scope.getTarget(source),
   },
 );
 ```
 
 `plugin`, `schedulePluginUpdate`, `overlayIsActive` and `lastSentRevision` above belong to the consuming plugin, not the kit.
 
-1. After an accepted native update, call `images.consider(revision, sources)`. Each `SnapshotSource` contains the DOM element, native ID and current viewport frame. Preparation and image decoding happen off the presentation path.
-2. Call `images.changed()` for visual changes. Completed pre-interaction pixels remain available while replacement pixels are prepared. For scrolling, pass the owner to `images.changed(scrollElement)` to invalidate its old geometry. Layout updates go through `consider`; call `invalidate()` for other known geometry or viewport invalidation.
-3. Before a Web overlay covers the controls, call `images.begin()`. To move the image with an animated DOM surface, pass that surface to `begin(surface)`. No capture or image decode starts here. If no valid image exists, `token` remains undefined: use the plugin's normal fallback.
-4. Use `scope.snapshotOwns(source)` to exclude image-owned controls from ordinary native projection. Use `scope.snapshotVisible(source)` to keep return pixels while the native replacement is being acknowledged.
-5. After the overlay closes, call `images.end()`, send the normal native update, then call `images.updated(snapshotToken, acceptedIDs, revision)`. Only a newer ACK covering all captured IDs retires the Web image.
-6. Call `images.destroy()` on surface teardown. It releases only its tokens and listener. The plugin owns the final native reset, so destroying one surface cannot invalidate another plugin or overlay.
+1. After an accepted native update, call `projection.consider(revision, sources)`. Each `WebProjectionSource` contains the DOM element, native ID and current viewport frame. Preparation and image decoding happen off the presentation path.
+2. Call `projection.changed()` for visual changes. Completed pre-interaction pixels remain available while replacement pixels are prepared. For scrolling, pass the owner to `projection.changed(scrollElement)` to invalidate its old geometry. Layout updates go through `consider`; call `invalidate()` for other known geometry or viewport invalidation.
+3. Before a Web overlay covers the controls, call `projection.begin()`. For a shared layer moving with a page, pass your dedicated projection host to `begin(projectionLayer)`. No capture or image decode starts here. If no valid image exists, `token` remains undefined: use the plugin's normal fallback.
+4. Use `scope.owns(source)` to exclude image-owned controls from ordinary native projection. Use `scope.isVisible(source)` to keep return pixels while the native replacement is being acknowledged.
+5. After the overlay closes, call `projection.end()`, send the normal native update, then call `projection.updated(snapshotToken, acceptedIDs, revision)`. Only a newer ACK covering all captured IDs retires the Web image.
+6. Call `projection.destroy()` on surface teardown. It releases only its tokens and listener. The plugin owns the final native reset, so destroying one surface cannot invalidate another plugin or overlay.
+
+### The renderer owns the DOM layer
+
+The plugin author supplies projection DOM in the correct stacking context. `target(source, placement)` is required and returns the display host for each source, or `undefined` when unavailable. The host may be the existing source component or a dedicated proxy created by your renderer. Register a proxy with `scope.setTarget(source, host)` before it is used. The kit does not search for an overlay, infer a z-index, or choose `document.body` as a fallback.
+
+For card/modal transforms that need one shared image layer, create a dedicated host in the relevant page and pass **that host**, not the page itself, to `projection.begin(host)`:
+
+```ts
+const host = document.createElement('div');
+host.className = 'my-plugin-web-projection';
+host.inert = true;
+host.setAttribute('aria-hidden', 'true');
+presentingPage.append(host);
+projection.begin(host);
+```
+
+Your CSS sets the host's positioning, stacking order, clipping and pointer behavior to match your UI. For example, use an absolute host anchored to a positioned page; choose its z-index relative to that page's other layers. The kit inserts noninteractive image content into the host and converts viewport coordinates into its local coordinates. It never assigns a z-index to that content. It removes its own image content on retirement, but **does not remove or restyle your host**. Remove the host in your renderer's teardown after destroying the projection manager.
+
+A disconnected supplied host or an unresolved per-source target prevents projection. Continue your renderer's normal Web fallback instead of moving the projection into another layer. Web projection is the intentional transfer of the native appearance to the Web layer; snapshot capture is its implementation, and ordinary Web fallback is the renderer's failure path.
 
 ### Scope and transport contract
 
-Ownership belongs to the handoff managers. `scope.owners`, `scope.visibleOwners` and `scope.preparedOwners` return read-only array snapshots; mutating a returned copy cannot change the kit's state. Use `snapshotOwns(element)` and `snapshotVisible(element)` for containment checks. Do not cache the arrays across updates.
+Ownership belongs to the handoff managers. `scope.owners`, `scope.visibleOwners` and `scope.preparedOwners` return read-only array snapshots; mutating a returned copy cannot change the kit's state. Use `owns(element)` and `isVisible(element)` for containment checks. Do not cache the arrays across updates.
 
-A renderer that uses a separate DOM display proxy registers it with `scope.setTarget(source, target)`, reads it with `scope.getTarget(source)`, and unregisters it with `scope.deleteTarget(source)`. After completing a batch of proxy changes, dispatch `new Event(scope.snapshotTargetsChanged)` on the document's window. Listen for `scope.coveredSourcesChanged` to update proxy visibility. This explicit batch boundary avoids a reconciliation for every individual proxy. The handoff manager's `target` callback selects the appropriate registered proxy; ordinary elements can remain their own targets.
+A renderer that uses a separate DOM display proxy registers it with `scope.setTarget(source, target)`, reads it with `scope.getTarget(source)`, and unregisters it with `scope.deleteTarget(source)`. After completing a batch of proxy changes, dispatch `new Event(scope.targetsChangedEvent)` on the document's window. Listen for `scope.sourcesChangedEvent` to update proxy visibility. This explicit batch boundary avoids a reconciliation for every individual proxy. The handoff manager's `target` callback selects the appropriate registered proxy; ordinary elements can remain their own targets.
 
-`SnapshotRequest` is an action-discriminated union. `prepare` requires `revision`, `viewportWidth` and `ids`; `cover` requires `token`; `restore` requires `token`, `viewportWidth` and destination `parts`; `painted`, `restored` and `release` require `token`; `reset` takes no payload. `SnapshotResult<Request>` gives the corresponding response:
+`WebProjectionRequest` is an action-discriminated union. `prepare` requires `revision`, `viewportWidth` and `ids`; `cover` requires `token`; `restore` requires `token`, `viewportWidth` and destination `parts`; `painted`, `restored` and `release` require `token`; `reset` takes no payload. `WebProjectionResult<Request>` gives the corresponding response:
 
 - `prepare`: a complete `{ token, parts }`, or `{}` when capture is unavailable. Never return a partial capture.
 - `cover` and `restore`: `{ shown: boolean }`.
@@ -128,9 +149,9 @@ val shown = snapshots.cover(token, activity.window, webView, renderedViews, tran
 
 Token cleanup uses `release(token)`; owner teardown uses `reset()` (and Android `close()` when disposing its encoder). A surface manager must not reset another surface's captures. Web fallback remains the renderer's responsibility when a capture or native placement is unavailable.
 
-Optional `eligible(source)`, `target(source, capturedPlacement)` and `current(sources)` callbacks keep framework-specific surface selection and display proxies outside the kit. `transient: true` supports a moving surface whose return image must be rebased. Arbitrary CSS transforms are not supported by native scroll tracking; such movement can use this image path.
+The required `target(source, capturedPlacement)` resolver and optional `eligible(source)` and `current(sources)` callbacks keep framework-specific surface selection and display proxies outside the kit. `transient: true` supports a moving surface whose return image must be rebased. Arbitrary CSS transforms are not supported by native scroll tracking; such movement can use this image path.
 
-The image transport accepts `SnapshotRequest` and returns prepared token/parts or `{ shown: false }`. Parts use local `file:` URLs and CSS-pixel viewport coordinates. Requests use the plugin's existing ordered bridge:
+The image transport accepts `WebProjectionRequest` and returns prepared token/parts or `{ shown: false }`. Parts use local `file:` URLs and CSS-pixel viewport coordinates. Requests use the plugin's existing ordered bridge:
 
 | Action     | Native responsibility                                                                                                                                   |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -201,3 +222,9 @@ The `Native UI Kit Maven Release` workflow is manually dispatched on `main` with
 Configure the repository's Actions secrets with `CENTRAL_USERNAME`, `CENTRAL_PASSWORD` (a Central user token), `MAVEN_SIGNING_KEY` (ASCII-armored private key) and `MAVEN_SIGNING_PASSWORD`. The signing public key must be available to Central. These are the same credential types used by cf-workers-native; GitHub secrets are scoped to their repository and must be provisioned here separately.
 
 For local packaging verification, run `python3 scripts/native-ui-kit-release/verify.py` with JDK 21, Android SDK 36 and GnuPG. It creates a disposable key, validates signatures and checksums, and deletes its test ZIP without uploading. Publication always rebuilds from clean outputs with the real signing key. The kit shares the monorepo version; publish its Maven artifact before the corresponding npm release, including prereleases.
+
+## License
+
+This kit uses the [Zlib license](LICENSE): commercial use, modification and redistribution are permitted. Do not misrepresent the origin or claim authorship of the original software; identify altered source versions and retain the notice in source distributions. Forking, renaming or removing Git history is not itself prohibited by this license.
+
+[NOTICE](NOTICE) preserves the upstream MIT notice for code adapted from ionic-theme-ios27 / capacitor-native-ui. Previously granted MIT permissions remain applicable to those versions and portions. The theme and Native UI plugin remain MIT; the kit's Zlib license does not change their licenses or the licenses of applications that depend on it. The npm archive and Android artifacts include the kit notices; SwiftPM users obtain them in this repository alongside the kit sources.

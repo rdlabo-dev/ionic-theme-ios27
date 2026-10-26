@@ -47,3 +47,5 @@ Package.resolved
 
 packages/capacitor-native-ui/android/build/
 packages/capacitor-native-ui/android/.gradle/
+
+packages/capacitor-native-ui/android/.kotlin/

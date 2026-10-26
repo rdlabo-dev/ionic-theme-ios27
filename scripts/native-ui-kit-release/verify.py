@@ -1,5 +1,6 @@
 """Exercise Central bundle signing locally; never contact a publishing service."""
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -40,7 +41,14 @@ with tempfile.TemporaryDirectory(prefix='kit-central-test-') as home:
                 signature.write_bytes(bundle.read(name + '.asc'))
                 subprocess.run(['gpg', '--homedir', home, '--verify', str(signature), str(artifact)],
                                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print('Verified all five published artifact signatures and checksums.')
+            for suffix in ['-sources.jar', '-javadoc.jar', '.aar']:
+                with zipfile.ZipFile(BytesIO(bundle.read(base + suffix))) as artifact:
+                    if suffix == '.aar':
+                        artifact = zipfile.ZipFile(BytesIO(artifact.read('classes.jar')))
+                    for notice in ['LICENSE', 'NOTICE']:
+                        assert artifact.read('META-INF/capacitor-native-ui-kit/' + notice) == (release.parent / notice).read_bytes()
+            assert b'<name>Zlib</name>' in bundle.read(base + '.pom')
+        print('Verified all five artifact signatures/checksums and Zlib/upstream notices.')
     finally:
         # The test-key bundle must never be mistaken for a real release candidate.
         archive.unlink(missing_ok=True)

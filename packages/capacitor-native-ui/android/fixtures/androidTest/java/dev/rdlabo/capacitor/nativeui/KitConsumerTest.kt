@@ -58,10 +58,21 @@ class KitConsumerTest {
             val deadline2=System.currentTimeMillis()+2000
             while(pending.get()>0 && System.currentTimeMillis()<deadline2)Thread.sleep(10)
             assertEquals(0,pending.get());assertTrue("Only ${samples.size} frames",samples.size>=12)
-            var delta=0;val baseline=samples.first()
-            for(image in samples.drop(1))for(y in 0 until image.height)for(x in 0 until image.width) {
-                val a=baseline.getPixel(x,y);val b=image.getPixel(x,y)
-                for(shift in listOf(0,8,16))delta=maxOf(delta,kotlin.math.abs(((a shr shift) and 255)-((b shr shift) and 255)))
+            var delta=0;val baseline=samples.first();var worst=baseline;var difference=""
+            samples.forEachIndexed { index,image ->
+                for(y in 0 until image.height)for(x in 0 until image.width) {
+                    val a=baseline.getPixel(x,y);val b=image.getPixel(x,y)
+                    for(shift in listOf(0,8,16)) {
+                        val change=kotlin.math.abs(((a shr shift) and 255)-((b shr shift) and 255))
+                        if(change>delta){delta=change;worst=image;difference="frame=$index x=$x y=$y baseline=${Integer.toHexString(a)} actual=${Integer.toHexString(b)}"}
+                    }
+                }
+            }
+            if(delta>2) {
+                val directory=java.io.File(instrumentation.targetContext.cacheDir,"projection-failure").apply{mkdirs()}
+                java.io.File(directory,"baseline.png").outputStream().use{baseline.compress(Bitmap.CompressFormat.PNG,100,it)}
+                java.io.File(directory,"actual.png").outputStream().use{worst.compress(Bitmap.CompressFormat.PNG,100,it)}
+                android.util.Log.e("KitConsumerTest","$difference artifacts=$directory")
             }
             samples.forEach{it.recycle()}
             android.util.Log.i("KitConsumerTest","Capacitor/Compose handoff: ${samples.size} frames, max channel delta $delta")

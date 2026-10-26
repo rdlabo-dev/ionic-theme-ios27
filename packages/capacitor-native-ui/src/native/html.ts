@@ -1,4 +1,4 @@
-import { snapshotMutation, coveredSourcesChanged, snapshotScope, snapshotTargetsChanged } from './shared/covered-source';
+import { isProjectionMutation, sourcesChangedEvent, projectionScope, targetsChangedEvent } from './shared/covered-source';
 import { fitsClip } from './shared/clipping';
 import type { NativeUIRuntimeOptions, NativeUIRuntimeHandle } from './definitions';
 import { appendItem, createCandidate, type Candidate, type Identify } from './shared/candidate';
@@ -68,7 +68,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
     if (!state) return;
     const focused = state.clone.contains(doc.activeElement);
     state.clone.remove();
-    if (stopped && snapshotScope.getTarget(source) === state.clone) snapshotScope.deleteTarget(source);
+    if (stopped && projectionScope.getTarget(source) === state.clone) projectionScope.deleteTarget(source);
     source.removeAttribute('data-native-ui-web-source');
     if (focused && source.isConnected && !source.hasAttribute(marker)) source.focus();
     owned.delete(source);
@@ -95,10 +95,9 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
         // An accepted native surface owns its source and descendants. Rejected sources
         // lose the marker and can return to the Web rail on the next render.
         if (!htmlRailSource(source) || host.contains(source)) continue;
-        const covered = snapshotScope.snapshotVisible(source);
-        const prepared = snapshotScope.preparedOwners.includes(source);
-        if ((suspended && !covered) || (!covered && !prepared && (source.closest(`[${marker}]`) || snapshotScope.snapshotOwns(source))))
-          continue;
+        const covered = projectionScope.isVisible(source);
+        const prepared = projectionScope.preparedOwners.includes(source);
+        if ((suspended && !covered) || (!covered && !prepared && (source.closest(`[${marker}]`) || projectionScope.owns(source)))) continue;
         // Keep the prepared target stable through coverage and native restoration.
         // Reading a changed/disabled source here must not replace its pre-touch image.
         const existing = owned.get(source);
@@ -137,14 +136,14 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
               !host.isConnected ||
               current.control.items[0].disabled ||
               source.closest(`[${marker}]`) ||
-              snapshotScope.snapshotOwns(source)
+              projectionScope.owns(source)
             )
               return;
             source.click(); // Source owns submission, custom handlers and back navigation.
             schedule();
           });
           clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);
-          snapshotScope.setTarget(source, clone);
+          projectionScope.setTarget(source, clone);
           host.append(clone);
         }
         state.clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);
@@ -182,7 +181,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
     });
     // Moving an existing button can blur it; retain keyboard focus across source reordering.
     if (focused && doc.activeElement !== focused) focused.focus({ preventScroll: true });
-    win.dispatchEvent(new Event(snapshotTargetsChanged));
+    win.dispatchEvent(new Event(targetsChangedEvent));
     // Ignore our own synchronous DOM writes; later application mutations still schedule a refresh.
     observer.takeRecords();
   };
@@ -190,11 +189,11 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
     if (!stopped && !frame) frame = win.requestAnimationFrame(render);
   };
   const observer = new MutationObserver((records) => {
-    if (records.some((record) => !snapshotMutation(record))) schedule();
+    if (records.some((record) => !isProjectionMutation(record))) schedule();
   });
   win.addEventListener('resize', schedule);
   win.addEventListener('nativeUIRefresh', schedule);
-  win.addEventListener(coveredSourcesChanged, schedule);
+  win.addEventListener(sourcesChangedEvent, schedule);
   render();
   return {
     markForCheck: schedule,
@@ -224,7 +223,7 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
       win.cancelAnimationFrame(frame);
       win.removeEventListener('resize', schedule);
       win.removeEventListener('nativeUIRefresh', schedule);
-      win.removeEventListener(coveredSourcesChanged, schedule);
+      win.removeEventListener(sourcesChangedEvent, schedule);
       for (const source of owned.keys()) restore(source);
       style.remove();
     },

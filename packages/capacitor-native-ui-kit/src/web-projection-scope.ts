@@ -3,24 +3,24 @@ interface SnapshotState {
   visibleOwners: Set<HTMLElement>;
   preparedOwners: Set<HTMLElement>;
 }
-const states = new WeakMap<SnapshotScope, SnapshotState>();
+const states = new WeakMap<WebProjectionScope, SnapshotState>();
 /** Internal to the kit; deliberately not exported from its public entry point. */
-export const snapshotState = (scope: SnapshotScope): SnapshotState => {
+export const projectionState = (scope: WebProjectionScope): SnapshotState => {
   const state = states.get(scope);
-  if (!state) throw new Error('Use createSnapshotScope to create a snapshot scope');
+  if (!state) throw new Error('Use createWebProjectionScope to create a Web projection scope');
   return state;
 };
 
 /** One scope per plugin instance; share it between that plugin's presentation surfaces. */
-export const createSnapshotScope = (namespace: string) => {
-  const coveredSourcesChanged = `${namespace}:sources-change`;
+export const createWebProjectionScope = (namespace: string) => {
+  const sourcesChangedEvent = `${namespace}:sources-change`;
   const imageMarker = 'data-native-ui-snapshot';
   const owners = new Set<HTMLElement>();
   // Keep the rendered image steady while Native is being recreated underneath it.
   const visibleOwners = new Set<HTMLElement>();
-  const snapshotVisible = (element: HTMLElement) => Array.from(visibleOwners).some((owner) => owner === element || owner.contains(element));
-  const snapshotOwns = (element: HTMLElement) => Array.from(owners).some((owner) => owner === element || owner.contains(element));
-  const snapshotMutation = (record: MutationRecord) => {
+  const isVisible = (element: HTMLElement) => Array.from(visibleOwners).some((owner) => owner === element || owner.contains(element));
+  const owns = (element: HTMLElement) => Array.from(owners).some((owner) => owner === element || owner.contains(element));
+  const isProjectionMutation = (record: MutationRecord) => {
     // Rendering a prepared clone does not change the source's Native appearance.
     const target = record.target instanceof Element ? record.target : record.target.parentElement;
     if (target?.closest('[data-native-ui-snapshot-layer]')) return true;
@@ -41,11 +41,11 @@ export const createSnapshotScope = (namespace: string) => {
   };
 
   const snapshotTargets = new WeakMap<HTMLElement, HTMLElement>();
-  const snapshotTargetsChanged = `${namespace}:targets-change`;
+  const targetsChangedEvent = `${namespace}:targets-change`;
 
   const preparedOwners = new Set<HTMLElement>();
   const scope = {
-    coveredSourcesChanged,
+    sourcesChangedEvent,
     imageMarker,
     get owners(): readonly HTMLElement[] {
       return [...owners];
@@ -53,15 +53,15 @@ export const createSnapshotScope = (namespace: string) => {
     get visibleOwners(): readonly HTMLElement[] {
       return [...visibleOwners];
     },
-    snapshotVisible,
-    snapshotOwns,
-    snapshotMutation,
+    isVisible,
+    owns,
+    isProjectionMutation,
     getTarget: (source: HTMLElement) => snapshotTargets.get(source),
     setTarget: (source: HTMLElement, target: HTMLElement) => {
       snapshotTargets.set(source, target);
     },
     deleteTarget: (source: HTMLElement) => snapshotTargets.delete(source),
-    snapshotTargetsChanged,
+    targetsChangedEvent,
     get preparedOwners(): readonly HTMLElement[] {
       return [...preparedOwners];
     },
@@ -69,4 +69,4 @@ export const createSnapshotScope = (namespace: string) => {
   states.set(scope, { owners, visibleOwners, preparedOwners });
   return scope;
 };
-export type SnapshotScope = ReturnType<typeof createSnapshotScope>;
+export type WebProjectionScope = ReturnType<typeof createWebProjectionScope>;

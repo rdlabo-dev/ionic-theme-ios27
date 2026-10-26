@@ -1,4 +1,4 @@
-import type { SnapshotTransport } from '@rdlabo/capacitor-native-ui-kit';
+import type { WebProjectionTransport } from '@rdlabo/capacitor-native-ui-kit';
 import type { NativeUIExtension } from './extensions';
 import type { PluginListenerHandle } from '@capacitor/core';
 
@@ -304,7 +304,7 @@ export interface NativeUIPlugin {
     coveredSnapshots?: boolean;
     nativeScroll?: boolean;
   }>;
-  coveredSnapshot?: SnapshotTransport['send'];
+  coveredSnapshot?: WebProjectionTransport['send'];
   completeExtensionAction(options: { requestId: string; accepted: boolean }): Promise<void>;
   getWebViewMetrics(): Promise<WebViewMetrics>;
   getVerticalBarsGeometry(options: {

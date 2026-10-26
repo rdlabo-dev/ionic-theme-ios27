@@ -1,6 +1,6 @@
 export * from './types.js';
 export * from './geometry.js';
 export * from './scroll-placement.js';
-export { createSnapshotScope, type SnapshotScope } from './snapshot-scope.js';
-export * from './snapshot-handoff.js';
+export { createWebProjectionScope, type WebProjectionScope } from './web-projection-scope.js';
+export * from './web-projection.js';
 export * from './scroll-bindings.js';

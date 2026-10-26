@@ -1,22 +1,21 @@
-import type { SnapshotSource as Candidate, PreparedSnapshot as CoveredSnapshot, Frame, SnapshotTransport } from './types.js';
-import { snapshotState, type SnapshotScope } from './snapshot-scope.js';
+import type { WebProjectionSource as Candidate, PreparedWebProjection as CoveredSnapshot, Frame, WebProjectionTransport } from './types.js';
+import { projectionState, type WebProjectionScope } from './web-projection-scope.js';
 import { bounded, boundedListener } from './bridge.js';
 import { projectionAncestors } from './geometry.js';
 import { snapshotStyles } from './snapshot-styles.js';
 
-export interface SnapshotOptions {
+export interface WebProjectionOptions {
   wake(): void;
   blocked(): boolean;
   revision?(): number;
   /** Select this surface's sources, e.g. the underlying page or the active overlay. */
   eligible?(source: Candidate): boolean;
-  /** Resolve a display DOM separate from its logical source (rails, portals). */
-  target?(source: HTMLElement, placement?: string): HTMLElement | undefined;
+  /** Caller-owned projection DOM in the intended stacking context. Undefined means unavailable. */
+  target(source: HTMLElement, placement?: string): HTMLElement | undefined;
   /** Reject a cached image when its owning surface has changed. */
   current?(sources: HTMLElement[]): boolean;
   /** Temporary movement handoff: rebase return pixels to the current display DOM. */
   transient?: boolean;
-  /** Only the owning plugin disposes the transport; surface managers release their own tokens. */
 }
 
 interface Prepared {
@@ -72,16 +71,16 @@ const coordinateSpace = (target: HTMLElement, win: Window, style = win.getComput
 };
 
 /** Images are prepared after accepted native updates, never on the overlay's critical path. */
-export const createSnapshotHandoff = async (
+export const createWebProjection = async (
   doc: Document,
-  transport: SnapshotTransport,
-  scope: SnapshotScope,
-  callbacks: SnapshotOptions,
+  transport: WebProjectionTransport,
+  scope: WebProjectionScope,
+  callbacks: WebProjectionOptions,
 ) => {
   const win = doc.defaultView!;
   const call = transport.send.bind(transport);
-  const { imageMarker, coveredSourcesChanged, snapshotTargetsChanged } = scope;
-  const { owners, visibleOwners, preparedOwners } = snapshotState(scope);
+  const { imageMarker, sourcesChangedEvent, targetsChangedEvent } = scope;
+  const { owners, visibleOwners, preparedOwners } = projectionState(scope);
   const sheets = new Map<Document | ShadowRoot, { base: HTMLStyleElement; image: HTMLStyleElement }>();
   const rootFor = (element: HTMLElement) => {
     const root = element.getRootNode();
@@ -233,10 +232,11 @@ export const createSnapshotHandoff = async (
       layer.setAttribute('data-native-ui-snapshot-layer', '');
       layer.setAttribute('aria-hidden', 'true');
       layer.inert = true;
-      layer.style.cssText = 'all:initial;position:absolute;width:0;height:0;overflow:visible;pointer-events:none;z-index:1001';
+      layer.style.cssText =
+        'all:initial;position:absolute;width:0;height:0;overflow:visible;pointer-events:none;visibility:visible!important';
       images.forEach((image, index) => {
         const part = result!.parts![index];
-        image.style.cssText = `all:initial;position:absolute;display:block;max-width:none;left:${part.x}px;top:${part.y}px;width:${part.width}px;height:${part.height}px;pointer-events:none;`;
+        image.style.cssText = `all:initial;position:absolute;display:block;max-width:none;left:${part.x}px;top:${part.y}px;width:${part.width}px;height:${part.height}px;pointer-events:none;visibility:visible!important;`;
         layer.append(image);
       });
       cached = {
@@ -257,7 +257,7 @@ export const createSnapshotHandoff = async (
         preparedSources.add(source);
       });
       render();
-      win.dispatchEvent(new Event(coveredSourcesChanged));
+      win.dispatchEvent(new Event(sourcesChangedEvent));
       preparedVisualRevision = visual;
       adopted = true;
       dispose(previous);
@@ -390,8 +390,7 @@ export const createSnapshotHandoff = async (
   };
   // Preparation, display and restoration must resolve the same captured placement.
   // An element-placement image never belongs to a previous rail proxy.
-  const targetsFor = (image: Prepared) =>
-    image.targets.map((source, index) => (callbacks.target ? callbacks.target(source, image.placements[index]) : source));
+  const targetsFor = (image: Prepared) => image.targets.map((source, index) => callbacks.target(source, image.placements[index]));
   const rendered = new Set<HTMLElement>();
   const preparedKeys = new Map<HTMLElement, string>();
   const offsets = new Map<HTMLElement, { x: number; y: number; style: CSSStyleDeclaration }>();
@@ -431,7 +430,7 @@ export const createSnapshotHandoff = async (
     if (!image || ending) return;
     const targets = targetsFor(image);
     if (active) {
-      if (targets.some((target) => target && !sheets.has(rootFor(target)))) {
+      if (targets.some((target) => !target?.isConnected || !sheets.has(rootFor(target)))) {
         abandon(active, false);
         return;
       }
@@ -526,10 +525,10 @@ export const createSnapshotHandoff = async (
     }
   };
   const targetsChanged = () => render();
-  win.addEventListener(snapshotTargetsChanged, targetsChanged);
-  const begin = (presentingSurface?: HTMLElement) => {
+  win.addEventListener(targetsChangedEvent, targetsChanged);
+  const begin = (projectionLayer?: HTMLElement) => {
     retireRestoration();
-    if (stopped || active) return;
+    if (stopped || active || (projectionLayer && !projectionLayer.isConnected)) return;
     const image = cached;
     if (
       !image ||
@@ -537,6 +536,7 @@ export const createSnapshotHandoff = async (
       image.sources.some((source) => !source.isConnected) ||
       (callbacks.current && !callbacks.current(image.targets)) ||
       image.targets.some((source) => !preparedKeys.has(source)) ||
+      targetsFor(image).some((target) => !target?.isConnected) ||
       [...rendered].some((target) => !target.isConnected)
     )
       return;
@@ -549,17 +549,17 @@ export const createSnapshotHandoff = async (
     handoffPending = true;
     presented = false;
     active = image;
-    if (presentingSurface?.isConnected) {
+    if (projectionLayer) {
       // One coordinate conversion before the host starts its animation. The browser
       // then applies the same transform, filter and clip to page and images.
-      const space = coordinateSpace(presentingSurface, win);
+      const space = coordinateSpace(projectionLayer, win);
       surfaceLayer = image.layer;
       surfaceLayer.style.display = 'none';
       surfaceLayer.style.left = `${-space.x / space.scaleX - space.left}px`;
       surfaceLayer.style.top = `${-space.y / space.scaleY - space.top}px`;
       surfaceLayer.style.transformOrigin = '0 0';
       surfaceLayer.style.transform = `scale(${1 / space.scaleX}, ${1 / space.scaleY})`;
-      presentingSurface.append(surfaceLayer);
+      projectionLayer.append(surfaceLayer);
     }
     // Reuse decoded pixels; no capture, bridge acknowledgement or animation wait.
     generation++;
@@ -674,7 +674,7 @@ export const createSnapshotHandoff = async (
     else {
       detach();
       preparedKeys.clear();
-      win.dispatchEvent(new Event(coveredSourcesChanged));
+      win.dispatchEvent(new Event(sourcesChangedEvent));
     }
   };
   return {
@@ -696,10 +696,10 @@ export const createSnapshotHandoff = async (
     invalidate,
     async destroy() {
       stopped = true;
-      win.removeEventListener(snapshotTargetsChanged, targetsChanged);
+      win.removeEventListener(targetsChangedEvent, targetsChanged);
       invalidate();
       await bounded(Promise.resolve(listener?.remove())).catch(() => {});
     },
   };
 };
-export type SnapshotHandoff = Awaited<ReturnType<typeof createSnapshotHandoff>>;
+export type WebProjection = Awaited<ReturnType<typeof createWebProjection>>;
