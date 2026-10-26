@@ -188,6 +188,7 @@ class NativeUIEngineTest {
  }
  @Test fun nativeInitializationOwnsImagesEventsAndTeardown() {
   val activity=activity(); lateinit var registration:NativeUIProjection; lateinit var native:View
+  val loaded=CountDownLatch(1)
   fun js(expression:String):String {
    val done=CountDownLatch(1);var result=""
    main{activity.web.evaluateJavascript(expression){result=it;done.countDown()}}
@@ -204,6 +205,7 @@ class NativeUIEngineTest {
     native=View(activity);native.setBackgroundColor(Color.RED)
     activity.root.addView(native,FrameLayout.LayoutParams((100*density).toInt(),(40*density).toInt()).apply {leftMargin=(20*density).toInt();topMargin=(100*density).toInt()})
     activity.web.webViewClient=object:android.webkit.WebViewClient(){
+     override fun onPageFinished(view:android.webkit.WebView,url:String) {loaded.countDown()}
      override fun shouldInterceptRequest(view:android.webkit.WebView,request:android.webkit.WebResourceRequest):android.webkit.WebResourceResponse? {
       val path=request.url.path ?: return null
       if(!path.startsWith("/_capacitor_file_"))return null
@@ -225,6 +227,7 @@ class NativeUIEngineTest {
      };</script><body><div id='slot' style='position:absolute;left:20px;top:100px;width:100px;height:40px'>Fallback</div></body>
     """.trimIndent(),"text/html","utf-8",null)
    }
+   assertTrue("Fixture navigation did not complete",loaded.await(10,TimeUnit.SECONDS))
    waitFor("document.querySelector('#slot')?.hasAttribute('data-native-ui-snapshot')===true")
    repeat(2) { iteration ->
     waitFor("document.querySelector('#slot').hasAttribute('data-native-ui-snapshot')")
@@ -244,6 +247,45 @@ class NativeUIEngineTest {
    waitFor("document.querySelector('#slot').getAttributeNames().some(n=>n.startsWith('data-native-ui-session-')&&document.querySelector('#slot').getAttribute(n)==='none')")
    main{assertEquals(View.INVISIBLE,native.visibility);registration.close()}
    waitFor("Object.keys(testEvents).length===0")
+  } finally {main{activity.finish()}}
+ }
+
+ @Test fun sharedChannelSupportsLateOwnersAndIndependentTeardown() {
+  val activity=activity(); lateinit var first:NativeUIProjection; lateinit var second:NativeUIProjection; lateinit var native:View
+  fun js(expression:String):String {
+   val done=CountDownLatch(1); var result=""
+   main{activity.web.evaluateJavascript(expression){result=it;done.countDown()}}
+   assertTrue(done.await(3,TimeUnit.SECONDS));return result
+  }
+  fun waitCount(count:Int) {
+   val expression="Array.from(document.querySelectorAll('style')).filter(s=>s.textContent.includes('data-native-ui-session-')).length"
+   val deadline=System.currentTimeMillis()+10000
+   while(System.currentTimeMillis()<deadline) {if(js(expression)==count.toString())return;Thread.sleep(20)}
+   fail("Expected $count live owners")
+  }
+  try {
+   js("window.testEvents={};window.Capacitor={addListener:(plugin,name,fn)=>{testEvents[name]=fn;return{remove:async()=>{delete testEvents[name]}}}};document.body.insertAdjacentHTML('beforeend','<div id=second style=width:100px;height:40px>Fallback</div>')")
+   main {
+    NativeUIProjection.install(activity.web)
+    try { NativeUIProjection.install(activity.web,setOf("https://unrelated.example"));fail("Changed origins accepted") }
+    catch (_:IllegalArgumentException) {}
+    first=NativeUIProjection(activity.window,activity.web,"Fixture","#first",view={null})
+    native=View(activity);activity.root.addView(native,FrameLayout.LayoutParams(100,40))
+    second=NativeUIProjection(activity.window,activity.web,"Fixture","#second",
+     receiveListeners=NativeUIProjection.ReceiveListeners(projection=NativeUIProjection.ReceiveListeners.Projection(none=listOf("hidden"))),
+     failedFallback=NativeUIProjection.FailedFallback.NATIVE,canCapture={false},view={native})
+   }
+   waitCount(2)
+   main{first.close()};waitCount(1)
+   val deadline=System.currentTimeMillis()+10000
+   while(js("typeof testEvents.hidden")!="\"function\"" && System.currentTimeMillis()<deadline) Thread.sleep(20)
+   js("testEvents.hidden({})")
+   var hidden=false
+   while(!hidden && System.currentTimeMillis()<deadline) {main{hidden=native.visibility==View.INVISIBLE};Thread.sleep(20)}
+   assertTrue("Remaining owner must still receive native channel commands",hidden)
+   main{second.close()};waitCount(0)
+   main{first=NativeUIProjection(activity.window,activity.web,"Fixture","#third",view={null})}
+   waitCount(1);main{first.close()};waitCount(0)
   } finally {main{activity.finish()}}
  }
 

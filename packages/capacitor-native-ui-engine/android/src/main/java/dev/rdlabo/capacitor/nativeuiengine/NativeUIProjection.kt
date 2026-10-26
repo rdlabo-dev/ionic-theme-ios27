@@ -21,9 +21,12 @@ class NativeUIProjection(
     projectionSelector: String,
     receiveListeners: ReceiveListeners = ReceiveListeners(),
     allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost"),
+    failedFallback: FailedFallback = FailedFallback.WEB,
     private val canCapture: () -> Boolean = { true },
     view: () -> View?
 ) : AutoCloseable {
+    enum class FailedFallback(val value: String) { WEB("web"), NATIVE("native") }
+
     data class ReceiveListeners(
         val update: List<String> = emptyList(),
         val projection: Projection = Projection(),
@@ -41,6 +44,31 @@ class NativeUIProjection(
                 .put("web", JSONArray(projection.web))
                 .put("none", JSONArray(projection.none)))
             .put("match", JSONObject(match))
+    }
+    companion object {
+        private val registrations = java.util.WeakHashMap<WebView, MutableMap<String, java.lang.ref.WeakReference<NativeUIProjection>>>()
+        private val origins = java.util.WeakHashMap<WebView, Set<String>>()
+        /** Call during plugin load, before navigation. Later SDK views reuse this channel. */
+        @JvmStatic
+        @JvmOverloads
+        fun install(webView: WebView, allowedOrigins: Set<String> = setOf("https://localhost", "http://localhost")) {
+            check(android.os.Looper.myLooper() == android.os.Looper.getMainLooper())
+            if (registrations.containsKey(webView)) {
+                require(origins[webView] == allowedOrigins) { "Native UI channel origins cannot change" }
+                return
+            }
+            check(webView.url == null || webView.url == "about:blank") {
+                "Install NativeUIProjection during plugin load, before WebView navigation"
+            }
+            val owners = mutableMapOf<String, java.lang.ref.WeakReference<NativeUIProjection>>()
+            WebViewCompat.addWebMessageListener(webView, "nativeUIEngine", allowedOrigins) { _, message, _, mainFrame, _ ->
+                if (mainFrame) runCatching { JSONObject(message.data ?: "") }.getOrNull()?.let {
+                    owners[it.optString("key").substringBefore(":")]?.get()?.let { owner -> if (!owner.closed) owner.receive(it) }
+                }
+            }
+            registrations[webView] = owners
+            origins[webView] = allowedOrigins.toSet()
+        }
     }
     private val sourceView = view
     private fun views() = sourceView()?.let { mapOf("view" to it) } ?: emptyMap()
@@ -63,18 +91,25 @@ class NativeUIProjection(
         require(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
             WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) { "WebView document-start messaging is required" }
         val config = JSONObject().put("id", id).put("plugin", plugin).put("projectionSelector", projectionSelector)
-            .put("receiveListeners", receiveListeners.configuration())
+            .put("receiveListeners", receiveListeners.configuration()).put("failedFallback", failedFallback.value)
         val runtime = webView.context.assets.open("native-ui-engine.js").bufferedReader().use { it.readText() }
         val source = "if (!globalThis.CapacitorNativeUIEngineRuntime) { $runtime } CapacitorNativeUIEngineRuntime.start($config).catch(console.error);"
-        WebViewCompat.addWebMessageListener(webView, id, allowedOrigins) { _, message, _, mainFrame, _ ->
-            if (mainFrame && !closed) {
-                runCatching { JSONObject(message.data ?: "") }.getOrNull()?.let(::receive)
-            }
+        install(webView, allowedOrigins)
+        registrations.getValue(webView)[id] = java.lang.ref.WeakReference(this)
+        var installedScript: ScriptHandler? = null
+        try {
+            val created = WebViewCompat.addDocumentStartJavaScript(webView, source, allowedOrigins)
+            installedScript = created
+            // Also support initialization after the current page has loaded.
+            val allowed = JSONArray(allowedOrigins)
+            webView.evaluateJavascript("if ($allowed.includes(location.origin)) { $source }", null)
+            script = created
+        } catch (error: Exception) {
+            installedScript?.remove()
+            registrations[webView]?.remove(id)
+            snapshots.close()
+            throw error
         }
-        script = WebViewCompat.addDocumentStartJavaScript(webView, source, allowedOrigins)
-        // Also support initialization after the current page has loaded.
-        val allowed = JSONArray(allowedOrigins)
-        webView.evaluateJavascript("if ($allowed.includes(location.origin)) { $source }", null)
     }
     private fun frame(view: View): RectF {
         val a = IntArray(2); val b = IntArray(2)
@@ -218,7 +253,7 @@ class NativeUIProjection(
         closed = true
         webView.evaluateJavascript("globalThis.CapacitorNativeUIEngineRuntime?.stop('$id')", null)
         script.remove()
-        WebViewCompat.removeWebMessageListener(webView, id)
+        registrations[webView]?.remove(id)
         snapshots.close(); captured.clear(); anchors.clear()
         if (destination != "none") hiddenByProjection.forEach { if (it.visibility == View.INVISIBLE) it.visibility = View.VISIBLE }
         hiddenByProjection.clear()

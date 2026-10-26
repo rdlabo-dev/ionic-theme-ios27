@@ -11,6 +11,8 @@ export interface NativeSessionConfiguration {
   id: string;
   plugin: string;
   projectionSelector: string;
+  /** Recovery while native is requested. Explicit web/none destinations take precedence. */
+  failedFallback?: 'web' | 'native';
   receiveListeners?: {
     update?: string[];
     projection?: Partial<Record<ProjectionDestination, string[]>>;
@@ -94,8 +96,25 @@ export const startNativeSession = async (
       },
     ];
   };
+  const recoverFailedProjection = async () => {
+    if (stopped) return;
+    const version = generation;
+    const native = config.failedFallback === 'native' && effectiveDestination() === 'native' && !!target?.isConnected;
+    await bridge.send({ action: 'visibility', visible: native }).catch(() => {});
+    if (stopped || version !== generation) return;
+    if (native || destination === 'none') setVisibility();
+    else target?.removeAttribute(marker);
+  };
+  const applyFailedFallback = () => {
+    if (!automaticMotion || destination !== 'native' || !target?.isConnected || manager?.token || manager?.restoring) return;
+    const native = config.failedFallback === 'native';
+    void bridge.send({ action: 'visibility', visible: native }).catch(() => {});
+    if (native) setVisibility();
+    else target.removeAttribute(marker);
+  };
   const wake = () => {
     if (stopped) return;
+    applyFailedFallback();
     if (destination === 'web' && manager && !manager.token && !manager.restoring) {
       void bridge.send({ action: 'visibility', visible: false }).catch(() => {});
       target?.removeAttribute(marker);
@@ -117,8 +136,7 @@ export const startNativeSession = async (
       .catch(() => {
         if (version !== generation || stopped) return;
         current.invalidate();
-        void bridge.send({ action: 'visibility', visible: false }).catch(() => {});
-        target?.removeAttribute(marker);
+        void recoverFailedProjection();
       })
       .finally(() => {
         restoring = false;
@@ -142,6 +160,7 @@ export const startNativeSession = async (
       sizeObserver.disconnect();
       if (target) sizeObserver.observe(target);
     }
+    refreshScrollListeners();
     destination = effectiveDestination();
     if (!target) {
       await bridge.send({ action: 'visibility', visible: false });
@@ -201,13 +220,8 @@ export const startNativeSession = async (
           await reconcile();
         }
       } catch {
-        const version = generation;
-        // A partial native update must not leave live content above the Web fallback.
-        await bridge.send({ action: 'visibility', visible: false }).catch(() => {});
-        if (!stopped && version === generation) {
-          if (destination === 'none') setVisibility();
-          else target?.removeAttribute(marker);
-        }
+        // Preserve the selected recovery policy without overriding a newer destination.
+        await recoverFailedProjection();
       } finally {
         reconciling = false;
         if (scheduled) schedule();
@@ -220,17 +234,28 @@ export const startNativeSession = async (
   };
   const sizeObserver = new ResizeObserver(resized);
   window.addEventListener('resize', resized);
+  const scrollAncestors = new Set<HTMLElement>();
+  const handledScrolls = new WeakSet<Event>();
   const onScroll = (event: Event) => {
-    if (stopped || destination !== 'native' || !target || !(event.target instanceof Node) || !event.target.contains(target)) return;
-    if (nativeScroll && event.target === scrollOwner) {
-      manager?.changed(event.target);
+    const owner = event.composedPath()[0] ?? event.target;
+    if (
+      stopped ||
+      destination !== 'native' ||
+      !target ||
+      handledScrolls.has(event) ||
+      (owner !== document && ![...projectionAncestors(target)].includes(owner as HTMLElement))
+    )
+      return;
+    handledScrolls.add(event);
+    if (nativeScroll && owner === scrollOwner) {
+      manager?.changed(owner as EventTarget);
       return;
     }
     if (!automaticMotion) {
       automaticMotion = true;
       manager?.begin();
-      if (!manager?.token) void bridge.send({ action: 'visibility', visible: false }).catch(() => {});
-      target.removeAttribute(marker);
+      if (manager?.token) target.removeAttribute(marker);
+      else applyFailedFallback();
     } else manager?.changed();
     clearTimeout(scrollTimer);
     scrollTimer = setTimeout(() => {
@@ -240,8 +265,37 @@ export const startNativeSession = async (
       if (!manager?.restoring) schedule();
     }, 100);
   };
+  // Listen on composed-tree ancestors themselves: non-composed scroll events inside
+  // Ionic's shadow tree never reach document, and Node.contains excludes slotted children.
+  const refreshScrollListeners = () => {
+    const next = new Set(target ? projectionAncestors(target) : []);
+    const changed = next.size !== scrollAncestors.size || [...next].some((element) => !scrollAncestors.has(element));
+    for (const element of scrollAncestors)
+      if (!next.has(element)) {
+        element.removeEventListener('scroll', onScroll);
+        element.removeEventListener('slotchange', slotChanged);
+        scrollAncestors.delete(element);
+      }
+    for (const element of next)
+      if (!scrollAncestors.has(element)) {
+        element.addEventListener('scroll', onScroll, { passive: true });
+        element.addEventListener('slotchange', slotChanged);
+        scrollAncestors.add(element);
+      }
+    if (changed) {
+      nativeScroll = false;
+      scrollOwner = undefined;
+      manager?.invalidate();
+      schedule();
+    }
+  };
+  const slotChanged = () => {
+    refreshScrollListeners();
+    schedule();
+  };
   document.addEventListener('scroll', onScroll, true);
   const observer = new MutationObserver((records) => {
+    refreshScrollListeners();
     if (findTarget() !== target) schedule();
     // Moving the same host into or out of an overlay changes coverage, not registration.
     else if (target && records.some((record) => record.type === 'childList')) applyDestination(effectiveDestination());
@@ -289,6 +343,11 @@ export const startNativeSession = async (
     sizeObserver.disconnect();
     window.removeEventListener('resize', resized);
     document.removeEventListener('scroll', onScroll, true);
+    for (const element of scrollAncestors) {
+      element.removeEventListener('scroll', onScroll);
+      element.removeEventListener('slotchange', slotChanged);
+    }
+    scrollAncestors.clear();
     clearTimeout(scrollTimer);
     target?.removeAttribute(marker);
     style.remove();

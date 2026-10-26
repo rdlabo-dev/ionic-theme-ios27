@@ -4,6 +4,8 @@ import WebKit
 /// One fixed DOM fallback and its native view. The plugin retains this registration.
 /// Existing notifyListeners events drive projection; no public plugin method is intercepted.
 public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
+    public enum FailedFallback: String { case web, native }
+
     public struct ReceiveListeners {
         public struct Projection {
             public let native: [String]
@@ -46,6 +48,7 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
     public init(webView: WKWebView?, plugin: String, projectionSelector: String,
                 receiveListeners: ReceiveListeners = .init(),
                 allowedOrigins: Set<String> = ["capacitor://localhost", "https://localhost", "http://localhost"],
+                failedFallback: FailedFallback = .web,
                 canCapture: @escaping () -> Bool = { true }, view: @escaping () -> UIView?) throws {
         guard let webView else { throw ProjectionError.missingWebView }
         self.webView = webView; self.views = { view().map { ["view": $0] } ?? [:] }; self.origins = allowedOrigins; self.canCapture = canCapture
@@ -53,7 +56,7 @@ public final class NativeUIProjection: NSObject, WKScriptMessageHandler {
         precondition(Thread.isMainThread)
         guard !projectionSelector.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ProjectionError.invalidConfiguration }
         let config: [String: Any] = ["id": id, "plugin": plugin, "projectionSelector": projectionSelector,
-                                     "receiveListeners": receiveListeners.configuration]
+                                     "receiveListeners": receiveListeners.configuration, "failedFallback": failedFallback.rawValue]
         let json = String(data: try JSONSerialization.data(withJSONObject: config), encoding: .utf8)!
         let allowed = String(data: try JSONSerialization.data(withJSONObject: Array(allowedOrigins)), encoding: .utf8)!
         let runtime = try Self.runtime()

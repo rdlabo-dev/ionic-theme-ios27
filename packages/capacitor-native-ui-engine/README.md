@@ -4,7 +4,7 @@
 
 The engine associates DOM layout with native views, tracks scrolling, prepares native images before interaction, and manages image handoff and native restoration. The consuming plugin supplies its native views, corresponding DOM and presentation events. Existing renderers can also use the low-level APIs with their own ordered transport.
 
-The native libraries support iOS (`UIKit` / `WKWebView`) and Android (`View` / `WebView`). TypeScript geometry and image presentation are framework-independent. APIs are experimental during extraction. Android placement requires API 24+, and composited snapshots require API 26+.
+The native libraries support iOS (`UIKit` / `WKWebView`) and Android (`View` / `WebView`). TypeScript geometry and image presentation are framework-independent. APIs are experimental during extraction. Android placement requires API 23+, and composited snapshots require API 26+.
 
 ## Ownership
 
@@ -114,6 +114,7 @@ Make the corresponding changes in `android/src/main/java/<your-package>/ExampleP
 +    private var projection: NativeUIProjection? = null
 
      override fun load() {
++        NativeUIProjection.install(bridge.webView)
          // Existing code creates and attaches nativeView here.
 +        projection = runCatching {
 +            NativeUIProjection(
@@ -153,6 +154,18 @@ Make the corresponding changes in `android/src/main/java/<your-package>/ExampleP
  }
 ```
 
+On Android, call `NativeUIProjection.install(bridge.webView)` in plugin `load()`,
+before the first navigation, even when SDK views arrive later. Registrations then
+share that main-frame, origin-restricted channel; they do not install new message
+listeners into a loaded WebView. This avoids a WebView native crash reproduced when
+registering an asynchronously loaded AdMob view. The registration constructor can
+install the channel only on an un-navigated WebView; late installation fails with
+an actionable error instead of attempting unsafe injection. All registrations on
+the same WebView must use the same allowed origins. Closing a registration removes
+only its owner from the channel, so other slots continue working. The shared channel
+remains installed for the WebView lifetime; registrations must still be retained
+and closed by their consuming plugin.
+
 Both diffs add a private property, native registration, an update notification and teardown. They add no Engine methods to `pluginMethods`, no public JS wrapper, and no application-side Engine initializer.
 
 Keep your plugin's existing `registerPlugin()` export. Use the same event names in the registration and `notifyListeners`; if the plugin already emits a suitable event (such as `tabSelected`), list that event instead of emitting it twice.
@@ -179,6 +192,20 @@ The container does not have to exist at registration time. A missing DOM waits w
 A Web Component host can be the destination, for example `projectionSelector: 'native-ad[placement="home"]'`. Give the host a layout box (`display: block` with the intended dimensions); the engine observes insertion, removal and selector attribute changes. The selector runs in the document and does not search inside shadow roots. The fallback content, including shadow content, must inherit the host's `visibility`: do not override it with `visibility: visible`, and reserve the host's `::before` for the projection image. These requirements apply to open and closed shadow roots.
 
 For independently moving AdMob slots, retain one registration per loaded native view/surface, use a slot-specific selector and filter the plugin's notifications through `receiveListeners.match` (`match: ["slotKey": slotKey, "loadId": loadId]` / `match = mapOf("slotKey" to slotKey, "loadId" to loadId)`). Dispose the registration when a loaded ad is replaced, even if its host view is reused. Keep SDK loading, impression and click handling in the ad plugin. Supply `canCapture` with its existing capture eligibility checks (for example, test-ad / opaque-background / no-video restrictions); the engine does not grant permission to snapshot an SDK view.
+
+For SDK consumers without an equivalent Web fallback, set `failedFallback: .native`
+on iOS or `failedFallback = NativeUIProjection.FailedFallback.NATIVE` on Android.
+The default is `.web` / `WEB`, preserving existing consumers. If automatic motion
+cannot use a prepared image (not ready, unsupported capture, or rejected handoff),
+`native` preserves the live native view and keeps fallback DOM hidden. The consumer
+must continue positioning that view; this option does not create native scroll
+tracking on Android. Explicit `web`, `none`, and overlay coverage take precedence:
+this option never raises a native view above an intentionally covering Web layer.
+
+Scroll observation follows composed-tree ancestors, including assigned slots.
+Non-composed scroll events inside an Ionic shadow tree are observed at their source;
+applications do not add an extra listener or dispatch synthetic document events.
+Listeners follow host reparenting and slot reassignment and are removed on teardown.
 
 Scrolling is internal: iOS uses a uniquely matched native scroll binding when available; otherwise, including Android, scrolling temporarily uses the prepared image and restores native content after motion settles. Automatic scroll handling never overrides explicit `web` or `none`. Unsupported capture or geometry keeps the normal DOM fallback; it does not wait for a new capture on the transition path. The latest explicit destination survives WebView reload, and old-document replies cannot complete a new document's requests.
 

@@ -16,7 +16,7 @@ const send = (id: string, request: unknown): Promise<any> =>
     pending.set(key, { resolve, reject, timer });
     const message = JSON.stringify({ key, request });
     const host = globalThis as any;
-    const channel = host.webkit?.messageHandlers?.[id] ?? host[id];
+    const channel = host.webkit?.messageHandlers?.[id] ?? host[id] ?? host.nativeUIEngine;
     if (!channel) {
       clearTimeout(timer);
       pending.delete(key);
