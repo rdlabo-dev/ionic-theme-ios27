@@ -1,4 +1,6 @@
-import { projectionScope, isProjectionMutation } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+import { getProjectionScope } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+const projectionScope = getProjectionScope(document);
+const { isProjectionMutation } = projectionScope;
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { createCoveredSnapshots } from '../../packages/capacitor-native-ui/src/native/shared/covered-snapshot';
 import type { NativeUIPlugin } from '../../packages/capacitor-native-ui/src/native/definitions';

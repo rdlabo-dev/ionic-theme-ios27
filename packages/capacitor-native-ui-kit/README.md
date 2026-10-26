@@ -64,9 +64,9 @@ Run `npx cap sync ios` and rebuild. Keep the direct kit version aligned with the
 
 ## Web projection
 
-Create one `createWebProjectionScope(namespace)` per plugin instance and share it among that instance's page/overlay managers. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
+Create one `createWebProjectionScope(root, namespace)` per plugin instance and share it among that instance's page/overlay managers. The `root` is a `Document`, `HTMLElement` or `ShadowRoot` defining which source DOM belongs to that instance; Shadow DOM descendants are included. Use a common application root (or `document`) encompassing all pages and overlays that share the scope. Namespaces must be distinct between plugins. Do not register the same DOM source with two plugins.
 
-Supply projection DOM when creating the manager. In this example, `presentingPage` is a positioned page owned by your plugin. Create a dedicated image host inside it, set its stacking order relative to your UI, and pass the element as `layer`. `target(source, placement)` identifies each component's display DOM; the example uses the source itself. No class or ID connects these elements to the kit.
+The manager obtains its Document and Window from the scope. Sources outside the scope are excluded; targets and layers must share its Document, but may sit outside the source root for rails or portals. Supply projection DOM when creating the manager. In this example, `presentingPage` is a positioned page owned by your plugin. Create a dedicated image host inside it, set its stacking order relative to your UI, and pass the element as `layer`. `target(source, placement)` identifies each component's display DOM; the example uses the source itself. No class or ID connects these elements to the kit.
 
 ```ts
 import { createWebProjectionScope, createWebProjection } from '@rdlabo/capacitor-native-ui-kit';
@@ -79,15 +79,14 @@ host.style.cssText = 'position:absolute;inset:0;pointer-events:none';
 // Set the stacking order for your page, then attach its image host.
 presentingPage.append(host);
 
-const scope = createWebProjectionScope('my-plugin');
+const scope = createWebProjectionScope(document, 'my-plugin');
 const projection = await createWebProjection(
-  document,
+  scope,
   {
     send: (request) => plugin.snapshot(request),
     listen: (listener) => plugin.addListener('snapshotInteraction', listener),
     resolveURL: (url) => Capacitor.convertFileSrc(url),
   },
-  scope,
   {
     wake: () => schedulePluginUpdate(),
     blocked: () => overlayIsActive(),
@@ -115,7 +114,7 @@ A disconnected supplied host or an unresolved per-source target prevents project
 
 ### Scope and transport contract
 
-Ownership belongs to the handoff managers. `scope.owners`, `scope.visibleOwners` and `scope.preparedOwners` return read-only array snapshots; mutating a returned copy cannot change the kit's state. Use `owns(element)` and `isVisible(element)` for containment checks. Do not cache the arrays across updates.
+`scope.contains(element)` checks the source-DOM boundary; `owns(element)` checks temporary image ownership. Ownership belongs to the handoff managers. `scope.owners`, `scope.visibleOwners` and `scope.preparedOwners` return read-only array snapshots; mutating a returned copy cannot change the kit's state. Use `owns(element)` and `isVisible(element)` for containment checks. Do not cache the arrays across updates.
 
 A renderer that uses a separate DOM display proxy registers it with `scope.setTarget(source, target)`, reads it with `scope.getTarget(source)`, and unregisters it with `scope.deleteTarget(source)`. After completing a batch of proxy changes, dispatch `new Event(scope.targetsChangedEvent)` on the document's window. Listen for `scope.sourcesChangedEvent` to update proxy visibility. This explicit batch boundary avoids a reconciliation for every individual proxy. The handoff manager's `target` callback selects the appropriate registered proxy; ordinary elements can remain their own targets.
 

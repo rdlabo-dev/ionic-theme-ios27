@@ -140,11 +140,13 @@ try {
     import { enableNativeUI } from '@rdlabo/capacitor-native-ui/core';
     import { createWebProjection, createWebProjectionScope, type WebProjectionTransport } from '@rdlabo/capacitor-native-ui-kit';
     async function projectionContract(transport: WebProjectionTransport) {
-      const scope = createWebProjectionScope('consumer');
+      // @ts-expect-error A scope must explicitly declare its source DOM boundary.
+      createWebProjectionScope('consumer');
+      const scope = createWebProjectionScope(document, 'consumer');
       // @ts-expect-error A renderer must explicitly provide the projection DOM resolver.
-      createWebProjection(document, transport, scope, { wake() {}, blocked: () => false });
+      createWebProjection(scope, transport, { wake() {}, blocked: () => false });
       const host = document.createElement('div');
-      const projection = await createWebProjection(document, transport, scope, {
+      const projection = await createWebProjection(scope, transport, {
         wake() {}, blocked: () => false, target: source => source, layer: host,
       });
       projection.begin();

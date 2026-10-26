@@ -8,7 +8,14 @@ const boot = async (page: Page) => {
   );
   await page.addScriptTag({ content: bundle });
 };
-const prepare = async (page: Page, fail = false, shadow = false, proxy = false, shared = false) => {
+const prepare = async (
+  page: Page,
+  fail = false,
+  shadow = false,
+  proxy = false,
+  shared = false,
+  boundary: 'document' | 'surface' | 'shadow' = 'document',
+) => {
   await boot(page);
   if (shadow)
     await page.evaluate(() => {
@@ -18,7 +25,7 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false, 
       (window as any).sourceRoot = host.shadowRoot;
     });
   await page.evaluate(
-    async ({ fail, proxy, shared }) => {
+    async ({ fail, proxy, shared, boundary }) => {
       const w = window as any,
         source = (w.sourceRoot ?? document).querySelector('#source') as HTMLElement,
         owner = (w.sourceRoot ?? document).querySelector('#scroll') as HTMLElement;
@@ -40,7 +47,10 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false, 
         host.style.cssText = 'position:absolute;inset:0;z-index:7;pointer-events:none';
         document.querySelector('#surface')!.append(host);
       }
-      w.scope = w.kit.createWebProjectionScope('test');
+      w.scope = w.kit.createWebProjectionScope(
+        boundary === 'surface' ? document.querySelector('#surface') : boundary === 'shadow' ? w.sourceRoot : document,
+        'test',
+      );
       w.source = {
         element: source,
         scrollElement: owner,
@@ -63,7 +73,7 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false, 
         },
       };
       w.manager = await w.kit.createWebProjection(
-        document,
+        w.scope,
         {
           send: async (request: any) => {
             w.calls.push(request);
@@ -94,11 +104,11 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false, 
               '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><path fill="red" d="M0 0h120v40H0z"/></svg>',
             ),
         },
-        w.scope,
         {
           wake() {},
           blocked: () => false,
           revision: () => w.revision,
+          transient: boundary === 'surface',
           layer: shared ? document.getElementById('projection-host')! : () => w.projectionLayer,
           target: (source: HTMLElement) =>
             w.targetUnavailable ? undefined : proxy ? document.getElementById('proxy')! : (w.projectionTarget ?? source),
@@ -106,7 +116,7 @@ const prepare = async (page: Page, fail = false, shadow = false, proxy = false, 
       );
       w.manager.consider(1, [w.source]);
     },
-    { fail, proxy, shared },
+    { fail, proxy, shared, boundary },
   );
   if (!fail) await expect(page.locator(proxy ? '#proxy' : '#source')).toHaveAttribute('data-native-ui-snapshot', /.+/);
 };
@@ -196,8 +206,8 @@ test('plugin scopes do not share ownership or events', async ({ page }) => {
   expect(
     await page.evaluate(() => {
       const w = window as any,
-        a = w.kit.createWebProjectionScope('ads'),
-        b = w.kit.createWebProjectionScope('ui'),
+        a = w.kit.createWebProjectionScope(document, 'ads'),
+        b = w.kit.createWebProjectionScope(document, 'ui'),
         source = document.querySelector('#source');
       a.owners.push(source); // Mutating the returned copy cannot change ownership.
       return [a.owns(source), a.owners.length, b.owners.length, a.sourcesChangedEvent !== b.sourcesChangedEvent];
@@ -261,7 +271,7 @@ test('image presentation works inside a shadow tree and restores Web', async ({ 
   expect(await page.evaluate(() => (window as any).sourceRoot.querySelectorAll('style[data-native-ui-snapshot]').length)).toBe(0);
 });
 
-test('destroying one plugin restores its proxy and leaves another plugin image and listener intact', async ({ page }) => {
+test('identical native tokens stay isolated across plugin scopes and teardown', async ({ page }) => {
   await prepare(page, false, false, true);
   await page.evaluate(async () => {
     const w = window as any,
@@ -271,13 +281,13 @@ test('destroying one plugin restores its proxy and leaves another plugin image a
     element.textContent = 'Ad slot';
     document.body.append(element);
     const r = element.getBoundingClientRect();
-    w.secondScope = w.kit.createWebProjectionScope('ads');
+    w.secondScope = w.kit.createWebProjectionScope(document, 'ads');
     w.second = await w.kit.createWebProjection(
-      document,
+      w.secondScope,
       {
         send: async (request: any) =>
           request.action === 'prepare'
-            ? { token: 'second-image', parts: [{ ids: ['ad'], url: 'file:///ad.png', x: r.x, y: r.y, width: r.width, height: r.height }] }
+            ? { token: 'image', parts: [{ ids: ['ad'], url: 'file:///ad.png', x: r.x, y: r.y, width: r.width, height: r.height }] }
             : { shown: true },
         listen: async () => ({
           remove() {
@@ -290,7 +300,6 @@ test('destroying one plugin restores its proxy and leaves another plugin image a
             '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"><rect width="120" height="40" fill="blue"/></svg>',
           ),
       },
-      w.secondScope,
       { wake() {}, blocked: () => false, target: (source: HTMLElement) => source },
     );
     w.second.consider(1, [{ element, control: { id: 'ad', x: r.x, y: r.y, width: r.width, height: r.height } }]);
@@ -300,9 +309,22 @@ test('destroying one plugin restores its proxy and leaves another plugin image a
     const w = window as any;
     w.manager.begin();
     w.second.begin();
-    await w.manager.destroy();
   });
   await expect(page.locator('#second')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await expect(page.locator('#proxy')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  expect(
+    await page.evaluate(() => {
+      const first = document.querySelector('#proxy')!,
+        second = document.querySelector('#second')!;
+      return {
+        distinct: first.getAttribute('data-native-ui-snapshot') !== second.getAttribute('data-native-ui-snapshot'),
+        first: decodeURIComponent(getComputedStyle(first, '::before').backgroundImage).includes('fill="red"'),
+        second: decodeURIComponent(getComputedStyle(second, '::before').backgroundImage).includes('fill="blue"'),
+      };
+    }),
+  ).toEqual({ distinct: true, first: true, second: true });
+  await page.evaluate(() => (window as any).manager.destroy());
+
   await expect(page.locator('#proxy')).not.toHaveAttribute('data-native-ui-snapshot-prepared');
   await expect(page.locator('#proxy')).toBeVisible();
   expect(
@@ -461,4 +483,111 @@ test('an explicit target can also host the shared projection layer', async ({ pa
   await page.evaluate(() => (window as any).manager.destroy());
   await expect(page.locator('#shared-projection-host')).toHaveCount(1);
   await expect(page.locator('#shared-projection-host')).not.toHaveAttribute('data-native-ui-snapshot-source');
+});
+
+for (const boundary of ['surface', 'shadow'] as const) {
+  test(`scope includes its composed DOM and excludes other sources (${boundary})`, async ({ page }) => {
+    await prepare(page, false, boundary === 'shadow', true, false, boundary);
+    await page.evaluate(() => {
+      const w = window as any;
+      const outside = document.querySelector('#other')!;
+      w.manager.consider(2, [w.source, { ...w.source, element: outside, control: { ...w.source.control, id: 'outside' } }]);
+    });
+    await expect.poll(() => page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').length)).toBe(2);
+    expect(await page.evaluate(() => (window as any).calls.filter((c: any) => c.action === 'prepare').at(-1).ids)).toEqual(['counter']);
+    await page.evaluate(() => (window as any).manager.begin());
+    // The same-document proxy is outside the source root and must remain usable.
+    await expect(page.locator('#proxy')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+    await page.evaluate(() => {
+      const w = window as any;
+      document.querySelector('#other')!.append(w.source.element);
+      window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
+    });
+    await expect.poll(() => page.evaluate(() => (window as any).scope.owners.length)).toBe(0);
+    await expect(page.locator('#proxy')).not.toHaveAttribute('data-native-ui-snapshot-visible');
+  });
+}
+
+test('group members outside the scope cannot acquire ownership', async ({ page }) => {
+  await prepare(page, false, false, false, false, 'surface');
+  await page.evaluate(() => {
+    const w = window as any;
+    w.manager.invalidate();
+    w.calls.length = 0;
+    w.manager.consider(2, [{ ...w.source, sources: [document.querySelector('#other')] }]);
+  });
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window as any).calls.some((c: any) => c.action === 'prepare'))).toBe(false);
+});
+
+for (const destination of ['target', 'layer'] as const) {
+  test(`connected ${destination} from another document cannot receive pixels`, async ({ page }) => {
+    await prepare(page);
+    await page.evaluate((destination) => {
+      const w = window as any;
+      const frame = document.createElement('iframe');
+      document.body.append(frame);
+      const foreign = frame.contentDocument!.body;
+      if (destination === 'target') {
+        w.projectionTarget = foreign;
+        window.dispatchEvent(new Event(w.scope.targetsChangedEvent));
+      } else w.projectionLayer = foreign;
+      w.manager.begin();
+    }, destination);
+    expect(
+      await page.evaluate(() => ({
+        token: (window as any).manager.token,
+        owners: (window as any).scope.owners.length,
+        covers: (window as any).calls.filter((c: any) => c.action === 'cover').length,
+        foreign: document.querySelector('iframe')!.contentDocument!.querySelectorAll('[data-native-ui-snapshot],img').length,
+      })),
+    ).toEqual({ token: undefined, owners: 0, covers: 0, foreign: 0 });
+  });
+}
+
+test('scope rejects cross-document target registration and follows shadow hosts', async ({ page }) => {
+  await boot(page);
+  expect(
+    await page.evaluate(() => {
+      const w = window as any,
+        host = document.createElement('div');
+      document.querySelector('#surface')!.append(host);
+      const shadow = host.attachShadow({ mode: 'open' }),
+        source = document.createElement('button');
+      shadow.append(source);
+      const scope = w.kit.createWebProjectionScope(document.querySelector('#surface'), 'root');
+      const frame = document.createElement('iframe');
+      document.body.append(frame);
+      let rejected = false;
+      try {
+        scope.setTarget(source, frame.contentDocument!.body);
+      } catch {
+        rejected = true;
+      }
+      return { contained: scope.contains(source), outside: scope.contains(document.querySelector('#other')), rejected };
+    }),
+  ).toEqual({ contained: true, outside: false, rejected: true });
+});
+
+test('returning after a source leaves the scope abandons without native restore', async ({ page }) => {
+  await prepare(page, false, false, false, false, 'surface');
+  await page.evaluate(() => (window as any).manager.begin());
+  await expect(page.locator('#source')).toHaveAttribute('data-native-ui-snapshot-visible', '');
+  await page.evaluate(() => {
+    const w = window as any;
+    document.querySelector('#other')!.append(w.source.element);
+    w.manager.changed();
+    w.manager.end();
+  });
+  expect(
+    await page.evaluate(() => {
+      const w = window as any;
+      return {
+        owners: w.scope.owners.length,
+        restoring: w.manager.restoring,
+        restores: w.calls.filter((c: any) => c.action === 'restore').length,
+      };
+    }),
+  ).toEqual({ owners: 0, restoring: false, restores: 0 });
+  await expect(page.locator('#source')).not.toHaveAttribute('data-native-ui-snapshot-visible');
 });

@@ -1,4 +1,4 @@
-import { isProjectionMutation, sourcesChangedEvent, projectionScope, targetsChangedEvent } from './shared/covered-source';
+import { getProjectionScope } from './shared/covered-source';
 import { controlSelected } from './shared/control-options';
 import { createCrossfade, fadeMarker } from './shared/crossfade';
 import { alignVerticalBarClone, verticalBarFrame } from './shared/vertical-bars-geometry';
@@ -59,6 +59,8 @@ export const createVerticalBarsWebProjection = (
   options: NativeUIOptions,
   enabled: () => boolean = () => true,
 ): NativeUIRuntimeHandle => {
+  const projectionScope = getProjectionScope(doc);
+  const { isProjectionMutation, sourcesChangedEvent, targetsChangedEvent } = projectionScope;
   const win = doc.defaultView!;
   const crossfade = createCrossfade(win);
   let incomingInstant: boolean | undefined;

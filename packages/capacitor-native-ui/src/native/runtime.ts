@@ -1,7 +1,7 @@
 import { createScrollBindings } from '@rdlabo/capacitor-native-ui-kit';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
-import { projectionScope, isProjectionMutation, sourcesChangedEvent } from './shared/covered-source';
+import { getProjectionScope } from './shared/covered-source';
 import { createCoveredSnapshots, type CoveredSnapshots } from './shared/covered-snapshot';
 import { createTabBarWidths } from './shared/tab-bar-width';
 import { createVerticalNavigation } from './shared/vertical-navigation';
@@ -77,6 +77,8 @@ export const createRuntime = async (
   onStop?: (cause: 'failure' | 'pagehide') => void,
   connection?: NativeUIConnection,
 ): Promise<NativeUIRuntimeHandle & { retain: (deferActivation?: (id: string) => boolean) => () => void }> => {
+  const projectionScope = getProjectionScope(doc);
+  const { isProjectionMutation, sourcesChangedEvent } = projectionScope;
   const win = doc.defaultView!;
   const extensions = options.extensions ?? [];
   const diagnose = createDiagnostics(options.debug);

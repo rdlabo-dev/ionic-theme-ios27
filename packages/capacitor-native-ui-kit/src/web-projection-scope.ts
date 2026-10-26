@@ -11,8 +11,19 @@ export const projectionState = (scope: WebProjectionScope): SnapshotState => {
   return state;
 };
 
-/** One scope per plugin instance; share it between that plugin's presentation surfaces. */
-export const createWebProjectionScope = (namespace: string) => {
+/** One source-DOM boundary per plugin instance, shared by its presentation surfaces. */
+export const createWebProjectionScope = (root: Document | HTMLElement | ShadowRoot, namespace: string) => {
+  const doc = root.nodeType === 9 ? (root as Document) : root.ownerDocument!;
+  const contains = (element: HTMLElement): boolean => {
+    if (element.ownerDocument !== doc) return false;
+    // Follow slots and shadow hosts as well as ordinary DOM ancestry.
+    let node: Node | null = element;
+    while (node) {
+      if (node === root || root.contains(node)) return true;
+      node = (node as Element).assignedSlot ?? node.parentNode ?? (node.nodeType === 11 ? (node as ShadowRoot).host : null);
+    }
+    return false;
+  };
   const sourcesChangedEvent = `${namespace}:sources-change`;
   const imageMarker = 'data-native-ui-snapshot';
   const owners = new Set<HTMLElement>();
@@ -45,6 +56,13 @@ export const createWebProjectionScope = (namespace: string) => {
 
   const preparedOwners = new Set<HTMLElement>();
   const scope = {
+    get root() {
+      return root;
+    },
+    get document() {
+      return doc;
+    },
+    contains,
     sourcesChangedEvent,
     imageMarker,
     get owners(): readonly HTMLElement[] {
@@ -58,6 +76,8 @@ export const createWebProjectionScope = (namespace: string) => {
     isProjectionMutation,
     getTarget: (source: HTMLElement) => snapshotTargets.get(source),
     setTarget: (source: HTMLElement, target: HTMLElement) => {
+      if (!contains(source) || target.ownerDocument !== doc)
+        throw new Error('Projection target must share the scope document and its source must belong to the scope');
       snapshotTargets.set(source, target);
     },
     deleteTarget: (source: HTMLElement) => snapshotTargets.delete(source),

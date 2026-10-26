@@ -22,7 +22,7 @@
         }
       };
       const source = document.getElementById('source');
-      const scope = NativeUIKit.createWebProjectionScope('acceptance');
+      const scope = NativeUIKit.createWebProjectionScope(document, 'acceptance');
       const node = {
         id: 'fixture',
         kind: 'extension',
@@ -91,7 +91,7 @@
         const capabilities = await send('configure');
         if (!capabilities.coveredSnapshots) throw Error('Snapshot capability missing');
         manager = await NativeUIKit.createWebProjection(
-          document,
+          scope,
           {
             send: async (request) => {
               const result = await send('coveredSnapshot', request);
@@ -102,7 +102,6 @@
             listen: async (listener) => Capacitor.addListener('NativeUI', 'snapshotInteraction', listener),
             resolveURL: (url) => Capacitor.convertFileSrc(url),
           },
-          scope,
           { wake, blocked: () => false, revision: () => revision, target: (source) => source },
         );
         await reconcile();

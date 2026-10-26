@@ -1,4 +1,4 @@
-import { isProjectionMutation, sourcesChangedEvent, projectionScope, targetsChangedEvent } from './shared/covered-source';
+import { getProjectionScope } from './shared/covered-source';
 import { fitsClip } from './shared/clipping';
 import type { NativeUIRuntimeOptions, NativeUIRuntimeHandle } from './definitions';
 import { appendItem, createCandidate, type Candidate, type Identify } from './shared/candidate';
@@ -53,6 +53,8 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
       },
     };
   }
+  const projectionScope = getProjectionScope(doc);
+  const { isProjectionMutation, sourcesChangedEvent, targetsChangedEvent } = projectionScope;
   const win = doc.defaultView!;
   const owned = new Map<HTMLElement, { clone: HTMLButtonElement; aria: string | null; signature: string }>();
   const style = doc.createElement('style');

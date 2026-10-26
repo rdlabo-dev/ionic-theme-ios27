@@ -74,19 +74,23 @@ const coordinateSpace = (target: HTMLElement, win: Window, style = win.getComput
 
 /** Images are prepared after accepted native updates, never on the overlay's critical path. */
 export const createWebProjection = async (
-  doc: Document,
-  transport: WebProjectionTransport,
   scope: WebProjectionScope,
+  transport: WebProjectionTransport,
   callbacks: WebProjectionOptions,
 ) => {
+  const doc = scope.document;
   const win = doc.defaultView!;
+  // Native tokens are local to a transport; never use them as global CSS identities.
+  const imageIdentity = Array.from(win.crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16)).join('-');
+  const validSource = (source: HTMLElement) => source.isConnected && scope.contains(source);
+  const validTarget = (target: HTMLElement | undefined): target is HTMLElement => !!target?.isConnected && target.ownerDocument === doc;
   const call = transport.send.bind(transport);
   const { imageMarker, sourcesChangedEvent, targetsChangedEvent } = scope;
   const { owners, visibleOwners, preparedOwners } = projectionState(scope);
   const sheets = new Map<Document | ShadowRoot, { base: HTMLStyleElement; image: HTMLStyleElement }>();
   const rootFor = (element: HTMLElement) => {
     const root = element.getRootNode();
-    return root instanceof ShadowRoot ? root : doc;
+    return root.nodeType === 11 && 'host' in root ? (root as ShadowRoot) : doc;
   };
   const sheetFor = (root: Document | ShadowRoot) => {
     let pair = sheets.get(root);
@@ -96,7 +100,7 @@ export const createWebProjection = async (
       base.setAttribute('data-native-ui-snapshot-base', '');
       image.setAttribute(imageMarker, '');
       base.textContent = snapshotStyles;
-      (root instanceof ShadowRoot ? root : root.head).append(base, image);
+      (root.nodeType === 11 ? root : (root as Document).head).append(base, image);
       pair = { base, image };
       sheets.set(root, pair);
     }
@@ -146,6 +150,7 @@ export const createWebProjection = async (
   };
   const select = (candidates: Candidate[]) =>
     candidates.filter((candidate) => {
+      if (![candidate.element, ...(candidate.sources ?? [])].every(validSource)) return false;
       // Native scroll bindings retain offscreen controls. They have no visible
       // pixels to capture and must not prevent the other controls being prepared.
       if (candidate.control.scroll) {
@@ -224,7 +229,8 @@ export const createWebProjection = async (
         callbacks.blocked() ||
         generation !== stamp ||
         viewport() !== size ||
-        latest?.revision !== revision
+        latest?.revision !== revision ||
+        selected.some((candidate) => ![candidate.element, ...(candidate.sources ?? [])].every(validSource))
       )
         return;
       const previous = cached;
@@ -392,7 +398,11 @@ export const createWebProjection = async (
   };
   // Preparation, display and restoration must resolve the same captured placement.
   // An element-placement image never belongs to a previous rail proxy.
-  const targetsFor = (image: Prepared) => image.targets.map((source, index) => callbacks.target(source, image.placements[index]));
+  const targetsFor = (image: Prepared) =>
+    image.targets.map((source, index) => {
+      const target = callbacks.target(source, image.placements[index]);
+      return validTarget(target) ? target : undefined;
+    });
   const rendered = new Set<HTMLElement>();
   const preparedKeys = new Map<HTMLElement, string>();
   const offsets = new Map<HTMLElement, { x: number; y: number; style: CSSStyleDeclaration }>();
@@ -430,6 +440,10 @@ export const createWebProjection = async (
   const render = () => {
     const image = active ?? cached;
     if (!image || ending) return;
+    if (!image.sources.every(validSource) || (surfaceLayer && (!surfaceLayer.isConnected || surfaceLayer.ownerDocument !== doc))) {
+      invalidate();
+      return;
+    }
     const targets = targetsFor(image);
     if (active) {
       if (targets.some((target) => !target?.isConnected || !sheets.has(rootFor(target)))) {
@@ -498,7 +512,7 @@ export const createWebProjection = async (
       const bottom = Math.max(...frames.map((frame) => frame.y + frame.height));
       const left = (parseFloat(style.borderLeftWidth) || 0) - target.scrollLeft;
       const top = (parseFloat(style.borderTopWidth) || 0) - target.scrollTop;
-      const key = `${image.data.token}-${indices[0]}`;
+      const key = `${imageIdentity}-${indices[0]}`;
       indices.forEach((index) => preparedKeys.set(image.targets[index], key));
       target.setAttribute(imageMarker, key);
       rules.push(
@@ -512,7 +526,8 @@ export const createWebProjection = async (
       declaration.cssText = `left:${x - left}px;top:${y - top}px;width:${right - x}px;height:${bottom - y}px;background:${backgrounds.join(',')};`;
       for (const property of Array.from(declaration))
         declaration.setProperty(property, declaration.getPropertyValue(property), 'important');
-      rules.push(`[${imageMarker}="${key}"][${imageMarker}]::before { ${declaration.cssText} }`);
+      // Outrank every manager's shared reset, even when another manager starts later.
+      rules.push(`[${imageMarker}="${key}"][${imageMarker}][${imageMarker}]::before { ${declaration.cssText} }`);
       positions.push({ target, x, y });
     }
     for (const [sheet, { rules, positions }] of groups) {
@@ -531,12 +546,12 @@ export const createWebProjection = async (
   const begin = () => {
     const projectionLayer = typeof callbacks.layer === 'function' ? callbacks.layer() : callbacks.layer;
     retireRestoration();
-    if (stopped || active || (projectionLayer && !projectionLayer.isConnected)) return;
+    if (stopped || active || (projectionLayer && !validTarget(projectionLayer))) return;
     const image = cached;
     if (
       !image ||
       image.viewport !== viewport() ||
-      image.sources.some((source) => !source.isConnected) ||
+      !image.sources.every(validSource) ||
       (callbacks.current && !callbacks.current(image.targets)) ||
       image.targets.some((source) => !preparedKeys.has(source)) ||
       targetsFor(image).some((target) => !target?.isConnected) ||
@@ -617,7 +632,7 @@ export const createWebProjection = async (
   const end = () => {
     if (!active || stopped || ending) return;
     // A return belongs to the captured surface, never to the modal exposed beneath it.
-    if (callbacks.current && !callbacks.current(active.targets)) {
+    if (!active.sources.every(validSource) || (callbacks.current && !callbacks.current(active.targets))) {
       abandon(active, false);
       return;
     }

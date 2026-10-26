@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { createWebProjection } from '@rdlabo/capacitor-native-ui-kit';
 import type { NativeUIPlugin } from '../definitions';
-import { projectionScope } from './covered-source';
+import { getProjectionScope } from './covered-source';
 
 /** Ionic decides surface ownership; the kit owns pixels, timing and restoration. */
 export const createCoveredSnapshots = async (
@@ -10,16 +10,16 @@ export const createCoveredSnapshots = async (
   listen: NativeUIPlugin['addListener'],
   callbacks: { wake: () => void; blocked: () => boolean; modal?: () => HTMLIonModalElement | undefined; revision?: () => number },
 ) => {
+  const projectionScope = getProjectionScope(doc);
   let layer: HTMLElement | undefined;
   let selectedLayer: HTMLElement | undefined;
   const projection = await createWebProjection(
-    doc,
+    projectionScope,
     {
       send: (request) => plugin.coveredSnapshot!(request),
       listen: (listener) => listen('snapshotInteraction', listener),
       resolveURL: (url) => Capacitor.convertFileSrc(url),
     },
-    projectionScope,
     {
       wake: () => callbacks.wake(),
       blocked: () => callbacks.blocked(),

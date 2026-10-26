@@ -1,6 +1,8 @@
 import { mockSnapshotOwnership } from './snapshot-scope-fixture';
 import { beforeEach } from 'vitest';
-import { projectionScope, sourcesChangedEvent } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+import { getProjectionScope } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+const projectionScope = getProjectionScope(document);
+const { sourcesChangedEvent } = projectionScope;
 import { afterEach, expect, test, vi, onTestFinished } from 'vitest';
 import { createHTMLWebProjection, readHTMLControl } from '../../packages/capacitor-native-ui/src/native/html';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';

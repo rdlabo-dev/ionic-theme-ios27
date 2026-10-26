@@ -4,7 +4,9 @@ import { observeVerticalBarsModals } from '../../packages/capacitor-native-ui/sr
 import { prehideVerticalBarsToolbarSources } from '../../packages/capacitor-native-ui/src/native/prehide';
 import { expect, test, vi } from 'vitest';
 import { createVerticalBarsWebProjection } from '../../packages/capacitor-native-ui/src/native/vertical-bars-web';
-import { sourcesChangedEvent, projectionScope } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+import { getProjectionScope } from '../../packages/capacitor-native-ui/src/native/shared/covered-source';
+const projectionScope = getProjectionScope(document);
+const { sourcesChangedEvent } = projectionScope;
 import { setVerticalBarsPlacement } from '../../packages/capacitor-native-ui/src/native/shared/dom';
 
 let owners: Set<HTMLElement>, visibleOwners: Set<HTMLElement>, preparedOwners: Set<HTMLElement>;
