@@ -74,8 +74,9 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                         self.keyboardVisible = !overlap.isNull && overlap.width > 0 && overlap.height > 0
                     }
                 }
-                if !keyboard {
-                    self.resetCoveredSnapshots()
+                if !keyboard { self.resetCoveredSnapshots() }
+                let suspend = name == UIApplication.didEnterBackgroundNotification
+                if suspend {
                     self.host?.isHidden = true
                     self.verticalBars?.view.isHidden = true
                     self.extensionControllers.values.forEach { $0.view.isHidden = true }
@@ -83,7 +84,7 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 var searchOwnsKeyboard = self.verticalBars?.ownsKeyboardChrome == true
                 self.searchControllers.values.forEach { controller in
                     if controller.ownsKeyboardChrome { searchOwnsKeyboard = true }
-                    if !keyboard { controller.surface.isHidden = true }
+                    if suspend { controller.surface.isHidden = true }
                 }
                 if keyboard {
                     if !searchOwnsKeyboard {
