@@ -650,7 +650,10 @@ test('native popover retention skips image handoff; a Web fallback reuses it wit
   const beforeReturn = updates.length;
   popover.dispatchEvent(new CustomEvent('ionPopoverDidDismiss', { bubbles: true }));
   popover.remove();
-  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false));
+  await vi.waitFor(() => {
+    expect(updates.length).toBeGreaterThan(beforeReturn);
+    expect(source.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
+  });
   expect(updates[beforeReturn].controls).toHaveLength(1);
   expect(updates[beforeReturn].transitionDuration).toBe(0);
   expect(source.hasAttribute('data-native-ui-projected')).toBe(true);

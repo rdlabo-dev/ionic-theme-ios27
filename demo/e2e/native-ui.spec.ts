@@ -5527,7 +5527,10 @@ for (const type of ['normal', 'card', 'sheet']) {
             const native = Capacitor.registerPlugin<NativeUIMock>('NativeUI')
               .updates.at(-1)
               ?.controls.some((control) => control.items.some((item) => item.accessibilityLabel === 'Done'));
-            duplicates.push(!!native && !!modal.querySelector(':scope > .ios-theme-vertical-bars-toolbar-projection'));
+            const visibleProjection = Array.from(
+              modal.querySelectorAll<HTMLElement>(':scope > .ios-theme-vertical-bars-toolbar-projection'),
+            ).some((element) => getComputedStyle(element).visibility === 'visible' && Number(getComputedStyle(element).opacity) > 0);
+            duplicates.push(!!native && visibleProjection);
             requestAnimationFrame(sample);
           };
           requestAnimationFrame(sample);

@@ -83,8 +83,9 @@ export const createVerticalBarsWebProjection = (
   const verticalBarsRoot = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   const surfaceOf = (element: Element) => element.closest<HTMLElement>('ion-modal') ?? verticalBarsRoot()!;
   const isPrepared = (element: Element) =>
-    element.matches('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]') ||
-    !!element.querySelector('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]') ||
+    (!!element.closest('ion-modal') &&
+      (element.matches('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]') ||
+        !!element.querySelector('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]'))) ||
     [...projectionState.preparedOwners].some((owner) => owner === element || owner.contains(element) || element.contains(owner));
   // Covered toolbar controls keep a Web visual on their own surface, below the modal.
   const isCovered = (element: Element) =>

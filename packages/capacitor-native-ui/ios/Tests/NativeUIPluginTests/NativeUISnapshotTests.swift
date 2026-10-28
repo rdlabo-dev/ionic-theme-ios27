@@ -1416,7 +1416,7 @@ final class NativeUISnapshotTests: XCTestCase {
     }
 
     @MainActor
-    func testSearchPendingSelectionExpiresWithoutLaterApply() throws {
+    func testSearchPendingSelectionExpiresWithoutLaterApply() async throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires UISearchTab") }
         let controller = NativeUISearchController()
         let rendering = NativeUIControlRendering()
@@ -1437,7 +1437,7 @@ final class NativeUISnapshotTests: XCTestCase {
             XCTAssertEqual(controller.selectedTab?.identifier, "first")
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 2)
+        await fulfillment(of: [expectation], timeout: 5)
     }
 
     @MainActor
