@@ -1,4 +1,4 @@
-import { type OverlayChange } from '@webview-native-ui/engine';
+import { createWebProjectionSurfaces, type OverlayChange } from '@webview-native-ui/engine';
 import { enableSupportIonicOverlays, coveredIonicSurface } from '@webview-native-ui/engine/ionic';
 import { createScrollBindings } from '@webview-native-ui/engine';
 import { movingModal, modalMotionEvent } from './shared/modal';
@@ -95,10 +95,11 @@ export const createRuntime = async (
   ].join(', ');
   const icons = createIconRenderer();
   const crossfade = createCrossfade(win);
-  let snapshots: CoveredSnapshots | undefined;
-  const modalSnapshots = new Map<HTMLIonModalElement, CoveredSnapshots>();
-  const imageSurfaces = () => [...(snapshots ? [snapshots] : []), ...modalSnapshots.values()];
-  const imagesFor = (modal?: HTMLIonModalElement) => (modal ? modalSnapshots.get(modal) : snapshots);
+  const projectionSurfaces = createWebProjectionSurfaces<Document | HTMLIonModalElement, CoveredSnapshots>({
+    ignoreTarget: (target) => !!target.closest('.ion-cloned-element, [data-native-ui-proxy]'),
+  });
+  const imageSurfaces = () => projectionSurfaces.values();
+  const imagesFor = (modal?: HTMLIonModalElement) => projectionSurfaces.get(modal ?? doc);
   const coveredSurface = (overlay: HTMLElement) => coveredIonicSurface(overlay) as HTMLIonModalElement | undefined;
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
@@ -259,7 +260,7 @@ export const createRuntime = async (
   const measuringPointerPages = new WeakSet<HTMLElement>();
   const readEnabledCandidate = (element: HTMLElement): Candidate | undefined => {
     if (projectionState.owns(element)) return;
-    if (snapshots && movingModal(doc) && element.closest('ion-modal') === movingModal(doc) && isVerticalBarsSource(element)) return;
+    if (imagesFor() && movingModal(doc) && element.closest('ion-modal') === movingModal(doc) && isVerticalBarsSource(element)) return;
     if (options.root && !options.root.contains(element)) return;
     if (element.matches('ion-back-button') && element.closest('ion-app.ios-theme-vertical-bars') && !isVerticalBarsCandidate(element))
       return;
@@ -449,16 +450,10 @@ export const createRuntime = async (
   const scrollChanged = (event: Event) => {
     const target = event.composedPath()[0];
     if (options.nativeScroll && target instanceof HTMLElement) scrollBindings.changed(target);
-    imageSurfaces().forEach((surface) => surface.changed(target));
+    projectionSurfaces.changed(target);
     // Only an acknowledged native binding can own motion. Other sources in the
     // same container still need the regular reader (including rejected sources).
-    if (
-      target instanceof HTMLElement &&
-      nativeScrollOwners.has(target) &&
-      !dirty &&
-      !imageSurfaces().some((surface) => surface.restoring) &&
-      !overlayOpen()
-    )
+    if (target instanceof HTMLElement && nativeScrollOwners.has(target) && !dirty && !projectionSurfaces.restoring && !overlayOpen())
       return;
     schedule();
   };
@@ -543,7 +538,7 @@ export const createRuntime = async (
     // accepting its response. Only a fully accepted snapshot is safe to deduplicate.
     lastSnapshot = '';
     // A handoff can start while an older asynchronous collection is still running.
-    if (snapshot.coveredSnapshotToken !== snapshots?.token) {
+    if (snapshot.coveredSnapshotToken !== imagesFor()?.token) {
       dirty = true;
       return;
     }
@@ -594,14 +589,13 @@ export const createRuntime = async (
   };
   const sync = async () => {
     followImageMotion();
-    for (const [modal, surface] of modalSnapshots) {
+    for (const modal of projectionSurfaces.keys()) {
       if (modal.isConnected) continue;
-      modalSnapshots.delete(modal);
-      void surface.destroy();
-      imageSurfaces().forEach((remaining) => remaining.end());
+      void projectionSurfaces.delete(modal);
+      projectionSurfaces.end();
     }
     coverWebOverlay();
-    if (imageSurfaces().some((surface) => surface.handoffPending)) {
+    if (projectionSurfaces.handoffPending) {
       frame = 0;
       return;
     }
@@ -791,7 +785,7 @@ export const createRuntime = async (
             : undefined;
       const modal = topModal(doc);
       const verticalBarFrame =
-        modal && !(snapshots && movingModal(doc)) && !modalPreparing(modal) && !modalDismissing(modal) && modalUsesVerticalBars(modal)
+        modal && !(imagesFor() && movingModal(doc)) && !modalPreparing(modal) && !modalDismissing(modal) && modalUsesVerticalBars(modal)
           ? modalVerticalBarFrame(modal)
           : undefined;
       const transition = navigation.current;
@@ -811,7 +805,7 @@ export const createRuntime = async (
             }))
         : undefined;
       const data = {
-        coveredSnapshotToken: snapshots?.token,
+        coveredSnapshotToken: imagesFor()?.token,
         verticalBarNavigationPhase: verticalGesture ? (verticalGesture.pending ? ('tracking' as const) : ('settling' as const)) : undefined,
         verticalBarNavigation: activePage ? verticalNavigation.read(activePage).map(id) : undefined,
         toolbarTransition:
@@ -839,7 +833,7 @@ export const createRuntime = async (
         controls: candidates.map(scrollControl),
         revision: ++revision,
         transitionDuration: crossfade.duration(
-          handoffInstant || committingNavigation || preparingNavigation || imageSurfaces().some((surface) => surface.restoring),
+          handoffInstant || committingNavigation || preparingNavigation || projectionSurfaces.restoring,
         ),
       };
       // A native visibility notification during this update must survive its ack.
@@ -964,7 +958,7 @@ export const createRuntime = async (
       const restoredIDs = accepted
         .filter((candidate) => !result.rejectedControls?.includes(candidate.control.id))
         .map((candidate) => candidate.control.id);
-      for (const manager of imageSurfaces()) manager.updated(snapshot.coveredSnapshotToken, restoredIDs, snapshot.revision);
+      projectionSurfaces.updated(snapshot.coveredSnapshotToken, restoredIDs, snapshot.revision);
       if (!dirty && !invalidated) search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
       // Native has acknowledged this rendered snapshot even when a concurrent DOM
       // mutation invalidates its signature. An existing cover is still visible;
@@ -1042,7 +1036,7 @@ export const createRuntime = async (
       if (dirty && !stopped) schedule();
       else finishWaiters();
       if (!stopped && !dirty && acceptedRevision === revision && !navigation.current && !verticalGesture) {
-        imageSurfaces().forEach((surface) => surface.consider(acceptedRevision, acknowledged));
+        projectionSurfaces.consider(acceptedRevision, acknowledged);
       }
     }
   };
@@ -1060,7 +1054,7 @@ export const createRuntime = async (
           !isProjectionMutation(record) &&
           !(
             record.attributeName === 'style' &&
-            snapshots &&
+            imagesFor() &&
             movingModal(doc) &&
             (record.target === movingModal(doc) || record.target === movingModal(doc)?.shadowRoot?.querySelector('[part~="content"]'))
           ) &&
@@ -1078,7 +1072,7 @@ export const createRuntime = async (
           ),
       )
     ) {
-      imageSurfaces().forEach((surface) => surface.changed());
+      projectionSurfaces.changed();
       schedule();
     }
   });
@@ -1142,7 +1136,7 @@ export const createRuntime = async (
     const page = event.target as HTMLElement;
     // Popover content has Ionic page lifecycle too; it is not a page navigation.
     if (page.closest('ion-popover')) return;
-    if (!page.closest('ion-modal')) snapshots?.invalidate();
+    if (!page.closest('ion-modal')) imagesFor()?.invalidate();
     verticalBarsPages.lifecycle(event);
     tabActivationPages.delete(page);
     getNativeSearchBindings(doc)
@@ -1185,7 +1179,7 @@ export const createRuntime = async (
     return best?.tab;
   };
   const armTabSwitchHandoff = () => {
-    snapshots?.invalidate();
+    imagesFor()?.invalidate();
     tabSwitchHandoff = true;
     navigation.clear();
     interruptAssets?.();
@@ -1215,23 +1209,7 @@ export const createRuntime = async (
       schedule();
     });
   };
-  let imageMotionFrame = 0;
-  const followImageMotion = () => {
-    if (imageMotionFrame || stopped) return;
-    if (!moving.size) return;
-    // Ancestor transforms already move the image with its host. Only an animated
-    // projection host needs its local offset corrected (for example, a changing border).
-    const surfaces = imageSurfaces().filter(
-      (surface) =>
-        (surface.token || surface.restoring) && surface.owners.some((owner) => moving.has(projectionState.getTarget(owner) ?? owner)),
-    );
-    if (!surfaces.length) return;
-    imageMotionFrame = win.requestAnimationFrame(() => {
-      imageMotionFrame = 0;
-      surfaces.forEach((surface) => surface.moved());
-      followImageMotion();
-    });
-  };
+  const followImageMotion = () => projectionSurfaces.followMotion(moving, (source) => projectionState.getTarget(source) ?? source);
   const motion: EventListener = (event) => {
     const target = event.target as HTMLElement;
     if (!target.matches?.(`${motionSelector}, ${discovery}`) && !(options.source !== 'ionic' && target.querySelector?.(discovery))) return;
@@ -1291,13 +1269,13 @@ export const createRuntime = async (
     listeners.signal.addEventListener('abort', remove, { once: true });
   };
   onOverlay(({ element, phase, event }) => {
-    if (phase === 'change') imageSurfaces().forEach((surface) => surface.end());
+    if (phase === 'change') projectionSurfaces.end();
     if (!element) {
       schedule();
       return;
     }
     if (element.matches('ion-menu')) {
-      if (phase === 'willPresent') snapshots?.retireRestoration();
+      if (phase === 'willPresent') imagesFor()?.retireRestoration();
       schedule();
       return;
     }
@@ -1309,7 +1287,7 @@ export const createRuntime = async (
         imagesFor(coveredSurface(modal))?.invalidate();
     }
     if (phase === 'willDismiss' && element.matches('ion-modal')) {
-      modalSnapshots.get(element as HTMLIonModalElement)?.begin();
+      projectionSurfaces.get(element as HTMLIonModalElement)?.begin();
       modalHandoff = true;
       if (pending) handoffInstant = true;
       schedule();
@@ -1320,10 +1298,9 @@ export const createRuntime = async (
         modalHandoff = true;
         if (pending) handoffInstant = true;
         const modal = element as HTMLIonModalElement;
-        void modalSnapshots.get(modal)?.destroy();
-        modalSnapshots.delete(modal);
+        void projectionSurfaces.delete(modal);
       }
-      imageSurfaces().forEach((surface) => surface.end());
+      projectionSurfaces.end();
       schedule();
     }
   });
@@ -1358,7 +1335,7 @@ export const createRuntime = async (
   on(win, 'scrollend', scrollSettled);
   on(win.matchMedia('(prefers-color-scheme: dark)'), 'change');
   on(win, 'nativeUIRefresh', (event) => {
-    if (snapshots && (event as CustomEvent<{ modalMotion?: boolean }>).detail?.modalMotion) return;
+    if (imagesFor() && (event as CustomEvent<{ modalMotion?: boolean }>).detail?.modalMotion) return;
     if (nativeVerticalBars()) search.prepare();
     if ((event as Event & { retireSearch?: boolean }).retireSearch)
       getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
@@ -1409,7 +1386,7 @@ export const createRuntime = async (
           if (resumed) return;
           resumed = true;
           if (stopped || !manualSuspensions.delete(token)) return;
-          imageSurfaces().forEach((surface) => surface.end());
+          projectionSurfaces.end();
           await flush();
         },
       };
@@ -1424,7 +1401,6 @@ export const createRuntime = async (
         tabWidths.clear();
         setNativeUIIntegration(doc);
         win.cancelAnimationFrame(frame);
-        win.cancelAnimationFrame(imageMotionFrame);
         listeners.abort();
         observer.disconnect();
         resize.disconnect();
@@ -1437,9 +1413,7 @@ export const createRuntime = async (
         verticalGesture = undefined;
         search.destroy();
         crossfade.destroy();
-        await Promise.all([...modalSnapshots.values()].map((surface) => surface.destroy()));
-        modalSnapshots.clear();
-        await snapshots?.destroy();
+        await projectionSurfaces.destroy();
         restoreAll();
         unregisterNativeOwner();
         if (!doc.hidden) await painted();
@@ -1553,37 +1527,34 @@ export const createRuntime = async (
         },
         revision: () => revision,
       };
-      snapshots = await createCoveredSnapshots(doc, plugin, connection?.listen ?? plugin.addListener.bind(plugin), {
-        ...shared,
-        blocked: () => overlayOpen() || !!navigation.current || !!verticalGesture || stopped,
-      });
-      const preparing = new Set<HTMLIonModalElement>();
+      await projectionSurfaces.ensure(doc, () =>
+        createCoveredSnapshots(doc, plugin, connection?.listen ?? plugin.addListener.bind(plugin), {
+          ...shared,
+          blocked: () => overlayOpen() || !!navigation.current || !!verticalGesture || stopped,
+        }),
+      );
       const prepareSurface = async (modal: HTMLIonModalElement) => {
-        if (modalSnapshots.has(modal) || preparing.has(modal)) return;
-        preparing.add(modal);
+        if (projectionSurfaces.get(modal)) return;
         try {
-          const surface = await createCoveredSnapshots(doc, plugin, connection?.listen ?? plugin.addListener.bind(plugin), {
-            ...shared,
-            // The source surface is immutable; foreground ownership may change.
-            modal: () => modal,
-            blocked: () =>
-              topModal(doc) !== modal ||
-              modalPreparing(modal) ||
-              !!modalPresentation(modal) ||
-              movingModal(doc) === modal ||
-              !!navigation.current ||
-              stopped ||
-              overlayOpen(true, true),
-          });
-          if (stopped || !modal.isConnected || !modalStack(doc).includes(modal)) await surface.destroy();
-          else {
-            modalSnapshots.set(modal, surface);
-            schedule();
-          }
+          const surface = await projectionSurfaces.ensure(modal, () =>
+            createCoveredSnapshots(doc, plugin, connection?.listen ?? plugin.addListener.bind(plugin), {
+              ...shared,
+              // The source surface is immutable; foreground ownership may change.
+              modal: () => modal,
+              blocked: () =>
+                topModal(doc) !== modal ||
+                modalPreparing(modal) ||
+                !!modalPresentation(modal) ||
+                movingModal(doc) === modal ||
+                !!navigation.current ||
+                stopped ||
+                overlayOpen(true, true),
+            }),
+          );
+          if (surface && !modalStack(doc).includes(modal)) await projectionSurfaces.delete(modal);
+          else if (surface) schedule();
         } catch {
           // This surface keeps the existing Web fallback if the optional listener fails.
-        } finally {
-          preparing.delete(modal);
         }
       };
       onOverlay(({ element, phase }) => {
@@ -1593,42 +1564,13 @@ export const createRuntime = async (
       await Promise.all(modalStack(doc).map(prepareSurface));
       on(win, modalMotionEvent, (event) => {
         const { modal, moving } = (event as CustomEvent<{ modal: HTMLIonModalElement; moving: boolean }>).detail;
-        const surface = modalSnapshots.get(modal);
+        const surface = projectionSurfaces.get(modal);
         if (moving) surface?.begin();
         else if (!modalDismissing(modal)) {
           lastSnapshot = '';
           surface?.end();
         }
         schedule();
-      });
-      on(win, 'resize', () => {
-        imageSurfaces().forEach((surface) => surface.invalidate());
-      });
-      on(win, 'orientationchange', () => {
-        imageSurfaces().forEach((surface) => surface.invalidate());
-      });
-      for (const name of [
-        'load',
-        'transitionrun',
-        'transitionend',
-        'transitioncancel',
-        'animationstart',
-        'animationend',
-        'animationcancel',
-      ])
-        on(doc, name, (event) => {
-          const target = event.target instanceof Element ? event.target : undefined;
-          if (
-            target?.closest('style[data-native-ui-snapshot], [data-native-ui-projection-node], .ion-cloned-element, [data-native-ui-proxy]')
-          )
-            return;
-          if (target?.hasAttribute('data-native-ui-snapshot') && (event as TransitionEvent).pseudoElement) return;
-          imageSurfaces().forEach((surface) => surface.changed());
-        });
-      on(doc, 'visibilitychange', () => {
-        if (doc.hidden) {
-          imageSurfaces().forEach((surface) => surface.invalidate());
-        }
       });
     } catch {
       /* Optional capability: older/mismatched Web bundles keep the existing fallback. */
@@ -1658,7 +1600,7 @@ export const createRuntime = async (
           (state.revision < acceptedRevision && state.sequence < lastSequence);
         connectionSession = state.session;
         if (restarted || restored) {
-          imageSurfaces().forEach((surface) => surface.invalidate());
+          projectionSurfaces.invalidate();
         }
         const missingSurface = acknowledged.some(
           ({ control }) =>
