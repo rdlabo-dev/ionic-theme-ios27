@@ -39,6 +39,7 @@ const createState = () => {
         record.type === 'attributes' &&
         [
           imageMarker,
+          'data-native-ui-proxy-prepared',
           'data-native-ui-snapshot-prepared',
           'data-native-ui-snapshot-source',
           'data-native-ui-snapshot-visible',
@@ -50,7 +51,7 @@ const createState = () => {
       const image = (node: Node) =>
         node instanceof Element &&
         node.matches(
-          `style[${imageMarker}], style[data-native-ui-snapshot-base], [data-native-ui-snapshot-prepared], [data-native-ui-projection-node]`,
+          `style[${imageMarker}], style[data-native-ui-snapshot-base], [data-native-ui-proxy-prepared], [data-native-ui-snapshot-prepared], [data-native-ui-projection-node]`,
         );
       const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
       return image(record.target) || (record.type === 'childList' && nodes.length > 0 && nodes.every(image));

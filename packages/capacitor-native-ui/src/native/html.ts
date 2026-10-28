@@ -59,8 +59,8 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
   const owned = new Map<HTMLElement, { clone: HTMLButtonElement; aria: string | null; signature: string }>();
   const style = doc.createElement('style');
   style.textContent = `[data-native-ui-web-source] { visibility: hidden !important; pointer-events: none !important; }
-    [data-native-ui-proxy][data-native-ui-snapshot-prepared] { position: absolute !important; }
-    [data-native-ui-proxy][data-native-ui-snapshot-prepared]:not([data-native-ui-snapshot-visible]) { visibility:hidden!important; }`;
+    [data-native-ui-proxy][data-native-ui-proxy-prepared] { position: absolute !important; }
+    [data-native-ui-proxy][data-native-ui-proxy-prepared]:not([data-native-ui-snapshot-visible]) { visibility:hidden!important; }`;
   doc.head.append(style);
   let frame = 0;
   let stopped = false;
@@ -150,11 +150,11 @@ export const createHTMLWebProjection = (doc: Document, options: NativeUIRuntimeO
             source.click(); // Source owns submission, custom handlers and back navigation.
             schedule();
           });
-          clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);
+          clone.toggleAttribute('data-native-ui-proxy-prepared', prepared);
           projectionState.setTarget(source, clone);
           host.append(clone);
         }
-        state.clone.toggleAttribute('data-native-ui-snapshot-prepared', prepared);
+        state.clone.toggleAttribute('data-native-ui-proxy-prepared', prepared);
         state.clone.inert = prepared || covered;
         if (prepared || covered) state.clone.setAttribute('aria-hidden', 'true');
         else state.clone.removeAttribute('aria-hidden');

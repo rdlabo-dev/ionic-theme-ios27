@@ -11,6 +11,8 @@ beforeEach(() => {
   // Engine uses the host resource handler without bootstrapping Capacitor.
   vi.stubGlobal('Capacitor', { convertFileSrc: (url: string) => url });
   vi.useFakeTimers();
+  // jsdom has no layout; Engine's browser tests cover image coordinate conversion.
+  vi.spyOn(HTMLImageElement.prototype, 'getBoundingClientRect').mockReturnValue(DOMRect.fromRect({ x: 1, y: 2, width: 50, height: 40 }));
   Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
 });
 afterEach(async () => {
@@ -77,15 +79,12 @@ test('pins the pre-touch image across disabled updates and restores ownership on
   expect(f.bridge.mock.calls.filter(([args]) => args.action === 'prepare')).toHaveLength(1);
   expect(f.manager.token).toBe('image-1');
   expect(projectionState.owns(f.button)).toBe(true);
-  expect(document.querySelectorAll('style[data-native-ui-snapshot]')).toHaveLength(1);
-  expect(document.querySelectorAll('img')).toHaveLength(0);
   expect(f.manager.begin()).toBeUndefined();
   f.manager.end();
   await vi.advanceTimersByTimeAsync(40);
   f.manager.updated(undefined, ['button'], 3);
   await drain();
   expect(projectionState.owns(f.button)).toBe(false);
-  expect(document.querySelectorAll('img')).toHaveLength(0);
   expect(f.bridge).toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
 });
 test('keeps the Native return copy through the Web image removal paint', async () => {
@@ -297,7 +296,6 @@ test.each([false, true])('another overlay retires only the return copy (acknowle
   f.manager.begin();
   expect(f.manager.token).toBe('image-1');
   expect(f.bridge).toHaveBeenCalledWith({ action: 'restored', token: 'image-1' });
-  expect(document.querySelectorAll('img')).toHaveLength(0);
 });
 
 test('a stalled native restoration releases the image and Web ownership promptly', async () => {
@@ -309,7 +307,6 @@ test('a stalled native restoration releases the image and Web ownership promptly
   await vi.advanceTimersByTimeAsync(251);
   expect(f.manager.token).toBeUndefined();
   expect(projectionState.owns(f.button)).toBe(false);
-  expect(document.querySelectorAll('img')).toHaveLength(0);
   f.manager.consider(2, [f.candidate]);
   await drain();
   f.manager.begin();
@@ -325,7 +322,6 @@ test('a failed native cover notification releases ownership to ordinary Web proj
   await vi.advanceTimersByTimeAsync(0);
   expect(f.manager.token).toBeUndefined();
   expect(projectionState.owns(f.button)).toBe(false);
-  expect(document.querySelectorAll('img')).toHaveLength(0);
 });
 
 test('covered visual belongs to its source surface and does not append a foreground image', async () => {
@@ -339,40 +335,34 @@ test('covered visual belongs to its source surface and does not append a foregro
   f.manager.begin();
   expect(f.button.hasAttribute('data-native-ui-snapshot')).toBe(true);
   expect(page.hasAttribute('data-native-ui-snapshot')).toBe(false);
-  expect(document.querySelectorAll('img')).toHaveLength(0);
-  expect(document.querySelector('style[data-native-ui-snapshot]')?.textContent).toContain('::before');
+  expect(f.button.querySelector('[data-native-ui-projection-node]')).not.toBeNull();
+  expect(page.querySelector(':scope > img')).toBeNull();
   f.manager.invalidate();
   expect(page.hasAttribute('data-native-ui-snapshot')).toBe(false);
   expect(f.button.hasAttribute('data-native-ui-snapshot-source')).toBe(false);
-  expect(document.querySelector('style[data-native-ui-snapshot]')).toBeNull();
+  expect(projectionState.preparedOwners.includes(f.button)).toBe(false);
 });
 
-test('handoff reuses prepared DOM without viewport reads or waiting for the native reply', async () => {
+test('handoff uses the prepared capture without waiting for the native reply', async () => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
-  const bounds = vi.spyOn(f.button, 'getBoundingClientRect');
-  const styles = vi.spyOn(window, 'getComputedStyle');
   f.bridge.mockImplementation(async (args) => (args.action === 'cover' ? new Promise(() => {}) : { shown: true }));
-  const sheet = document.querySelector('style[data-native-ui-snapshot]');
   expect(f.manager.begin()).toBeUndefined();
   expect(f.manager.handoffPending).toBe(true);
-  expect(bounds).not.toHaveBeenCalled();
-  expect(styles).toHaveBeenCalledTimes(1); // Only the current border offset; no viewport geometry or capture.
-  expect(document.querySelector('style[data-native-ui-snapshot]')).toBe(sheet);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
   await vi.advanceTimersByTimeAsync(20);
   expect(f.bridge).not.toHaveBeenCalledWith({ action: 'painted', token: 'image-1' });
   expect(f.manager.handoffPending).toBe(false);
 });
 
-test('invalidating a prepared or active image removes its DOM and cancels the pending handoff', async () => {
+test('invalidating a prepared or active image clears ownership and cancels the pending handoff', async () => {
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
-  expect(document.querySelector('style[data-native-ui-snapshot]')).not.toBeNull();
+  expect(projectionState.preparedOwners.includes(f.button)).toBe(true);
   f.manager.invalidate();
-  expect(document.querySelector('style[data-native-ui-snapshot]')).toBeNull();
+  expect(projectionState.preparedOwners.includes(f.button)).toBe(false);
   f.manager.consider(2, [f.candidate]);
   await drain();
   f.manager.begin();
@@ -439,7 +429,7 @@ test('moving modal keeps the background cache and resumes only after its own con
   expect(projectionState.owns(foreground.button)).toBe(false);
   expect(projectionState.owns(background.button)).toBe(true);
   expect(foreground.bridge).toHaveBeenCalledWith(
-    expect.objectContaining({ action: 'restore', parts: [expect.objectContaining({ x: 382, y: 327 })] }),
+    expect.objectContaining({ action: 'restore', token: 'image-1', parts: [expect.objectContaining({ ids: ['button'] })] }),
   );
   foreground.manager.updated(background.manager.token, [], 3);
   foreground.manager.updated(background.manager.token, ['button'], 2);
@@ -530,37 +520,19 @@ test('an unrelated surface layout does not discard the last prepared image', asy
   expect(f.manager.token).toBe('image-1');
 });
 
-test('refreshing a prepared image updates its stylesheet in place', async () => {
-  const f = await fixture();
-  f.manager.consider(1, [f.candidate]);
-  await drain();
-  const style = document.querySelector('style[data-native-ui-snapshot]')!;
-  const removed: Node[] = [];
-  const observer = new MutationObserver((records) => records.forEach((record) => removed.push(...record.removedNodes)));
-  observer.observe(document.head, { childList: true });
-  try {
-    f.manager.changed();
-    await drain();
-    expect(document.querySelector('style[data-native-ui-snapshot]')).toBe(style);
-    expect(removed).not.toContain(style);
-  } finally {
-    observer.disconnect();
-  }
-});
-
 test('cache retirement preserves the host-owned prepared marker', async () => {
   const modal = document.createElement('ion-modal');
   document.body.append(modal);
   const f = await fixture(modal);
   const clone = projectionState.getTarget(f.button)!;
-  clone.setAttribute('data-native-ui-snapshot-prepared', '');
+  clone.setAttribute('data-native-ui-proxy-prepared', '');
   f.manager.consider(1, [f.candidate]);
   await drain();
-  expect(clone.hasAttribute('data-native-ui-snapshot-prepared')).toBe(true);
+  expect(clone.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
   f.manager.invalidate();
   expect(clone.hasAttribute('data-native-ui-snapshot')).toBe(false);
   expect(clone.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
-  expect(clone.hasAttribute('data-native-ui-snapshot-prepared')).toBe(true);
+  expect(clone.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
   expect(projectionState.preparedOwners.includes(f.button)).toBe(false);
 });
 
@@ -607,26 +579,6 @@ test('rapid reopening reuses the completed image while its replacement is pendin
   expect(f.bridge.mock.calls.filter(([args]) => args.action === 'prepare')).toHaveLength(1);
 });
 
-test.each([0, 10])('modal image reuse follows returned coordinates (movement: %s)', async (movement) => {
-  const modal = document.createElement('ion-modal');
-  document.body.append(modal);
-  const f = await fixture(modal);
-  f.manager.consider(1, [f.candidate]);
-  await drain();
-  f.manager.begin();
-  await drain();
-  const clone = projectionState.getTarget(f.button)!;
-  clone.getBoundingClientRect = () => DOMRect.fromRect({ y: movement, width: 48, height: 48 });
-  const style = window.getComputedStyle.bind(window);
-  vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) =>
-    pseudo ? ({ left: '1px', top: '2px' } as CSSStyleDeclaration) : style(element),
-  );
-  f.manager.end();
-  f.manager.updated(undefined, ['button'], 2);
-  f.manager.begin();
-  expect(f.manager.token).toBe(movement ? undefined : 'image-1');
-});
-
 test('card images follow the existing fallback proxy without moving source controls', async () => {
   const f = await fixture();
   const page = document.createElement('main');
@@ -644,10 +596,7 @@ test('card images follow the existing fallback proxy without moving source contr
   f.manager.begin(page);
   expect(proxy.parentElement).toBe(page);
   expect(f.button.parentElement).toBe(originalParent);
-  const sheet = document.querySelector<HTMLStyleElement>('style[data-native-ui-snapshot]')!;
-  const rule = sheet.sheet!.cssRules[1] as CSSStyleRule;
-  expect(rule.style.left).toBe('-7px');
-  expect(rule.style.top).toBe('-18px');
+  expect(proxy.querySelector('[data-native-ui-projection-node]')).not.toBeNull();
   expect(projectionState.owns(f.button)).toBe(true);
   expect(f.bridge.mock.calls.filter(([args]) => args.action === 'prepare')).toHaveLength(1);
   f.manager.end();
@@ -687,42 +636,6 @@ test.each(['cover-false', 'cover-error', 'painted-error'])('ignores a previous p
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
 });
 
-test('a scaled modal restores the captured image at its current viewport size and position', async () => {
-  const modal = document.createElement('ion-modal');
-  document.body.append(modal);
-  const f = await fixture(modal);
-  const target = projectionState.getTarget(f.button)!;
-  Object.assign(target.style, { width: '127.5px', height: '63.25px', boxSizing: 'border-box', border: '3px solid black' });
-  let x = 10.25,
-    y = 20.5,
-    scale = 1.25;
-  target.getBoundingClientRect = () => DOMRect.fromRect({ x, y, width: 127.5 * scale, height: 63.25 * scale });
-  f.manager.consider(1, [f.candidate]);
-  await drain();
-  f.manager.begin();
-  await drain();
-  x = 100.25;
-  y = 200.5;
-  scale = 0.8;
-  f.manager.end();
-  expect(f.bridge).toHaveBeenCalledWith(
-    expect.objectContaining({
-      action: 'restore',
-      parts: [
-        expect.objectContaining({
-          x: expect.closeTo(100.25 + ((1 - 10.25) * 0.8) / 1.25, 8),
-          y: expect.closeTo(200.5 + ((2 - 20.5) * 0.8) / 1.25, 8),
-          width: expect.closeTo((50 * 0.8) / 1.25, 8),
-          height: expect.closeTo((40 * 0.8) / 1.25, 8),
-        }),
-      ],
-    }),
-  );
-  expect(target.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
-  f.manager.updated(undefined, ['button'], 2);
-  expect(target.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
-});
-
 test('a source moved from rail to element keeps its image on the source after target notifications', async () => {
   const f = await fixture();
   const proxy = document.createElement('button');
@@ -745,33 +658,6 @@ test('a source moved from rail to element keeps its image on the source after ta
   f.manager.end();
   f.manager.updated(undefined, ['button'], 3);
   expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
-});
-
-test('border offset correction continues until the delayed native restore acknowledgement removes the image', async () => {
-  const f = await fixture();
-  f.button.style.border = '3px solid black';
-  f.manager.consider(1, [f.candidate]);
-  await drain();
-  f.button.getAnimations = () =>
-    [{ playState: 'running', effect: { getKeyframes: () => [{ borderLeftWidth: '3px' }] } }] as unknown as Animation[];
-  f.manager.begin();
-  await vi.advanceTimersByTimeAsync(0);
-  await vi.advanceTimersToNextFrame();
-  f.manager.end();
-  // Native has not acknowledged yet; the image remains the visible owner.
-  f.button.style.borderWidth = '7px';
-  await vi.advanceTimersToNextFrame();
-  const rule = (document.querySelector<HTMLStyleElement>('style[data-native-ui-snapshot]')!.sheet!.cssRules[1] as CSSStyleRule).style;
-  expect(rule.left).toBe('-6px');
-  f.button.style.borderWidth = '5px';
-  f.manager.changed();
-  expect(rule.left).toBe('-4px');
-  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(true);
-  f.manager.updated(undefined, ['button'], 2);
-  expect(f.button.hasAttribute('data-native-ui-snapshot-visible')).toBe(false);
-  const styles = vi.spyOn(window, 'getComputedStyle');
-  await vi.advanceTimersToNextFrame();
-  expect(styles).not.toHaveBeenCalled();
 });
 
 test('engine base stylesheet insertion and removal are not source visual changes', () => {

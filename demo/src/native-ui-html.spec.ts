@@ -573,6 +573,7 @@ test('native popover retention skips image handoff; a Web fallback reuses it wit
     addEventListener() {},
     removeEventListener() {},
   } as unknown as MediaQueryList);
+  vi.spyOn(HTMLImageElement.prototype, 'getBoundingClientRect').mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 80, height: 44 }));
   const decode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
   Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
   onTestFinished(() => {
@@ -611,7 +612,7 @@ test('native popover retention skips image handoff; a Web fallback reuses it wit
     'data-native-ui-vertical-bars',
     'data-native-ui-vertical-bars-member',
     'data-native-ui-snapshot-source',
-    'data-native-ui-snapshot-prepared',
+    'data-native-ui-proxy-prepared',
   ]) {
     clone.setAttribute(marker, '');
     expect(getComputedStyle(clone).opacity).toBe('0');
@@ -869,6 +870,7 @@ test.each([0, 0.25, 0.5])('sheet breakpoint %s keeps dismissal on the acknowledg
     addEventListener() {},
     removeEventListener() {},
   } as unknown as MediaQueryList);
+  vi.spyOn(HTMLImageElement.prototype, 'getBoundingClientRect').mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 80, height: 44 }));
   const decode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
   Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
   onTestFinished(() => {
@@ -944,6 +946,7 @@ test.each([2, 3])('%s modal surfaces keep independent images through nesting, dr
     addEventListener() {},
     removeEventListener() {},
   } as unknown as MediaQueryList);
+  vi.spyOn(HTMLImageElement.prototype, 'getBoundingClientRect').mockReturnValue(DOMRect.fromRect({ x: 10, y: 10, width: 80, height: 44 }));
   const decode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'decode');
   Object.defineProperty(HTMLImageElement.prototype, 'decode', { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
   onTestFinished(() => {

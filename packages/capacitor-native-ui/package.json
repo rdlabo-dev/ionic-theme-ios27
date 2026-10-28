@@ -87,6 +87,6 @@
   },
   "dependencies": {
     "@rdlabo/ionic-theme-utils": "0.1.5",
-    "@webview-native-ui/engine": "0.0.1"
+    "@webview-native-ui/engine": "0.0.5"
   }
 }

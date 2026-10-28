@@ -1,3 +1,5 @@
+import { getUnprojectedVisibility } from '@webview-native-ui/engine';
+
 import { fadeMarker } from './crossfade';
 import { modalUsesVerticalBars } from './modal';
 
@@ -259,7 +261,7 @@ const readVisible = (element: HTMLElement, allowOutsideViewport: boolean): boole
     const style = getComputedStyle(current);
     if (
       style.display === 'none' ||
-      style.visibility !== 'visible' ||
+      (style.visibility !== 'visible' && getUnprojectedVisibility(current) !== 'visible') ||
       (Number(style.opacity) === 0 && !current.hasAttribute(fadeMarker) && current !== enteringPage)
     )
       return false;

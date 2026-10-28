@@ -21,3 +21,11 @@ if (typeof window.matchMedia !== 'function') {
 if (typeof Element.prototype.scrollTo !== 'function') {
   Element.prototype.scrollTo = () => {};
 }
+
+// jsdom has no Web Animations timeline. Browser/native tests cover animation behavior.
+if (typeof Element.prototype.getAnimations !== 'function') {
+  Element.prototype.getAnimations = () => [];
+}
+if (typeof ShadowRoot.prototype.getAnimations !== 'function') {
+  ShadowRoot.prototype.getAnimations = () => [];
+}

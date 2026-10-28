@@ -123,19 +123,23 @@ test('a single-action group and its action share the same snapshot projection ta
     expect(clone).not.toBeNull();
     expect(projectionState.getTarget(group)).toBe(clone);
     expect(projectionState.getTarget(source)).toBe(clone);
-    expect(clone?.hasAttribute('data-native-ui-snapshot-prepared')).toBe(true);
+    expect(clone?.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
+    clone!.setAttribute('data-native-ui-snapshot-content', '');
+    clone!.setAttribute('data-native-ui-snapshot-positioned', '');
     // Popover/background reacquisition must not destroy an already decoded target.
     window.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: true } }));
     expect(clone?.isConnected).toBe(true);
     await nextFrame();
     expect(projectionState.getTarget(source)).toBe(clone);
+    expect(clone!.hasAttribute('data-native-ui-snapshot-content')).toBe(true);
+    expect(clone!.hasAttribute('data-native-ui-snapshot-positioned')).toBe(true);
     // A missing image can return the same target to ordinary Web presentation.
     preparedOwners.delete(source);
     owners.add(source);
     owners.add(group);
     window.dispatchEvent(new Event(sourcesChangedEvent));
     await nextFrame();
-    expect(clone?.hasAttribute('data-native-ui-snapshot-prepared')).toBe(false);
+    expect(clone?.hasAttribute('data-native-ui-proxy-prepared')).toBe(false);
     expect(clone?.style.visibility).toBe('visible');
   } finally {
     preparedOwners.delete(source);

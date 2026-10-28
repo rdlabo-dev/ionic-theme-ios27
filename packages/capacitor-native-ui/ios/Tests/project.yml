@@ -10,6 +10,12 @@ targets:
     type: application
     platform: iOS
     sources: [TestHost/AppDelegate.swift]
+    info:
+      path: TestHost/Info.plist
+      properties:
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.ionic.nativeui.testhost

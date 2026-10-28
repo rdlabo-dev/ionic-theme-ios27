@@ -191,7 +191,7 @@ export const createRuntime = async (
   style.textContent = `${hidden}, ${hidden} *, ${hidden}::before, ${hidden}::after, ${hidden}::part(native) { visibility: hidden !important; }
     /* Hide the entire clone layer, including its shadow parts, until handoff. */
     .ion-cloned-element:is([${verticalBarsMarker}], [${verticalBarsMemberMarker}]):not([${fadeMarker}]):not([data-native-ui-snapshot-visible]),
-    .ion-cloned-element:is([data-native-ui-snapshot-source], [data-native-ui-snapshot-prepared]):not([data-native-ui-snapshot-visible]) { opacity: 0 !important; content-visibility: hidden !important; }
+    .ion-cloned-element:is([data-native-ui-snapshot-source], [data-native-ui-proxy-prepared]):not([data-native-ui-snapshot-visible]) { opacity: 0 !important; content-visibility: hidden !important; }
     [${marker}], [${marker}] *, [${navigationMarker}], [${navigationMarker}] * { pointer-events: none !important; }
     /* The theme's fixed Back clone must not reintroduce a Web button while
        navigation keeps its source under native ownership. */

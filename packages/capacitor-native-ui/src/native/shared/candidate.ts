@@ -63,7 +63,7 @@ export const appendItem = (
 ): NativeUIItem | undefined => {
   if (
     !visible(child, isVerticalBarsSource(candidate.element)) ||
-    child.querySelector('input, button, a, img, canvas, video, ion-spinner, ion-avatar')
+    child.querySelector('input, button, a, img:not([data-native-ui-projection-node]), canvas, video, ion-spinner, ion-avatar')
   )
     return;
   const icons = Array.from(content.querySelectorAll<HTMLElement>('ion-icon'));

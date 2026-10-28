@@ -1,3 +1,5 @@
+import { getUnprojectedVisibility } from '@webview-native-ui/engine';
+
 import { enableSupportIonicOverlays } from '@webview-native-ui/engine/ionic';
 import { getProjectionState } from './shared/covered-source';
 import { controlSelected } from './shared/control-options';
@@ -101,7 +103,13 @@ export const createVerticalBarsWebProjection = (
     withoutPrehide(element, () => {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
-      return element.isConnected && style.display !== 'none' && style.visibility === 'visible' && rect.width > 0 && rect.height > 0;
+      return (
+        element.isConnected &&
+        style.display !== 'none' &&
+        (style.visibility === 'visible' || getUnprojectedVisibility(element) === 'visible') &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
     });
   const search = createVerticalBarsWebSearch(
     doc,
@@ -199,23 +207,17 @@ export const createVerticalBarsWebProjection = (
     for (const name of ['id', 'slot', marker, 'aria-hidden']) target.removeAttribute(name);
     for (const attribute of Array.from(target.attributes))
       if (
-        ![
-          'class',
-          marker,
-          fadeMarker,
-          'data-native-ui-snapshot-prepared',
-          'data-native-ui-snapshot',
-          'data-native-ui-snapshot-source',
-          'data-native-ui-snapshot-visible',
-        ].includes(attribute.name) &&
+        !['class', marker, fadeMarker, 'data-native-ui-proxy-prepared'].includes(attribute.name) &&
+        !attribute.name.startsWith('data-native-ui-snapshot') &&
         !original.hasAttribute(attribute.name)
       )
         target.removeAttribute(attribute.name);
     for (const attribute of Array.from(original.attributes))
-      if (!['id', 'slot', marker, 'aria-hidden'].includes(attribute.name)) target.setAttribute(attribute.name, attribute.value);
+      if (!['id', 'slot', marker, 'aria-hidden'].includes(attribute.name) && !attribute.name.startsWith('data-native-ui-snapshot'))
+        target.setAttribute(attribute.name, attribute.value);
     target.classList.remove(prehiddenClass);
     // Establish ownership before insertion/layout: glass can sample even a single Web paint.
-    target.toggleAttribute('data-native-ui-snapshot-prepared', isPrepared(original));
+    target.toggleAttribute('data-native-ui-proxy-prepared', isPrepared(original));
   };
   const syncBack = (target: HTMLIonBackButtonElement, original: HTMLIonBackButtonElement, surface: HTMLElement) => {
     copyAttributes(target, original);
