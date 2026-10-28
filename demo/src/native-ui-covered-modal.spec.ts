@@ -48,12 +48,17 @@ test.each(['sheet', 'card'])('%s motion spans dragging and settling, without tre
   wrapper.getAnimations = () => (running ? [{ playState: 'running' } as Animation] : []);
   Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
   const events: boolean[] = [];
-  const listener = (event: Event) => events.push((event as CustomEvent).detail.moving);
+  const listener = (event: Event) => {
+    events.push((event as CustomEvent).detail.moving);
+    if (!(event as CustomEvent).detail.moving)
+      expect(modal.style.getPropertyValue('--ios-theme-vertical-bars-modal-offset-top')).toBe(`${y}px`);
+  };
   window.addEventListener(modalMotionEvent, listener);
   const stop = observeVerticalBarsModals(document);
   try {
     modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
     modal.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    modal.dispatchEvent(new TouchEvent('touchstart', { bubbles: true }));
     await vi.advanceTimersByTimeAsync(20);
     expect(movingModal(document)).toBeUndefined();
     y = 200;
@@ -62,12 +67,20 @@ test.each(['sheet', 'card'])('%s motion spans dragging and settling, without tre
     y = 300;
     await vi.advanceTimersByTimeAsync(20);
     expect(events).toEqual([true]);
+    modal.dispatchEvent(new Event('pointercancel', { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(40);
+    expect(movingModal(document)).toBe(modal);
+    expect(events).toEqual([true]);
     running = true;
+    modal.dispatchEvent(new TouchEvent('touchend', { bubbles: true }));
     modal.dispatchEvent(new Event('pointerup', { bubbles: true }));
     await vi.advanceTimersByTimeAsync(20);
     expect(movingModal(document)).toBe(modal);
     running = false;
-    await vi.advanceTimersByTimeAsync(20);
+    y = 136;
+    vi.advanceTimersToNextFrame();
+    expect(movingModal(document)).toBe(modal);
+    vi.advanceTimersToNextFrame();
     expect(events).toEqual([true, false]);
     expect(movingModal(document)).toBeUndefined();
   } finally {

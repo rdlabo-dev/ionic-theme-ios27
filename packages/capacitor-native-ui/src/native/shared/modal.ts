@@ -83,6 +83,7 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
   let stopped = false;
   let frame = 0;
   let pointerActive = false;
+  let touchActive = false;
   let bounds = '';
   const toolbarTop = '--ios-theme-vertical-bars-modal-offset-top';
   const refresh = () => {
@@ -116,15 +117,9 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
       app &&
       !modalPreparing(top) &&
       !modalDismissing(top) &&
-      (state.moving === top ? pointerActive || animating : moved && (pointerActive || animating))
+      (state.moving === top ? pointerActive || touchActive || animating || moved : moved && (pointerActive || touchActive || animating))
         ? top
         : undefined;
-    if (state.moving !== moving) {
-      const previous = state.moving;
-      state.moving = moving;
-      win.dispatchEvent(new CustomEvent(modalMotionEvent, { detail: { modal: moving ?? previous, moving: !!moving } }));
-      changed = true;
-    }
     const wanted = new Set<Element>();
     for (const modal of modals) {
       const content = modal.shadowRoot?.querySelector<HTMLElement>('[part~="content"]');
@@ -145,6 +140,12 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
         changed = true;
       }
     }
+    if (state.moving !== moving) {
+      const previous = state.moving;
+      state.moving = moving;
+      win.dispatchEvent(new CustomEvent(modalMotionEvent, { detail: { modal: moving ?? previous, moving: !!moving } }));
+      changed = true;
+    }
     if (wanted.size !== observed.size || [...wanted].some((element) => !observed.has(element))) {
       resize?.disconnect();
       observer.disconnect();
@@ -162,6 +163,8 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
       (modalPreparing(top) ||
         (!modalPresentation(top) &&
           (pointerActive ||
+            touchActive ||
+            !!state.moving ||
             Array.from(wanted).some((element) => element.getAnimations().some((animation) => animation.playState === 'running')))))
     )
       schedule();
@@ -199,6 +202,27 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
     },
     { capture: true, signal: listeners.signal },
   );
+  // WebKit cancels pointer events when Ionic takes over a touch gesture.
+  // Touch ownership lasts through dragging, including a stationary hold.
+  doc.addEventListener(
+    'touchstart',
+    (event) => {
+      if ((event.target as Element).closest('ion-modal')) {
+        touchActive = true;
+        schedule();
+      }
+    },
+    { capture: true, passive: true, signal: listeners.signal },
+  );
+  for (const name of ['touchend', 'touchcancel'])
+    doc.addEventListener(
+      name,
+      (event) => {
+        touchActive = (event as TouchEvent).touches.length > 0;
+        schedule();
+      },
+      { capture: true, passive: true, signal: listeners.signal },
+    );
   for (const name of ['pointerup', 'pointercancel'])
     doc.addEventListener(
       name,

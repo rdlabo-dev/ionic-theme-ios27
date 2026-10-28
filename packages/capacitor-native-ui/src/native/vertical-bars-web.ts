@@ -83,6 +83,8 @@ export const createVerticalBarsWebProjection = (
   const verticalBarsRoot = () => doc.querySelector<HTMLElement>('ion-app.ios-theme-vertical-bars');
   const surfaceOf = (element: Element) => element.closest<HTMLElement>('ion-modal') ?? verticalBarsRoot()!;
   const isPrepared = (element: Element) =>
+    element.matches('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]') ||
+    !!element.querySelector('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]') ||
     [...projectionState.preparedOwners].some((owner) => owner === element || owner.contains(element) || element.contains(owner));
   // Covered toolbar controls keep a Web visual on their own surface, below the modal.
   const isCovered = (element: Element) =>
@@ -93,6 +95,7 @@ export const createVerticalBarsWebProjection = (
     (!!topModal(doc) && surfaceOf(element) !== topModal(doc));
   const projectedSources = () =>
     [
+      ...Array.from(doc.querySelectorAll<HTMLElement>('[data-native-ui-vertical-bars], [data-native-ui-vertical-bars-member]')),
       ...projectionState.owners,
       ...projectionState.preparedOwners,
       ...backProjections.map(({ source }) => source),
@@ -356,6 +359,7 @@ export const createVerticalBarsWebProjection = (
           { capture: true },
         );
         if (sources.length > 1) projection.append(clone);
+        projectionState.setTarget(source, clone);
         const previousAriaHidden = source.getAttribute('aria-hidden');
         source.setAttribute(marker, '');
         source.setAttribute('aria-hidden', 'true');
@@ -364,7 +368,6 @@ export const createVerticalBarsWebProjection = (
       });
       const surface = surfaceOf(group);
       projectionState.setTarget(group, projection);
-      if (sources.length === 1) projectionState.setTarget(sources[0], projection);
       surface.append(projection);
       toolbarProjections.push({ source: group, root: surface, projection, actions });
       topOffset += toolbarGroupHeight(actions.length) + toolbarControlGap;

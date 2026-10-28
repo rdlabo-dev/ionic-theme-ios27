@@ -1611,7 +1611,10 @@ export const createRuntime = async (
       ])
         on(doc, name, (event) => {
           const target = event.target instanceof Element ? event.target : undefined;
-          if (target?.closest('style[data-native-ui-snapshot], [data-native-ui-projection-node]')) return;
+          if (
+            target?.closest('style[data-native-ui-snapshot], [data-native-ui-projection-node], .ion-cloned-element, [data-native-ui-proxy]')
+          )
+            return;
           if (target?.hasAttribute('data-native-ui-snapshot') && (event as TransitionEvent).pseudoElement) return;
           imageSurfaces().forEach((surface) => surface.changed());
         });

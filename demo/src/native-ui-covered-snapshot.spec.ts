@@ -442,12 +442,11 @@ test('moving modal keeps the background cache and resumes only after its own con
   expect(foreground.bridge.mock.calls.some(([args]) => args.action === 'reset')).toBe(false);
 });
 
-test('prewarmed clone styling does not recapture Native, while source changes still invalidate it', () => {
+test('projection clone styling does not recapture Native, while source changes still invalidate it', () => {
   const source = document.createElement('ion-button');
   source.setAttribute('data-native-ui-snapshot', 'source');
   const clone = document.createElement('ion-button');
   clone.className = 'ion-cloned-element';
-  clone.setAttribute('data-native-ui-snapshot', 'clone');
   document.body.append(source, clone);
   const observer = new MutationObserver(() => {});
   observer.observe(document.body, { subtree: true, attributes: true, childList: true });

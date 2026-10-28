@@ -271,3 +271,43 @@ test('native acquisition updates existing image targets without measuring or cre
     await handle.destroy();
   }
 });
+
+test('native modal actions have hidden image targets before the first capture', async () => {
+  document.body.innerHTML = `<style>[data-native-ui-projected], [data-native-ui-projected] * { visibility: hidden !important; }</style><ion-app class="ios-theme-vertical-bars"><ion-modal>
+    <main class="ion-page"><ion-header><ion-toolbar class="ios"><ion-buttons slot="end">
+    <ion-button class="ios" data-vertical-bars="true">Close</ion-button>
+    <ion-button class="ios" data-vertical-bars="true">Done</ion-button>
+    </ion-buttons></ion-toolbar></ion-header></main></ion-modal></ion-app>`;
+  const modal = document.querySelector('ion-modal')!;
+  const wrapper = document.createElement('div');
+  wrapper.setAttribute('part', 'content');
+  Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
+  wrapper.getAnimations = () => [];
+  modal.attachShadow({ mode: 'open' }).append(wrapper);
+  const group = modal.querySelector<HTMLElement>('ion-buttons')!;
+  const actions = Array.from(group.querySelectorAll<HTMLElement>('ion-button'));
+  for (const element of [group, ...actions]) {
+    element.style.display = 'block';
+    element.style.visibility = 'visible';
+    element.getBoundingClientRect = () => DOMRect.fromRect({ width: 44, height: 44 });
+    setVerticalBarsPlacement(element, true);
+  }
+  group.setAttribute('data-native-ui-vertical-bars', '');
+  actions.forEach((action) => {
+    action.setAttribute('data-native-ui-projected', '');
+    action.setAttribute('data-native-ui-vertical-bars-member', '');
+  });
+  const stop = observeVerticalBarsModals(document);
+  modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+  const handle = createVerticalBarsWebProjection(document, {}, () => false);
+  try {
+    await nextFrame();
+    const target = projectionState.getTarget(group)!;
+    expect(target?.isConnected).toBe(true);
+    expect(target.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
+    for (const source of actions) expect(projectionState.getTarget(source)?.isConnected).toBe(true);
+  } finally {
+    await handle.destroy();
+    stop();
+  }
+});

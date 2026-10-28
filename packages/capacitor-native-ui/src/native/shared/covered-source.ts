@@ -34,7 +34,7 @@ const createState = () => {
     isProjectionMutation(record: MutationRecord) {
       const target = record.target instanceof Element ? record.target : record.target.parentElement;
       if (target?.closest('[data-native-ui-projection-node]')) return true;
-      if (target?.closest(`:is(.ion-cloned-element, [data-native-ui-proxy])[${imageMarker}]`)) return true;
+      if (target?.closest('.ion-cloned-element, [data-native-ui-proxy]')) return true;
       if (
         record.type === 'attributes' &&
         [
