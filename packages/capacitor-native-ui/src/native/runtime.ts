@@ -589,6 +589,7 @@ export const createRuntime = async (
     imagesFor(topModal(doc))?.begin();
   };
   const sync = async () => {
+    followImageMotion();
     for (const [modal, surface] of modalSnapshots) {
       if (modal.isConnected) continue;
       modalSnapshots.delete(modal);
@@ -1208,6 +1209,23 @@ export const createRuntime = async (
       schedule();
     });
   };
+  let imageMotionFrame = 0;
+  const followImageMotion = () => {
+    if (imageMotionFrame || stopped) return;
+    if (!moving.size) return;
+    // Ancestor transforms already move the image with its host. Only an animated
+    // projection host needs its local offset corrected (for example, a changing border).
+    const surfaces = imageSurfaces().filter(
+      (surface) =>
+        (surface.token || surface.restoring) && surface.owners.some((owner) => moving.has(projectionState.getTarget(owner) ?? owner)),
+    );
+    if (!surfaces.length) return;
+    imageMotionFrame = win.requestAnimationFrame(() => {
+      imageMotionFrame = 0;
+      surfaces.forEach((surface) => surface.moved());
+      followImageMotion();
+    });
+  };
   const motion: EventListener = (event) => {
     const target = event.target as HTMLElement;
     if (!target.matches?.(`${motionSelector}, ${discovery}`) && !(options.source !== 'ionic' && target.querySelector?.(discovery))) return;
@@ -1220,6 +1238,7 @@ export const createRuntime = async (
       moving.get(target)?.delete(key);
       if (!moving.get(target)?.size) moving.delete(target);
     }
+    followImageMotion();
     schedule();
   };
   for (const name of Object.values(CSS_MOTION_EVENTS)) on(doc, name, motion);
@@ -1399,6 +1418,7 @@ export const createRuntime = async (
         tabWidths.clear();
         setNativeUIIntegration(doc);
         win.cancelAnimationFrame(frame);
+        win.cancelAnimationFrame(imageMotionFrame);
         listeners.abort();
         observer.disconnect();
         resize.disconnect();
@@ -1591,7 +1611,7 @@ export const createRuntime = async (
       ])
         on(doc, name, (event) => {
           const target = event.target instanceof Element ? event.target : undefined;
-          if (target?.closest('style[data-native-ui-snapshot]')) return;
+          if (target?.closest('style[data-native-ui-snapshot], [data-native-ui-projection-node]')) return;
           if (target?.hasAttribute('data-native-ui-snapshot') && (event as TransitionEvent).pseudoElement) return;
           imageSurfaces().forEach((surface) => surface.changed());
         });

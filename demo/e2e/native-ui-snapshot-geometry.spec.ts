@@ -110,20 +110,7 @@ for (const tag of ['button', 'div', 'ion-button', 'span-auto', 'span-sized']) {
       await expect(source).toHaveAttribute('data-native-ui-snapshot-visible', '');
       expect(await page.evaluate(() => (window as TestWindow).handoffAnimations)).toBe(0);
       expect(await source.boundingBox()).toEqual(before);
-      const frame = () =>
-        source.evaluate((element, before) => {
-          const rect = element.getBoundingClientRect();
-          const css = getComputedStyle(element);
-          const image = getComputedStyle(element, '::before');
-          const scaleX = element.tagName === 'SPAN' ? (rect.width / before!.width) * 1.25 : rect.width / parseFloat(css.width);
-          const scaleY = element.tagName === 'SPAN' ? (rect.height / before!.height) * 1.25 : rect.height / parseFloat(css.height);
-          return {
-            x: rect.x + (parseFloat(css.borderLeftWidth) + parseFloat(image.left)) * scaleX,
-            y: rect.y + (parseFloat(css.borderTopWidth) + parseFloat(image.top)) * scaleY,
-            width: parseFloat(image.width) * scaleX,
-            height: parseFloat(image.height) * scaleY,
-          };
-        }, before);
+      const frame = () => source.locator('img[data-native-ui-projection-node]:visible').boundingBox();
       expect(await frame()).toEqual({ x: 100.25, y: 110.5, width: 74, height: 58 });
       if (tag === 'button') {
         const errors = await source.evaluate(async (element) => {
@@ -131,11 +118,13 @@ for (const tag of ['button', 'div', 'ion-button', 'span-auto', 'span-sized']) {
           const start = performance.now();
           while (performance.now() - start < 350) {
             await new Promise(requestAnimationFrame);
-            const rect = element.getBoundingClientRect();
-            const css = getComputedStyle(element);
-            const image = getComputedStyle(element, '::before');
-            const x = rect.x + ((parseFloat(css.borderLeftWidth) + parseFloat(image.left)) * rect.width) / parseFloat(css.width);
-            const y = rect.y + ((parseFloat(css.borderTopWidth) + parseFloat(image.top)) * rect.height) / parseFloat(css.height);
+            const rect = Array.from(
+              (element.shadowRoot ?? element).querySelectorAll<HTMLImageElement>('img[data-native-ui-projection-node]'),
+            )
+              .find((image) => getComputedStyle(image).display !== 'none')!
+              .getBoundingClientRect();
+            const x = rect.x;
+            const y = rect.y;
             errors.push(Math.abs(x - 100.25), Math.abs(y - 110.5));
           }
           return errors;
@@ -146,7 +135,7 @@ for (const tag of ['button', 'div', 'ion-button', 'span-auto', 'span-sized']) {
       await page.locator('#surface').evaluate((element) => {
         element.style.transform = 'translate(20px, 30px) scale(0.8, 0.75)';
       });
-      const moved = await frame();
+      const moved = (await frame())!;
       expect(moved.x).toBeCloseTo(65.25 + 20 + 35 * 0.8, 2);
       expect(moved.y).toBeCloseTo(80.5 + 30 + 30 * 0.75, 2);
       expect(moved.width).toBeCloseTo(74 * 0.8, 2);
@@ -193,7 +182,7 @@ for (const tag of ['button', 'div', 'ion-button', 'span-auto', 'span-sized']) {
       await page.evaluate(async () => {
         await (window as TestWindow).runtime.destroy();
       });
-      await expect(page.locator('[data-native-ui-snapshot-layer], style[data-native-ui-snapshot]')).toHaveCount(0);
+      await expect(page.locator('img[data-native-ui-projection-node]:visible')).toHaveCount(0);
     });
   }
 }
@@ -284,17 +273,10 @@ for (const direction of ['ltr', 'rtl']) {
     expect(await page.evaluate(() => (window as TestWindow).captures)).toBe(settledCaptures);
     const original = await sources.last().boundingBox();
     const readFrames = () =>
-      proxies.evaluateAll((elements) =>
-        elements.map((element) => {
-          const rect = element.getBoundingClientRect();
-          const css = getComputedStyle(element);
-          const image = getComputedStyle(element, '::before');
-          return {
-            x: rect.x + parseFloat(css.borderLeftWidth) + parseFloat(image.left),
-            y: rect.y + parseFloat(css.borderTopWidth) + parseFloat(image.top),
-            width: parseFloat(image.width),
-            height: parseFloat(image.height),
-          };
+      proxies.locator('img[data-native-ui-projection-node]:visible').evaluateAll((images) =>
+        images.map((image) => {
+          const { x, y, width, height } = image.getBoundingClientRect();
+          return { x, y, width, height };
         }),
       );
     const expected = [160, 240].map((y) => ({ x: direction === 'ltr' ? 1190 : 20, y, width: 60.25, height: 48.5 }));
@@ -361,7 +343,7 @@ for (const direction of ['ltr', 'rtl']) {
     await expect(proxies.last()).toBeVisible();
     await expect(proxies.last()).not.toHaveAttribute('inert');
     await expect(proxies.last()).not.toHaveAttribute('data-native-ui-snapshot');
-    await expect(proxies.last()).not.toHaveAttribute('data-native-ui-snapshot-prepared');
+    await expect(proxies.last()).not.toHaveAttribute('data-native-ui-proxy-prepared');
     await expect(proxies.last()).toHaveCSS('position', 'static');
     const webFrame = await proxies.last().boundingBox();
     expect(webFrame!.width).toBe(31.5);
@@ -376,7 +358,7 @@ for (const direction of ['ltr', 'rtl']) {
       await (window as TestWindow).runtime.destroy();
     });
     await expect(proxies).toHaveCount(0);
-    await expect(page.locator('[data-native-ui-snapshot-layer], style[data-native-ui-snapshot]')).toHaveCount(0);
+    await expect(page.locator('img[data-native-ui-projection-node]:visible')).toHaveCount(0);
     await expect(page.locator('#unrelated')).toBeVisible();
     await expect(sources.last()).toBeVisible();
   });
