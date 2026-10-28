@@ -264,93 +264,57 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     @objc func coveredSnapshot(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
             guard let self, let webView = self.bridge?.webView else { call.reject("WebView unavailable"); return }
-            func projectionFrames() -> [String: CGRect]? {
-                guard let width = call.getDouble("viewportWidth"), width.isFinite, width > 0,
-                      let parts = call.getArray("parts", JSObject.self), !parts.isEmpty else { return nil }
-                let scale = webView.bounds.width / width
-                var frames: [String: CGRect] = [:]
-                for part in parts {
-                    guard let ids = part["ids"] as? [String], let x = part["x"] as? Double, let y = part["y"] as? Double,
-                          let w = part["width"] as? Double, let h = part["height"] as? Double,
-                          [x, y, w, h].allSatisfy({ $0.isFinite }), w > 0, h > 0 else { return nil }
-                    for id in ids { frames[id] = CGRect(x: x * scale, y: y * scale, width: w * scale, height: h * scale) }
-                }
-                return frames
-            }
-            switch call.getString("action") {
-            case "prepare":
-                guard call.getInt("revision") == self.revision, let width = call.getDouble("viewportWidth"), width > 0,
-                      let ids = call.getArray("ids", String.self), !ids.isEmpty, let window = webView.window,
-                      !self.keyboardVisible, self.toolbarTransition == nil else { call.resolve([:]); return }
+            if call.getString("action") == "prepare", let window = webView.window {
                 self.coveredSnapshots.observe(window) { [weak self] active in
                     self?.notifyListeners("snapshotInteraction", data: ["active": active])
                 }
+            }
+            let measure: (Set<String>, Int) -> [String: CGRect] = { [weak self, weak webView] ids, revision in
+                guard let self, let webView, revision == self.revision,
+                      !self.keyboardVisible, self.toolbarTransition == nil else { return [:] }
                 let nodes = self.snapshotControls.filter { ids.contains($0.id) }
-                guard nodes.count == ids.count else { call.resolve([:]); return }
-                let measure = { [weak self, weak webView] () -> [String: CGRect] in
-                    guard let self, let webView else { return [:] }
-                    let itemIDs = Set(nodes.flatMap { $0.items.map(\.id) } + nodes.filter { $0.extensionContent?.tabBarId != nil }.map(\.id) + ["BackButton", "__tabBar"])
-                    var measured = self.verticalBars.map { NativeUIVerticalBarsGeometry.measure(in: $0.view, relativeTo: webView, ids: itemIDs) } ?? [:]
-                    self.verticalBars?.measuredFrames(relativeTo: webView).forEach { measured[$0.key] = $0.value.frame }
-                    var frames: [String: CGRect] = [:]
-                    for node in nodes {
-                        if node.extensionContent?.tabBarId != nil {
-                            frames[node.id] = measured[node.id]
-                        } else if node.placement == .verticalBars {
-                            if node.kind == .tabBar { frames[node.id] = measured["__tabBar"] }
-                            else {
-                                let rects = node.items.compactMap { measured[node.kind == .backButton ? "BackButton" : $0.id] }
-                                if rects.count == node.items.count { frames[node.id] = rects.reduce(CGRect.null) { $0.union($1) } }
-                            }
-                        } else if let view = self.controls[node.id], !view.isHidden, view.window != nil {
-                            let surfaces: [UIView]
-                            if let fab = view as? NativeUIFab { surfaces = fab.buttons.values.filter { !$0.isHidden } }
-                            else { surfaces = [view] }
-                            if !surfaces.isEmpty {
-                                frames[node.id] = surfaces.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: webView)) }
-                            }
+                guard nodes.count == ids.count else { return [:] }
+                let itemIDs = Set(nodes.flatMap { $0.items.map(\.id) } + nodes.filter { $0.extensionContent?.tabBarId != nil }.map(\.id) + ["BackButton", "__tabBar"])
+                var measured = self.verticalBars.map { NativeUIVerticalBarsGeometry.measure(in: $0.view, relativeTo: webView, ids: itemIDs) } ?? [:]
+                self.verticalBars?.measuredFrames(relativeTo: webView).forEach { measured[$0.key] = $0.value.frame }
+                var frames: [String: CGRect] = [:]
+                for node in nodes {
+                    if node.extensionContent?.tabBarId != nil {
+                        frames[node.id] = measured[node.id]
+                    } else if node.placement == .verticalBars {
+                        if node.kind == .tabBar { frames[node.id] = measured["__tabBar"] }
+                        else {
+                            let rects = node.items.compactMap { measured[node.kind == .backButton ? "BackButton" : $0.id] }
+                            if rects.count == node.items.count { frames[node.id] = rects.reduce(CGRect.null) { $0.union($1) } }
+                        }
+                    } else if let view = self.controls[node.id], !view.isHidden, view.window != nil {
+                        let surfaces: [UIView]
+                        if let fab = view as? NativeUIFab { surfaces = fab.buttons.values.filter { !$0.isHidden } }
+                        else { surfaces = [view] }
+                        if !surfaces.isEmpty {
+                            frames[node.id] = surfaces.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: webView)) }
                         }
                     }
-                    if frames.count != ids.count, let rail = self.verticalBars {
-                        let railNodes = self.snapshotControls.filter { $0.placement == .verticalBars }
-                        let components = NativeUIVerticalBarsGeometry.componentFrames(in: rail.view, relativeTo: webView, controls: railNodes)
-                        for node in nodes where frames[node.id] == nil { frames[node.id] = components[node.id] }
-                    }
-                    return frames.count == ids.count ? frames : [:]
                 }
-                self.coveredSnapshots.prepare(frames: measure, in: webView, viewportWidth: width) { call.resolve($0) }
-            case "cover":
-                guard let token = call.getString("token") else { call.resolve(["shown": false]); return }
-                let ids = self.coveredSnapshots.identifiers(for: token)
+                if frames.count != ids.count, let rail = self.verticalBars {
+                    let railNodes = self.snapshotControls.filter { $0.placement == .verticalBars }
+                    let components = NativeUIVerticalBarsGeometry.componentFrames(in: rail.view, relativeTo: webView, controls: railNodes)
+                    for node in nodes where frames[node.id] == nil { frames[node.id] = components[node.id] }
+                }
+                return frames.count == ids.count ? frames : [:]
+            }
+            let views: (Set<String>) -> [UIView]? = { ids in
                 let railIDs = Set(self.snapshotControls.filter { $0.placement == .verticalBars }.map(\.id))
                 // A shared rail can only retire when every one of its controls has a prepared image.
                 guard !ids.isEmpty, Set(self.snapshotControls.map(\.id)).isSuperset(of: ids),
                       ids.isDisjoint(with: railIDs) || ids.isSuperset(of: railIDs) else {
-                    call.resolve(["shown": false]); return
+                    return nil
                 }
                 var views = Array(self.controls.filter { ids.contains($0.key) }.values)
                 if !railIDs.isEmpty, ids.isSuperset(of: railIDs), let rail = self.verticalBars { views.append(rail.view) }
-                let frames = call.getArray("parts", JSObject.self) == nil ? nil : projectionFrames()
-                guard call.getArray("parts", JSObject.self) == nil || frames != nil else { call.resolve(["shown": false]); return }
-                let shown = self.coveredSnapshots.cover(token, in: webView, views: views, transient: call.getBool("transient") == true, frames: frames)
-                call.resolve(["shown": shown])
-            case "painted":
-                if let token = call.getString("token") { self.coveredSnapshots.retireCopy(token) }
-                call.resolve()
-            case "restore":
-                guard let token = call.getString("token"), let frames = projectionFrames() else { call.resolve(["shown": false]); return }
-                call.resolve(["shown": self.coveredSnapshots.restore(in: webView, token: token, frames: frames)])
-            case "restored":
-                if let token = call.getString("token") { self.coveredSnapshots.retireCopy(token, entry: false) }
-                call.resolve()
-            case "release":
-                if let token = call.getString("token") { self.coveredSnapshots.release(token) }
-                call.resolve()
-            case "reset":
-                self.resetCoveredSnapshots()
-                call.resolve()
-            default: call.resolve([:])
+                return views
             }
+            self.coveredSnapshots.handle(call.options as? [String: Any] ?? [:], in: webView, frames: measure, views: views, complete: { call.resolve($0) })
         }
     }
 

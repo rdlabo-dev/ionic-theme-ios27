@@ -3,7 +3,6 @@ package dev.rdlabo.capacitor.nativeui
 import android.graphics.RectF
 import io.github.webview_native_ui.engine.NativeUIClippedView
 import io.github.webview_native_ui.engine.NativeUISnapshots
-import io.github.webview_native_ui.engine.NativeUIWebReadiness
 import java.io.File
 import android.os.Handler
 import android.os.Looper
@@ -35,7 +34,6 @@ import kotlin.coroutines.resumeWithException
 class NativeUIPlugin : Plugin() {
     private val handler = Handler(Looper.getMainLooper())
     private val snapshots by lazy { NativeUISnapshots(File(context.cacheDir, "native-ui-snapshots")) }
-    private var generation = 0L
     private var host: FrameLayout? = null
     private var revision = 0L
     private var sequence = 0L
@@ -143,16 +141,10 @@ class NativeUIPlugin : Plugin() {
     @PluginMethod
     fun coveredSnapshot(call: PluginCall) = onMain(call) {
         val web = bridge.webView
-        val token = call.getString("token")
-        when (call.getString("action")) {
-            "prepare" -> {
-                val width = call.getDouble("viewportWidth") ?: 0.0
-                val ids = call.getArray("ids")?.let { raw -> (0 until raw.length()).map { raw.getString(it) } } ?: emptyList<String>()
-                if (paused || call.data.optDouble("revision", Double.NaN) != revision.toDouble() || ids.isEmpty() || ids.distinct().size != ids.size || !entries.keys.containsAll(ids)) {
-                    call.resolve(); return@onMain
-                }
-                snapshots.prepare(activity.window, web, width, {
-                    val frames = linkedMapOf<String, RectF>()
+        snapshots.handle(call.data, activity.window, web,
+            frames = { ids, requestedRevision ->
+                val frames = linkedMapOf<String, RectF>()
+                if (!paused && requestedRevision == revision.toLong() && entries.keys.containsAll(ids)) {
                     for (id in ids) {
                         val view = entries[id]?.clip ?: break
                         if (!view.isShown || view.isLayoutRequested) break
@@ -160,46 +152,17 @@ class NativeUIPlugin : Plugin() {
                         view.getLocationInWindow(location); web.getLocationInWindow(origin)
                         frames[id] = RectF((location[0] - origin[0]).toFloat(), (location[1] - origin[1]).toFloat(), (location[0] - origin[0] + view.width).toFloat(), (location[1] - origin[1] + view.height).toFloat())
                     }
-                    if (frames.size == ids.size) frames else emptyMap()
-                }) { call.resolve(JSObject(it.toString())) }
-            }
-            "cover" -> {
-                generation++
-                val ids = token?.let(snapshots::identifiers) ?: emptySet()
-                val views = ids.mapNotNull { entries[it]?.clip }
-                val shown = !paused && ids.isNotEmpty() && views.size == ids.size && snapshots.cover(token!!, activity.window, web, views, call.getBoolean("transient", false) == true)
-                call.resolve(JSObject().put("shown", shown))
-            }
-            "painted", "restored" -> {
-                val stamp = generation
-                val entry = call.getString("action") == "painted"
-                // A bridge response is not a WebView draw boundary. Keep the copy until ready.
-                NativeUIWebReadiness.prepare(web, { !paused && stamp == generation && token != null && snapshots.identifiers(token).isNotEmpty() }) { ready ->
-                    if (ready && token != null) snapshots.retireCopy(token, entry)
-                    call.resolve()
                 }
+                frames
+            },
+            views = { ids ->
+                if (paused || !entries.keys.containsAll(ids)) null else ids.map { entries.getValue(it).clip }
             }
-            "restore" -> {
-                generation++
-                val width = call.getDouble("viewportWidth") ?: 0.0
-                val parts = call.getArray("parts")
-                val frames = linkedMapOf<String, RectF>()
-                if (token == null || !width.isFinite() || width <= 0 || parts == null) {
-                    call.resolve(JSObject().put("shown", false)); return@onMain
-                }
-                val scale = web.width / width
-                for (index in 0 until parts.length()) {
-                    val part = parts.getJSONObject(index)
-                    val x = part.getDouble("x") * scale; val y = part.getDouble("y") * scale
-                    val w = part.getDouble("width") * scale; val h = part.getDouble("height") * scale
-                    val ids = part.getJSONArray("ids")
-                    for (id in 0 until ids.length()) frames[ids.getString(id)] = RectF(x.toFloat(), y.toFloat(), (x + w).toFloat(), (y + h).toFloat())
-                }
-                call.resolve(JSObject().put("shown", snapshots.restore(token, activity.window, web, frames)))
-            }
-            "release" -> { token?.let(snapshots::release); call.resolve() }
-            "reset" -> { generation++; snapshots.reset(); call.resolve() }
-            else -> call.resolve()
+        ) { result ->
+            result.fold(
+                onSuccess = { call.resolve(JSObject(it.toString())) },
+                onFailure = { call.reject(it.message ?: "Image handoff failed") }
+            )
         }
     }
 
@@ -252,7 +215,6 @@ class NativeUIPlugin : Plugin() {
         entries.remove(id)?.let { it.view.disposeComposition(); host?.removeView(it.clip) }
     }
     private fun clearViews() {
-        generation++
         snapshots.reset()
         failActions()
         entries.keys.toList().forEach(::removeEntry)
@@ -261,7 +223,6 @@ class NativeUIPlugin : Plugin() {
     }
     override fun handleOnPause() {
         paused = true
-        generation++
         snapshots.reset()
         host?.visibility = View.INVISIBLE
         failActions()
