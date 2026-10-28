@@ -74,9 +74,9 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                         self.keyboardVisible = !overlap.isNull && overlap.width > 0 && overlap.height > 0
                     }
                 }
-                if !keyboard { self.resetCoveredSnapshots() }
                 let suspend = name == UIApplication.didEnterBackgroundNotification
                 if suspend {
+                    self.resetCoveredSnapshots()
                     self.host?.isHidden = true
                     self.verticalBars?.view.isHidden = true
                     self.extensionControllers.values.forEach { $0.view.isHidden = true }

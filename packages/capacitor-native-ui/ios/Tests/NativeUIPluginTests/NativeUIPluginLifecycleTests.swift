@@ -46,6 +46,40 @@ final class NativeUIPluginLifecycleTests: XCTestCase {
         XCTAssertTrue(fixture.bridge.events.contains("nativeUIRefresh"))
     }
 
+    @MainActor func testOrientationPreservesCoveredControlsUntilRestore() async throws {
+        let fixture = try await project()
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        window.rootViewController = fixture.bridge.viewController
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        try await Task.sleep(nanoseconds: 150_000_000)
+        let control = try XCTUnwrap(fixture.host.subviews.first)
+        func snapshot(_ options: JSObject) async throws -> [String: Any] {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[String: Any], Error>) in
+                let call = CAPPluginCall(callbackId: "orientation-snapshot", methodName: "coveredSnapshot", options: options,
+                    success: { result, _ in continuation.resume(returning: result?.data ?? [:]) },
+                    error: { _ in continuation.resume(throwing: NSError(domain: "NativeUILifecycleTests", code: 1)) })!
+                fixture.plugin.coveredSnapshot(call)
+            }
+        }
+        let capture = try await snapshot(["action": "prepare", "revision": 1, "viewportWidth": 390.0, "ids": ["header-action"]])
+        let token = try XCTUnwrap(capture["token"] as? String)
+        let cover = try await snapshot(["action": "cover", "token": token])
+        XCTAssertEqual(cover["shown"] as? Bool, true)
+        XCTAssertTrue(control.isHidden)
+        NotificationCenter.default.post(name: UIDevice.orientationDidChangeNotification, object: UIDevice.current)
+        XCTAssertTrue(control.isHidden || fixture.host.isHidden, "A covered native control must not reappear above its Web overlay")
+        let part: JSObject = ["ids": ["header-action"], "x": 16.0, "y": 60.0, "width": 44.0, "height": 44.0]
+        let restored = try await snapshot(["action": "restore", "token": token, "viewportWidth": 390.0, "parts": [part]])
+        XCTAssertEqual(restored["shown"] as? Bool, true, "Orientation must preserve the capture used on return")
+        _ = try await snapshot(["action": "restored", "token": token])
+        _ = try await snapshot(["action": "release", "token": token])
+        XCTAssertFalse(control.isHidden)
+        withExtendedLifetime(fixture.plugin) {}
+    }
+
     @MainActor private func project() async throws -> (plugin: NativeUIPlugin, bridge: LifecycleBridge, host: NativeUIHost) {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires native UI projection") }
         let bridge = LifecycleBridge()

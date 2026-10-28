@@ -29,10 +29,11 @@ jobs:
           # SwiftUI presentations require an application event loop on iOS 26.
           POPOVER_CLOSE=NativeUIPluginTests/NativeUISnapshotTests/testNativePopoverClosureNotifiesWebBeforeReopening
           POPOVER_REPLACE=NativeUIPluginTests/NativeUISnapshotTests/testPopoverReopensAfterPresentationIdentityKeepsReplacedSource
-          xcodebuild -scheme RdlaboCapacitorNativeUi -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO -skip-testing:"$POPOVER_CLOSE" -skip-testing:"$POPOVER_REPLACE" test
+          COVERED_ORIENTATION=NativeUIPluginTests/NativeUIPluginLifecycleTests/testOrientationPreservesCoveredControlsUntilRestore
+          xcodebuild -scheme RdlaboCapacitorNativeUi -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO -skip-testing:"$POPOVER_CLOSE" -skip-testing:"$POPOVER_REPLACE" -skip-testing:"$COVERED_ORIENTATION" test
           cd ios/Tests
           xcodegen generate
-          xcodebuild -project NativeUIHostedTests.xcodeproj -scheme NativeUIHostedTests -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO -only-testing:"$POPOVER_CLOSE" -only-testing:"$POPOVER_REPLACE" test
+          xcodebuild -project NativeUIHostedTests.xcodeproj -scheme NativeUIHostedTests -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO -only-testing:"$POPOVER_CLOSE" -only-testing:"$POPOVER_REPLACE" -only-testing:"$COVERED_ORIENTATION" test
   android:
     runs-on: ubuntu-latest
     steps:
