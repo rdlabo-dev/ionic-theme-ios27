@@ -9,9 +9,11 @@ const projectionState = getProjectionState(document);
 const { sourcesChangedEvent } = projectionState;
 import { setVerticalBarsPlacement } from '../../packages/capacitor-native-ui/src/native/shared/dom';
 
-let owners: Set<HTMLElement>, visibleOwners: Set<HTMLElement>, preparedOwners: Set<HTMLElement>;
+let owners: Set<HTMLElement>, visibleOwners: Set<HTMLElement>, preparedOwners: Set<HTMLElement>, nativeOwners: Set<HTMLElement>;
 beforeEach(() => {
   ({ owners, visibleOwners, preparedOwners } = mockSnapshotOwnership(projectionState));
+  nativeOwners = new Set();
+  vi.spyOn(projectionState, 'nativeOwns').mockImplementation((source) => nativeOwners.has(source));
 });
 
 const mountEligibleBackButton = () => {
@@ -179,7 +181,7 @@ test('a covered back-only rail survives native reacquisition while dragging a sh
   }
 });
 
-test('rebuilding modal controls preserves the covered background rail positioning', async () => {
+test('changing modal controls retains the covered background image target', async () => {
   mountEligibleBackButton();
   const app = document.querySelector('ion-app')!;
   const source = document.querySelector<HTMLElement>('ion-back-button')!;
@@ -190,6 +192,7 @@ test('rebuilding modal controls preserves the covered background rail positionin
   try {
     await nextFrame();
     const first = projectionState.getTarget(source)!;
+    first.setAttribute('data-native-ui-snapshot', 'background');
     const modal = document.createElement('ion-modal');
     modal.innerHTML =
       '<main class="ion-page"><ion-header><ion-toolbar class="ios"><ion-button class="ios" data-vertical-bars="true">Close</ion-button></ion-toolbar></ion-header></main>';
@@ -208,7 +211,8 @@ test('rebuilding modal controls preserves the covered background rail positionin
     modal.dispatchEvent(new CustomEvent('ionModalWillPresent', { bubbles: true }));
     await nextFrame();
     await nextFrame();
-    expect(projectionState.getTarget(source)).not.toBe(first);
+    expect(projectionState.getTarget(source)).toBe(first);
+    expect(first.getAttribute('data-native-ui-snapshot')).toBe('background');
     expect(projectionState.getTarget(source)?.isConnected).toBe(true);
     expect(app.classList.contains('ios-theme-vertical-bars-toolbar-ready')).toBe(true);
     expect(modal.classList.contains('ios-theme-vertical-bars-toolbar-ready')).toBe(true);
@@ -228,7 +232,9 @@ test('rebuilding modal controls preserves the covered background rail positionin
     expect(modal.querySelector('.ion-cloned-element')).toBeNull();
     owners.delete(close);
     visibleOwners.delete(close);
-    expect(projectionState.getTarget(source)?.isConnected).toBe(true);
+    expect(projectionState.getTarget(source)).toBe(first);
+    expect(first.isConnected).toBe(true);
+    expect(first.getAttribute('data-native-ui-snapshot')).toBe('background');
   } finally {
     preparedOwners.clear();
     owners.delete(source);
@@ -258,9 +264,13 @@ test('native acquisition updates existing image targets without measuring or cre
     web = true;
     const measure = vi.spyOn(source, 'getBoundingClientRect');
     source.setAttribute('data-native-ui-vertical-bars', '');
+    nativeOwners.add(source);
     window.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: true } }));
     expect(projectionState.getTarget(source)).toBe(clone);
     expect(clone.hasAttribute('data-native-ui-vertical-bars')).toBe(true);
+    expect(source.getAttribute('aria-hidden')).toBeNull();
+    // Native records the original ARIA, then takes ownership in the same update.
+    source.setAttribute('aria-hidden', 'true');
     expect(clone.isConnected).toBe(true);
     expect(measure).not.toHaveBeenCalled();
     expect(!!projectionState.getTarget(incoming)).toBe(false);
@@ -269,45 +279,81 @@ test('native acquisition updates existing image targets without measuring or cre
   } finally {
     preparedOwners.delete(source);
     await handle.destroy();
+    expect(source.hasAttribute('data-native-ui-projected')).toBe(true);
+    expect(source.getAttribute('aria-hidden')).toBe('true');
   }
 });
 
-test('native modal actions have hidden image targets before the first capture', async () => {
-  document.body.innerHTML = `<style>[data-native-ui-projected], [data-native-ui-projected] * { visibility: hidden !important; }</style><ion-app class="ios-theme-vertical-bars"><ion-modal>
-    <main class="ion-page"><ion-header><ion-toolbar class="ios"><ion-buttons slot="end">
-    <ion-button class="ios" data-vertical-bars="true">Close</ion-button>
+test.each([
+  { surface: 'page', grouped: true },
+  { surface: 'modal', grouped: true },
+  { surface: 'page', grouped: false },
+  { surface: 'page', grouped: true, partial: true },
+])(
+  'native $surface actions (grouped=$grouped) have hidden image targets before the first capture',
+  async ({ surface, grouped, partial }) => {
+    vi.spyOn(projectionState, 'snapshotsEnabled', 'get').mockReturnValue(true);
+    document.body.innerHTML = `<style>[data-native-ui-projected], [data-native-ui-projected] * { visibility: hidden !important; }</style><ion-app class="ios-theme-vertical-bars">${surface === 'modal' ? '<ion-modal>' : ''}
+    <main class="ion-page"><ion-header><ion-toolbar class="ios"><ion-buttons slot="end" class="${grouped ? '' : 'ios-theme-disabled'}">
+    ${partial ? '<ion-back-button class="ios"></ion-back-button>' : ''}<ion-button class="ios" data-vertical-bars="true">Close</ion-button>
     <ion-button class="ios" data-vertical-bars="true">Done</ion-button>
-    </ion-buttons></ion-toolbar></ion-header></main></ion-modal></ion-app>`;
-  const modal = document.querySelector('ion-modal')!;
-  const wrapper = document.createElement('div');
-  wrapper.setAttribute('part', 'content');
-  Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
-  wrapper.getAnimations = () => [];
-  modal.attachShadow({ mode: 'open' }).append(wrapper);
-  const group = modal.querySelector<HTMLElement>('ion-buttons')!;
-  const actions = Array.from(group.querySelectorAll<HTMLElement>('ion-button'));
-  for (const element of [group, ...actions]) {
-    element.style.display = 'block';
-    element.style.visibility = 'visible';
-    element.getBoundingClientRect = () => DOMRect.fromRect({ width: 44, height: 44 });
-    setVerticalBarsPlacement(element, true);
-  }
-  group.setAttribute('data-native-ui-vertical-bars', '');
-  actions.forEach((action) => {
-    action.setAttribute('data-native-ui-projected', '');
-    action.setAttribute('data-native-ui-vertical-bars-member', '');
-  });
-  const stop = observeVerticalBarsModals(document);
-  modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
-  const handle = createVerticalBarsWebProjection(document, {}, () => false);
-  try {
-    await nextFrame();
-    const target = projectionState.getTarget(group)!;
-    expect(target?.isConnected).toBe(true);
-    expect(target.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
-    for (const source of actions) expect(projectionState.getTarget(source)?.isConnected).toBe(true);
-  } finally {
-    await handle.destroy();
-    stop();
-  }
-});
+    </ion-buttons></ion-toolbar></ion-header></main>${surface === 'modal' ? '</ion-modal>' : ''}</ion-app>`;
+    const modal = document.querySelector('ion-modal');
+    const wrapper = document.createElement('div');
+    wrapper.setAttribute('part', 'content');
+    Object.defineProperty(wrapper, 'offsetWidth', { value: innerWidth });
+    wrapper.getAnimations = () => [];
+    modal?.attachShadow({ mode: 'open' }).append(wrapper);
+    const group = document.querySelector<HTMLElement>('ion-buttons')!;
+    const actions = Array.from(group.querySelectorAll<HTMLElement>('ion-button'));
+    for (const element of [group, ...actions]) {
+      element.style.display = 'block';
+      element.style.visibility = 'visible';
+      element.getBoundingClientRect = () => DOMRect.fromRect({ width: 44, height: 44 });
+      setVerticalBarsPlacement(element, true);
+    }
+    group.setAttribute('data-native-ui-vertical-bars', '');
+    if (grouped && !partial) {
+      nativeOwners.add(group);
+      group.setAttribute('data-native-ui-projected', '');
+      group.setAttribute('aria-hidden', 'true');
+    }
+    actions.forEach((action) => {
+      if (!grouped || partial) {
+        nativeOwners.add(action);
+        if (!partial) action.setAttribute('data-native-ui-vertical-bars', '');
+        action.setAttribute('data-native-ui-projected', '');
+        action.setAttribute('aria-hidden', 'true');
+      }
+      action.setAttribute('data-native-ui-vertical-bars-member', '');
+    });
+    const stop = observeVerticalBarsModals(document, () => true);
+    modal?.dispatchEvent(new CustomEvent('ionModalWillPresent', { bubbles: true }));
+    const handle = createVerticalBarsWebProjection(document, {}, () => false);
+    try {
+      await nextFrame();
+      if (modal) {
+        expect(projectionState.getTarget(group)).toBeUndefined();
+        for (const source of actions) expect(projectionState.getTarget(source)).toBeUndefined();
+        modal.dispatchEvent(new CustomEvent('ionModalDidPresent', { bubbles: true }));
+        await nextFrame();
+      }
+      const target = projectionState.getTarget(group)!;
+      expect(target?.isConnected).toBe(true);
+      expect(target.hasAttribute('data-native-ui-proxy-prepared')).toBe(true);
+      for (const source of actions) expect(projectionState.getTarget(source)?.isConnected).toBe(true);
+      expect(projectionState.getTarget(actions[0])).not.toBe(projectionState.getTarget(actions[1]));
+      // Native may release a source before its prepared proxy is retired.
+      nativeOwners.delete(actions[0]);
+      actions[0].removeAttribute('data-native-ui-vertical-bars');
+      actions[0].removeAttribute('data-native-ui-vertical-bars-member');
+      actions[0].removeAttribute('data-native-ui-projected');
+      actions[0].removeAttribute('aria-hidden');
+    } finally {
+      await handle.destroy();
+      expect(actions[0].hasAttribute('aria-hidden')).toBe(false);
+      expect(actions[1].hasAttribute('data-native-ui-projected')).toBe(!grouped || !!partial);
+      stop();
+    }
+  },
+);

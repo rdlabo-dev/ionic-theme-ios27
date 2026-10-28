@@ -421,7 +421,15 @@ test('moving modal keeps the background cache and resumes only after its own con
   expect(projectionState.preparedOwners.includes(foreground.button)).toBe(true);
   foreground.manager.begin();
   await drain();
-  expect(foreground.bridge).toHaveBeenCalledWith({ action: 'cover', token: 'image-1', transient: true });
+  expect(foreground.bridge).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: 'cover',
+      token: 'image-1',
+      transient: true,
+      viewportWidth: window.innerWidth,
+      parts: [expect.objectContaining({ ids: ['button'], x: 1, y: 2, width: 50, height: 40 })],
+    }),
+  );
   expect(projectionState.owns(background.button)).toBe(true);
   clone.getBoundingClientRect = () => DOMRect.fromRect({ x: 394, y: 339, width: 48, height: 48 });
   foreground.bridge.mockImplementation(async (args) => (args.action === 'restore' ? new Promise(() => {}) : { shown: true }));

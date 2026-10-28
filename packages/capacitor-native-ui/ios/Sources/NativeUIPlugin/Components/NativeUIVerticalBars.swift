@@ -14,7 +14,7 @@ protocol NativeUIVerticalBarsControlling: AnyObject {
 
 @available(iOS 26.0, *)
 final class NativeUIVerticalBarsModel: ObservableObject {
-    struct Item: Identifiable {
+    struct Item: Identifiable, Equatable {
         let id: String
         let transitionID: String
         let label: String
@@ -30,7 +30,7 @@ final class NativeUIVerticalBarsModel: ObservableObject {
         var selected: Bool
     }
 
-    struct Group: Identifiable {
+    struct Group: Identifiable, Equatable {
         let id: String
         let transitionID: String
         let items: [Item]
@@ -77,17 +77,20 @@ final class NativeUIVerticalBarsModel: ObservableObject {
                 pageGroups = pageGroups.filter { retained.contains($0.key) }
                 self.navigation = navigation
             }
-            self.accessory = accessory
-            groups = controls.compactMap { control in
+            if self.accessory != nil || accessory != nil { self.accessory = accessory }
+            let groups: [Group] = controls.compactMap { control in
                 guard [.button, .buttons, .menuButton, .backButton].contains(control.kind) else { return nil }
                 let items = control.items.map { item($0, isBack: control.kind == .backButton) }
                 return Group(id: control.id, transitionID: control.transitionId ?? control.id, items: items,
                              slot: control.toolbarSlot ?? (control.kind == .backButton ? .start : .end))
             }
+            if self.groups != groups { self.groups = groups }
             // Keep all snapshot publications in this transaction. A later unanimated
             // accessory/tab publication can cancel the toolbar animation.
-            tabTint = controls.first(where: { $0.kind == .tabBar })?.tabTint
-            tabs = controls.first(where: { $0.kind == .tabBar })?.items.map { item($0) } ?? []
+            let tabBar = controls.first(where: { $0.kind == .tabBar })
+            if tabTint != tabBar?.tabTint { tabTint = tabBar?.tabTint }
+            let tabs = tabBar?.items.map { item($0) } ?? []
+            if self.tabs != tabs { self.tabs = tabs }
             reconcileSelection(now: now)
         }
     }
@@ -108,9 +111,10 @@ final class NativeUIVerticalBarsModel: ObservableObject {
     }
 
     private func reconcileSelection(now: CFAbsoluteTime = CFAbsoluteTimeGetCurrent()) {
-        selection = NativeUITabBar.PendingSelection.reconcile(&pendingSelection,
+        let selection = NativeUITabBar.PendingSelection.reconcile(&pendingSelection,
             domSelection: tabs.first(where: \.selected)?.id,
             isAvailable: { id in tabs.contains { $0.id == id && !$0.disabled } }, now: now) ?? ""
+        if self.selection != selection { self.selection = selection }
         if pendingSelection == nil {
             pendingExpiryWork?.cancel()
             pendingExpiryWork = nil
@@ -615,7 +619,7 @@ final class NativeUIVerticalBarsController: NativeUIVerticalBarsControlling {
         if let search = controls.first(where: { $0.search != nil })?.search {
             if model.search?.configuration.id == search.id { model.search?.apply(search) }
             else { model.search = NativeUIVerticalSearchModel(search, in: container, activate: model.activate, changed: changed) }
-        } else { model.search = nil }
+        } else if model.search != nil { model.search = nil }
         if animated {
             model.apply(controls, rendering: rendering, animated: true, accessory: accessory, navigation: navigation)
         } else {

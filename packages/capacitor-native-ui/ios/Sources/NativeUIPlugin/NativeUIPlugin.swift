@@ -264,6 +264,19 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
     @objc func coveredSnapshot(_ call: CAPPluginCall) {
         DispatchQueue.main.async { [weak self] in
             guard let self, let webView = self.bridge?.webView else { call.reject("WebView unavailable"); return }
+            func projectionFrames() -> [String: CGRect]? {
+                guard let width = call.getDouble("viewportWidth"), width.isFinite, width > 0,
+                      let parts = call.getArray("parts", JSObject.self), !parts.isEmpty else { return nil }
+                let scale = webView.bounds.width / width
+                var frames: [String: CGRect] = [:]
+                for part in parts {
+                    guard let ids = part["ids"] as? [String], let x = part["x"] as? Double, let y = part["y"] as? Double,
+                          let w = part["width"] as? Double, let h = part["height"] as? Double,
+                          [x, y, w, h].allSatisfy({ $0.isFinite }), w > 0, h > 0 else { return nil }
+                    for id in ids { frames[id] = CGRect(x: x * scale, y: y * scale, width: w * scale, height: h * scale) }
+                }
+                return frames
+            }
             switch call.getString("action") {
             case "prepare":
                 guard call.getInt("revision") == self.revision, let width = call.getDouble("viewportWidth"), width > 0,
@@ -317,22 +330,15 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                 }
                 var views = Array(self.controls.filter { ids.contains($0.key) }.values)
                 if !railIDs.isEmpty, ids.isSuperset(of: railIDs), let rail = self.verticalBars { views.append(rail.view) }
-                let shown = self.coveredSnapshots.cover(token, in: webView, views: views, transient: call.getBool("transient") == true)
+                let frames = call.getArray("parts", JSObject.self) == nil ? nil : projectionFrames()
+                guard call.getArray("parts", JSObject.self) == nil || frames != nil else { call.resolve(["shown": false]); return }
+                let shown = self.coveredSnapshots.cover(token, in: webView, views: views, transient: call.getBool("transient") == true, frames: frames)
                 call.resolve(["shown": shown])
             case "painted":
                 if let token = call.getString("token") { self.coveredSnapshots.retireCopy(token) }
                 call.resolve()
             case "restore":
-                guard let token = call.getString("token"), let width = call.getDouble("viewportWidth"), width.isFinite, width > 0,
-                      let parts = call.getArray("parts", JSObject.self), !parts.isEmpty else { call.resolve(["shown": false]); return }
-                let scale = webView.bounds.width / width
-                var frames: [String: CGRect] = [:]
-                for part in parts {
-                    guard let ids = part["ids"] as? [String], let x = part["x"] as? Double, let y = part["y"] as? Double,
-                          let w = part["width"] as? Double, let h = part["height"] as? Double,
-                          [x, y, w, h].allSatisfy({ $0.isFinite }), w > 0, h > 0 else { call.resolve(["shown": false]); return }
-                    for id in ids { frames[id] = CGRect(x: x * scale, y: y * scale, width: w * scale, height: h * scale) }
-                }
+                guard let token = call.getString("token"), let frames = projectionFrames() else { call.resolve(["shown": false]); return }
                 call.resolve(["shown": self.coveredSnapshots.restore(in: webView, token: token, frames: frames)])
             case "restored":
                 if let token = call.getString("token") { self.coveredSnapshots.retireCopy(token, entry: false) }

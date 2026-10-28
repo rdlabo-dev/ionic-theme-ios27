@@ -675,6 +675,25 @@ final class NativeUISnapshotTests: XCTestCase {
         }
     }
 
+    @MainActor func testVerticalBarsGeometryDoesNotRepublishButtonContent() throws {
+        guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI adaptive controls") }
+        let model = NativeUIVerticalBarsModel()
+        let rendering = NativeUIControlRendering()
+        func controls(y: Double, disabled: Bool = false) throws -> [NativeUIControl] {
+            try decode([control(["kind": "ion-buttons", "y": y,
+                                 "items": [item(["id": "done", "disabled": disabled])]])]).controls
+        }
+        model.apply(try controls(y: 100), rendering: rendering)
+        var publications = 0
+        let observation = model.objectWillChange.sink { publications += 1 }
+        defer { observation.cancel() }
+        model.apply(try controls(y: 200), rendering: rendering)
+        XCTAssertEqual(publications, 0, "Moving the rail must not rebuild unchanged toolbar content")
+        model.apply(try controls(y: 200, disabled: true), rendering: rendering)
+        XCTAssertGreaterThan(publications, 0)
+        XCTAssertTrue(model.groups[0].items[0].disabled)
+    }
+
     @MainActor func testVerticalBarsPreserveButtonAppearance() throws {
         guard #available(iOS 26.0, *) else { throw XCTSkip("Requires SwiftUI adaptive controls") }
         let controls = try decode([control(["kind": "ion-buttons", "items": [

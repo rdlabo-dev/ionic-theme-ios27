@@ -103,6 +103,10 @@ export const createRuntime = async (
   const ids = new WeakMap<Element, string>();
   let rejected = new WeakMap<HTMLElement, string>();
   const sources = new Map<HTMLElement, string | null>();
+  let acquiringSources: Set<HTMLElement> | undefined;
+  const unregisterNativeOwner = projectionState.registerNativeOwner(
+    (source) => sources.has(source) || acquiringSources?.has(source) === true,
+  );
   const verticalBarsOwners = new Set<HTMLElement>();
   const verticalBarsMembers = new Set<HTMLElement>();
   const suspended = new Set<HTMLElement[]>();
@@ -397,7 +401,7 @@ export const createRuntime = async (
       ...Array.from(scope.querySelectorAll<HTMLElement>(`[${marker}], [data-native-ui-web-source]`)).filter(isVerticalBarsSource),
     ]);
     const candidates = navigation.measure(() =>
-      unprojected(measurableSources, () =>
+      unprojected([...measurableSources].filter(inVerticalBarsSurface), () =>
         search
           .decorate(
             Array.from(scope.querySelectorAll<HTMLElement>(discovery))
@@ -933,6 +937,7 @@ export const createRuntime = async (
         element.setAttribute(verticalBarsMemberMarker, '');
         verticalBarsMembers.add(element);
       }
+      acquiringSources = new Set(accepted.flatMap(candidateSources));
       if (acceptedVerticalBarsOwners.size)
         win.dispatchEvent(new CustomEvent('nativeUIVerticalBarsAcquire', { detail: { instant: handoffInstant } }));
       for (const candidate of accepted) {
@@ -954,6 +959,7 @@ export const createRuntime = async (
           if (newlyProjected) element.dispatchEvent(new CustomEvent('nativeUIChange'));
         }
       }
+      acquiringSources = undefined;
       // Transfer DOM ownership before retiring the image; partial/rejected acknowledgements keep it.
       const restoredIDs = accepted
         .filter((candidate) => !result.rejectedControls?.includes(candidate.control.id))
@@ -1435,6 +1441,7 @@ export const createRuntime = async (
         modalSnapshots.clear();
         await snapshots?.destroy();
         restoreAll();
+        unregisterNativeOwner();
         if (!doc.hidden) await painted();
         try {
           await bounded(plugin.clear({ revision: ++revision }));

@@ -1,4 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest';
+import { prepareSheetLayout } from '../../packages/capacitor-native-ui/src/native/shared/modal-animation';
 import { releaseSheetBackdropGesture } from '../../packages/capacitor-native-ui/src/native/shared/modal';
 
 afterEach(() => {
@@ -83,4 +84,62 @@ test('a different backdrop breakpoint does not match the sheet gesture', () => {
   (f.modal as HTMLIonModalElement).backdropBreakpoint = 0.25;
   releaseSheetBackdropGesture(f.modal);
   expect(f.gesture.cancel).not.toHaveBeenCalled();
+});
+
+const sheetLayout = (breakpoint: number) => {
+  const modal = document.createElement('ion-modal');
+  modal.className = 'modal-sheet modal-no-expand-scroll';
+  modal.initialBreakpoint = breakpoint;
+  const page = document.createElement('div');
+  page.className = 'ion-page';
+  modal.append(page);
+  class Effect {
+    target = page;
+    frames = [0, 1].map((offset) => ({
+      offset,
+      computedOffset: offset,
+      easing: 'linear',
+      composite: 'auto',
+      opacity: '1',
+      maxHeight: `${Number(((offset ? breakpoint : 1 - breakpoint) * 100).toFixed(6))}%`,
+    }));
+    getKeyframes() {
+      return this.frames;
+    }
+    setKeyframes = vi.fn();
+  }
+  vi.stubGlobal('KeyframeEffect', Effect);
+  const effect = new Effect();
+  const animation = { playState: 'running', effect };
+  page.getAnimations = () => [animation] as unknown as Animation[];
+  return { modal, effect, animation };
+};
+
+test.each([0.25, 0.5, 0.8, 1])('sheet entry lays out its destination breakpoint %s before translating', (breakpoint) => {
+  const { modal, effect } = sheetLayout(breakpoint);
+  prepareSheetLayout(modal);
+  expect(effect.setKeyframes).toHaveBeenCalledWith(
+    [0, 1].map((offset) => ({
+      offset,
+      easing: 'linear',
+      composite: 'auto',
+      opacity: '1',
+      maxHeight: `${breakpoint * 100}%`,
+    })),
+  );
+});
+
+test('sheet layout preparation leaves custom effects, dormant gestures and other presentations untouched', () => {
+  const { modal, effect } = sheetLayout(0.8);
+  Object.assign(effect.frames[0], { transform: 'scale(0.9)' });
+  prepareSheetLayout(modal);
+  expect(effect.setKeyframes).not.toHaveBeenCalled();
+  const gesture = sheetLayout(0.8);
+  gesture.animation.playState = 'paused';
+  prepareSheetLayout(gesture.modal);
+  expect(gesture.effect.setKeyframes).not.toHaveBeenCalled();
+  const regular = sheetLayout(0.8);
+  regular.modal.classList.remove('modal-no-expand-scroll');
+  prepareSheetLayout(regular.modal);
+  expect(regular.effect.setKeyframes).not.toHaveBeenCalled();
 });

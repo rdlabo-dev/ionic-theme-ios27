@@ -4,11 +4,20 @@ import type { WebProjectionBatch } from '@webview-native-ui/engine';
 const states = new WeakMap<Document, NativeUIProjectionState>();
 const createState = () => {
   const managers = new Set<WebProjectionBatch>();
+  const nativeOwners = new Set<(source: HTMLElement) => boolean>();
   const targets = new WeakMap<HTMLElement, HTMLElement>();
   const imageMarker = 'data-native-ui-snapshot';
   const collect = (key: 'owners' | 'visibleOwners' | 'preparedOwners') => [...new Set([...managers].flatMap((manager) => manager[key]))];
   return {
     imageMarker,
+    nativeOwns: (source: HTMLElement) => [...nativeOwners].some((owns) => owns(source)),
+    registerNativeOwner(owns: (source: HTMLElement) => boolean) {
+      nativeOwners.add(owns);
+      return () => nativeOwners.delete(owns);
+    },
+    get snapshotsEnabled() {
+      return managers.size > 0;
+    },
     sourcesChangedEvent: 'native-ui:sources-change',
     targetsChangedEvent: 'native-ui:targets-change',
     register(manager: WebProjectionBatch) {

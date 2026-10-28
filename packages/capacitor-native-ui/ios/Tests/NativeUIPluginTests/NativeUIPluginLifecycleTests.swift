@@ -48,9 +48,7 @@ final class NativeUIPluginLifecycleTests: XCTestCase {
 
     @MainActor func testOrientationPreservesCoveredControlsUntilRestore() async throws {
         let fixture = try await project()
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 390, height: 844)
+        let window = LifecycleSnapshotWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
         window.rootViewController = fixture.bridge.viewController
         window.makeKeyAndVisible()
         defer { window.isHidden = true }
@@ -108,6 +106,16 @@ final class NativeUIPluginLifecycleTests: XCTestCase {
                     userInfo: [NSLocalizedDescriptionKey: String(describing: error)])) })!
             plugin.update(call)
         }
+    }
+}
+
+// Package tests have no application scene. This test exercises ownership across
+// orientation notifications, independently of application-scene rendering.
+private final class LifecycleSnapshotWindow: UIWindow {
+    override func drawHierarchy(in rect: CGRect, afterScreenUpdates: Bool) -> Bool {
+        UIColor.white.setFill()
+        UIRectFill(rect)
+        return true
     }
 }
 

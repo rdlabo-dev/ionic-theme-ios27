@@ -67,3 +67,43 @@ export const readModalAnimation = (content: HTMLElement): { animation: ModalAnim
     frame: { x: 0, y, width: win.innerWidth, height },
   };
 };
+
+/** Keep layout at the destination size; the wrapper transform reveals the sheet.
+ * Only Ionic's standard sheet-entry height animation is changed. Its final size,
+ * duration, wrapper motion and later breakpoint animations remain Ionic-owned.
+ */
+export const prepareSheetLayout = (modal: HTMLElement & { initialBreakpoint?: number }): void => {
+  if (!modal.matches('.modal-sheet.modal-no-expand-scroll')) return;
+  const breakpoint = modal.initialBreakpoint;
+  if (breakpoint === undefined || !Number.isFinite(breakpoint) || breakpoint <= 0 || breakpoint > 1) return;
+  const page = modal.querySelector<HTMLElement>(':scope > .ion-page');
+  for (const animation of page?.getAnimations?.() ?? []) {
+    const effect = animation.effect;
+    if (animation.playState !== 'running' || !(effect instanceof KeyframeEffect) || effect.target !== page) continue;
+    const frames = effect.getKeyframes();
+    if (
+      frames.length !== 2 ||
+      !frames.every(
+        (frame, index) =>
+          frame.offset === index &&
+          frame.easing === 'linear' &&
+          Number(frame['opacity']) === 1 &&
+          typeof frame['maxHeight'] === 'string' &&
+          /^\d+(?:\.\d+)?%$/.test(frame['maxHeight']) &&
+          Math.abs(parseFloat(frame['maxHeight']) - (index === 0 ? 1 - breakpoint : breakpoint) * 100) < 0.000001 &&
+          (frame.composite === 'auto' || frame.composite === 'replace') &&
+          Object.keys(frame).every((key) => ['offset', 'computedOffset', 'easing', 'composite', 'opacity', 'maxHeight'].includes(key)),
+      )
+    )
+      continue;
+    effect.setKeyframes(
+      frames.map((frame) => ({
+        offset: frame.offset,
+        easing: frame.easing,
+        composite: frame.composite,
+        opacity: frame['opacity'],
+        maxHeight: frames[1]['maxHeight'],
+      })),
+    );
+  }
+};

@@ -1,6 +1,6 @@
 import { enableSupportIonicOverlays, ionicModalStack } from '@webview-native-ui/engine/ionic';
 import type { Frame } from '../definitions';
-import { readModalAnimation, type ModalAnimation } from './modal-animation';
+import { prepareSheetLayout, readModalAnimation, type ModalAnimation } from './modal-animation';
 
 /** Modal hosts cover the viewport even when their visible dialog is centered. */
 export const modalRailClass = 'ios-theme-vertical-bars-modal';
@@ -101,8 +101,10 @@ export const observeVerticalBarsModals = (doc: Document, animate: () => boolean 
       const content = top.shadowRoot?.querySelector<HTMLElement>('[part~="content"]');
       if (content?.getAnimations().some((animation) => animation.playState === 'running')) {
         const presentation = readModalAnimation(content);
-        if (presentation) presentations.set(top, presentation);
-        else presentations.delete(top); // Unsupported custom animations retain the existing projection path.
+        if (presentation) {
+          prepareSheetLayout(top);
+          presentations.set(top, presentation);
+        } else presentations.delete(top); // Unsupported custom animations retain the existing projection path.
         changed = true;
       }
     }
