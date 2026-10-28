@@ -490,7 +490,7 @@ final class NativeUISnapshotTests: XCTestCase {
         XCTAssertEqual(completed, [0, 1, 2, 3])
     }
 
-    @MainActor func testMissingPopoverDisappearanceCancelsPresentationAndSettlesAllWaiters() {
+    @MainActor func testMissingPopoverDisappearanceCancelsPresentationAndSettlesAllWaiters() async {
         let host = NativeUIOverlayHost(configuration: WKWebViewConfiguration(), options: nil, event: { _ in })
         host.anchoredVisible = true
         host.dismissAnchored = {} // No onDisappear callback arrives.
@@ -504,7 +504,7 @@ final class NativeUISnapshotTests: XCTestCase {
                 closed.fulfill()
             }
         }
-        waitForExpectations(timeout: NativeUIOverlayHost.completionTimeout + 2)
+        await fulfillment(of: [closed], timeout: NativeUIOverlayHost.completionTimeout + 2)
         XCTAssertFalse(host.anchoredVisible)
     }
 
