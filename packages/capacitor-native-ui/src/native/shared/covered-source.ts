@@ -33,17 +33,25 @@ const createState = () => {
     deleteTarget: (source: HTMLElement) => targets.delete(source),
     isProjectionMutation(record: MutationRecord) {
       const target = record.target instanceof Element ? record.target : record.target.parentElement;
+      if (target?.closest('[data-native-ui-projection-node]')) return true;
       if (target?.closest(`:is(.ion-cloned-element, [data-native-ui-proxy])[${imageMarker}]`)) return true;
       if (
         record.type === 'attributes' &&
-        [imageMarker, 'data-native-ui-snapshot-prepared', 'data-native-ui-snapshot-source', 'data-native-ui-snapshot-visible'].includes(
-          record.attributeName ?? '',
-        )
+        [
+          imageMarker,
+          'data-native-ui-snapshot-prepared',
+          'data-native-ui-snapshot-source',
+          'data-native-ui-snapshot-visible',
+          'data-native-ui-snapshot-content',
+          'data-native-ui-snapshot-positioned',
+        ].includes(record.attributeName ?? '')
       )
         return true;
       const image = (node: Node) =>
         node instanceof Element &&
-        node.matches(`style[${imageMarker}], style[data-native-ui-snapshot-base], [data-native-ui-snapshot-prepared]`);
+        node.matches(
+          `style[${imageMarker}], style[data-native-ui-snapshot-base], [data-native-ui-snapshot-prepared], [data-native-ui-projection-node]`,
+        );
       const nodes = [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)];
       return image(record.target) || (record.type === 'childList' && nodes.length > 0 && nodes.every(image));
     },

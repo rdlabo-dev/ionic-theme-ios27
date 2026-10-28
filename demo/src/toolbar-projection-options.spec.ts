@@ -151,3 +151,18 @@ test('a shell opt-out in a group prevents sibling projection even with local opt
   document.querySelector('#b')!.setAttribute('data-horizontal-bars', 'true');
   expect(candidates({ controls: { buttonGroup: false } })).toEqual(['back']);
 });
+
+for (const tag of ['img', 'canvas']) {
+  test(`Engine-owned ${tag} does not change toolbar discovery`, () => {
+    mount();
+    const options = { controls: { buttonGroup: true, button: true } };
+    const expected = candidates(options);
+    const image = document.createElement(tag);
+    image.setAttribute('data-native-ui-projection-node', '');
+    document.querySelector('#group')!.append(image);
+    expect(candidates(options)).toEqual(expected);
+    // Application-owned unsupported content must still reject the group.
+    image.removeAttribute('data-native-ui-projection-node');
+    expect(candidates(options)).not.toContain('group');
+  });
+}

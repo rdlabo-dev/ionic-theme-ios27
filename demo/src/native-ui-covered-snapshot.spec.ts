@@ -837,3 +837,25 @@ test.each(['rejected', 'ack'])('card restores sibling fallback order after %s', 
   expect([...parent.children]).toEqual([...proxies, tail]);
   expect(surface.children).toHaveLength(0);
 });
+
+test('retained engine image mutations do not invalidate captures, but author changes still do', () => {
+  const source = document.createElement('div');
+  document.body.append(source);
+  const observer = new MutationObserver(() => {});
+  observer.observe(source, { subtree: true, attributes: true, childList: true });
+  const image = document.createElement('img');
+  image.setAttribute('data-native-ui-projection-node', '');
+  source.append(image);
+  image.style.opacity = '1';
+  image.setAttribute('src', 'prepared.png');
+  source.setAttribute('data-native-ui-snapshot-content', '');
+  source.setAttribute('data-native-ui-snapshot-positioned', '');
+  image.remove();
+  const authorImage = document.createElement('img');
+  source.append(authorImage);
+  authorImage.setAttribute('src', 'author.png');
+  source.setAttribute('disabled', '');
+  expect(observer.takeRecords().map(isProjectionMutation)).toEqual([true, true, true, true, true, true, false, false, false]);
+  observer.disconnect();
+  source.remove();
+});
