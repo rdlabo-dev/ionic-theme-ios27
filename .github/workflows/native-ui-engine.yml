@@ -20,11 +20,19 @@ jobs:
           CAPACITOR_IOS_VERSION=$(node -p "require('./demo/package.json').dependencies['@capacitor/ios']")
           npm install --prefix "$RUNNER_TEMP/engine-pods-deps" --ignore-scripts --no-package-lock "@capacitor/ios@$CAPACITOR_IOS_VERSION"
           bash scripts/verify-engine-pods.sh "$RUNNER_TEMP/engine-pods-deps/node_modules/@capacitor/ios"
+      - name: Install XcodeGen
+        run: brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
       - name: Test on an available iPhone simulator
         run: |
           DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for devices in json.load(sys.stdin)["devices"].values() for d in devices if d["name"].startswith("iPhone")))')
           cd packages/capacitor-native-ui
-          xcodebuild -scheme RdlaboCapacitorNativeUi -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO test
+          # SwiftUI presentations require an application event loop on iOS 26.
+          POPOVER_CLOSE=NativeUIPluginTests/NativeUISnapshotTests/testNativePopoverClosureNotifiesWebBeforeReopening
+          POPOVER_REPLACE=NativeUIPluginTests/NativeUISnapshotTests/testPopoverReopensAfterPresentationIdentityKeepsReplacedSource
+          xcodebuild -scheme RdlaboCapacitorNativeUi -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO -skip-testing:"$POPOVER_CLOSE" -skip-testing:"$POPOVER_REPLACE" test
+          cd ios/Tests
+          xcodegen generate
+          xcodebuild -project NativeUIHostedTests.xcodeproj -scheme NativeUIHostedTests -destination "platform=iOS Simulator,id=$DEVICE" CODE_SIGNING_ALLOWED=NO -only-testing:"$POPOVER_CLOSE" -only-testing:"$POPOVER_REPLACE" test
   android:
     runs-on: ubuntu-latest
     steps:

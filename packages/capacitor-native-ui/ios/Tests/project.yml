@@ -1,0 +1,38 @@
+name: NativeUIHostedTests
+options:
+  deploymentTarget:
+    iOS: '17.0'
+packages:
+  NativeUI:
+    path: ../..
+targets:
+  TestHost:
+    type: application
+    platform: iOS
+    sources: [TestHost/AppDelegate.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.ionic.nativeui.testhost
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+  NativeUIPluginTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [NativeUIPluginTests]
+    dependencies:
+      - target: TestHost
+      - package: NativeUI
+        product: RdlaboCapacitorNativeUi
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.ionic.nativeui.hostedtests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: '5.0'
+schemes:
+  NativeUIHostedTests:
+    build:
+      targets:
+        TestHost: all
+        NativeUIPluginTests: [test]
+    test:
+      targets: [NativeUIPluginTests]
