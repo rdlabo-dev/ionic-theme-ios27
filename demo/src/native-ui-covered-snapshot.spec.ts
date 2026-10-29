@@ -47,8 +47,8 @@ const fixture = async (modal?: HTMLIonModalElement) => {
   const callbacks = {
     flush: vi.fn().mockResolvedValue(undefined),
     wake: vi.fn(),
-    blocked: () => false,
-    ...(modal ? { modal: () => modal } : {}),
+    blocked: vi.fn(() => false),
+    modal,
   };
   const manager = await createCoveredSnapshots(
     document,
@@ -486,7 +486,7 @@ test('an overlay retirement cannot invalidate the prepared pre-overlay layout', 
   const f = await fixture();
   f.manager.consider(1, [f.candidate]);
   await drain();
-  f.callbacks.blocked = () => true;
+  f.callbacks.blocked.mockReturnValue(true);
   f.manager.consider(2, []);
   f.manager.begin();
   expect(f.bridge).toHaveBeenCalledWith({ action: 'cover', token: 'image-1' });
@@ -552,7 +552,7 @@ test('a departing modal image cannot restore onto the newly exposed modal', asyn
   await drain();
   f.manager.begin();
   await drain();
-  f.callbacks.modal = () => parent;
+  parent.append(f.button);
   f.manager.end();
   expect(f.bridge.mock.calls.some(([args]) => args.action === 'restore')).toBe(false);
   expect(projectionState.owns(f.button)).toBe(false);
@@ -566,7 +566,7 @@ test('a cached modal image cannot be adopted by another modal', async () => {
   const f = await fixture(modal);
   f.manager.consider(1, [f.candidate]);
   await drain();
-  f.callbacks.modal = () => next;
+  next.append(f.button);
   f.manager.begin();
   expect(f.manager.token).toBeUndefined();
   expect(f.bridge.mock.calls.some(([args]) => args.action === 'cover')).toBe(false);

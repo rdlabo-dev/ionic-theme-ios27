@@ -1,11 +1,11 @@
 import {
   createNativeUpdateQueue,
+  createScrollBindings,
   createWebProjectionSurfaces,
   type NativeUpdateSender,
   type OverlayChange,
 } from '@webview-native-ui/engine';
 import { enableSupportIonicOverlays, coveredIonicSurface } from '@webview-native-ui/engine/ionic';
-import { createScrollBindings } from '@webview-native-ui/engine';
 import { movingModal, modalMotionEvent } from './shared/modal';
 import { coverOverlayBackground, usesCoveredBackground } from './overlays/covered-overlay';
 import { getProjectionState } from './shared/covered-source';
@@ -103,7 +103,6 @@ export const createRuntime = async (
   const projectionSurfaces = createWebProjectionSurfaces<Document | HTMLIonModalElement, CoveredSnapshots>({
     ignoreTarget: (target) => !!target.closest('.ion-cloned-element, [data-native-ui-proxy]'),
   });
-  const imageSurfaces = () => projectionSurfaces.values();
   const imagesFor = (modal?: HTMLIonModalElement) => projectionSurfaces.get(modal ?? doc);
   const coveredSurface = (overlay: HTMLElement) => coveredIonicSurface(overlay) as HTMLIonModalElement | undefined;
   const ids = new WeakMap<Element, string>();
@@ -1356,7 +1355,7 @@ export const createRuntime = async (
         manualSuspensions.set(token, suspensionOptions?.covered === true);
         if ([...manualSuspensions.values()].every(Boolean)) imagesFor(topModal(doc))?.begin();
         else
-          imageSurfaces().forEach((surface) => {
+          projectionSurfaces.values().forEach((surface) => {
             if (surface.token || surface.restoring) surface.invalidate();
           });
         getNativeSearchBindings(doc).forEach((binding) => search.retire(binding));
@@ -1521,7 +1520,7 @@ export const createRuntime = async (
             createCoveredSnapshots(doc, plugin, connection?.listen ?? plugin.addListener.bind(plugin), {
               ...shared,
               // The source surface is immutable; foreground ownership may change.
-              modal: () => modal,
+              modal,
               blocked: () =>
                 topModal(doc) !== modal ||
                 modalPreparing(modal) ||

@@ -7,9 +7,10 @@ export const createCoveredSnapshots = async (
   doc: Document,
   plugin: NativeUIPlugin,
   listen: NativeUIPlugin['addListener'],
-  callbacks: { wake: () => void; blocked: () => boolean; modal?: () => HTMLIonModalElement | undefined; revision?: () => number },
+  callbacks: { wake: () => void; blocked: () => boolean; modal?: HTMLIonModalElement; revision?: () => number },
 ) => {
   const state = getProjectionState(doc);
+  const { modal, wake, blocked, revision } = callbacks;
   const projection = await createWebProjectionSurface(
     {
       send: (request) => plugin.coveredSnapshot!(request),
@@ -25,15 +26,15 @@ export const createCoveredSnapshots = async (
           : source;
       },
       canRelocate: (target) => target.matches('.ion-cloned-element, [data-native-ui-proxy]'),
-      wake: callbacks.wake,
-      blocked: () => callbacks.blocked(),
-      revision: callbacks.revision ? () => callbacks.revision!() : undefined,
-      transient: !!callbacks.modal,
+      wake,
+      blocked,
+      revision,
+      transient: !!modal,
       eligible: (source) =>
-        callbacks.modal
-          ? !!callbacks.modal() && source.element.closest('ion-modal') === callbacks.modal() && source.control.placement === 'vertical-bars'
+        modal
+          ? source.element.closest('ion-modal') === modal && source.control.placement === 'vertical-bars'
           : !source.element.closest('ion-modal'),
-      current: (sources) => !callbacks.modal || sources.every((source) => source.closest('ion-modal') === callbacks.modal!()),
+      current: (sources) => !modal || sources.every((source) => source.closest('ion-modal') === modal),
     },
   );
   const unregister = state.register(projection);
