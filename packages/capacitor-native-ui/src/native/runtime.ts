@@ -332,6 +332,8 @@ export const createRuntime = async (
   const flush = async (transition?: NonNullable<typeof navigation.current>) => {
     if (stopped) return;
     schedule();
+    // Reconnection owns the next state update; do not block a Web lifecycle on its acknowledgement.
+    if (updateQueue.waiting) return;
     try {
       await bounded(new Promise<void>((resolve) => waiters.push({ resolve, transition })));
     } catch (error) {
@@ -1014,7 +1016,7 @@ export const createRuntime = async (
         handoffUntil = Math.max(handoffUntil, win.performance.now() + 400);
       }
       handoffAcrossPending = false;
-      if (!updateQueue.dirty || stopped) finishWaiters();
+      if (updateQueue.waiting || !updateQueue.dirty || stopped) finishWaiters();
       if (!stopped && !updateQueue.dirty && acceptedRevision === revision && !navigation.current && !verticalGesture) {
         projectionSurfaces.consider(acceptedRevision, acknowledged);
       }

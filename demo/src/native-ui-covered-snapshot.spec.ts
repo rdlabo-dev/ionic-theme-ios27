@@ -678,6 +678,59 @@ test('engine base stylesheet insertion and removal are not source visual changes
   observer.disconnect();
 });
 
+test.each(['rejected', 'ack'])('card restores sibling fallback order after %s', async (completion) => {
+  const f = await fixture();
+  const surface = document.createElement('main');
+  const parent = document.createElement('aside');
+  const second = document.createElement('ion-button');
+  document.body.append(surface, parent, second);
+  const sources = [f.button, second];
+  const proxies = sources.map((source) => {
+    const proxy = document.createElement('ion-button');
+    proxy.className = 'ion-cloned-element';
+    parent.append(proxy);
+    projectionState.setTarget(source, proxy);
+    return proxy;
+  });
+  const tail = document.createElement('span');
+  parent.append(tail);
+  const candidates = sources.map((source, index) => {
+    const candidate = createCandidate(source, 'button', () => String(index));
+    candidate.control.placement = 'vertical-bars';
+    return candidate;
+  });
+  f.bridge.mockImplementation(async (args) =>
+    args.action === 'prepare'
+      ? {
+          token: 'pair',
+          parts: candidates.map((candidate, index) => ({
+            ids: [candidate.control.id],
+            url: 'file:///snapshot.png',
+            x: index * 50,
+            y: 2,
+            width: 50,
+            height: 40,
+          })),
+        }
+      : { shown: completion !== 'rejected' },
+  );
+  f.manager.consider(1, candidates);
+  await drain();
+  f.manager.begin(surface);
+  expect([...surface.children]).toEqual(proxies);
+  await vi.advanceTimersByTimeAsync(0);
+  if (completion === 'ack') {
+    f.manager.end();
+    f.manager.updated(
+      undefined,
+      candidates.map((candidate) => candidate.control.id),
+      2,
+    );
+  }
+  expect([...parent.children]).toEqual([...proxies, tail]);
+  expect(surface.children).toHaveLength(0);
+});
+
 test('retained engine image mutations do not invalidate captures, but author changes still do', () => {
   const source = document.createElement('div');
   document.body.append(source);

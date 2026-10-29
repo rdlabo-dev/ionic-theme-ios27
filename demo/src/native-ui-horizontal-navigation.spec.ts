@@ -1,6 +1,7 @@
 import { afterEach, expect, onTestFinished, test, vi } from 'vitest';
 import { observeVerticalBarsModals } from '../../packages/capacitor-native-ui/src/native/shared/modal';
 import { createRuntime } from '../../packages/capacitor-native-ui/src/native/runtime';
+import type { NativeUIConnection } from '../../packages/capacitor-native-ui/src/native/shared/connection';
 import { suspendNativeUI } from '../../packages/capacitor-native-ui/src/native-integration';
 import type { NativeUIPlugin, NativeUISnapshot, NativeUIRuntimeHandle } from '../../packages/capacitor-native-ui/src/native/definitions';
 
@@ -12,7 +13,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
   document.body.replaceChildren();
 });
-const fixture = async (from = 'Edit', to = 'Done', nativeProgress = false) => {
+const fixture = async (from = 'Edit', to = 'Done', nativeProgress = false, withConnection = false) => {
   document.body.innerHTML = `<ion-app><main class="ion-page" id="from"><ion-header><ion-toolbar>
     ${from ? `<button slot="${from === 'Menu' || from === 'Back' ? 'start' : 'end'}" data-native-ui="${from === 'Back' ? 'back-button' : 'button'}">${from}</button>` : ''}
     </ion-toolbar></ion-header></main><main class="ion-page ion-page-hidden" id="to"><ion-header><ion-toolbar>
@@ -53,7 +54,21 @@ const fixture = async (from = 'Edit', to = 'Done', nativeProgress = false) => {
     },
     clear: async () => {},
   } as unknown as NativeUIPlugin;
-  handle = await createRuntime(document, plugin, { source: 'html' });
+  let connectionCheck: Parameters<NativeUIConnection['observe']>[0] | undefined;
+  const connection: NativeUIConnection | undefined = withConnection
+    ? {
+        listen: plugin.addListener.bind(plugin),
+        observe(check) {
+          connectionCheck = check;
+          return () => {
+            connectionCheck = undefined;
+          };
+        },
+        start() {},
+        stop() {},
+      }
+    : undefined;
+  handle = await createRuntime(document, plugin, { source: 'html' }, undefined, undefined, connection);
   await vi.waitFor(() => expect(snapshots.length).toBeGreaterThan(0));
   const leaving = document.querySelector<HTMLElement>('#from')!;
   const entering = document.querySelector<HTMLElement>('#to')!;
@@ -64,6 +79,18 @@ const fixture = async (from = 'Edit', to = 'Done', nativeProgress = false) => {
     leaving,
     entering,
     listeners,
+    reconnect: () =>
+      connectionCheck?.(
+        {
+          session: 'recovered',
+          revision: snapshots.at(-1)!.revision,
+          sequence: 0,
+          listeners: [...listeners.keys()],
+          surfaces: { horizontal: true, vertical: true },
+        },
+        true,
+        performance.now(),
+      ),
     setAck: (next: typeof acknowledge) => {
       acknowledge = next;
     },
@@ -749,6 +776,84 @@ test.each(['rejection', 'revision mismatch'])('native update %s respects the ret
   );
   expect(f.leaving.querySelector('[data-native-ui-projected]')).toBeNull();
   expect(warning).toHaveBeenCalledOnce();
+});
+
+test.each(['suspend', 'navigation'] as const)(
+  '%s completes while awaiting reconnection and recovers current state without replaying input',
+  async (operation) => {
+    const f = await fixture('Edit', 'Done', false, true);
+    const source = f.leaving.querySelector('button')!;
+    const clicked = vi.fn();
+    source.addEventListener('click', clicked);
+    const initial = f.snapshots.at(-1)!;
+    f.listeners.get('activate')!({ id: initial.controls[0].items[0].id, revision: initial.revision, sequence: 1 });
+    expect(clicked).toHaveBeenCalledOnce();
+    let attempts = 0;
+    f.setAck(async () => {
+      attempts++;
+      throw new Error('Temporary bridge outage');
+    });
+    source.textContent = 'Changed while disconnected';
+    await vi.waitFor(() => expect(attempts).toBe(2));
+    let completed = false;
+    const operationDone =
+      operation === 'suspend'
+        ? handle!.suspend().then(async (suspension) => {
+            source.textContent = 'Recovered';
+            await suspension.resume();
+            completed = true;
+          })
+        : f.start().then((release) => {
+            f.entering.querySelector('button')!.textContent = 'Recovered';
+            release();
+            completed = true;
+          });
+    // Waiting for the bridge must not hold the UI until flush's five-second timeout.
+    await vi.waitFor(() => expect(completed).toBe(true));
+    await operationDone;
+    expect(attempts).toBe(2);
+    expect(handle!.getStatus().state).not.toBe('stopped');
+    expect(handle!.getStatus().reason).toBeUndefined();
+    f.setAck(undefined);
+    await f.reconnect();
+    const currentSource = (operation === 'suspend' ? f.leaving : f.entering).querySelector('button')!;
+    await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Recovered'));
+    await vi.waitFor(() => expect(currentSource.hasAttribute('data-native-ui-projected')).toBe(true));
+    expect(handle!.getStatus().state).toBe('native');
+    expect(clicked).toHaveBeenCalledOnce();
+  },
+);
+
+test('a suspension already waiting for an update completes when the queue enters reconnection wait', async () => {
+  const f = await fixture('Edit', 'Done', false, true);
+  const source = f.leaving.querySelector('button')!;
+  let attempts = 0;
+  let rejectRetry: ((error: Error) => void) | undefined;
+  f.setAck(async () => {
+    if (++attempts === 1) throw new Error('First update failed');
+    return new Promise((_resolve, reject) => {
+      rejectRetry = reject;
+    });
+  });
+  source.textContent = 'Changed';
+  await vi.waitFor(() => expect(rejectRetry).toBeDefined());
+  let completed = false;
+  const suspensionDone = handle!.suspend().then((suspension) => {
+    completed = true;
+    return suspension;
+  });
+  expect(completed).toBe(false);
+  rejectRetry!(new Error('Retry failed'));
+  await vi.waitFor(() => expect(completed).toBe(true));
+  const suspension = await suspensionDone;
+  expect(handle!.getStatus().state).not.toBe('stopped');
+  source.textContent = 'Latest after suspension';
+  await suspension.resume();
+  f.setAck(undefined);
+  await f.reconnect();
+  await vi.waitFor(() => expect(f.snapshots.at(-1)?.controls[0]?.items[0]?.label).toBe('Latest after suspension'));
+  await vi.waitFor(() => expect(source.hasAttribute('data-native-ui-projected')).toBe(true));
+  expect(handle!.getStatus().reason).toBeUndefined();
 });
 
 test.each([false, true])('an update acknowledged during retention reconnects unchanged DOM (vertical=%s)', async (vertical) => {
