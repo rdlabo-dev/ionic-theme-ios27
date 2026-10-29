@@ -6,7 +6,7 @@ let package = Package(
     products: [
         .library(name: "RdlaboCapacitorNativeUi", targets: ["NativeUIPlugin"])
     ],
-    dependencies: [.package(url: "https://github.com/webview-native-ui/engine.git", exact: "1.0.0"), .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")],
+    dependencies: [.package(url: "https://github.com/webview-native-ui/engine.git", from: "1.0.0"), .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")],
     targets: [.target(
         name: "NativeUIPlugin",
         dependencies: [

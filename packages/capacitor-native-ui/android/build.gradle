@@ -68,8 +68,7 @@ repositories {
 }
 
 dependencies {
-    def engineVersion = new groovy.json.JsonSlurper().parse(file('../package.json')).dependencies['@webview-native-ui/engine']
-    implementation "io.github.webview-native-ui:engine:$engineVersion"
+    implementation 'io.github.webview-native-ui:engine:[1.0.0,2.0.0)'
     api platform("androidx.compose:compose-bom:2025.10.00")
     api "androidx.compose.ui:ui"
     api "androidx.compose.foundation:foundation"

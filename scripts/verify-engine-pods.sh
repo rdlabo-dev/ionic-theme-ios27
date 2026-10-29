@@ -10,8 +10,8 @@ for package in capacitor-native-ui; do
   mkdir -p "$ENGINE_PODS_TEMP/node_modules/@rdlabo/$package"
   tar -xzf "$ENGINE_PODS_TEMP/$archive" --strip-components=1 -C "$ENGINE_PODS_TEMP/node_modules/@rdlabo/$package"
 done
-engine_version=$(node -p "require('./packages/capacitor-native-ui/package.json').dependencies['@webview-native-ui/engine']")
-archive=$(npm pack "@webview-native-ui/engine@$engine_version" --ignore-scripts --json --pack-destination "$ENGINE_PODS_TEMP" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8"))[0].filename')
+engine_requirement=$(node -p "require('./packages/capacitor-native-ui/package.json').dependencies['@webview-native-ui/engine']")
+archive=$(npm pack "@webview-native-ui/engine@$engine_requirement" --ignore-scripts --json --pack-destination "$ENGINE_PODS_TEMP" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8"))[0].filename')
 mkdir -p "$ENGINE_PODS_TEMP/node_modules/@webview-native-ui/engine"
 tar -xzf "$ENGINE_PODS_TEMP/$archive" --strip-components=1 -C "$ENGINE_PODS_TEMP/node_modules/@webview-native-ui/engine"
 mkdir -p "$ENGINE_PODS_TEMP/ios/App"

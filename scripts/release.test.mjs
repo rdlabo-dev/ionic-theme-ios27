@@ -23,7 +23,7 @@ function runBetaRelease(t, { existing = {}, dependencyMismatch = false, kitDepen
   const registry = {};
   for (const name of names) {
     const manifest = { name, version };
-    if (name === native) manifest.dependencies = { [engine]: kitDependencyMismatch ? '^0.0.1' : '0.0.1' };
+    if (name === native) manifest.dependencies = { [engine]: kitDependencyMismatch ? '^2.0.0' : '^1.0.0' };
     if (name === theme) manifest.dependencies = { [native]: dependencyMismatch ? '1.2.1' : version };
     writeFileSync(join(directory, 'package/package.json'), JSON.stringify(manifest));
     const archive = join(folder, `${name.replace('@', '').replace('/', '-')}-${version}.tgz`);
@@ -136,7 +136,7 @@ function runWorkspaceRelease(t, version, mismatch = false) {
     mkdirSync(join(directory, workspace), { recursive: true });
     writeFileSync(join(directory, workspace, 'package.json'), JSON.stringify({
       name: [native, theme][index], version,
-      dependencies: index === 0 ? { [engine]: '0.0.1' } : { [native]: mismatch ? '1.2.1' : version },
+      dependencies: index === 0 ? { [engine]: '^1.0.0' } : { [native]: mismatch ? '1.2.1' : version },
     }));
   }
   const log = join(directory, 'calls.jsonl');
@@ -152,7 +152,7 @@ require('node:fs').appendFileSync(process.env.CALL_LOG, JSON.stringify(process.a
   return { result, published };
 }
 
-test('beta: unpinned engine dependency prevents all publication', t => {
+test('beta: incompatible Engine major prevents all publication', t => {
   const { result, published } = runBetaRelease(t, { kitDependencyMismatch: true });
   assert.notEqual(result.status, 0);
   assert.equal(published.length, 0);
@@ -164,10 +164,10 @@ test('beta: missing Maven dependency prevents npm publication', t => {
   assert.equal(published.length, 0);
 });
 
-test('beta: verifies the independent Engine version in Maven', t => {
+test('beta: verifies the minimum compatible Engine version in Maven', t => {
   const { result, maven } = runBetaRelease(t);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(maven, /webview-native-ui\/engine\/0\.0\.1\/engine-0\.0\.1\.pom/);
-  assert.match(maven, /engine-0\.0\.1\.aar/);
+  assert.match(maven, /webview-native-ui\/engine\/1\.0\.0\/engine-1\.0\.0\.pom/);
+  assert.match(maven, /engine-1\.0\.0\.aar/);
   assert(!maven.includes('beta.pr'));
 });

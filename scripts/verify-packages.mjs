@@ -110,7 +110,8 @@ try {
       assert(existsSync(join(dir, 'consumer.css')));
     }
   }
-  assert.equal(manifests.get(nativeName).dependencies['@webview-native-ui/engine'], JSON.parse(readFileSync('node_modules/@webview-native-ui/engine/package.json', 'utf8')).version);
+  assert.equal(manifests.get(nativeName).dependencies['@webview-native-ui/engine'], '^1.0.0');
+  assert.match(JSON.parse(readFileSync('node_modules/@webview-native-ui/engine/package.json', 'utf8')).version, /^1\.\d+\.\d+$/, 'Installed Engine must satisfy the compatible 1.x range');
   assert.equal(manifests.get('@rdlabo/ionic-theme-ios27').dependencies[nativeName], manifests.get(nativeName).version);
   // Verify the core entry with neither Ionic nor the Ionic utilities installed.
   assert.equal(manifests.get(nativeName).peerDependenciesMeta['@ionic/core'].optional, true);

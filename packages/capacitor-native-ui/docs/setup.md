@@ -163,10 +163,10 @@ For a plugin-only app, use [navigation without the theme](#navigation-without-th
 
 ## 4. Build, sync, and run
 
-For CocoaPods projects, first install the engine version required by your installed Native UI package:
+For CocoaPods projects, first install a compatible Engine version for your installed Native UI package:
 
 ```sh
-npm install --save-exact "@webview-native-ui/engine@$(node -p "require('./node_modules/@rdlabo/capacitor-native-ui/package.json').dependencies['@webview-native-ui/engine']")"
+npm install "@webview-native-ui/engine@$(node -p "require('./node_modules/@rdlabo/capacitor-native-ui/package.json').dependencies['@webview-native-ui/engine']")"
 ```
 
 Add the engine to the existing app target in `ios/App/Podfile`, outside the generated `def capacitor_pods` block:

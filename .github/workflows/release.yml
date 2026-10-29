@@ -139,7 +139,7 @@ jobs:
         run: npm run build
 
       - name: Verify native Maven dependency is published
-        run: sh scripts/verify-engine-maven.sh "$(node -p "require('./packages/capacitor-native-ui/package.json').dependencies['@webview-native-ui/engine']")"
+        run: sh scripts/verify-engine-maven.sh "$(node -p "require('./node_modules/@webview-native-ui/engine/package.json').version")"
 
       - name: Commit workspace versions
         env:
@@ -178,7 +178,7 @@ jobs:
           for (const workspace of root.workspaces) {
             const pkg = JSON.parse(readFileSync(`${workspace}/package.json`, 'utf8'));
             assert.equal(pkg.version, version, 'Workspace version mismatch');
-            if (workspace === 'packages/capacitor-native-ui') assert.match(pkg.dependencies['@webview-native-ui/engine'], /^\d+\.\d+\.\d+$/, 'Engine dependency must be pinned');
+            if (workspace === 'packages/capacitor-native-ui') assert.match(pkg.dependencies['@webview-native-ui/engine'], /^\^1\.\d+\.\d+$/, 'Engine dependency must allow compatible 1.x updates');
             if (workspace === 'packages/theme-ios27') assert.equal(pkg.dependencies['@rdlabo/capacitor-native-ui'], version, 'Native dependency version mismatch');
           }
           for (const workspace of root.workspaces) {
@@ -640,7 +640,7 @@ jobs:
             assert(names.includes(pkg.name), 'Unexpected package identity');
             assert.equal(pkg.version, EXPECTED_VERSION, 'Artifact version mismatch');
             assert(!pkg.publishConfig?.registry || ['https://registry.npmjs.org', 'https://registry.npmjs.org/'].includes(pkg.publishConfig.registry), 'Unexpected publish registry');
-            if (pkg.name === native) assert.match(pkg.dependencies?.[engine], /^\d+\.\d+\.\d+$/, 'Engine dependency must be pinned');
+            if (pkg.name === native) assert.match(pkg.dependencies?.[engine], /^\^1\.\d+\.\d+$/, 'Engine dependency must allow compatible 1.x updates');
             if (pkg.name === theme) assert.equal(pkg.dependencies?.[native], EXPECTED_VERSION, 'Native dependency version mismatch');
             assert(!archives.has(pkg.name), 'Duplicate package identity');
             archives.set(pkg.name, archive);
@@ -648,7 +648,8 @@ jobs:
           if (EXPECTED_NAME === theme) {
             assert.match(EXPECTED_VERSION, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
             const pkg = JSON.parse(execFileSync('tar', ['-xOf', archives.get(native), 'package/package.json'], { encoding: 'utf8' }));
-            const engineVersion = pkg.dependencies[engine];
+            // Verify that the minimum supported native release exists before publishing.
+            const engineVersion = pkg.dependencies[engine].slice(1);
             const base = `https://repo.maven.apache.org/maven2/io/github/webview-native-ui/engine/${engineVersion}/engine-${engineVersion}`;
             for (const extension of ['pom', 'aar']) execFileSync('curl', ['--fail', '--silent', '--show-error', '--head', '--max-time', '30', `${base}.${extension}`]);
           }
