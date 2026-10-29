@@ -301,12 +301,12 @@ public class NativeUIPlugin: CAPPlugin, CAPBridgedPlugin, UITabBarDelegate {
                     let components = NativeUIVerticalBarsGeometry.componentFrames(in: rail.view, relativeTo: webView, controls: railNodes)
                     for node in nodes where frames[node.id] == nil { frames[node.id] = components[node.id] }
                 }
-                return frames.count == ids.count ? frames : [:]
+                return frames
             }
             let views: (Set<String>) -> [UIView]? = { ids in
                 let railIDs = Set(self.snapshotControls.filter { $0.placement == .verticalBars }.map(\.id))
                 // A shared rail can only retire when every one of its controls has a prepared image.
-                guard !ids.isEmpty, Set(self.snapshotControls.map(\.id)).isSuperset(of: ids),
+                guard Set(self.snapshotControls.map(\.id)).isSuperset(of: ids),
                       ids.isDisjoint(with: railIDs) || ids.isSuperset(of: railIDs) else {
                     return nil
                 }
