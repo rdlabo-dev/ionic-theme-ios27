@@ -1,4 +1,9 @@
-import { createWebProjectionSurfaces, type OverlayChange } from '@webview-native-ui/engine';
+import {
+  createNativeUpdateQueue,
+  createWebProjectionSurfaces,
+  type NativeUpdateSender,
+  type OverlayChange,
+} from '@webview-native-ui/engine';
 import { enableSupportIonicOverlays, coveredIonicSurface } from '@webview-native-ui/engine/ionic';
 import { createScrollBindings } from '@webview-native-ui/engine';
 import { movingModal, modalMotionEvent } from './shared/modal';
@@ -148,11 +153,6 @@ export const createRuntime = async (
   let interruptAssets: (() => void) | undefined;
   let viewport = `${win.innerWidth}:${win.innerHeight}`;
   let forceRefresh = false;
-  let dirty = false;
-  let pending = false;
-  let retryingUpdate = false;
-  let awaitingConnection = false;
-  let reconciledUpdate = false;
   let lastUpdateStarted = 0;
   let connectionSession: string | undefined;
   let stopConnectionCheck: (() => void) | undefined;
@@ -169,7 +169,6 @@ export const createRuntime = async (
   let handoffInstant = false;
   /** Retire native controls immediately as a modal starts covering the page. */
   let modalHandoff = false;
-  let frame = 0;
   let updates = 0;
   let reason: string | undefined;
   let listener: PluginListenerHandle | undefined;
@@ -247,11 +246,16 @@ export const createRuntime = async (
       return false;
     });
   };
-  const schedule = () => {
-    if (stopped) return;
-    dirty = true;
-    if (!pending && !frame) frame = win.requestAnimationFrame(() => void sync());
-  };
+  const updateQueue = createNativeUpdateQueue(win, {
+    update: (send) => sync(send),
+    failed: (error) => fail(error),
+    retry: () => {
+      forceRefresh = true;
+      diagnose('sync-retry: refreshing current state after an update failure.');
+    },
+    reconnect: !!connection,
+  });
+  const schedule = updateQueue.request;
   const search = createSearchSupport(doc, id, schedule);
   const candidateSources = (candidate: Candidate) => candidate.sources ?? [candidate.element];
   const setRejected = (element: HTMLElement, value: boolean) => {
@@ -453,7 +457,13 @@ export const createRuntime = async (
     projectionSurfaces.changed(target);
     // Only an acknowledged native binding can own motion. Other sources in the
     // same container still need the regular reader (including rejected sources).
-    if (target instanceof HTMLElement && nativeScrollOwners.has(target) && !dirty && !projectionSurfaces.restoring && !overlayOpen())
+    if (
+      target instanceof HTMLElement &&
+      nativeScrollOwners.has(target) &&
+      !updateQueue.dirty &&
+      !projectionSurfaces.restoring &&
+      !overlayOpen()
+    )
       return;
     schedule();
   };
@@ -533,47 +543,22 @@ export const createRuntime = async (
     // The Web fallback re-evaluates eligibility once native projection is stopped.
     win.dispatchEvent(new Event('nativeUIRefresh'));
   };
-  const updateNative = async (snapshot: NativeUISnapshot) => {
+  const updateNative = async (snapshot: NativeUISnapshot, send: NativeUpdateSender) => {
     // Native can apply this update even if retention or viewport changes prevent
     // accepting its response. Only a fully accepted snapshot is safe to deduplicate.
     lastSnapshot = '';
     // A handoff can start while an older asynchronous collection is still running.
     if (snapshot.coveredSnapshotToken !== imagesFor()?.token) {
-      dirty = true;
+      schedule();
       return;
     }
     lastUpdateStarted = win.performance.now();
-    let result;
-    try {
-      result = await bounded(plugin.update(snapshot));
-    } catch (error) {
-      if (stopped) return;
-      if (retryingUpdate) {
-        if (!connection || reconciledUpdate) throw error;
-        // The common handshake will retry current state once the bridge responds.
-        // Keep subscriptions and identities; never replay the triggering action.
-        awaitingConnection = true;
-        dirty = false;
-        return;
-      }
-      // Keep the existing connection. A fresh read on the next frame retries
-      // only state synchronization, never the action that triggered it.
-      retryingUpdate = true;
-      forceRefresh = true;
-      dirty = true;
-      diagnose('sync-retry: refreshing current state after an update failure.');
-      return;
-    }
-    if (result.revision !== snapshot.revision) {
-      if (!connection || reconciledUpdate) throw new Error('Native UI revision mismatch');
-      awaitingConnection = true;
-      dirty = false;
-      return;
-    }
-    retryingUpdate = false;
-    awaitingConnection = false;
-    reconciledUpdate = false;
-    return result;
+    return send(
+      () => bounded(plugin.update(snapshot)),
+      (result) => {
+        if (result.revision !== snapshot.revision) throw new Error('Native UI revision mismatch');
+      },
+    );
   };
   const coverWebOverlay = () => {
     if (stopped || retentions.size || manualSuspensions.size) return;
@@ -587,7 +572,7 @@ export const createRuntime = async (
     // Native popovers retain their controls synchronously. Only the Web route reaches here.
     imagesFor(topModal(doc))?.begin();
   };
-  const sync = async () => {
+  const sync = async (send: NativeUpdateSender) => {
     followImageMotion();
     for (const modal of projectionSurfaces.keys()) {
       if (modal.isConnected) continue;
@@ -596,17 +581,13 @@ export const createRuntime = async (
     }
     coverWebOverlay();
     if (projectionSurfaces.handoffPending) {
-      frame = 0;
       return;
     }
-    frame = 0;
-    dirty = false;
-    pending = true;
     handoffInstant = tabSwitchHandoff || handoffAcrossPending || modalHandoff || win.performance.now() < handoffUntil;
     try {
       // A retained sync performs no update; keep the modal handoff armed so the
       // deferred retirement still runs instantly after the overlay releases.
-      if (awaitingConnection || (retentions.size && !manualSuspensions.size)) return;
+      if (updateQueue.waiting || (retentions.size && !manualSuspensions.size)) return;
       const enteringModal = topModal(doc);
       // Geometry refreshes continue for the Web rail during the Ionic animation.
       // Once native has acknowledged retirement, they must not publish it again.
@@ -661,7 +642,7 @@ export const createRuntime = async (
           };
           updatingRevision = retirement.revision;
           updates++;
-          const result = await updateNative(retirement);
+          const result = await updateNative(retirement, send);
           if (stopped || !result) return;
           renderedSnapshot = retirement;
           acceptedRevision = result.revision;
@@ -671,7 +652,7 @@ export const createRuntime = async (
             if (acknowledged.includes(candidate)) continue;
             candidateSources(candidate).forEach((source) => restore(source, true));
             if (candidate.scrollElement) nativeScrollOwners.delete(candidate.scrollElement);
-            dirty = true;
+            schedule();
           }
           actions = new Map(acknowledged.flatMap((candidate) => Array.from(candidate.actions)));
           lastSnapshot = '';
@@ -679,7 +660,7 @@ export const createRuntime = async (
           pendingActivations = [];
           received.forEach(activate);
           if (tabActivationPages.size) finishWaiters();
-          if (dirty) return;
+          if (updateQueue.dirty) return;
         }
       }
       if (options.source !== 'extensions') syncToolbarText(doc);
@@ -688,7 +669,7 @@ export const createRuntime = async (
       // Measure on the next frame instead of retiring a valid native search.
       if (viewport !== size) {
         viewport = size;
-        dirty = true;
+        schedule();
         return;
       }
       observe();
@@ -721,7 +702,7 @@ export const createRuntime = async (
       await Promise.race([assets, new Promise<void>((resolve) => (interruptAssets = resolve))]);
       interruptAssets = undefined;
       candidates = candidates.filter((candidate) => !failedAssets.has(candidate));
-      if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
+      if (stopped || updateQueue.dirty || (retentions.size && !manualSuspensions.size)) return;
       const retained = new Set([...candidates.flatMap(candidateSources), ...(verticalGesture?.sources ?? [])]);
       const removed = Array.from(sources.keys()).filter((element) => !retained.has(element));
       if (removed.some(isVerticalBarsSource)) {
@@ -730,7 +711,7 @@ export const createRuntime = async (
           const geometry = await bounded(
             plugin.getVerticalBarsGeometry({ viewportWidth: win.innerWidth, ids: [...actions.keys(), 'BackButton', '__tabBar'] }),
           );
-          if (stopped || dirty || (retentions.size && !manualSuspensions.size)) return;
+          if (stopped || updateQueue.dirty || (retentions.size && !manualSuspensions.size)) return;
           if (geometry.revision === acceptedRevision && size === `${win.innerWidth}:${win.innerHeight}`) {
             for (const tabBar of removed.filter((element) => element.matches('ion-tab-bar'))) {
               tabGeometry.get(tabBar)?.();
@@ -770,7 +751,7 @@ export const createRuntime = async (
         // native snapshot over the destination. Stack transitions still need the paint.
         if (!handoffInstant) {
           await painted();
-          if (stopped || dirty) return;
+          if (stopped || updateQueue.dirty) return;
         }
       }
       const root = doc.querySelector('ion-app.ios-theme-vertical-bars');
@@ -840,11 +821,11 @@ export const createRuntime = async (
       forceRefresh = false;
       updates++;
       updatingRevision = snapshot.revision;
-      const result = await updateNative(snapshot);
+      const result = await updateNative(snapshot, send);
       // A provisional binding measured before motion is not an acknowledged
       // coordinate mapping. Keep Web and acquire it again after settling.
       const unconfirmedScroll = scrollBindings.unconfirmed(candidates, acquiringScroll);
-      if (unconfirmedScroll.size) dirty = true;
+      if (unconfirmedScroll.size) schedule();
       if (stopped || !result || (retentions.size && !manualSuspensions.size)) return;
       if (transition && navigation.current === transition && result.toolbarTransition === transition.id) {
         transition.native = true;
@@ -857,13 +838,13 @@ export const createRuntime = async (
         navigation.unmask(transition.destination.filter((candidate) => result.rejectedControls?.includes(candidate.control.id)));
       if (`${win.innerWidth}:${win.innerHeight}` !== size) {
         lastSnapshot = '';
-        dirty = true;
+        schedule();
         return;
       }
       if (result.rejectedSearches?.length) {
         search.reject(result.rejectedSearches);
         lastSnapshot = '';
-        dirty = true;
+        schedule();
       }
       if (result.rejectedControls?.some((id) => navigation.current?.frozen.some((candidate) => candidate.control.id === id)))
         navigation.clear();
@@ -880,12 +861,14 @@ export const createRuntime = async (
             rejected.set(candidate.element, rejectionSignatures.get(candidate.element)!);
           else candidateSources(candidate).forEach((source) => restore(source, true));
           setRejected(candidate.element, true);
-          dirty = true;
+          schedule();
         }
       }
       // A page mutation must not tear down unchanged shared controls such as tabs.
-      const currentCandidates = dirty ? read() : candidates;
-      const current = dirty ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)])) : signatures;
+      const currentCandidates = updateQueue.dirty ? read() : candidates;
+      const current = updateQueue.dirty
+        ? new Map(currentCandidates.map((candidate) => [candidate.element, signature(candidate)]))
+        : signatures;
       const currentSources = new Set([...currentCandidates.flatMap(candidateSources), ...(verticalGesture?.sources ?? [])]);
       const accepted = candidates.filter(
         (candidate) =>
@@ -959,7 +942,7 @@ export const createRuntime = async (
         .filter((candidate) => !result.rejectedControls?.includes(candidate.control.id))
         .map((candidate) => candidate.control.id);
       projectionSurfaces.updated(snapshot.coveredSnapshotToken, restoredIDs, snapshot.revision);
-      if (!dirty && !invalidated) search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
+      if (!updateQueue.dirty && !invalidated) search.settle((element) => Array.from(pages).some((page) => page.contains(element)));
       // Native has acknowledged this rendered snapshot even when a concurrent DOM
       // mutation invalidates its signature. An existing cover is still visible;
       // keep that snapshot available if navigation starts before the next update.
@@ -1016,7 +999,7 @@ export const createRuntime = async (
         }
       }
       if (invalidated) {
-        dirty = true;
+        schedule();
         // Sources that became ineligible must paint before their cover is removed.
         await painted();
       }
@@ -1028,14 +1011,12 @@ export const createRuntime = async (
       // A refresh received before the ack must also invalidate that ack's rejects.
       if (forceRefresh) rejected = new WeakMap();
       // A tab switch mid-update (or a dirty follow-up) must keep instant through the retire sync.
-      if (!stopped && (handoffAcrossPending || (handoffInstant && dirty))) {
+      if (!stopped && (handoffAcrossPending || (handoffInstant && updateQueue.dirty))) {
         handoffUntil = Math.max(handoffUntil, win.performance.now() + 400);
       }
       handoffAcrossPending = false;
-      pending = false;
-      if (dirty && !stopped) schedule();
-      else finishWaiters();
-      if (!stopped && !dirty && acceptedRevision === revision && !navigation.current && !verticalGesture) {
+      if (!updateQueue.dirty || stopped) finishWaiters();
+      if (!stopped && !updateQueue.dirty && acceptedRevision === revision && !navigation.current && !verticalGesture) {
         projectionSurfaces.consider(acceptedRevision, acknowledged);
       }
     }
@@ -1187,7 +1168,7 @@ export const createRuntime = async (
     // Retiring outgoing controls often lands in a later async sync than WillLeave/DidChange.
     handoffUntil = Math.max(handoffUntil, win.performance.now() + 400);
     // The in-flight sync already captured handoffInstant=false; hold instant for the next one.
-    if (pending) handoffAcrossPending = true;
+    if (updateQueue.running) handoffAcrossPending = true;
   };
   const beginTabSwitchHandoffIfNeeded = (page: HTMLElement) => {
     const tabs = page.closest('ion-tabs');
@@ -1258,7 +1239,7 @@ export const createRuntime = async (
       if (background) coverOverlayBackground(element, background);
       modalHandoff = true;
       // A pending bridge update must retire the old controls immediately too.
-      if (pending) handoffInstant = true;
+      if (updateQueue.running) handoffInstant = true;
     }
     // Let the overlay controller choose Native before the optional Web handoff.
     if (!element.matches('ion-modal')) win.queueMicrotask(coverWebOverlay);
@@ -1289,14 +1270,14 @@ export const createRuntime = async (
     if (phase === 'willDismiss' && element.matches('ion-modal')) {
       projectionSurfaces.get(element as HTMLIonModalElement)?.begin();
       modalHandoff = true;
-      if (pending) handoffInstant = true;
+      if (updateQueue.running) handoffInstant = true;
       schedule();
     }
     if (phase === 'didDismiss') {
       blockingRailOverlays.delete(element);
       if (element.matches('ion-modal')) {
         modalHandoff = true;
-        if (pending) handoffInstant = true;
+        if (updateQueue.running) handoffInstant = true;
         const modal = element as HTMLIonModalElement;
         void projectionSurfaces.delete(modal);
       }
@@ -1400,7 +1381,7 @@ export const createRuntime = async (
         tabGeometry.clear();
         tabWidths.clear();
         setNativeUIIntegration(doc);
-        win.cancelAnimationFrame(frame);
+        updateQueue.destroy();
         listeners.abort();
         observer.disconnect();
         resize.disconnect();
@@ -1594,7 +1575,7 @@ export const createRuntime = async (
     );
     stopConnectionCheck = connection?.observe(
       (state, restored, requestedAt) => {
-        if (stopped || pending || lastUpdateStarted > requestedAt) return;
+        if (stopped || updateQueue.running || lastUpdateStarted > requestedAt) return;
         const restarted =
           (connectionSession !== undefined && connectionSession !== state.session) ||
           (state.revision < acceptedRevision && state.sequence < lastSequence);
@@ -1606,7 +1587,7 @@ export const createRuntime = async (
           ({ control }) =>
             !control.extension?.tabBarId && !(control.placement === 'vertical-bars' ? state.surfaces.vertical : state.surfaces.horizontal),
         );
-        if (!restored && !awaitingConnection && !missingSurface && state.revision === acceptedRevision) return;
+        if (!restored && !updateQueue.waiting && !missingSurface && state.revision === acceptedRevision) return;
         // Native may have restarted or advanced while an acknowledgement was lost.
         // Advance the revision gate before refreshing, rejecting stale action events.
         revision = Math.max(revision, state.revision);
@@ -1614,9 +1595,7 @@ export const createRuntime = async (
         lastSequence = restarted ? state.sequence : Math.max(lastSequence, state.sequence);
         lastTabSequence = 0;
         pendingActivations = [];
-        reconciledUpdate = awaitingConnection;
-        awaitingConnection = false;
-        retryingUpdate = false;
+        updateQueue.reconnected();
         forceRefresh = true;
         lastSnapshot = '';
         schedule();
